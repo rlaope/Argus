@@ -2,7 +2,7 @@
 
 > *"Argus Panoptes, the all-seeing giant with a hundred eyes, never slept - for when some of his eyes closed, others remained open, watching everything."*
 
-**Project Argus**는 그리스 신화의 백 개의 눈을 가진 거인 **아르고스(Argus Panoptes)**에서 영감을 받아 시작되었습니다. 아르고스가 결코 잠들지 않고 모든 것을 감시했듯이, 이 프로젝트는 JVM의 모든 Virtual Thread를 실시간으로 관찰하고 분석합니다.
+Inspired by **Argus Panoptes** from Greek mythology - the giant with a hundred eyes who never slept and watched over everything - this project observes and analyzes all Virtual Threads in the JVM in real-time.
 
 A next-generation real-time visualization profiler for JVM 21+ environments, focusing on Virtual Threads (Project Loom) monitoring and memory analysis.
 
@@ -72,20 +72,20 @@ The agent accepts the following system properties:
 
 ## Contributing
 
-**누구나 환영합니다!** Project Argus는 오픈소스 프로젝트이며, 모든 형태의 기여를 환영합니다.
+**Everyone is welcome!** Project Argus is an open-source project and we welcome all forms of contributions.
 
 - Bug reports & feature requests
 - Code contributions (bug fixes, new features)
 - Documentation improvements
 - Testing and feedback
 
-자세한 내용은 [CONTRIBUTING.md](CONTRIBUTING.md)를 참고해주세요.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ## Maintainer
 
 - **[@rlaope](https://github.com/rlaope)** - Project Lead & Maintainer
 
-질문, 제안, 또는 협업 문의는 GitHub Issues를 통해 연락해주시거나 [@rlaope](https://github.com/rlaope)에게 직접 연락해주세요.
+For questions, suggestions, or collaboration inquiries, please open a GitHub Issue or contact [@rlaope](https://github.com/rlaope) directly.
 
 ## License
 

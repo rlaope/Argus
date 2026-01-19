@@ -1,0 +1,14 @@
+# Default owner for everything in the repo
+* @rlaope
+
+# Core modules
+/argus-core/ @rlaope
+/argus-agent/ @rlaope
+/argus-server/ @rlaope
+
+# Build configuration
+/*.gradle.kts @rlaope
+/gradle/ @rlaope
+
+# Documentation
+/*.md @rlaope

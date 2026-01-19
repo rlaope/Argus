@@ -45,3 +45,6 @@ crash-*.log
 
 # jenv
 .java-version
+
+# Claude Code local settings
+CLAUDE.md
