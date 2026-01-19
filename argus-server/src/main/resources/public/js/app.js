@@ -387,7 +387,7 @@
     }
 
     function clearEvents() {
-        eventsLog.innerHTML = '<div class="event-placeholder">Waiting for events...</div>';
+        eventsLog.innerHTML = '<div class="event-placeholder">Waiting for virtual thread events...</div>';
         counts.total = 0;
         counts.START = 0;
         counts.END = 0;
