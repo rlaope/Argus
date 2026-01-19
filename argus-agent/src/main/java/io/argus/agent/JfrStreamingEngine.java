@@ -5,6 +5,7 @@ import io.argus.core.event.VirtualThreadEvent;
 
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordedStackTrace;
+import jdk.jfr.consumer.RecordedThread;
 import jdk.jfr.consumer.RecordingStream;
 
 import java.time.Duration;
@@ -91,7 +92,7 @@ public final class JfrStreamingEngine {
     }
 
     private void handleVirtualThreadStart(RecordedEvent event) {
-        long threadId = event.getLong("javaThreadId");
+        long threadId = getThreadId(event);
         String threadName = getThreadName(event);
         Instant timestamp = event.getStartTime();
 
@@ -101,7 +102,7 @@ public final class JfrStreamingEngine {
     }
 
     private void handleVirtualThreadEnd(RecordedEvent event) {
-        long threadId = event.getLong("javaThreadId");
+        long threadId = getThreadId(event);
         String threadName = getThreadName(event);
         Instant timestamp = event.getStartTime();
 
@@ -111,9 +112,9 @@ public final class JfrStreamingEngine {
     }
 
     private void handleVirtualThreadPinned(RecordedEvent event) {
-        long threadId = event.getLong("javaThreadId");
+        long threadId = getThreadId(event);
         String threadName = getThreadName(event);
-        long carrierThread = getCarrierThread(event);
+        long carrierThread = getCarrierThreadId(event);
         Instant timestamp = event.getStartTime();
         long duration = event.getDuration().toNanos();
         String stackTrace = formatStackTrace(event.getStackTrace());
@@ -129,7 +130,7 @@ public final class JfrStreamingEngine {
     }
 
     private void handleVirtualThreadSubmitFailed(RecordedEvent event) {
-        long threadId = event.getLong("javaThreadId");
+        long threadId = getThreadId(event);
         String threadName = getThreadName(event);
         Instant timestamp = event.getStartTime();
 
@@ -140,20 +141,60 @@ public final class JfrStreamingEngine {
         System.out.printf("[Argus] SUBMIT_FAILED: thread=%d%n", threadId);
     }
 
-    private String getThreadName(RecordedEvent event) {
+    private long getThreadId(RecordedEvent event) {
+        // Try different field names for compatibility
         try {
-            return event.getString("eventThread.javaName");
-        } catch (Exception e) {
-            return null;
+            return event.getLong("javaThreadId");
+        } catch (Exception e1) {
+            try {
+                RecordedThread thread = event.getValue("eventThread");
+                if (thread != null) {
+                    return thread.getJavaThreadId();
+                }
+            } catch (Exception e2) {
+                // Fallback: try thread field
+                try {
+                    RecordedThread thread = event.getValue("thread");
+                    if (thread != null) {
+                        return thread.getJavaThreadId();
+                    }
+                } catch (Exception e3) {
+                    // ignore
+                }
+            }
         }
+        return -1;
     }
 
-    private long getCarrierThread(RecordedEvent event) {
+    private String getThreadName(RecordedEvent event) {
         try {
-            return event.getLong("carrierThread.javaThreadId");
-        } catch (Exception e) {
-            return -1;
+            RecordedThread thread = event.getValue("eventThread");
+            if (thread != null) {
+                return thread.getJavaName();
+            }
+        } catch (Exception e1) {
+            try {
+                RecordedThread thread = event.getValue("thread");
+                if (thread != null) {
+                    return thread.getJavaName();
+                }
+            } catch (Exception e2) {
+                // ignore
+            }
         }
+        return null;
+    }
+
+    private long getCarrierThreadId(RecordedEvent event) {
+        try {
+            RecordedThread carrier = event.getValue("carrierThread");
+            if (carrier != null) {
+                return carrier.getJavaThreadId();
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return -1;
     }
 
     private String formatStackTrace(RecordedStackTrace stackTrace) {
