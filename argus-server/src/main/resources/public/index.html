@@ -12,33 +12,68 @@
             <span class="logo-icon">&#x1F441;</span>
             <h1>Argus</h1>
         </div>
-        <div id="connection-status" class="status disconnected">
-            <span class="status-dot"></span>
-            <span class="status-text">Disconnected</span>
+        <div class="header-actions">
+            <button id="help-btn" class="btn btn-icon" title="Help">?</button>
+            <div id="connection-status" class="status disconnected">
+                <span class="status-dot"></span>
+                <span class="status-text">Disconnected</span>
+            </div>
         </div>
     </header>
 
     <main>
+        <!-- Metrics Section -->
         <section class="metrics">
-            <div class="metric-card">
+            <div class="metric-card" data-tooltip="Total number of JFR virtual thread events received (START + END + PINNED)">
                 <h3>Total Events</h3>
                 <div class="metric-value" id="total-events">0</div>
             </div>
-            <div class="metric-card">
-                <h3>Thread Starts</h3>
+            <div class="metric-card" data-tooltip="Virtual threads that have been created and started running">
+                <h3>Started</h3>
                 <div class="metric-value" id="start-events">0</div>
             </div>
-            <div class="metric-card">
-                <h3>Thread Ends</h3>
+            <div class="metric-card" data-tooltip="Virtual threads that have completed execution">
+                <h3>Ended</h3>
                 <div class="metric-value" id="end-events">0</div>
             </div>
-            <div class="metric-card alert">
-                <h3>Pinned Threads</h3>
+            <div class="metric-card" data-tooltip="Currently running virtual threads (Started - Ended)">
+                <h3>Active</h3>
+                <div class="metric-value" id="active-threads">0</div>
+            </div>
+            <div class="metric-card alert" data-tooltip="CRITICAL: Threads blocked by synchronized/native code. High count indicates performance issues!">
+                <h3>Pinned</h3>
                 <div class="metric-value" id="pinned-events">0</div>
             </div>
         </section>
 
-        <section class="events-section">
+        <!-- Pinned Alerts Section -->
+        <section id="pinned-section" class="pinned-section hidden">
+            <div class="section-header">
+                <h2>Pinned Thread Alerts</h2>
+                <span class="badge" id="pinned-badge">0</span>
+            </div>
+            <div id="pinned-list" class="pinned-list"></div>
+        </section>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="threads">Thread View</button>
+            <button class="tab-btn" data-tab="events">Event Log</button>
+        </div>
+
+        <!-- Thread View Section -->
+        <section id="threads-tab" class="tab-content active">
+            <div class="threads-header">
+                <h2>Active Threads</h2>
+                <span class="thread-count" id="thread-count">0 threads</span>
+            </div>
+            <div id="threads-container" class="threads-container">
+                <div class="empty-state">No active threads</div>
+            </div>
+        </section>
+
+        <!-- Events Log Section -->
+        <section id="events-tab" class="tab-content">
             <div class="events-header">
                 <h2>Live Event Stream</h2>
                 <div class="events-controls">
@@ -54,6 +89,56 @@
             </div>
         </section>
     </main>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Argus Guide</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h3>What is Argus?</h3>
+                <p>Argus is a real-time JFR (Java Flight Recorder) event monitor for Java Virtual Threads (Project Loom).</p>
+
+                <h3>Metrics Explained</h3>
+                <dl>
+                    <dt>Total Events</dt>
+                    <dd>The cumulative count of all JFR virtual thread events received since the dashboard was opened.</dd>
+
+                    <dt>Started</dt>
+                    <dd>Number of <code>jdk.VirtualThreadStart</code> events. Each event represents a new virtual thread beginning execution.</dd>
+
+                    <dt>Ended</dt>
+                    <dd>Number of <code>jdk.VirtualThreadEnd</code> events. Each event represents a virtual thread completing its execution.</dd>
+
+                    <dt>Active</dt>
+                    <dd>Estimated number of currently running virtual threads (Started - Ended). Note: This is an approximation based on events received.</dd>
+
+                    <dt>Pinned</dt>
+                    <dd>Number of <code>jdk.VirtualThreadPinned</code> events. <strong class="warning">Critical metric!</strong> Pinning occurs when a virtual thread cannot be unmounted from its carrier thread, typically due to:
+                        <ul>
+                            <li><code>synchronized</code> blocks or methods</li>
+                            <li>Native method calls (JNI)</li>
+                        </ul>
+                        High pinning degrades virtual thread scalability.
+                    </dd>
+                </dl>
+
+                <h3>Thread View</h3>
+                <p>Visual representation of active threads as cards. Each card shows:</p>
+                <ul>
+                    <li><strong>Thread Name</strong> - The virtual thread identifier</li>
+                    <li><strong>Duration</strong> - How long the thread has been running</li>
+                    <li><strong>Carrier</strong> - The platform thread ID carrying this virtual thread</li>
+                </ul>
+
+                <h3>Pinned Alerts</h3>
+                <p>When a thread is pinned, it appears in the red alert section with its stack trace. Use this to identify and fix blocking code.</p>
+            </div>
+        </div>
+    </div>
 
     <footer>
         <p>Argus Virtual Thread Profiler - Real-time JFR Event Monitoring</p>

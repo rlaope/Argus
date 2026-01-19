@@ -7,11 +7,23 @@
     const totalEventsEl = document.getElementById('total-events');
     const startEventsEl = document.getElementById('start-events');
     const endEventsEl = document.getElementById('end-events');
+    const activeThreadsEl = document.getElementById('active-threads');
     const pinnedEventsEl = document.getElementById('pinned-events');
     const eventsLog = document.getElementById('events-log');
     const clearBtn = document.getElementById('clear-events');
     const autoScrollCheckbox = document.getElementById('auto-scroll');
     const pinnedCard = pinnedEventsEl.closest('.metric-card');
+    const pinnedSection = document.getElementById('pinned-section');
+    const pinnedList = document.getElementById('pinned-list');
+    const pinnedBadge = document.getElementById('pinned-badge');
+    const threadsContainer = document.getElementById('threads-container');
+    const threadCountEl = document.getElementById('thread-count');
+    const helpBtn = document.getElementById('help-btn');
+    const helpModal = document.getElementById('help-modal');
+    const modalBackdrop = helpModal.querySelector('.modal-backdrop');
+    const modalClose = helpModal.querySelector('.modal-close');
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
 
     // State
     let ws = null;
@@ -19,6 +31,7 @@
     const maxReconnectAttempts = 10;
     const reconnectDelay = 2000;
     const maxEvents = 500;
+    const maxPinnedAlerts = 50;
 
     const counts = {
         total: 0,
@@ -27,6 +40,40 @@
         PINNED: 0,
         SUBMIT_FAILED: 0
     };
+
+    // Active threads map: threadId -> { threadName, carrierThread, startTime, isPinned }
+    const activeThreads = new Map();
+    const pinnedAlerts = [];
+
+    // Tab switching
+    tabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.tab;
+            tabButtons.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+        });
+    });
+
+    // Modal handling
+    helpBtn.addEventListener('click', () => {
+        helpModal.classList.remove('hidden');
+    });
+
+    modalBackdrop.addEventListener('click', () => {
+        helpModal.classList.add('hidden');
+    });
+
+    modalClose.addEventListener('click', () => {
+        helpModal.classList.add('hidden');
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !helpModal.classList.contains('hidden')) {
+            helpModal.classList.add('hidden');
+        }
+    });
 
     function connect() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -89,7 +136,28 @@
         counts.total++;
         counts[event.type] = (counts[event.type] || 0) + 1;
 
+        // Track active threads
+        if (event.type === 'START') {
+            activeThreads.set(event.threadId, {
+                threadName: event.threadName || `Thread-${event.threadId}`,
+                carrierThread: event.carrierThread,
+                startTime: new Date(event.timestamp),
+                isPinned: false
+            });
+        } else if (event.type === 'END') {
+            activeThreads.delete(event.threadId);
+        } else if (event.type === 'PINNED') {
+            // Mark thread as pinned if it exists
+            const thread = activeThreads.get(event.threadId);
+            if (thread) {
+                thread.isPinned = true;
+            }
+            // Add to pinned alerts
+            addPinnedAlert(event);
+        }
+
         updateCounters();
+        updateThreadsView();
         addEventToLog(event);
     }
 
@@ -97,6 +165,7 @@
         totalEventsEl.textContent = formatNumber(counts.total);
         startEventsEl.textContent = formatNumber(counts.START);
         endEventsEl.textContent = formatNumber(counts.END);
+        activeThreadsEl.textContent = formatNumber(activeThreads.size);
         pinnedEventsEl.textContent = formatNumber(counts.PINNED);
 
         if (counts.PINNED > 0) {
@@ -112,6 +181,99 @@
             return (num / 1000).toFixed(1) + 'K';
         }
         return num.toString();
+    }
+
+    function updateThreadsView() {
+        const threadCount = activeThreads.size;
+        threadCountEl.textContent = `${threadCount} thread${threadCount !== 1 ? 's' : ''}`;
+
+        if (threadCount === 0) {
+            threadsContainer.innerHTML = '<div class="empty-state">No active threads</div>';
+            return;
+        }
+
+        // Build thread cards
+        const fragment = document.createDocumentFragment();
+        const now = new Date();
+
+        activeThreads.forEach((thread, threadId) => {
+            const card = document.createElement('div');
+            card.className = 'thread-card' + (thread.isPinned ? ' pinned' : '');
+            card.dataset.threadId = threadId;
+
+            const duration = now - thread.startTime;
+            const durationPercent = Math.min(100, (duration / 10000) * 100); // 10s = 100%
+
+            card.innerHTML = `
+                <div class="thread-card-header">
+                    <span class="thread-name">${escapeHtml(thread.threadName)}</span>
+                    <span class="thread-status ${thread.isPinned ? 'pinned' : 'running'}">
+                        ${thread.isPinned ? 'Pinned' : 'Running'}
+                    </span>
+                </div>
+                <div class="thread-card-body">
+                    <div class="thread-info">
+                        <span class="thread-info-label">ID</span>
+                        <span class="thread-info-value">${threadId}</span>
+                    </div>
+                    <div class="thread-info">
+                        <span class="thread-info-label">Duration</span>
+                        <span class="thread-info-value">${formatDurationMs(duration)}</span>
+                    </div>
+                    ${thread.carrierThread ? `
+                    <div class="thread-info">
+                        <span class="thread-info-label">Carrier</span>
+                        <span class="thread-info-value">${thread.carrierThread}</span>
+                    </div>
+                    ` : ''}
+                    <div class="thread-duration-bar">
+                        <div class="thread-duration-fill" style="width: ${durationPercent}%"></div>
+                    </div>
+                </div>
+            `;
+
+            fragment.appendChild(card);
+        });
+
+        threadsContainer.innerHTML = '';
+        threadsContainer.appendChild(fragment);
+    }
+
+    function addPinnedAlert(event) {
+        pinnedAlerts.unshift({
+            threadId: event.threadId,
+            threadName: event.threadName || `Thread-${event.threadId}`,
+            timestamp: event.timestamp,
+            stackTrace: event.stackTrace || 'No stack trace available',
+            duration: event.duration
+        });
+
+        // Limit alerts
+        while (pinnedAlerts.length > maxPinnedAlerts) {
+            pinnedAlerts.pop();
+        }
+
+        updatePinnedSection();
+    }
+
+    function updatePinnedSection() {
+        if (pinnedAlerts.length === 0) {
+            pinnedSection.classList.add('hidden');
+            return;
+        }
+
+        pinnedSection.classList.remove('hidden');
+        pinnedBadge.textContent = pinnedAlerts.length;
+
+        pinnedList.innerHTML = pinnedAlerts.map(alert => `
+            <div class="pinned-item">
+                <div class="pinned-item-header">
+                    <span class="pinned-thread-name">${escapeHtml(alert.threadName)}</span>
+                    <span class="pinned-time">${formatTimestamp(alert.timestamp)}${alert.duration ? ` (${formatDuration(alert.duration)})` : ''}</span>
+                </div>
+                <div class="pinned-stack">${escapeHtml(alert.stackTrace)}</div>
+            </div>
+        `).join('');
     }
 
     function addEventToLog(event) {
@@ -130,7 +292,7 @@
         item.innerHTML = `
             <span class="event-time">${time}</span>
             <span class="event-type ${event.type.toLowerCase()}">${event.type}</span>
-            <span class="event-details">${details}</span>
+            <span class="event-details" title="${escapeHtml(formatEventDetailsFull(event))}">${details}</span>
         `;
 
         eventsLog.appendChild(item);
@@ -166,9 +328,9 @@
         const parts = [];
 
         if (event.threadName) {
-            parts.push(`Thread: ${escapeHtml(event.threadName)}`);
+            parts.push(event.threadName);
         } else if (event.threadId) {
-            parts.push(`Thread ID: ${event.threadId}`);
+            parts.push(`ID: ${event.threadId}`);
         }
 
         if (event.carrierThread) {
@@ -176,14 +338,32 @@
         }
 
         if (event.duration && event.duration > 0) {
-            parts.push(`Duration: ${formatDuration(event.duration)}`);
-        }
-
-        if (event.stackTrace) {
-            parts.push(`Stack: ${escapeHtml(event.stackTrace.substring(0, 100))}...`);
+            parts.push(formatDuration(event.duration));
         }
 
         return parts.join(' | ') || 'No details';
+    }
+
+    function formatEventDetailsFull(event) {
+        const parts = [];
+
+        if (event.threadName) {
+            parts.push(`Thread: ${event.threadName}`);
+        }
+        if (event.threadId) {
+            parts.push(`ID: ${event.threadId}`);
+        }
+        if (event.carrierThread) {
+            parts.push(`Carrier: ${event.carrierThread}`);
+        }
+        if (event.duration && event.duration > 0) {
+            parts.push(`Duration: ${formatDuration(event.duration)}`);
+        }
+        if (event.stackTrace) {
+            parts.push(`Stack: ${event.stackTrace.substring(0, 200)}...`);
+        }
+
+        return parts.join('\n');
     }
 
     function formatDuration(nanos) {
@@ -193,7 +373,14 @@
         return (nanos / 1000000000).toFixed(2) + 's';
     }
 
+    function formatDurationMs(ms) {
+        if (ms < 1000) return ms + 'ms';
+        if (ms < 60000) return (ms / 1000).toFixed(1) + 's';
+        return (ms / 60000).toFixed(1) + 'm';
+    }
+
     function escapeHtml(text) {
+        if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
@@ -206,9 +393,20 @@
         counts.END = 0;
         counts.PINNED = 0;
         counts.SUBMIT_FAILED = 0;
+        activeThreads.clear();
+        pinnedAlerts.length = 0;
         updateCounters();
+        updateThreadsView();
+        updatePinnedSection();
         pinnedCard.classList.remove('has-pinned');
     }
+
+    // Update thread view periodically to refresh durations
+    setInterval(() => {
+        if (activeThreads.size > 0) {
+            updateThreadsView();
+        }
+    }, 1000);
 
     // Event listeners
     clearBtn.addEventListener('click', clearEvents);
