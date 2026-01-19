@@ -437,6 +437,24 @@ main {
     animation: pulse 1s infinite;
 }
 
+.thread-status.ended {
+    background-color: rgba(139, 148, 158, 0.2);
+    color: var(--text-secondary);
+}
+
+.thread-card.ended {
+    opacity: 0.6;
+    border-style: dashed;
+}
+
+.thread-card.ended .thread-name {
+    color: var(--text-secondary);
+}
+
+.thread-card.ended .thread-duration-fill {
+    background-color: var(--text-secondary);
+}
+
 .thread-card-body {
     display: flex;
     flex-direction: column;

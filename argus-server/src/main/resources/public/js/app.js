@@ -41,9 +41,10 @@
         SUBMIT_FAILED: 0
     };
 
-    // Active threads map: threadId -> { threadName, carrierThread, startTime, isPinned }
+    // Active threads map: threadId -> { threadName, carrierThread, startTime, isPinned, endTime, status }
     const activeThreads = new Map();
     const pinnedAlerts = [];
+    const threadRetentionMs = 3000; // Keep ended threads visible for 3 seconds
 
     // Tab switching
     tabButtons.forEach(btn => {
@@ -142,10 +143,16 @@
                 threadName: event.threadName || `Thread-${event.threadId}`,
                 carrierThread: event.carrierThread,
                 startTime: new Date(event.timestamp),
-                isPinned: false
+                isPinned: false,
+                status: 'running',
+                endTime: null
             });
         } else if (event.type === 'END') {
-            activeThreads.delete(event.threadId);
+            const thread = activeThreads.get(event.threadId);
+            if (thread) {
+                thread.status = 'ended';
+                thread.endTime = Date.now();
+            }
         } else if (event.type === 'PINNED') {
             // Mark thread as pinned if it exists
             const thread = activeThreads.get(event.threadId);
@@ -184,31 +191,62 @@
     }
 
     function updateThreadsView() {
-        const threadCount = activeThreads.size;
-        threadCountEl.textContent = `${threadCount} thread${threadCount !== 1 ? 's' : ''}`;
+        const now = Date.now();
 
-        if (threadCount === 0) {
+        // Remove threads that ended more than retention time ago
+        for (const [threadId, thread] of activeThreads) {
+            if (thread.status === 'ended' && thread.endTime && (now - thread.endTime > threadRetentionMs)) {
+                activeThreads.delete(threadId);
+            }
+        }
+
+        const runningCount = [...activeThreads.values()].filter(t => t.status === 'running').length;
+        const totalCount = activeThreads.size;
+        threadCountEl.textContent = `${runningCount} running, ${totalCount} visible`;
+
+        if (totalCount === 0) {
             threadsContainer.innerHTML = '<div class="empty-state">No active threads</div>';
             return;
         }
 
         // Build thread cards
         const fragment = document.createDocumentFragment();
-        const now = new Date();
+        const nowDate = new Date();
 
-        activeThreads.forEach((thread, threadId) => {
+        // Sort: running first, then ended (newest first)
+        const sortedThreads = [...activeThreads.entries()].sort((a, b) => {
+            if (a[1].status === 'running' && b[1].status !== 'running') return -1;
+            if (a[1].status !== 'running' && b[1].status === 'running') return 1;
+            return b[1].startTime - a[1].startTime;
+        });
+
+        sortedThreads.forEach(([threadId, thread]) => {
             const card = document.createElement('div');
-            card.className = 'thread-card' + (thread.isPinned ? ' pinned' : '');
+            const isEnded = thread.status === 'ended';
+            let cardClass = 'thread-card';
+            if (thread.isPinned) cardClass += ' pinned';
+            if (isEnded) cardClass += ' ended';
+            card.className = cardClass;
             card.dataset.threadId = threadId;
 
-            const duration = now - thread.startTime;
+            const duration = nowDate - thread.startTime;
             const durationPercent = Math.min(100, (duration / 10000) * 100); // 10s = 100%
+
+            let statusClass = 'running';
+            let statusText = 'Running';
+            if (thread.isPinned) {
+                statusClass = 'pinned';
+                statusText = 'Pinned';
+            } else if (isEnded) {
+                statusClass = 'ended';
+                statusText = 'Ended';
+            }
 
             card.innerHTML = `
                 <div class="thread-card-header">
                     <span class="thread-name">${escapeHtml(thread.threadName)}</span>
-                    <span class="thread-status ${thread.isPinned ? 'pinned' : 'running'}">
-                        ${thread.isPinned ? 'Pinned' : 'Running'}
+                    <span class="thread-status ${statusClass}">
+                        ${statusText}
                     </span>
                 </div>
                 <div class="thread-card-body">
