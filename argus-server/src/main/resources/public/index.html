@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus - Virtual Thread Profiler</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <span class="logo-icon">&#x1F441;</span>
+            <h1>Argus</h1>
+        </div>
+        <div id="connection-status" class="status disconnected">
+            <span class="status-dot"></span>
+            <span class="status-text">Disconnected</span>
+        </div>
+    </header>
+
+    <main>
+        <section class="metrics">
+            <div class="metric-card">
+                <h3>Total Events</h3>
+                <div class="metric-value" id="total-events">0</div>
+            </div>
+            <div class="metric-card">
+                <h3>Thread Starts</h3>
+                <div class="metric-value" id="start-events">0</div>
+            </div>
+            <div class="metric-card">
+                <h3>Thread Ends</h3>
+                <div class="metric-value" id="end-events">0</div>
+            </div>
+            <div class="metric-card alert">
+                <h3>Pinned Threads</h3>
+                <div class="metric-value" id="pinned-events">0</div>
+            </div>
+        </section>
+
+        <section class="events-section">
+            <div class="events-header">
+                <h2>Live Event Stream</h2>
+                <div class="events-controls">
+                    <button id="clear-events" class="btn">Clear</button>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-scroll" checked>
+                        Auto-scroll
+                    </label>
+                </div>
+            </div>
+            <div id="events-log" class="events-log">
+                <div class="event-placeholder">Waiting for events...</div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Argus Virtual Thread Profiler - Real-time JFR Event Monitoring</p>
+    </footer>
+
+    <script src="/js/app.js"></script>
+</body>
+</html>
