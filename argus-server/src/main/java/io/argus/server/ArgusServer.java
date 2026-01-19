@@ -18,7 +18,7 @@ import io.netty.handler.codec.http.websocketx.extensions.compression.WebSocketSe
 import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -84,6 +84,7 @@ public final class ArgusServer {
 
         serverChannel = bootstrap.bind(port).sync().channel();
         System.out.printf("[Argus Server] Started on port %d%n", port);
+        System.out.printf("[Argus Server] Dashboard: http://localhost:%d/%n", port);
         System.out.printf("[Argus Server] WebSocket endpoint: ws://localhost:%d%s%n", port, WEBSOCKET_PATH);
         System.out.printf("[Argus Server] Health endpoint: http://localhost:%d/health%n", port);
 
@@ -188,15 +189,17 @@ public final class ArgusServer {
         }
 
         private void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
+            String uri = request.uri();
+
             // Handle health check
-            if ("/health".equals(request.uri())) {
+            if ("/health".equals(uri)) {
                 String response = "{\"status\":\"healthy\",\"clients\":" + clients.size() + "}";
-                sendHttpResponse(ctx, request, HttpResponseStatus.OK, response);
+                sendHttpResponse(ctx, request, HttpResponseStatus.OK, response, "application/json");
                 return;
             }
 
             // Handle WebSocket upgrade
-            if (WEBSOCKET_PATH.equals(request.uri())) {
+            if (WEBSOCKET_PATH.equals(uri)) {
                 WebSocketServerHandshakerFactory wsFactory = new WebSocketServerHandshakerFactory(
                         "ws://" + request.headers().get(HttpHeaderNames.HOST) + WEBSOCKET_PATH,
                         null, true);
@@ -213,8 +216,55 @@ public final class ArgusServer {
                 return;
             }
 
+            // Handle static files
+            if (serveStaticFile(ctx, request, uri)) {
+                return;
+            }
+
             // 404 for other paths
-            sendHttpResponse(ctx, request, HttpResponseStatus.NOT_FOUND, "Not Found");
+            sendHttpResponse(ctx, request, HttpResponseStatus.NOT_FOUND, "Not Found", "text/plain");
+        }
+
+        private boolean serveStaticFile(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+            // Map URI to classpath resource
+            String resourcePath;
+            String contentType;
+
+            if ("/".equals(uri) || "/index.html".equals(uri)) {
+                resourcePath = "public/index.html";
+                contentType = "text/html; charset=UTF-8";
+            } else if (uri.startsWith("/css/") && uri.endsWith(".css")) {
+                resourcePath = "public" + uri;
+                contentType = "text/css; charset=UTF-8";
+            } else if (uri.startsWith("/js/") && uri.endsWith(".js")) {
+                resourcePath = "public" + uri;
+                contentType = "application/javascript; charset=UTF-8";
+            } else {
+                return false;
+            }
+
+            try (InputStream is = getClass().getClassLoader().getResourceAsStream(resourcePath)) {
+                if (is == null) {
+                    return false;
+                }
+                byte[] bytes = is.readAllBytes();
+                ByteBuf buf = Unpooled.wrappedBuffer(bytes);
+                FullHttpResponse response = new DefaultFullHttpResponse(
+                        HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buf);
+                response.headers()
+                        .set(HttpHeaderNames.CONTENT_TYPE, contentType)
+                        .setInt(HttpHeaderNames.CONTENT_LENGTH, bytes.length)
+                        .set(HttpHeaderNames.CACHE_CONTROL, "no-cache");
+
+                ChannelFuture future = ctx.writeAndFlush(response);
+                if (!HttpUtil.isKeepAlive(request)) {
+                    future.addListener(ChannelFutureListener.CLOSE);
+                }
+                return true;
+            } catch (Exception e) {
+                System.err.printf("[Argus Server] Error serving static file %s: %s%n", uri, e.getMessage());
+                return false;
+            }
         }
 
         private void handleWebSocketFrame(ChannelHandlerContext ctx, WebSocketFrame frame) {
@@ -238,12 +288,12 @@ public final class ArgusServer {
         }
 
         private void sendHttpResponse(ChannelHandlerContext ctx, FullHttpRequest request,
-                                      HttpResponseStatus status, String content) {
+                                      HttpResponseStatus status, String content, String contentType) {
             ByteBuf buf = Unpooled.copiedBuffer(content, CharsetUtil.UTF_8);
             FullHttpResponse response = new DefaultFullHttpResponse(
                     HttpVersion.HTTP_1_1, status, buf);
             response.headers()
-                    .set(HttpHeaderNames.CONTENT_TYPE, "application/json")
+                    .set(HttpHeaderNames.CONTENT_TYPE, contentType)
                     .setInt(HttpHeaderNames.CONTENT_LENGTH, buf.readableBytes());
 
             ChannelFuture future = ctx.writeAndFlush(response);
