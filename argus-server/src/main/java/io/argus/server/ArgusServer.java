@@ -110,7 +110,7 @@ public final class ArgusServer {
     private String serializeEvent(VirtualThreadEvent event) {
         StringBuilder sb = new StringBuilder();
         sb.append("{");
-        sb.append("\"type\":\"").append(event.eventType().name()).append("\",");
+        sb.append("\"type\":\"").append(getShortTypeName(event.eventType())).append("\",");
         sb.append("\"threadId\":").append(event.threadId()).append(",");
         if (event.threadName() != null) {
             sb.append("\"threadName\":\"").append(escapeJson(event.threadName())).append("\",");
@@ -127,6 +127,15 @@ public final class ArgusServer {
         }
         sb.append("}");
         return sb.toString();
+    }
+
+    private String getShortTypeName(io.argus.core.event.EventType eventType) {
+        return switch (eventType) {
+            case VIRTUAL_THREAD_START -> "START";
+            case VIRTUAL_THREAD_END -> "END";
+            case VIRTUAL_THREAD_PINNED -> "PINNED";
+            case VIRTUAL_THREAD_SUBMIT_FAILED -> "SUBMIT_FAILED";
+        };
     }
 
     private String escapeJson(String value) {
