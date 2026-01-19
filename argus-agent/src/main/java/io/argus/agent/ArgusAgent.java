@@ -2,6 +2,7 @@ package io.argus.agent;
 
 import io.argus.core.buffer.RingBuffer;
 import io.argus.core.event.VirtualThreadEvent;
+import io.argus.server.ArgusServer;
 
 import java.lang.instrument.Instrumentation;
 
@@ -32,6 +33,7 @@ public final class ArgusAgent {
 
     private static volatile JfrStreamingEngine engine;
     private static volatile RingBuffer<VirtualThreadEvent> eventBuffer;
+    private static volatile ArgusServer server;
 
     private ArgusAgent() {
     }
@@ -67,8 +69,16 @@ public final class ArgusAgent {
         engine = new JfrStreamingEngine(eventBuffer);
         engine.start();
 
+        // Optionally start WebSocket server
+        if (isServerEnabled()) {
+            startServer();
+        }
+
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             System.out.println("[Argus] Shutting down...");
+            if (server != null) {
+                server.stop();
+            }
             if (engine != null) {
                 engine.stop();
             }
@@ -76,6 +86,31 @@ public final class ArgusAgent {
 
         System.out.println("[Argus] Agent initialized successfully");
         System.out.printf("[Argus] Ring buffer size: %d%n", bufferSize);
+    }
+
+    private static boolean isServerEnabled() {
+        return Boolean.parseBoolean(System.getProperty("argus.server.enabled", "false"));
+    }
+
+    private static void startServer() {
+        int port = Integer.parseInt(System.getProperty("argus.server.port", "8080"));
+        server = new ArgusServer(port, eventBuffer);
+        try {
+            Thread serverThread = Thread.ofPlatform()
+                    .name("argus-server")
+                    .daemon(true)
+                    .start(() -> {
+                        try {
+                            server.start();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                        }
+                    });
+            System.out.printf("[Argus] WebSocket server starting on port %d%n", port);
+            System.out.printf("[Argus] Connect to ws://localhost:%d/events%n", port);
+        } catch (Exception e) {
+            System.err.println("[Argus] Failed to start server: " + e.getMessage());
+        }
     }
 
     private static int getBufferSize() {
@@ -100,5 +135,12 @@ public final class ArgusAgent {
      */
     public static JfrStreamingEngine getEngine() {
         return engine;
+    }
+
+    /**
+     * Returns the WebSocket server (if enabled).
+     */
+    public static ArgusServer getServer() {
+        return server;
     }
 }

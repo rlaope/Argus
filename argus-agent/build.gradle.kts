@@ -4,11 +4,12 @@ plugins {
 
 dependencies {
     implementation(project(":argus-core"))
+    implementation(project(":argus-server"))
     testImplementation("org.junit.jupiter:junit-jupiter:${project.findProperty("junitVersion")}")
 }
 
 tasks.jar {
-    dependsOn(":argus-core:jar")
+    dependsOn(":argus-core:jar", ":argus-server:jar")
 
     manifest {
         attributes(
