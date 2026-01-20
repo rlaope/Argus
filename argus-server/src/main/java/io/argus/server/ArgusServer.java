@@ -7,6 +7,7 @@ import io.argus.server.metrics.ServerMetrics;
 import io.argus.server.serialization.EventJsonSerializer;
 import io.argus.server.state.ActiveThreadsRegistry;
 import io.argus.server.state.RecentEventsBuffer;
+import io.argus.server.state.ThreadEventsBuffer;
 import io.argus.server.websocket.EventBroadcaster;
 
 import io.netty.bootstrap.ServerBootstrap;
@@ -57,6 +58,7 @@ public final class ArgusServer {
     private final ServerMetrics metrics = new ServerMetrics();
     private final ActiveThreadsRegistry activeThreads = new ActiveThreadsRegistry();
     private final RecentEventsBuffer recentEvents = new RecentEventsBuffer();
+    private final ThreadEventsBuffer threadEvents = new ThreadEventsBuffer();
     private final EventJsonSerializer serializer = new EventJsonSerializer();
     private EventBroadcaster broadcaster;
 
@@ -88,7 +90,7 @@ public final class ArgusServer {
 
         // Initialize broadcaster
         broadcaster = new EventBroadcaster(
-                eventBuffer, clients, metrics, activeThreads, recentEvents, serializer);
+                eventBuffer, clients, metrics, activeThreads, recentEvents, threadEvents, serializer);
 
         // Initialize Netty
         bossGroup = new NioEventLoopGroup(1);
@@ -104,7 +106,7 @@ public final class ArgusServer {
                                 .addLast(new HttpServerCodec())
                                 .addLast(new HttpObjectAggregator(65536))
                                 .addLast(new WebSocketServerCompressionHandler())
-                                .addLast(new ArgusChannelHandler(clients, metrics, activeThreads, broadcaster));
+                                .addLast(new ArgusChannelHandler(clients, metrics, activeThreads, threadEvents, broadcaster));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, 128)

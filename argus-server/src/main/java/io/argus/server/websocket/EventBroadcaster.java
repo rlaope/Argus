@@ -6,6 +6,7 @@ import io.argus.server.metrics.ServerMetrics;
 import io.argus.server.serialization.EventJsonSerializer;
 import io.argus.server.state.ActiveThreadsRegistry;
 import io.argus.server.state.RecentEventsBuffer;
+import io.argus.server.state.ThreadEventsBuffer;
 
 import io.netty.channel.Channel;
 import io.netty.channel.group.ChannelGroup;
@@ -30,6 +31,7 @@ public final class EventBroadcaster {
     private final ServerMetrics metrics;
     private final ActiveThreadsRegistry activeThreads;
     private final RecentEventsBuffer recentEvents;
+    private final ThreadEventsBuffer threadEvents;
     private final EventJsonSerializer serializer;
     private final ScheduledExecutorService scheduler;
 
@@ -41,6 +43,7 @@ public final class EventBroadcaster {
      * @param metrics       the server metrics tracker
      * @param activeThreads the active threads registry
      * @param recentEvents  the recent events buffer
+     * @param threadEvents  the per-thread events buffer
      * @param serializer    the event JSON serializer
      */
     public EventBroadcaster(
@@ -49,12 +52,14 @@ public final class EventBroadcaster {
             ServerMetrics metrics,
             ActiveThreadsRegistry activeThreads,
             RecentEventsBuffer recentEvents,
+            ThreadEventsBuffer threadEvents,
             EventJsonSerializer serializer) {
         this.eventBuffer = eventBuffer;
         this.clients = clients;
         this.metrics = metrics;
         this.activeThreads = activeThreads;
         this.recentEvents = recentEvents;
+        this.threadEvents = threadEvents;
         this.serializer = serializer;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
                 r -> Thread.ofPlatform().name("argus-event-broadcaster").daemon(true).unstarted(r)
@@ -113,6 +118,9 @@ public final class EventBroadcaster {
 
             // Store in recent events
             recentEvents.add(json);
+
+            // Store per-thread event history
+            threadEvents.add(event.threadId(), json);
 
             // Broadcast to WebSocket clients
             if (!clients.isEmpty()) {
