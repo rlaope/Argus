@@ -723,6 +723,282 @@ main {
     color: var(--accent-red);
 }
 
+/* Thread Detail Modal */
+.thread-detail-modal {
+    max-width: 700px;
+    width: 90%;
+}
+
+.thread-detail-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.thread-detail-name {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--accent-blue);
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    word-break: break-all;
+    margin-bottom: 0.25rem;
+}
+
+.thread-detail-id {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.thread-detail-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.thread-stat {
+    background-color: var(--bg-tertiary);
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.thread-stat-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.25rem;
+}
+
+.thread-stat-value {
+    display: block;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+}
+
+.thread-stat-value.running {
+    color: var(--accent-green);
+}
+
+.thread-stat-value.ended {
+    color: var(--text-secondary);
+}
+
+.thread-stat-value.pinned {
+    color: var(--accent-red);
+}
+
+.thread-events-section h3 {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.thread-events-list {
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: var(--bg-primary);
+    border-radius: 8px;
+    padding: 0.5rem;
+}
+
+.thread-events-list .loading {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+.thread-events-list .empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+}
+
+.thread-event-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-secondary);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.thread-event-item:last-child {
+    margin-bottom: 0;
+}
+
+.thread-event-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.thread-event-icon.start {
+    background-color: rgba(63, 185, 80, 0.2);
+    color: var(--accent-green);
+}
+
+.thread-event-icon.end {
+    background-color: rgba(88, 166, 255, 0.2);
+    color: var(--accent-blue);
+}
+
+.thread-event-icon.pinned {
+    background-color: rgba(248, 81, 73, 0.2);
+    color: var(--accent-red);
+}
+
+.thread-event-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.thread-event-type {
+    font-weight: 600;
+    font-size: 0.875rem;
+    margin-bottom: 0.125rem;
+}
+
+.thread-event-type.start { color: var(--accent-green); }
+.thread-event-type.end { color: var(--accent-blue); }
+.thread-event-type.pinned { color: var(--accent-red); }
+
+.thread-event-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+}
+
+.thread-event-details {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.thread-event-stack {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 4px;
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.thread-dump-action {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+}
+
+.btn-primary {
+    background-color: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #4a90e0;
+    border-color: #4a90e0;
+}
+
+/* Dump View Modal */
+.dump-view-modal {
+    max-width: 900px;
+    width: 95%;
+    max-height: 85vh;
+}
+
+.dump-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.dump-actions {
+    margin-bottom: 1rem;
+}
+
+.dump-actions .btn {
+    margin-right: 0.5rem;
+}
+
+.dump-content {
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.dump-content pre {
+    margin: 0;
+    padding: 1rem;
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--text-primary);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.dump-thread {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.dump-thread:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.dump-thread-header {
+    color: var(--accent-blue);
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.dump-thread-header.virtual {
+    color: var(--accent-green);
+}
+
+.dump-thread-state {
+    color: var(--text-secondary);
+    font-size: 0.6875rem;
+    margin-bottom: 0.5rem;
+}
+
+.dump-stack-trace {
+    color: var(--text-secondary);
+    padding-left: 1rem;
+}
+
 /* Footer */
 footer {
     text-align: center;

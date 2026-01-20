@@ -25,6 +25,32 @@
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
 
+    // Thread detail modal elements
+    const threadModal = document.getElementById('thread-modal');
+    const threadModalBackdrop = threadModal.querySelector('.modal-backdrop');
+    const threadModalClose = threadModal.querySelector('.modal-close');
+    const modalThreadName = document.getElementById('modal-thread-name');
+    const modalThreadId = document.getElementById('modal-thread-id');
+    const modalThreadStatus = document.getElementById('modal-thread-status');
+    const modalThreadDuration = document.getElementById('modal-thread-duration');
+    const modalEventCount = document.getElementById('modal-event-count');
+    const modalEventsList = document.getElementById('modal-events-list');
+    const modalDumpBtn = document.getElementById('modal-dump-btn');
+
+    // Dump modal elements
+    const dumpModal = document.getElementById('dump-modal');
+    const dumpModalBackdrop = dumpModal.querySelector('.modal-backdrop');
+    const dumpModalClose = dumpModal.querySelector('.modal-close');
+    const dumpModalTitle = document.getElementById('dump-modal-title');
+    const dumpTimestamp = document.getElementById('dump-timestamp');
+    const dumpThreadCount = document.getElementById('dump-thread-count');
+    const dumpCopyBtn = document.getElementById('dump-copy-btn');
+    const dumpOutput = document.getElementById('dump-output');
+    const threadDumpBtn = document.getElementById('thread-dump-btn');
+
+    // Current state for dump
+    let currentDumpText = '';
+
     // State
     let ws = null;
     let reconnectAttempts = 0;
@@ -72,8 +98,62 @@
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !helpModal.classList.contains('hidden')) {
-            helpModal.classList.add('hidden');
+        if (e.key === 'Escape') {
+            if (!helpModal.classList.contains('hidden')) {
+                helpModal.classList.add('hidden');
+            }
+            if (!threadModal.classList.contains('hidden')) {
+                threadModal.classList.add('hidden');
+            }
+            if (!dumpModal.classList.contains('hidden')) {
+                dumpModal.classList.add('hidden');
+            }
+        }
+    });
+
+    // Thread modal handlers
+    threadModalBackdrop.addEventListener('click', () => {
+        threadModal.classList.add('hidden');
+    });
+
+    threadModalClose.addEventListener('click', () => {
+        threadModal.classList.add('hidden');
+    });
+
+    // Dump modal handlers
+    dumpModalBackdrop.addEventListener('click', () => {
+        dumpModal.classList.add('hidden');
+    });
+
+    dumpModalClose.addEventListener('click', () => {
+        dumpModal.classList.add('hidden');
+    });
+
+    // Thread dump button (all threads)
+    threadDumpBtn.addEventListener('click', () => {
+        captureAllThreadsDump();
+    });
+
+    // Single thread dump button (in thread detail modal)
+    modalDumpBtn.addEventListener('click', () => {
+        const threadId = modalThreadId.textContent;
+        if (threadId && threadId !== '-') {
+            captureSingleThreadDump(parseInt(threadId));
+        }
+    });
+
+    // Copy to clipboard
+    dumpCopyBtn.addEventListener('click', () => {
+        if (currentDumpText) {
+            navigator.clipboard.writeText(currentDumpText).then(() => {
+                const originalText = dumpCopyBtn.textContent;
+                dumpCopyBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    dumpCopyBtn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('[Argus] Failed to copy:', err);
+            });
         }
     });
 
@@ -333,6 +413,10 @@
                 </div>
             `;
 
+            // Add click handler to show thread details
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', () => showThreadDetails(threadId));
+
             fragment.appendChild(card);
         });
 
@@ -485,6 +569,184 @@
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    // Thread detail modal functions
+    async function showThreadDetails(threadId) {
+        const thread = activeThreads.get(threadId);
+        if (!thread) {
+            console.error('[Argus] Thread not found:', threadId);
+            return;
+        }
+
+        // Show modal with loading state
+        threadModal.classList.remove('hidden');
+        modalThreadName.textContent = thread.threadName;
+        modalThreadId.textContent = threadId;
+
+        // Set status
+        let statusText = 'Running';
+        let statusClass = 'running';
+        if (thread.isPinned) {
+            statusText = 'Pinned';
+            statusClass = 'pinned';
+        } else if (thread.status === 'ended') {
+            statusText = 'Ended';
+            statusClass = 'ended';
+        }
+        modalThreadStatus.textContent = statusText;
+        modalThreadStatus.className = 'thread-stat-value ' + statusClass;
+
+        // Set duration
+        const duration = new Date() - thread.startTime;
+        modalThreadDuration.textContent = formatDurationMs(duration);
+
+        // Show loading
+        modalEventsList.innerHTML = '<div class="loading">Loading events...</div>';
+        modalEventCount.textContent = '-';
+
+        // Fetch thread events from API
+        try {
+            const response = await fetch(`/threads/${threadId}/events`);
+            if (response.ok) {
+                const data = await response.json();
+                modalEventCount.textContent = data.eventCount;
+                renderThreadEvents(data.events);
+            } else {
+                modalEventsList.innerHTML = '<div class="empty">Failed to load events</div>';
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to fetch thread events:', e);
+            modalEventsList.innerHTML = '<div class="empty">Failed to load events</div>';
+        }
+    }
+
+    // Thread dump functions
+    async function captureAllThreadsDump() {
+        // Show dump modal with loading state
+        dumpModal.classList.remove('hidden');
+        dumpModalTitle.textContent = 'Thread Dump (All Threads)';
+        dumpTimestamp.textContent = 'Loading...';
+        dumpThreadCount.textContent = '';
+        dumpOutput.textContent = 'Capturing thread dump...';
+        currentDumpText = '';
+
+        try {
+            const response = await fetch('/thread-dump');
+            if (response.ok) {
+                const data = await response.json();
+                displayAllThreadsDump(data);
+            } else {
+                dumpOutput.textContent = 'Failed to capture thread dump';
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to capture thread dump:', e);
+            dumpOutput.textContent = 'Error: ' + e.message;
+        }
+    }
+
+    async function captureSingleThreadDump(threadId) {
+        // Show dump modal with loading state
+        dumpModal.classList.remove('hidden');
+        dumpModalTitle.textContent = `Thread Dump (Thread ${threadId})`;
+        dumpTimestamp.textContent = 'Loading...';
+        dumpThreadCount.textContent = '';
+        dumpOutput.textContent = 'Capturing stack trace...';
+        currentDumpText = '';
+
+        try {
+            const response = await fetch(`/threads/${threadId}/dump`);
+            if (response.ok) {
+                const data = await response.json();
+                displaySingleThreadDump(data);
+            } else {
+                dumpOutput.textContent = 'Failed to capture stack trace';
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to capture stack trace:', e);
+            dumpOutput.textContent = 'Error: ' + e.message;
+        }
+    }
+
+    function displayAllThreadsDump(data) {
+        dumpTimestamp.textContent = `Captured at: ${formatTimestamp(data.timestamp)}`;
+        dumpThreadCount.textContent = `${data.totalThreads} threads`;
+
+        let text = `Thread Dump - ${data.timestamp}\n`;
+        text += `Total Threads: ${data.totalThreads}\n`;
+        text += '='.repeat(80) + '\n\n';
+
+        data.threads.forEach(thread => {
+            const virtualTag = thread.isVirtual ? ' [Virtual]' : '';
+            text += `"${thread.threadName}" #${thread.threadId}${virtualTag}\n`;
+            text += `   State: ${thread.state}\n`;
+            text += thread.stackTrace.replace(/\\n/g, '\n');
+            text += '\n';
+        });
+
+        currentDumpText = text;
+        dumpOutput.textContent = text;
+    }
+
+    function displaySingleThreadDump(data) {
+        dumpTimestamp.textContent = `Captured at: ${formatTimestamp(data.timestamp)}`;
+        dumpThreadCount.textContent = '';
+
+        if (data.error) {
+            dumpOutput.textContent = data.error;
+            currentDumpText = data.error;
+            return;
+        }
+
+        const virtualTag = data.isVirtual ? ' [Virtual]' : '';
+        let text = `"${data.threadName}" #${data.threadId}${virtualTag}\n`;
+        text += `State: ${data.state}\n`;
+        text += '-'.repeat(60) + '\n';
+        text += data.stackTrace.replace(/\\n/g, '\n');
+
+        currentDumpText = text;
+        dumpOutput.textContent = text;
+    }
+
+    function renderThreadEvents(events) {
+        if (!events || events.length === 0) {
+            modalEventsList.innerHTML = '<div class="empty">No events recorded</div>';
+            return;
+        }
+
+        const html = events.map(event => {
+            const type = event.type.toLowerCase();
+            const iconText = type === 'start' ? '▶' : type === 'end' ? '■' : '⚠';
+            const typeLabel = type === 'start' ? 'Started' : type === 'end' ? 'Ended' : 'Pinned';
+
+            let details = '';
+            if (event.carrierThread) {
+                details += `Carrier Thread: ${event.carrierThread}`;
+            }
+            if (event.duration && event.duration > 0) {
+                if (details) details += ' | ';
+                details += `Duration: ${formatDuration(event.duration)}`;
+            }
+
+            let stackHtml = '';
+            if (event.stackTrace) {
+                stackHtml = `<div class="thread-event-stack">${escapeHtml(event.stackTrace)}</div>`;
+            }
+
+            return `
+                <div class="thread-event-item">
+                    <div class="thread-event-icon ${type}">${iconText}</div>
+                    <div class="thread-event-content">
+                        <div class="thread-event-type ${type}">${typeLabel}</div>
+                        <div class="thread-event-time">${formatTimestamp(event.timestamp)}</div>
+                        ${details ? `<div class="thread-event-details">${details}</div>` : ''}
+                        ${stackHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        modalEventsList.innerHTML = html;
     }
 
     function clearEvents() {
