@@ -5,6 +5,7 @@ plugins {
 
 dependencies {
     implementation(project(":argus-core"))
+    implementation(project(":argus-frontend"))
     implementation("io.netty:netty-all:${project.findProperty("nettyVersion")}")
     testImplementation("org.junit.jupiter:junit-jupiter:${project.findProperty("junitVersion")}")
 }
