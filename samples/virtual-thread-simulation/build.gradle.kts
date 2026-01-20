@@ -50,7 +50,7 @@ tasks.register<JavaExec>("runSimulation") {
 
     jvmArgs(
         "--enable-preview",
-        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-0.1.0-SNAPSHOT.jar",
+        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
         "-Dargus.server.port=9202"
     )

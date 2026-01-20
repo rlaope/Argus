@@ -46,7 +46,7 @@ tasks.register<JavaExec>("runWithArgus") {
 
     jvmArgs(
         "--enable-preview",
-        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-0.1.0-SNAPSHOT.jar"
+        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar"
     )
 }
 
@@ -64,7 +64,7 @@ tasks.register<JavaExec>("runWithServer") {
 
     jvmArgs(
         "--enable-preview",
-        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-0.1.0-SNAPSHOT.jar",
+        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
         "-Dargus.server.port=8080"
     )
@@ -85,7 +85,7 @@ tasks.register<JavaExec>("runServerDemo") {
 
     jvmArgs(
         "--enable-preview",
-        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-0.1.0-SNAPSHOT.jar",
+        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
         "-Dargus.server.port=8080"
     )
