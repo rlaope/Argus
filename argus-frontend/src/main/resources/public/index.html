@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Argus - Virtual Thread Profiler</title>
     <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <header>
@@ -44,6 +45,39 @@
             <div class="metric-card alert" data-tooltip="CRITICAL: Threads blocked by synchronized/native code. High count indicates performance issues!">
                 <h3>Pinned</h3>
                 <div class="metric-value" id="pinned-events">0</div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Events Rate</h3>
+                        <span class="chart-subtitle">events/sec over last 60s</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="events-rate-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Active Threads</h3>
+                        <span class="chart-subtitle">concurrent threads over last 60s</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="active-threads-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Thread Duration Distribution</h3>
+                        <span class="chart-subtitle">lifetime of completed threads</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="duration-chart"></canvas>
+                    </div>
+                </div>
             </div>
         </section>
 

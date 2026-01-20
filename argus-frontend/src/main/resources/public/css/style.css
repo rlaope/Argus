@@ -212,6 +212,50 @@ main {
     50% { opacity: 0.6; }
 }
 
+/* Charts Section */
+.charts-section {
+    margin-bottom: 1.5rem;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1rem;
+}
+
+.chart-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.chart-header h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.chart-subtitle {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+}
+
+.chart-container {
+    position: relative;
+    height: 180px;
+}
+
 /* Pinned Section */
 .pinned-section {
     background-color: rgba(248, 81, 73, 0.1);

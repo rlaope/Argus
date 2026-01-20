@@ -51,6 +51,37 @@
     // Current state for dump
     let currentDumpText = '';
 
+    // Chart elements
+    const eventsRateCanvas = document.getElementById('events-rate-chart');
+    const activeThreadsCanvas = document.getElementById('active-threads-chart');
+    const durationCanvas = document.getElementById('duration-chart');
+
+    // Chart instances
+    let eventsRateChart = null;
+    let activeThreadsChart = null;
+    let durationChart = null;
+
+    // Chart data
+    const chartDataPoints = 60; // 60 seconds of data
+    const eventsRateData = {
+        labels: [],
+        start: [],
+        end: [],
+        pinned: []
+    };
+    const activeThreadsData = {
+        labels: [],
+        values: []
+    };
+    const durationBuckets = {
+        labels: ['<10ms', '10-50ms', '50-100ms', '100-500ms', '500ms-1s', '1-5s', '>5s'],
+        values: [0, 0, 0, 0, 0, 0, 0]
+    };
+
+    // Per-second event counters
+    let currentSecondEvents = { start: 0, end: 0, pinned: 0 };
+    let lastSecondTimestamp = Math.floor(Date.now() / 1000);
+
     // State
     let ws = null;
     let reconnectAttempts = 0;
@@ -217,6 +248,9 @@
     function handleEvent(event) {
         counts.total++;
         counts[event.type] = (counts[event.type] || 0) + 1;
+
+        // Track for charts
+        trackEventForCharts(event);
 
         // Track active threads
         if (event.type === 'START') {
@@ -772,7 +806,229 @@
     // Event listeners
     clearBtn.addEventListener('click', clearEvents);
 
+    // Initialize charts
+    function initCharts() {
+        // Common chart options for dark theme
+        const gridColor = 'rgba(48, 54, 61, 0.8)';
+        const textColor = '#8b949e';
+
+        // Events Rate Chart (Line)
+        eventsRateChart = new Chart(eventsRateCanvas, {
+            type: 'line',
+            data: {
+                labels: eventsRateData.labels,
+                datasets: [
+                    {
+                        label: 'START',
+                        data: eventsRateData.start,
+                        borderColor: '#3fb950',
+                        backgroundColor: 'rgba(63, 185, 80, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'END',
+                        data: eventsRateData.end,
+                        borderColor: '#58a6ff',
+                        backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'PINNED',
+                        data: eventsRateData.pinned,
+                        borderColor: '#f85149',
+                        backgroundColor: 'rgba(248, 81, 73, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: textColor, boxWidth: 12, padding: 8, font: { size: 10 } }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+        // Active Threads Chart (Line)
+        activeThreadsChart = new Chart(activeThreadsCanvas, {
+            type: 'line',
+            data: {
+                labels: activeThreadsData.labels,
+                datasets: [{
+                    label: 'Active Threads',
+                    data: activeThreadsData.values,
+                    borderColor: '#a371f7',
+                    backgroundColor: 'rgba(163, 113, 247, 0.2)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+        // Duration Distribution Chart (Bar)
+        durationChart = new Chart(durationCanvas, {
+            type: 'bar',
+            data: {
+                labels: durationBuckets.labels,
+                datasets: [{
+                    label: 'Threads',
+                    data: durationBuckets.values,
+                    backgroundColor: [
+                        'rgba(63, 185, 80, 0.7)',
+                        'rgba(88, 166, 255, 0.7)',
+                        'rgba(163, 113, 247, 0.7)',
+                        'rgba(210, 153, 34, 0.7)',
+                        'rgba(248, 81, 73, 0.7)',
+                        'rgba(248, 81, 73, 0.8)',
+                        'rgba(248, 81, 73, 0.9)'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: textColor, font: { size: 9 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Update charts every second
+    function updateCharts() {
+        const now = Math.floor(Date.now() / 1000);
+        const timeLabel = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        // If we've moved to a new second, push the current counts
+        if (now > lastSecondTimestamp) {
+            // Add data points
+            eventsRateData.labels.push(timeLabel);
+            eventsRateData.start.push(currentSecondEvents.start);
+            eventsRateData.end.push(currentSecondEvents.end);
+            eventsRateData.pinned.push(currentSecondEvents.pinned);
+
+            activeThreadsData.labels.push(timeLabel);
+            activeThreadsData.values.push(counts.active);
+
+            // Keep only last N data points
+            while (eventsRateData.labels.length > chartDataPoints) {
+                eventsRateData.labels.shift();
+                eventsRateData.start.shift();
+                eventsRateData.end.shift();
+                eventsRateData.pinned.shift();
+            }
+            while (activeThreadsData.labels.length > chartDataPoints) {
+                activeThreadsData.labels.shift();
+                activeThreadsData.values.shift();
+            }
+
+            // Reset counters for next second
+            currentSecondEvents = { start: 0, end: 0, pinned: 0 };
+            lastSecondTimestamp = now;
+        }
+
+        // Update chart displays
+        if (eventsRateChart) eventsRateChart.update('none');
+        if (activeThreadsChart) activeThreadsChart.update('none');
+        if (durationChart) durationChart.update('none');
+    }
+
+    // Track event for charts
+    function trackEventForCharts(event) {
+        // Count events per second
+        if (event.type === 'START') {
+            currentSecondEvents.start++;
+        } else if (event.type === 'END') {
+            currentSecondEvents.end++;
+            // Track duration for histogram
+            const thread = activeThreads.get(event.threadId);
+            if (thread && thread.startTime) {
+                const durationMs = new Date(event.timestamp) - thread.startTime;
+                addToDurationBucket(durationMs);
+            }
+        } else if (event.type === 'PINNED') {
+            currentSecondEvents.pinned++;
+        }
+    }
+
+    // Add duration to appropriate bucket
+    function addToDurationBucket(durationMs) {
+        if (durationMs < 10) {
+            durationBuckets.values[0]++;
+        } else if (durationMs < 50) {
+            durationBuckets.values[1]++;
+        } else if (durationMs < 100) {
+            durationBuckets.values[2]++;
+        } else if (durationMs < 500) {
+            durationBuckets.values[3]++;
+        } else if (durationMs < 1000) {
+            durationBuckets.values[4]++;
+        } else if (durationMs < 5000) {
+            durationBuckets.values[5]++;
+        } else {
+            durationBuckets.values[6]++;
+        }
+    }
+
     // Initialize
+    initCharts();
     connect();
     fetchMetrics(); // Initial fetch
     fetchActiveThreads(); // Restore active threads state
@@ -780,4 +1036,5 @@
     // Periodically sync with server
     setInterval(fetchMetrics, 1000);
     setInterval(fetchActiveThreads, 2000); // Sync active threads less frequently
+    setInterval(updateCharts, 1000); // Update charts every second
 })();
