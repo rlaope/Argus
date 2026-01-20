@@ -1,4 +1,4 @@
-# Project Argus
+# Argus
 
 > *"Argus Panoptes, the all-seeing giant with a hundred eyes, never slept - for when some of his eyes closed, others remained open, watching everything."*
 
