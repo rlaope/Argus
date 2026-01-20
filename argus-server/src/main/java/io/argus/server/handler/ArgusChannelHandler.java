@@ -1,5 +1,7 @@
 package io.argus.server.handler;
 
+import java.util.Map;
+
 import io.argus.server.http.HttpResponseHelper;
 import io.argus.server.http.StaticFileHandler;
 import io.argus.server.metrics.ServerMetrics;
@@ -94,6 +96,18 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         // Thread events endpoint: /threads/{threadId}/events
         if (uri.startsWith("/threads/") && uri.endsWith("/events")) {
             handleThreadEventsRequest(ctx, request, uri);
+            return;
+        }
+
+        // Single thread dump endpoint: /threads/{threadId}/dump
+        if (uri.startsWith("/threads/") && uri.endsWith("/dump")) {
+            handleSingleThreadDump(ctx, request, uri);
+            return;
+        }
+
+        // All threads dump endpoint
+        if ("/thread-dump".equals(uri)) {
+            handleAllThreadsDump(ctx, request);
             return;
         }
 
@@ -222,6 +236,96 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         sb.append("}");
 
         HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handleSingleThreadDump(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+        // Parse thread ID from URI: /threads/{threadId}/dump
+        String path = uri.substring("/threads/".length());
+        int slashIndex = path.indexOf('/');
+        if (slashIndex <= 0) {
+            HttpResponseHelper.sendNotFound(ctx, request);
+            return;
+        }
+
+        String threadIdStr = path.substring(0, slashIndex);
+        long threadId;
+        try {
+            threadId = Long.parseLong(threadIdStr);
+        } catch (NumberFormatException e) {
+            HttpResponseHelper.sendNotFound(ctx, request);
+            return;
+        }
+
+        // Find the thread and get its stack trace
+        Thread targetThread = findThreadById(threadId);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"threadId\":").append(threadId).append(",");
+        sb.append("\"timestamp\":\"").append(java.time.Instant.now()).append("\",");
+
+        if (targetThread != null) {
+            sb.append("\"threadName\":\"").append(escapeJson(targetThread.getName())).append("\",");
+            sb.append("\"state\":\"").append(targetThread.getState()).append("\",");
+            sb.append("\"isVirtual\":").append(targetThread.isVirtual()).append(",");
+            sb.append("\"stackTrace\":\"").append(escapeJson(formatStackTrace(targetThread.getStackTrace()))).append("\"");
+        } else {
+            sb.append("\"error\":\"Thread not found or already terminated\"");
+        }
+
+        sb.append("}");
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handleAllThreadsDump(ChannelHandlerContext ctx, FullHttpRequest request) {
+        Map<Thread, StackTraceElement[]> allThreads = Thread.getAllStackTraces();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"timestamp\":\"").append(java.time.Instant.now()).append("\",");
+        sb.append("\"totalThreads\":").append(allThreads.size()).append(",");
+        sb.append("\"threads\":[");
+
+        boolean first = true;
+        for (Map.Entry<Thread, StackTraceElement[]> entry : allThreads.entrySet()) {
+            Thread thread = entry.getKey();
+            StackTraceElement[] stackTrace = entry.getValue();
+
+            if (!first) {
+                sb.append(",");
+            }
+            first = false;
+
+            sb.append("{");
+            sb.append("\"threadId\":").append(thread.threadId()).append(",");
+            sb.append("\"threadName\":\"").append(escapeJson(thread.getName())).append("\",");
+            sb.append("\"state\":\"").append(thread.getState()).append("\",");
+            sb.append("\"isVirtual\":").append(thread.isVirtual()).append(",");
+            sb.append("\"stackTrace\":\"").append(escapeJson(formatStackTrace(stackTrace))).append("\"");
+            sb.append("}");
+        }
+
+        sb.append("]");
+        sb.append("}");
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private Thread findThreadById(long threadId) {
+        return Thread.getAllStackTraces().keySet().stream()
+                .filter(t -> t.threadId() == threadId)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String formatStackTrace(StackTraceElement[] stackTrace) {
+        if (stackTrace == null || stackTrace.length == 0) {
+            return "(no stack trace available)";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (StackTraceElement element : stackTrace) {
+            sb.append("    at ").append(element.toString()).append("\\n");
+        }
+        return sb.toString();
     }
 
     private String escapeJson(String value) {

@@ -25,6 +25,63 @@
     const tabButtons = document.querySelectorAll('.tab-btn');
     const tabContents = document.querySelectorAll('.tab-content');
 
+    // Thread detail modal elements
+    const threadModal = document.getElementById('thread-modal');
+    const threadModalBackdrop = threadModal.querySelector('.modal-backdrop');
+    const threadModalClose = threadModal.querySelector('.modal-close');
+    const modalThreadName = document.getElementById('modal-thread-name');
+    const modalThreadId = document.getElementById('modal-thread-id');
+    const modalThreadStatus = document.getElementById('modal-thread-status');
+    const modalThreadDuration = document.getElementById('modal-thread-duration');
+    const modalEventCount = document.getElementById('modal-event-count');
+    const modalEventsList = document.getElementById('modal-events-list');
+    const modalDumpBtn = document.getElementById('modal-dump-btn');
+
+    // Dump modal elements
+    const dumpModal = document.getElementById('dump-modal');
+    const dumpModalBackdrop = dumpModal.querySelector('.modal-backdrop');
+    const dumpModalClose = dumpModal.querySelector('.modal-close');
+    const dumpModalTitle = document.getElementById('dump-modal-title');
+    const dumpTimestamp = document.getElementById('dump-timestamp');
+    const dumpThreadCount = document.getElementById('dump-thread-count');
+    const dumpCopyBtn = document.getElementById('dump-copy-btn');
+    const dumpOutput = document.getElementById('dump-output');
+    const threadDumpBtn = document.getElementById('thread-dump-btn');
+
+    // Current state for dump
+    let currentDumpText = '';
+
+    // Chart elements
+    const eventsRateCanvas = document.getElementById('events-rate-chart');
+    const activeThreadsCanvas = document.getElementById('active-threads-chart');
+    const durationCanvas = document.getElementById('duration-chart');
+
+    // Chart instances
+    let eventsRateChart = null;
+    let activeThreadsChart = null;
+    let durationChart = null;
+
+    // Chart data
+    const chartDataPoints = 60; // 60 seconds of data
+    const eventsRateData = {
+        labels: [],
+        start: [],
+        end: [],
+        pinned: []
+    };
+    const activeThreadsData = {
+        labels: [],
+        values: []
+    };
+    const durationBuckets = {
+        labels: ['<10ms', '10-50ms', '50-100ms', '100-500ms', '500ms-1s', '1-5s', '>5s'],
+        values: [0, 0, 0, 0, 0, 0, 0]
+    };
+
+    // Per-second event counters
+    let currentSecondEvents = { start: 0, end: 0, pinned: 0 };
+    let lastSecondTimestamp = Math.floor(Date.now() / 1000);
+
     // State
     let ws = null;
     let reconnectAttempts = 0;
@@ -72,8 +129,62 @@
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !helpModal.classList.contains('hidden')) {
-            helpModal.classList.add('hidden');
+        if (e.key === 'Escape') {
+            if (!helpModal.classList.contains('hidden')) {
+                helpModal.classList.add('hidden');
+            }
+            if (!threadModal.classList.contains('hidden')) {
+                threadModal.classList.add('hidden');
+            }
+            if (!dumpModal.classList.contains('hidden')) {
+                dumpModal.classList.add('hidden');
+            }
+        }
+    });
+
+    // Thread modal handlers
+    threadModalBackdrop.addEventListener('click', () => {
+        threadModal.classList.add('hidden');
+    });
+
+    threadModalClose.addEventListener('click', () => {
+        threadModal.classList.add('hidden');
+    });
+
+    // Dump modal handlers
+    dumpModalBackdrop.addEventListener('click', () => {
+        dumpModal.classList.add('hidden');
+    });
+
+    dumpModalClose.addEventListener('click', () => {
+        dumpModal.classList.add('hidden');
+    });
+
+    // Thread dump button (all threads)
+    threadDumpBtn.addEventListener('click', () => {
+        captureAllThreadsDump();
+    });
+
+    // Single thread dump button (in thread detail modal)
+    modalDumpBtn.addEventListener('click', () => {
+        const threadId = modalThreadId.textContent;
+        if (threadId && threadId !== '-') {
+            captureSingleThreadDump(parseInt(threadId));
+        }
+    });
+
+    // Copy to clipboard
+    dumpCopyBtn.addEventListener('click', () => {
+        if (currentDumpText) {
+            navigator.clipboard.writeText(currentDumpText).then(() => {
+                const originalText = dumpCopyBtn.textContent;
+                dumpCopyBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    dumpCopyBtn.textContent = originalText;
+                }, 2000);
+            }).catch(err => {
+                console.error('[Argus] Failed to copy:', err);
+            });
         }
     });
 
@@ -137,6 +248,9 @@
     function handleEvent(event) {
         counts.total++;
         counts[event.type] = (counts[event.type] || 0) + 1;
+
+        // Track for charts
+        trackEventForCharts(event);
 
         // Track active threads
         if (event.type === 'START') {
@@ -333,6 +447,10 @@
                 </div>
             `;
 
+            // Add click handler to show thread details
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', () => showThreadDetails(threadId));
+
             fragment.appendChild(card);
         });
 
@@ -487,6 +605,184 @@
         return div.innerHTML;
     }
 
+    // Thread detail modal functions
+    async function showThreadDetails(threadId) {
+        const thread = activeThreads.get(threadId);
+        if (!thread) {
+            console.error('[Argus] Thread not found:', threadId);
+            return;
+        }
+
+        // Show modal with loading state
+        threadModal.classList.remove('hidden');
+        modalThreadName.textContent = thread.threadName;
+        modalThreadId.textContent = threadId;
+
+        // Set status
+        let statusText = 'Running';
+        let statusClass = 'running';
+        if (thread.isPinned) {
+            statusText = 'Pinned';
+            statusClass = 'pinned';
+        } else if (thread.status === 'ended') {
+            statusText = 'Ended';
+            statusClass = 'ended';
+        }
+        modalThreadStatus.textContent = statusText;
+        modalThreadStatus.className = 'thread-stat-value ' + statusClass;
+
+        // Set duration
+        const duration = new Date() - thread.startTime;
+        modalThreadDuration.textContent = formatDurationMs(duration);
+
+        // Show loading
+        modalEventsList.innerHTML = '<div class="loading">Loading events...</div>';
+        modalEventCount.textContent = '-';
+
+        // Fetch thread events from API
+        try {
+            const response = await fetch(`/threads/${threadId}/events`);
+            if (response.ok) {
+                const data = await response.json();
+                modalEventCount.textContent = data.eventCount;
+                renderThreadEvents(data.events);
+            } else {
+                modalEventsList.innerHTML = '<div class="empty">Failed to load events</div>';
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to fetch thread events:', e);
+            modalEventsList.innerHTML = '<div class="empty">Failed to load events</div>';
+        }
+    }
+
+    // Thread dump functions
+    async function captureAllThreadsDump() {
+        // Show dump modal with loading state
+        dumpModal.classList.remove('hidden');
+        dumpModalTitle.textContent = 'Thread Dump (All Threads)';
+        dumpTimestamp.textContent = 'Loading...';
+        dumpThreadCount.textContent = '';
+        dumpOutput.textContent = 'Capturing thread dump...';
+        currentDumpText = '';
+
+        try {
+            const response = await fetch('/thread-dump');
+            if (response.ok) {
+                const data = await response.json();
+                displayAllThreadsDump(data);
+            } else {
+                dumpOutput.textContent = 'Failed to capture thread dump';
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to capture thread dump:', e);
+            dumpOutput.textContent = 'Error: ' + e.message;
+        }
+    }
+
+    async function captureSingleThreadDump(threadId) {
+        // Show dump modal with loading state
+        dumpModal.classList.remove('hidden');
+        dumpModalTitle.textContent = `Thread Dump (Thread ${threadId})`;
+        dumpTimestamp.textContent = 'Loading...';
+        dumpThreadCount.textContent = '';
+        dumpOutput.textContent = 'Capturing stack trace...';
+        currentDumpText = '';
+
+        try {
+            const response = await fetch(`/threads/${threadId}/dump`);
+            if (response.ok) {
+                const data = await response.json();
+                displaySingleThreadDump(data);
+            } else {
+                dumpOutput.textContent = 'Failed to capture stack trace';
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to capture stack trace:', e);
+            dumpOutput.textContent = 'Error: ' + e.message;
+        }
+    }
+
+    function displayAllThreadsDump(data) {
+        dumpTimestamp.textContent = `Captured at: ${formatTimestamp(data.timestamp)}`;
+        dumpThreadCount.textContent = `${data.totalThreads} threads`;
+
+        let text = `Thread Dump - ${data.timestamp}\n`;
+        text += `Total Threads: ${data.totalThreads}\n`;
+        text += '='.repeat(80) + '\n\n';
+
+        data.threads.forEach(thread => {
+            const virtualTag = thread.isVirtual ? ' [Virtual]' : '';
+            text += `"${thread.threadName}" #${thread.threadId}${virtualTag}\n`;
+            text += `   State: ${thread.state}\n`;
+            text += thread.stackTrace.replace(/\\n/g, '\n');
+            text += '\n';
+        });
+
+        currentDumpText = text;
+        dumpOutput.textContent = text;
+    }
+
+    function displaySingleThreadDump(data) {
+        dumpTimestamp.textContent = `Captured at: ${formatTimestamp(data.timestamp)}`;
+        dumpThreadCount.textContent = '';
+
+        if (data.error) {
+            dumpOutput.textContent = data.error;
+            currentDumpText = data.error;
+            return;
+        }
+
+        const virtualTag = data.isVirtual ? ' [Virtual]' : '';
+        let text = `"${data.threadName}" #${data.threadId}${virtualTag}\n`;
+        text += `State: ${data.state}\n`;
+        text += '-'.repeat(60) + '\n';
+        text += data.stackTrace.replace(/\\n/g, '\n');
+
+        currentDumpText = text;
+        dumpOutput.textContent = text;
+    }
+
+    function renderThreadEvents(events) {
+        if (!events || events.length === 0) {
+            modalEventsList.innerHTML = '<div class="empty">No events recorded</div>';
+            return;
+        }
+
+        const html = events.map(event => {
+            const type = event.type.toLowerCase();
+            const iconText = type === 'start' ? '▶' : type === 'end' ? '■' : '⚠';
+            const typeLabel = type === 'start' ? 'Started' : type === 'end' ? 'Ended' : 'Pinned';
+
+            let details = '';
+            if (event.carrierThread) {
+                details += `Carrier Thread: ${event.carrierThread}`;
+            }
+            if (event.duration && event.duration > 0) {
+                if (details) details += ' | ';
+                details += `Duration: ${formatDuration(event.duration)}`;
+            }
+
+            let stackHtml = '';
+            if (event.stackTrace) {
+                stackHtml = `<div class="thread-event-stack">${escapeHtml(event.stackTrace)}</div>`;
+            }
+
+            return `
+                <div class="thread-event-item">
+                    <div class="thread-event-icon ${type}">${iconText}</div>
+                    <div class="thread-event-content">
+                        <div class="thread-event-type ${type}">${typeLabel}</div>
+                        <div class="thread-event-time">${formatTimestamp(event.timestamp)}</div>
+                        ${details ? `<div class="thread-event-details">${details}</div>` : ''}
+                        ${stackHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        modalEventsList.innerHTML = html;
+    }
+
     function clearEvents() {
         eventsLog.innerHTML = '<div class="event-placeholder">Waiting for virtual thread events...</div>';
         // Note: Don't reset counts since they're synced from server
@@ -510,7 +806,229 @@
     // Event listeners
     clearBtn.addEventListener('click', clearEvents);
 
+    // Initialize charts
+    function initCharts() {
+        // Common chart options for dark theme
+        const gridColor = 'rgba(48, 54, 61, 0.8)';
+        const textColor = '#8b949e';
+
+        // Events Rate Chart (Line)
+        eventsRateChart = new Chart(eventsRateCanvas, {
+            type: 'line',
+            data: {
+                labels: eventsRateData.labels,
+                datasets: [
+                    {
+                        label: 'START',
+                        data: eventsRateData.start,
+                        borderColor: '#3fb950',
+                        backgroundColor: 'rgba(63, 185, 80, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'END',
+                        data: eventsRateData.end,
+                        borderColor: '#58a6ff',
+                        backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'PINNED',
+                        data: eventsRateData.pinned,
+                        borderColor: '#f85149',
+                        backgroundColor: 'rgba(248, 81, 73, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: textColor, boxWidth: 12, padding: 8, font: { size: 10 } }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+        // Active Threads Chart (Line)
+        activeThreadsChart = new Chart(activeThreadsCanvas, {
+            type: 'line',
+            data: {
+                labels: activeThreadsData.labels,
+                datasets: [{
+                    label: 'Active Threads',
+                    data: activeThreadsData.values,
+                    borderColor: '#a371f7',
+                    backgroundColor: 'rgba(163, 113, 247, 0.2)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        display: false
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+        // Duration Distribution Chart (Bar)
+        durationChart = new Chart(durationCanvas, {
+            type: 'bar',
+            data: {
+                labels: durationBuckets.labels,
+                datasets: [{
+                    label: 'Threads',
+                    data: durationBuckets.values,
+                    backgroundColor: [
+                        'rgba(63, 185, 80, 0.7)',
+                        'rgba(88, 166, 255, 0.7)',
+                        'rgba(163, 113, 247, 0.7)',
+                        'rgba(210, 153, 34, 0.7)',
+                        'rgba(248, 81, 73, 0.7)',
+                        'rgba(248, 81, 73, 0.8)',
+                        'rgba(248, 81, 73, 0.9)'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: textColor, font: { size: 9 } }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Update charts every second
+    function updateCharts() {
+        const now = Math.floor(Date.now() / 1000);
+        const timeLabel = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        // If we've moved to a new second, push the current counts
+        if (now > lastSecondTimestamp) {
+            // Add data points
+            eventsRateData.labels.push(timeLabel);
+            eventsRateData.start.push(currentSecondEvents.start);
+            eventsRateData.end.push(currentSecondEvents.end);
+            eventsRateData.pinned.push(currentSecondEvents.pinned);
+
+            activeThreadsData.labels.push(timeLabel);
+            activeThreadsData.values.push(counts.active);
+
+            // Keep only last N data points
+            while (eventsRateData.labels.length > chartDataPoints) {
+                eventsRateData.labels.shift();
+                eventsRateData.start.shift();
+                eventsRateData.end.shift();
+                eventsRateData.pinned.shift();
+            }
+            while (activeThreadsData.labels.length > chartDataPoints) {
+                activeThreadsData.labels.shift();
+                activeThreadsData.values.shift();
+            }
+
+            // Reset counters for next second
+            currentSecondEvents = { start: 0, end: 0, pinned: 0 };
+            lastSecondTimestamp = now;
+        }
+
+        // Update chart displays
+        if (eventsRateChart) eventsRateChart.update('none');
+        if (activeThreadsChart) activeThreadsChart.update('none');
+        if (durationChart) durationChart.update('none');
+    }
+
+    // Track event for charts
+    function trackEventForCharts(event) {
+        // Count events per second
+        if (event.type === 'START') {
+            currentSecondEvents.start++;
+        } else if (event.type === 'END') {
+            currentSecondEvents.end++;
+            // Track duration for histogram
+            const thread = activeThreads.get(event.threadId);
+            if (thread && thread.startTime) {
+                const durationMs = new Date(event.timestamp) - thread.startTime;
+                addToDurationBucket(durationMs);
+            }
+        } else if (event.type === 'PINNED') {
+            currentSecondEvents.pinned++;
+        }
+    }
+
+    // Add duration to appropriate bucket
+    function addToDurationBucket(durationMs) {
+        if (durationMs < 10) {
+            durationBuckets.values[0]++;
+        } else if (durationMs < 50) {
+            durationBuckets.values[1]++;
+        } else if (durationMs < 100) {
+            durationBuckets.values[2]++;
+        } else if (durationMs < 500) {
+            durationBuckets.values[3]++;
+        } else if (durationMs < 1000) {
+            durationBuckets.values[4]++;
+        } else if (durationMs < 5000) {
+            durationBuckets.values[5]++;
+        } else {
+            durationBuckets.values[6]++;
+        }
+    }
+
     // Initialize
+    initCharts();
     connect();
     fetchMetrics(); // Initial fetch
     fetchActiveThreads(); // Restore active threads state
@@ -518,4 +1036,5 @@
     // Periodically sync with server
     setInterval(fetchMetrics, 1000);
     setInterval(fetchActiveThreads, 2000); // Sync active threads less frequently
+    setInterval(updateCharts, 1000); // Update charts every second
 })();

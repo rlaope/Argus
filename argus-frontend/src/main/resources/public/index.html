@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Argus - Virtual Thread Profiler</title>
     <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <header>
@@ -13,6 +14,7 @@
             <h1>Argus</h1>
         </div>
         <div class="header-actions">
+            <button id="thread-dump-btn" class="btn" title="Capture Thread Dump">Thread Dump</button>
             <button id="help-btn" class="btn btn-icon" title="Help">?</button>
             <div id="connection-status" class="status disconnected">
                 <span class="status-dot"></span>
@@ -43,6 +45,39 @@
             <div class="metric-card alert" data-tooltip="CRITICAL: Threads blocked by synchronized/native code. High count indicates performance issues!">
                 <h3>Pinned</h3>
                 <div class="metric-value" id="pinned-events">0</div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Events Rate</h3>
+                        <span class="chart-subtitle">events/sec over last 60s</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="events-rate-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Active Threads</h3>
+                        <span class="chart-subtitle">concurrent threads over last 60s</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="active-threads-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Thread Duration Distribution</h3>
+                        <span class="chart-subtitle">lifetime of completed threads</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="duration-chart"></canvas>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -89,6 +124,69 @@
             </div>
         </section>
     </main>
+
+    <!-- Thread Detail Modal -->
+    <div id="thread-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content thread-detail-modal">
+            <div class="modal-header">
+                <h2>Thread Details</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="thread-detail-header">
+                    <div class="thread-detail-name" id="modal-thread-name">-</div>
+                    <div class="thread-detail-id">ID: <span id="modal-thread-id">-</span></div>
+                </div>
+                <div class="thread-detail-stats">
+                    <div class="thread-stat">
+                        <span class="thread-stat-label">Status</span>
+                        <span class="thread-stat-value" id="modal-thread-status">-</span>
+                    </div>
+                    <div class="thread-stat">
+                        <span class="thread-stat-label">Duration</span>
+                        <span class="thread-stat-value" id="modal-thread-duration">-</span>
+                    </div>
+                    <div class="thread-stat">
+                        <span class="thread-stat-label">Events</span>
+                        <span class="thread-stat-value" id="modal-event-count">-</span>
+                    </div>
+                </div>
+                <div class="thread-events-section">
+                    <h3>Event Timeline</h3>
+                    <div id="modal-events-list" class="thread-events-list">
+                        <div class="loading">Loading events...</div>
+                    </div>
+                </div>
+                <div class="thread-dump-action">
+                    <button id="modal-dump-btn" class="btn btn-primary">Capture Stack Trace</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dump View Modal -->
+    <div id="dump-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content dump-view-modal">
+            <div class="modal-header">
+                <h2 id="dump-modal-title">Thread Dump</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="dump-info">
+                    <span id="dump-timestamp">-</span>
+                    <span id="dump-thread-count">-</span>
+                </div>
+                <div class="dump-actions">
+                    <button id="dump-copy-btn" class="btn">Copy to Clipboard</button>
+                </div>
+                <div class="dump-content">
+                    <pre id="dump-output">Loading...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Help Modal -->
     <div id="help-modal" class="modal hidden">
