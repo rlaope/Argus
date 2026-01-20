@@ -11,3 +11,4 @@ include("argus-frontend")
 
 // Sample projects
 include("samples:virtual-thread-demo")
+include("samples:virtual-thread-simulation")
