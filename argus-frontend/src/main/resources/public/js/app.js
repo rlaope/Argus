@@ -38,7 +38,8 @@
         START: 0,
         END: 0,
         PINNED: 0,
-        SUBMIT_FAILED: 0
+        SUBMIT_FAILED: 0,
+        active: 0
     };
 
     // Active threads map: threadId -> { threadName, carrierThread, startTime, isPinned, endTime, status }
@@ -172,11 +173,31 @@
         totalEventsEl.textContent = formatNumber(counts.total);
         startEventsEl.textContent = formatNumber(counts.START);
         endEventsEl.textContent = formatNumber(counts.END);
-        activeThreadsEl.textContent = formatNumber(activeThreads.size);
+        activeThreadsEl.textContent = formatNumber(counts.active);
         pinnedEventsEl.textContent = formatNumber(counts.PINNED);
 
         if (counts.PINNED > 0) {
             pinnedCard.classList.add('has-pinned');
+        }
+    }
+
+    // Fetch metrics from HTTP endpoint to sync with server state
+    async function fetchMetrics() {
+        try {
+            const response = await fetch('/metrics');
+            if (response.ok) {
+                const data = await response.json();
+                // Update counts from server metrics
+                counts.total = data.totalEvents || 0;
+                counts.START = data.startEvents || 0;
+                counts.END = data.endEvents || 0;
+                counts.PINNED = data.pinnedEvents || 0;
+                counts.SUBMIT_FAILED = data.submitFailedEvents || 0;
+                counts.active = data.activeThreads || 0;
+                updateCounters();
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to fetch metrics:', e);
         }
     }
 
@@ -426,17 +447,15 @@
 
     function clearEvents() {
         eventsLog.innerHTML = '<div class="event-placeholder">Waiting for virtual thread events...</div>';
-        counts.total = 0;
-        counts.START = 0;
-        counts.END = 0;
-        counts.PINNED = 0;
-        counts.SUBMIT_FAILED = 0;
+        // Note: Don't reset counts since they're synced from server
+        // Just clear local UI state
         activeThreads.clear();
         pinnedAlerts.length = 0;
-        updateCounters();
         updateThreadsView();
         updatePinnedSection();
         pinnedCard.classList.remove('has-pinned');
+        // Re-fetch metrics to restore accurate counts
+        fetchMetrics();
     }
 
     // Update thread view periodically to refresh durations
@@ -451,4 +470,8 @@
 
     // Initialize
     connect();
+    fetchMetrics(); // Initial fetch
+
+    // Periodically sync with server metrics
+    setInterval(fetchMetrics, 1000);
 })();

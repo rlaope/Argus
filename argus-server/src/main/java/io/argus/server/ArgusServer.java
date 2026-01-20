@@ -19,6 +19,10 @@ import io.netty.util.CharsetUtil;
 import io.netty.util.concurrent.GlobalEventExecutor;
 
 import java.io.InputStream;
+import java.util.Deque;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -53,6 +57,12 @@ public final class ArgusServer {
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(
             r -> Thread.ofPlatform().name("argus-server-scheduler").daemon(true).unstarted(r)
     );
+
+    // Track active threads for sending state to new clients
+    private final Map<Long, VirtualThreadEvent> activeThreads = new ConcurrentHashMap<>();
+    // Keep recent events for new clients (limited to 100)
+    private final Deque<String> recentEvents = new ConcurrentLinkedDeque<>();
+    private static final int MAX_RECENT_EVENTS = 100;
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
@@ -91,11 +101,11 @@ public final class ArgusServer {
                 .childOption(ChannelOption.SO_KEEPALIVE, true);
 
         serverChannel = bootstrap.bind(port).sync().channel();
-        LOG.log(System.Logger.Level.INFO, "Started on port {0}", port);
-        LOG.log(System.Logger.Level.INFO, "Dashboard: http://localhost:{0}/", port);
-        LOG.log(System.Logger.Level.INFO, "WebSocket endpoint: ws://localhost:{0}{1}", port, WEBSOCKET_PATH);
-        LOG.log(System.Logger.Level.INFO, "Metrics endpoint: http://localhost:{0}/metrics", port);
-        LOG.log(System.Logger.Level.INFO, "Health endpoint: http://localhost:{0}/health", port);
+        LOG.log(System.Logger.Level.INFO, "Started on port " + port);
+        LOG.log(System.Logger.Level.INFO, "Dashboard: http://localhost:" + port + "/");
+        LOG.log(System.Logger.Level.INFO, "WebSocket endpoint: ws://localhost:" + port + WEBSOCKET_PATH);
+        LOG.log(System.Logger.Level.INFO, "Metrics endpoint: http://localhost:" + port + "/metrics");
+        LOG.log(System.Logger.Level.INFO, "Health endpoint: http://localhost:" + port + "/health");
 
         // Start event broadcasting
         startEventBroadcaster();
@@ -111,15 +121,29 @@ public final class ArgusServer {
                 // Update metrics
                 totalEvents.incrementAndGet();
                 switch (event.eventType()) {
-                    case VIRTUAL_THREAD_START -> startEvents.incrementAndGet();
-                    case VIRTUAL_THREAD_END -> endEvents.incrementAndGet();
+                    case VIRTUAL_THREAD_START -> {
+                        startEvents.incrementAndGet();
+                        activeThreads.put(event.threadId(), event);
+                    }
+                    case VIRTUAL_THREAD_END -> {
+                        endEvents.incrementAndGet();
+                        activeThreads.remove(event.threadId());
+                    }
                     case VIRTUAL_THREAD_PINNED -> pinnedEvents.incrementAndGet();
                     case VIRTUAL_THREAD_SUBMIT_FAILED -> submitFailedEvents.incrementAndGet();
                 }
 
+                // Serialize event
+                String json = serializeEvent(event);
+
+                // Store in recent events
+                recentEvents.addLast(json);
+                while (recentEvents.size() > MAX_RECENT_EVENTS) {
+                    recentEvents.removeFirst();
+                }
+
                 // Broadcast to WebSocket clients
                 if (!clients.isEmpty()) {
-                    String json = serializeEvent(event);
                     TextWebSocketFrame frame = new TextWebSocketFrame(json);
                     clients.writeAndFlush(frame.retain());
                     frame.release();
@@ -165,6 +189,17 @@ public final class ArgusServer {
                 .replace("\n", "\\n")
                 .replace("\r", "\\r")
                 .replace("\t", "\\t");
+    }
+
+    /**
+     * Sends recent events to a newly connected WebSocket client.
+     */
+    private void sendRecentEvents(Channel channel) {
+        // Send all recent events to the client
+        for (String eventJson : recentEvents) {
+            channel.write(new TextWebSocketFrame(eventJson));
+        }
+        channel.flush();
     }
 
     /**
@@ -235,7 +270,7 @@ public final class ArgusServer {
                 long ended = endEvents.get();
                 long pinned = pinnedEvents.get();
                 long submitFailed = submitFailedEvents.get();
-                long active = Math.max(0, started - ended);
+                int active = activeThreads.size();
 
                 String response = String.format(
                         "{\"totalEvents\":%d,\"startEvents\":%d,\"endEvents\":%d,\"activeThreads\":%d,\"pinnedEvents\":%d,\"submitFailedEvents\":%d,\"connectedClients\":%d}",
@@ -255,10 +290,15 @@ public final class ArgusServer {
                 if (handshaker == null) {
                     WebSocketServerHandshakerFactory.sendUnsupportedVersionResponse(ctx.channel());
                 } else {
-                    handshaker.handshake(ctx.channel(), request);
-                    clients.add(ctx.channel());
-                    LOG.log(System.Logger.Level.DEBUG, "Client connected: {0} (total: {1})",
-                            ctx.channel().remoteAddress(), clients.size());
+                    handshaker.handshake(ctx.channel(), request).addListener(future -> {
+                        if (future.isSuccess()) {
+                            clients.add(ctx.channel());
+                            LOG.log(System.Logger.Level.DEBUG, "Client connected: {0} (total: {1})",
+                                    ctx.channel().remoteAddress(), clients.size());
+                            // Send recent events to the new client
+                            sendRecentEvents(ctx.channel());
+                        }
+                    });
                 }
                 return;
             }

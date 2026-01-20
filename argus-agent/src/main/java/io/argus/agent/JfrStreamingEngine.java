@@ -10,6 +10,8 @@ import jdk.jfr.consumer.RecordingStream;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -37,6 +39,7 @@ public final class JfrStreamingEngine {
     private final RingBuffer<VirtualThreadEvent> eventBuffer;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong eventsProcessed = new AtomicLong(0);
+    private final CountDownLatch startedLatch = new CountDownLatch(1);
 
     private volatile RecordingStream recordingStream;
     private volatile Thread streamThread;
@@ -46,7 +49,7 @@ public final class JfrStreamingEngine {
     }
 
     /**
-     * Starts the JFR streaming engine.
+     * Starts the JFR streaming engine and waits for it to be ready.
      */
     public void start() {
         if (!running.compareAndSet(false, true)) {
@@ -58,17 +61,26 @@ public final class JfrStreamingEngine {
                 .name("argus-jfr-stream")
                 .daemon(true)
                 .start(this::runStream);
+
+        // Wait for JFR streaming to actually start before returning
+        try {
+            if (!startedLatch.await(5, TimeUnit.SECONDS)) {
+                System.err.println("[Argus] Warning: JFR streaming startup timed out");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private void runStream() {
         try (RecordingStream rs = new RecordingStream()) {
             this.recordingStream = rs;
 
-            // Configure virtual thread events
-            rs.enable(EVENT_VIRTUAL_THREAD_START);
-            rs.enable(EVENT_VIRTUAL_THREAD_END);
-            rs.enable(EVENT_VIRTUAL_THREAD_PINNED).withStackTrace();
-            rs.enable(EVENT_VIRTUAL_THREAD_SUBMIT_FAILED);
+            // Configure virtual thread events with zero threshold for immediate recording
+            rs.enable(EVENT_VIRTUAL_THREAD_START).withoutThreshold();
+            rs.enable(EVENT_VIRTUAL_THREAD_END).withoutThreshold();
+            rs.enable(EVENT_VIRTUAL_THREAD_PINNED).withStackTrace().withoutThreshold();
+            rs.enable(EVENT_VIRTUAL_THREAD_SUBMIT_FAILED).withoutThreshold();
 
             // Set streaming interval for low latency
             rs.setMaxAge(Duration.ofSeconds(10));
@@ -81,7 +93,15 @@ public final class JfrStreamingEngine {
             rs.onEvent(EVENT_VIRTUAL_THREAD_SUBMIT_FAILED, this::handleVirtualThreadSubmitFailed);
 
             System.out.println("[Argus] JFR streaming started");
-            rs.start();
+            rs.startAsync();
+
+            // Signal that JFR streaming is ready
+            startedLatch.countDown();
+
+            // Keep running while not stopped
+            while (running.get()) {
+                rs.awaitTermination(Duration.ofMillis(100));
+            }
 
         } catch (Exception e) {
             System.err.println("[Argus] JFR streaming error: " + e.getMessage());
