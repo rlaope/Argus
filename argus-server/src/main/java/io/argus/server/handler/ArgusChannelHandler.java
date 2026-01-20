@@ -79,6 +79,13 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
+        // Active threads endpoint
+        if ("/active-threads".equals(uri)) {
+            String json = serializeActiveThreads();
+            HttpResponseHelper.sendJson(ctx, request, json);
+            return;
+        }
+
         // WebSocket upgrade
         if (WEBSOCKET_PATH.equals(uri)) {
             handleWebSocketUpgrade(ctx, request);
@@ -139,6 +146,42 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         clients.remove(ctx.channel());
         LOG.log(System.Logger.Level.DEBUG, "Client disconnected: {0} (total: {1})",
                 ctx.channel().remoteAddress(), clients.size());
+    }
+
+    private String serializeActiveThreads() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("[");
+        boolean first = true;
+        for (var event : activeThreads.getAll()) {
+            if (!first) {
+                sb.append(",");
+            }
+            first = false;
+            sb.append("{");
+            sb.append("\"threadId\":").append(event.threadId()).append(",");
+            if (event.threadName() != null) {
+                sb.append("\"threadName\":\"").append(escapeJson(event.threadName())).append("\",");
+            }
+            if (event.carrierThread() > 0) {
+                sb.append("\"carrierThread\":").append(event.carrierThread()).append(",");
+            }
+            sb.append("\"timestamp\":\"").append(event.timestamp()).append("\"");
+            sb.append("}");
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    private String escapeJson(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 
     @Override

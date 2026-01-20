@@ -201,6 +201,48 @@
         }
     }
 
+    // Fetch active threads from server to restore state
+    async function fetchActiveThreads() {
+        try {
+            const response = await fetch('/active-threads');
+            if (response.ok) {
+                const threads = await response.json();
+                const serverThreadIds = new Set(threads.map(t => t.threadId));
+
+                // Add new threads from server
+                threads.forEach(thread => {
+                    const existing = activeThreads.get(thread.threadId);
+                    if (!existing) {
+                        activeThreads.set(thread.threadId, {
+                            threadName: thread.threadName || `Thread-${thread.threadId}`,
+                            carrierThread: thread.carrierThread,
+                            startTime: new Date(thread.timestamp),
+                            isPinned: false,
+                            status: 'running',
+                            endTime: null
+                        });
+                    } else if (existing.status === 'ended') {
+                        // Server says it's still running, update status
+                        existing.status = 'running';
+                        existing.endTime = null;
+                    }
+                });
+
+                // Mark threads as ended if they're not on server anymore
+                for (const [threadId, thread] of activeThreads) {
+                    if (thread.status === 'running' && !serverThreadIds.has(threadId)) {
+                        thread.status = 'ended';
+                        thread.endTime = Date.now();
+                    }
+                }
+
+                updateThreadsView();
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to fetch active threads:', e);
+        }
+    }
+
     function formatNumber(num) {
         if (num >= 1000000) {
             return (num / 1000000).toFixed(1) + 'M';
@@ -471,7 +513,9 @@
     // Initialize
     connect();
     fetchMetrics(); // Initial fetch
+    fetchActiveThreads(); // Restore active threads state
 
-    // Periodically sync with server metrics
+    // Periodically sync with server
     setInterval(fetchMetrics, 1000);
+    setInterval(fetchActiveThreads, 2000); // Sync active threads less frequently
 })();
