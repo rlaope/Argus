@@ -23,8 +23,14 @@ java -version
 Download the latest release from the [Releases page](https://github.com/rlaope/argus/releases).
 
 ```bash
-# Download the agent JAR
+# Download the latest agent JAR
 curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent.jar
+
+# Or download a specific version
+curl -LO https://github.com/rlaope/argus/releases/download/v0.1.0/argus-agent.jar
+
+# Optional: Download server JAR (if not using embedded server)
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-server.jar
 ```
 
 ### Option 2: Build from Source

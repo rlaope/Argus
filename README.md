@@ -16,30 +16,63 @@ A next-generation real-time visualization profiler for JVM 21+ environments, foc
 ## Requirements
 
 - Java 21+
-- Gradle 8.4+
+- Gradle 8.4+ (only if building from source)
 
-## Quick Start
+## Installation
 
-### Build
+### Option 1: Download via curl (Recommended)
 
 ```bash
-./gradlew build
+# Download the latest agent JAR
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent.jar
+
+# Or download a specific version
+curl -LO https://github.com/rlaope/argus/releases/download/v0.1.0/argus-agent.jar
 ```
+
+### Option 2: Build from Source
+
+```bash
+git clone https://github.com/rlaope/argus.git
+cd argus
+./gradlew build
+
+# JARs are located at:
+# argus-agent/build/libs/argus-agent-x.x.x-SNAPSHOT.jar
+# argus-server/build/libs/argus-server-x.x.x-SNAPSHOT.jar
+```
+
+## Quick Start
 
 ### Run with Java Agent
 
 ```bash
-java -javaagent:argus-agent/build/libs/argus-agent.jar \
+java -javaagent:argus-agent.jar \
      --enable-preview \
      -jar your-application.jar
+```
+
+### With Built-in Dashboard Server
+
+```bash
+java -javaagent:argus-agent.jar \
+     -Dargus.server.enabled=true \
+     --enable-preview \
+     -jar your-application.jar
+
+# Open dashboard: http://localhost:9202/
+# View metrics: curl http://localhost:9202/metrics
 ```
 
 ### Configuration
 
 The agent accepts the following system properties:
 
-- `argus.server.port` - WebSocket server port (default: 8080)
-- `argus.buffer.size` - Ring buffer size (default: 65536)
+| Property | Default | Description |
+|----------|---------|-------------|
+| `argus.server.enabled` | `false` | Enable built-in dashboard server |
+| `argus.server.port` | `9202` | Dashboard/WebSocket server port |
+| `argus.buffer.size` | `65536` | Ring buffer size for event collection |
 
 ## Architecture
 
