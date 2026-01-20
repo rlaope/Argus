@@ -1,11 +1,9 @@
-package io.argus.agent;
+package io.argus.agent.jfr;
 
 import io.argus.core.buffer.RingBuffer;
 import io.argus.core.event.VirtualThreadEvent;
 
 import jdk.jfr.consumer.RecordedEvent;
-import jdk.jfr.consumer.RecordedStackTrace;
-import jdk.jfr.consumer.RecordedThread;
 import jdk.jfr.consumer.RecordingStream;
 
 import java.time.Duration;
@@ -23,11 +21,13 @@ import java.util.concurrent.atomic.AtomicLong;
  *
  * <p>Captured events:
  * <ul>
- *   <li>jdk.VirtualThreadStart - Thread creation</li>
- *   <li>jdk.VirtualThreadEnd - Thread termination</li>
- *   <li>jdk.VirtualThreadPinned - Pinning detection (critical for Loom)</li>
- *   <li>jdk.VirtualThreadSubmitFailed - Submit failures</li>
+ *   <li>{@code jdk.VirtualThreadStart} - Thread creation</li>
+ *   <li>{@code jdk.VirtualThreadEnd} - Thread termination</li>
+ *   <li>{@code jdk.VirtualThreadPinned} - Pinning detection (critical for Loom)</li>
+ *   <li>{@code jdk.VirtualThreadSubmitFailed} - Submit failures</li>
  * </ul>
+ *
+ * @see JfrEventExtractor
  */
 public final class JfrStreamingEngine {
 
@@ -37,6 +37,7 @@ public final class JfrStreamingEngine {
     private static final String EVENT_VIRTUAL_THREAD_SUBMIT_FAILED = "jdk.VirtualThreadSubmitFailed";
 
     private final RingBuffer<VirtualThreadEvent> eventBuffer;
+    private final JfrEventExtractor extractor;
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong eventsProcessed = new AtomicLong(0);
     private final CountDownLatch startedLatch = new CountDownLatch(1);
@@ -44,12 +45,21 @@ public final class JfrStreamingEngine {
     private volatile RecordingStream recordingStream;
     private volatile Thread streamThread;
 
+    /**
+     * Creates a new JFR streaming engine.
+     *
+     * @param eventBuffer the ring buffer to write events to
+     */
     public JfrStreamingEngine(RingBuffer<VirtualThreadEvent> eventBuffer) {
         this.eventBuffer = eventBuffer;
+        this.extractor = new JfrEventExtractor();
     }
 
     /**
      * Starts the JFR streaming engine and waits for it to be ready.
+     *
+     * <p>This method blocks until the JFR stream is actually started,
+     * ensuring events are captured from the moment the agent returns.
      */
     public void start() {
         if (!running.compareAndSet(false, true)) {
@@ -76,26 +86,16 @@ public final class JfrStreamingEngine {
         try (RecordingStream rs = new RecordingStream()) {
             this.recordingStream = rs;
 
-            // Configure virtual thread events with zero threshold for immediate recording
-            rs.enable(EVENT_VIRTUAL_THREAD_START).withoutThreshold();
-            rs.enable(EVENT_VIRTUAL_THREAD_END).withoutThreshold();
-            rs.enable(EVENT_VIRTUAL_THREAD_PINNED).withStackTrace().withoutThreshold();
-            rs.enable(EVENT_VIRTUAL_THREAD_SUBMIT_FAILED).withoutThreshold();
+            // Configure events
+            configureEvents(rs);
 
-            // Set streaming interval for low latency
-            rs.setMaxAge(Duration.ofSeconds(10));
-            rs.setMaxSize(10 * 1024 * 1024); // 10 MB
-
-            // Register event handlers
-            rs.onEvent(EVENT_VIRTUAL_THREAD_START, this::handleVirtualThreadStart);
-            rs.onEvent(EVENT_VIRTUAL_THREAD_END, this::handleVirtualThreadEnd);
-            rs.onEvent(EVENT_VIRTUAL_THREAD_PINNED, this::handleVirtualThreadPinned);
-            rs.onEvent(EVENT_VIRTUAL_THREAD_SUBMIT_FAILED, this::handleVirtualThreadSubmitFailed);
+            // Register handlers
+            registerEventHandlers(rs);
 
             System.out.println("[Argus] JFR streaming started");
             rs.startAsync();
 
-            // Signal that JFR streaming is ready
+            // Signal that streaming is ready
             startedLatch.countDown();
 
             // Keep running while not stopped
@@ -111,9 +111,28 @@ public final class JfrStreamingEngine {
         }
     }
 
-    private void handleVirtualThreadStart(RecordedEvent event) {
-        long threadId = getThreadId(event);
-        String threadName = getThreadName(event);
+    private void configureEvents(RecordingStream rs) {
+        // Enable virtual thread events with zero threshold for immediate recording
+        rs.enable(EVENT_VIRTUAL_THREAD_START).withoutThreshold();
+        rs.enable(EVENT_VIRTUAL_THREAD_END).withoutThreshold();
+        rs.enable(EVENT_VIRTUAL_THREAD_PINNED).withStackTrace().withoutThreshold();
+        rs.enable(EVENT_VIRTUAL_THREAD_SUBMIT_FAILED).withoutThreshold();
+
+        // Set buffer settings
+        rs.setMaxAge(Duration.ofSeconds(10));
+        rs.setMaxSize(10 * 1024 * 1024); // 10 MB
+    }
+
+    private void registerEventHandlers(RecordingStream rs) {
+        rs.onEvent(EVENT_VIRTUAL_THREAD_START, this::handleStart);
+        rs.onEvent(EVENT_VIRTUAL_THREAD_END, this::handleEnd);
+        rs.onEvent(EVENT_VIRTUAL_THREAD_PINNED, this::handlePinned);
+        rs.onEvent(EVENT_VIRTUAL_THREAD_SUBMIT_FAILED, this::handleSubmitFailed);
+    }
+
+    private void handleStart(RecordedEvent event) {
+        long threadId = extractor.extractThreadId(event);
+        String threadName = extractor.extractThreadName(event);
         Instant timestamp = event.getStartTime();
 
         VirtualThreadEvent vtEvent = VirtualThreadEvent.start(threadId, threadName, timestamp);
@@ -121,9 +140,9 @@ public final class JfrStreamingEngine {
         eventsProcessed.incrementAndGet();
     }
 
-    private void handleVirtualThreadEnd(RecordedEvent event) {
-        long threadId = getThreadId(event);
-        String threadName = getThreadName(event);
+    private void handleEnd(RecordedEvent event) {
+        long threadId = extractor.extractThreadId(event);
+        String threadName = extractor.extractThreadName(event);
         Instant timestamp = event.getStartTime();
 
         VirtualThreadEvent vtEvent = VirtualThreadEvent.end(threadId, threadName, timestamp);
@@ -131,13 +150,13 @@ public final class JfrStreamingEngine {
         eventsProcessed.incrementAndGet();
     }
 
-    private void handleVirtualThreadPinned(RecordedEvent event) {
-        long threadId = getThreadId(event);
-        String threadName = getThreadName(event);
-        long carrierThread = getCarrierThreadId(event);
+    private void handlePinned(RecordedEvent event) {
+        long threadId = extractor.extractThreadId(event);
+        String threadName = extractor.extractThreadName(event);
+        long carrierThread = extractor.extractCarrierThreadId(event);
         Instant timestamp = event.getStartTime();
         long duration = event.getDuration().toNanos();
-        String stackTrace = formatStackTrace(event.getStackTrace());
+        String stackTrace = extractor.formatStackTrace(event.getStackTrace());
 
         VirtualThreadEvent vtEvent = VirtualThreadEvent.pinned(
                 threadId, threadName, carrierThread, timestamp, duration, stackTrace);
@@ -149,9 +168,9 @@ public final class JfrStreamingEngine {
                 threadId, carrierThread, duration);
     }
 
-    private void handleVirtualThreadSubmitFailed(RecordedEvent event) {
-        long threadId = getThreadId(event);
-        String threadName = getThreadName(event);
+    private void handleSubmitFailed(RecordedEvent event) {
+        long threadId = extractor.extractThreadId(event);
+        String threadName = extractor.extractThreadName(event);
         Instant timestamp = event.getStartTime();
 
         VirtualThreadEvent vtEvent = VirtualThreadEvent.submitFailed(threadId, threadName, timestamp);
@@ -159,79 +178,6 @@ public final class JfrStreamingEngine {
         eventsProcessed.incrementAndGet();
 
         System.out.printf("[Argus] SUBMIT_FAILED: thread=%d%n", threadId);
-    }
-
-    private long getThreadId(RecordedEvent event) {
-        // Try different field names for compatibility
-        try {
-            return event.getLong("javaThreadId");
-        } catch (Exception e1) {
-            try {
-                RecordedThread thread = event.getValue("eventThread");
-                if (thread != null) {
-                    return thread.getJavaThreadId();
-                }
-            } catch (Exception e2) {
-                // Fallback: try thread field
-                try {
-                    RecordedThread thread = event.getValue("thread");
-                    if (thread != null) {
-                        return thread.getJavaThreadId();
-                    }
-                } catch (Exception e3) {
-                    // ignore
-                }
-            }
-        }
-        return -1;
-    }
-
-    private String getThreadName(RecordedEvent event) {
-        try {
-            RecordedThread thread = event.getValue("eventThread");
-            if (thread != null) {
-                return thread.getJavaName();
-            }
-        } catch (Exception e1) {
-            try {
-                RecordedThread thread = event.getValue("thread");
-                if (thread != null) {
-                    return thread.getJavaName();
-                }
-            } catch (Exception e2) {
-                // ignore
-            }
-        }
-        return null;
-    }
-
-    private long getCarrierThreadId(RecordedEvent event) {
-        try {
-            RecordedThread carrier = event.getValue("carrierThread");
-            if (carrier != null) {
-                return carrier.getJavaThreadId();
-            }
-        } catch (Exception e) {
-            // ignore
-        }
-        return -1;
-    }
-
-    private String formatStackTrace(RecordedStackTrace stackTrace) {
-        if (stackTrace == null) {
-            return null;
-        }
-
-        StringBuilder sb = new StringBuilder();
-        stackTrace.getFrames().forEach(frame -> {
-            sb.append(frame.getMethod().getType().getName())
-                    .append(".")
-                    .append(frame.getMethod().getName())
-                    .append("(")
-                    .append(frame.getLineNumber())
-                    .append(")\n");
-        });
-        return sb.toString();
     }
 
     /**
@@ -261,6 +207,8 @@ public final class JfrStreamingEngine {
 
     /**
      * Returns true if the engine is running.
+     *
+     * @return true if running
      */
     public boolean isRunning() {
         return running.get();
@@ -268,6 +216,8 @@ public final class JfrStreamingEngine {
 
     /**
      * Returns the total number of events processed.
+     *
+     * @return event count
      */
     public long getEventsProcessed() {
         return eventsProcessed.get();
