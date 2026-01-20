@@ -7,6 +7,7 @@ rootProject.name = "argus"
 include("argus-core")
 include("argus-agent")
 include("argus-server")
+include("argus-frontend")
 
 // Sample projects
 include("samples:virtual-thread-demo")

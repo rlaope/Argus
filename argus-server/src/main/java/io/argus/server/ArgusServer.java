@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class ArgusServer {
 
+    private static final System.Logger LOG = System.getLogger(ArgusServer.class.getName());
     private static final int DEFAULT_PORT = 9202;
     private static final String WEBSOCKET_PATH = "/events";
 
@@ -90,11 +91,11 @@ public final class ArgusServer {
                 .childOption(ChannelOption.SO_KEEPALIVE, true);
 
         serverChannel = bootstrap.bind(port).sync().channel();
-        System.out.printf("[Argus Server] Started on port %d%n", port);
-        System.out.printf("[Argus Server] Dashboard: http://localhost:%d/%n", port);
-        System.out.printf("[Argus Server] WebSocket endpoint: ws://localhost:%d%s%n", port, WEBSOCKET_PATH);
-        System.out.printf("[Argus Server] Metrics endpoint: http://localhost:%d/metrics%n", port);
-        System.out.printf("[Argus Server] Health endpoint: http://localhost:%d/health%n", port);
+        LOG.log(System.Logger.Level.INFO, "Started on port {0}", port);
+        LOG.log(System.Logger.Level.INFO, "Dashboard: http://localhost:{0}/", port);
+        LOG.log(System.Logger.Level.INFO, "WebSocket endpoint: ws://localhost:{0}{1}", port, WEBSOCKET_PATH);
+        LOG.log(System.Logger.Level.INFO, "Metrics endpoint: http://localhost:{0}/metrics", port);
+        LOG.log(System.Logger.Level.INFO, "Health endpoint: http://localhost:{0}/health", port);
 
         // Start event broadcasting
         startEventBroadcaster();
@@ -187,7 +188,7 @@ public final class ArgusServer {
             workerGroup.shutdownGracefully();
         }
 
-        System.out.println("[Argus Server] Stopped");
+        LOG.log(System.Logger.Level.INFO, "Stopped");
     }
 
     /**
@@ -256,7 +257,7 @@ public final class ArgusServer {
                 } else {
                     handshaker.handshake(ctx.channel(), request);
                     clients.add(ctx.channel());
-                    System.out.printf("[Argus Server] Client connected: %s (total: %d)%n",
+                    LOG.log(System.Logger.Level.DEBUG, "Client connected: {0} (total: {1})",
                             ctx.channel().remoteAddress(), clients.size());
                 }
                 return;
@@ -308,7 +309,7 @@ public final class ArgusServer {
                 }
                 return true;
             } catch (Exception e) {
-                System.err.printf("[Argus Server] Error serving static file %s: %s%n", uri, e.getMessage());
+                LOG.log(System.Logger.Level.WARNING, "Error serving static file {0}: {1}", uri, e.getMessage());
                 return false;
             }
         }
@@ -351,13 +352,13 @@ public final class ArgusServer {
         @Override
         public void channelInactive(ChannelHandlerContext ctx) {
             clients.remove(ctx.channel());
-            System.out.printf("[Argus Server] Client disconnected: %s (total: %d)%n",
+            LOG.log(System.Logger.Level.DEBUG, "Client disconnected: {0} (total: {1})",
                     ctx.channel().remoteAddress(), clients.size());
         }
 
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-            System.err.printf("[Argus Server] Error: %s%n", cause.getMessage());
+            LOG.log(System.Logger.Level.WARNING, "Connection error: {0}", cause.getMessage());
             ctx.close();
         }
     }

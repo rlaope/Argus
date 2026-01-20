@@ -43,3 +43,8 @@ LICENSE text
 *.gif binary
 *.ico binary
 *.pdf binary
+
+# Frontend files - exclude from GitHub language statistics
+*.html linguist-vendored
+*.css linguist-vendored
+*.js linguist-vendored
