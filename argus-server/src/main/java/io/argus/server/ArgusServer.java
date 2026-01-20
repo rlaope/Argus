@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * WebSocket server for streaming virtual thread events to clients.
@@ -31,17 +32,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <ul>
  *   <li>ws://host:port/events - WebSocket stream of events</li>
  *   <li>GET /health - Health check endpoint</li>
+ *   <li>GET /metrics - Metrics endpoint (JSON)</li>
  * </ul>
  */
 public final class ArgusServer {
 
-    private static final int DEFAULT_PORT = 8080;
+    private static final int DEFAULT_PORT = 9202;
     private static final String WEBSOCKET_PATH = "/events";
 
     private final int port;
     private final RingBuffer<VirtualThreadEvent> eventBuffer;
     private final ChannelGroup clients = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
     private final AtomicBoolean running = new AtomicBoolean(false);
+    private final AtomicLong totalEvents = new AtomicLong(0);
+    private final AtomicLong startEvents = new AtomicLong(0);
+    private final AtomicLong endEvents = new AtomicLong(0);
+    private final AtomicLong pinnedEvents = new AtomicLong(0);
+    private final AtomicLong submitFailedEvents = new AtomicLong(0);
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(
             r -> Thread.ofPlatform().name("argus-server-scheduler").daemon(true).unstarted(r)
     );
@@ -86,6 +93,7 @@ public final class ArgusServer {
         System.out.printf("[Argus Server] Started on port %d%n", port);
         System.out.printf("[Argus Server] Dashboard: http://localhost:%d/%n", port);
         System.out.printf("[Argus Server] WebSocket endpoint: ws://localhost:%d%s%n", port, WEBSOCKET_PATH);
+        System.out.printf("[Argus Server] Metrics endpoint: http://localhost:%d/metrics%n", port);
         System.out.printf("[Argus Server] Health endpoint: http://localhost:%d/health%n", port);
 
         // Start event broadcasting
@@ -94,15 +102,27 @@ public final class ArgusServer {
 
     private void startEventBroadcaster() {
         scheduler.scheduleAtFixedRate(() -> {
-            if (clients.isEmpty() || eventBuffer == null) {
+            if (eventBuffer == null) {
                 return;
             }
 
             eventBuffer.drain(event -> {
-                String json = serializeEvent(event);
-                TextWebSocketFrame frame = new TextWebSocketFrame(json);
-                clients.writeAndFlush(frame.retain());
-                frame.release();
+                // Update metrics
+                totalEvents.incrementAndGet();
+                switch (event.eventType()) {
+                    case VIRTUAL_THREAD_START -> startEvents.incrementAndGet();
+                    case VIRTUAL_THREAD_END -> endEvents.incrementAndGet();
+                    case VIRTUAL_THREAD_PINNED -> pinnedEvents.incrementAndGet();
+                    case VIRTUAL_THREAD_SUBMIT_FAILED -> submitFailedEvents.incrementAndGet();
+                }
+
+                // Broadcast to WebSocket clients
+                if (!clients.isEmpty()) {
+                    String json = serializeEvent(event);
+                    TextWebSocketFrame frame = new TextWebSocketFrame(json);
+                    clients.writeAndFlush(frame.retain());
+                    frame.release();
+                }
             });
         }, 10, 10, TimeUnit.MILLISECONDS);
     }
@@ -203,6 +223,23 @@ public final class ArgusServer {
             // Handle health check
             if ("/health".equals(uri)) {
                 String response = "{\"status\":\"healthy\",\"clients\":" + clients.size() + "}";
+                sendHttpResponse(ctx, request, HttpResponseStatus.OK, response, "application/json");
+                return;
+            }
+
+            // Handle metrics endpoint
+            if ("/metrics".equals(uri)) {
+                long total = totalEvents.get();
+                long started = startEvents.get();
+                long ended = endEvents.get();
+                long pinned = pinnedEvents.get();
+                long submitFailed = submitFailedEvents.get();
+                long active = Math.max(0, started - ended);
+
+                String response = String.format(
+                        "{\"totalEvents\":%d,\"startEvents\":%d,\"endEvents\":%d,\"activeThreads\":%d,\"pinnedEvents\":%d,\"submitFailedEvents\":%d,\"connectedClients\":%d}",
+                        total, started, ended, active, pinned, submitFailed, clients.size()
+                );
                 sendHttpResponse(ctx, request, HttpResponseStatus.OK, response, "application/json");
                 return;
             }
