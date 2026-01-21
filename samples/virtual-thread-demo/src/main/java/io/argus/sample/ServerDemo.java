@@ -16,10 +16,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  *   ./gradlew :samples:virtual-thread-demo:runServerDemo
  *
  * Then connect via WebSocket:
- *   wscat -c ws://localhost:8080/events
+ *   wscat -c ws://localhost:9202/events
  *
  * Or check health:
- *   curl http://localhost:8080/health
+ *   curl http://localhost:9202/health
  */
 public class ServerDemo {
 
@@ -32,8 +32,8 @@ public class ServerDemo {
         System.out.println("=".repeat(60));
         System.out.println();
         System.out.println("Server endpoints:");
-        System.out.println("  - WebSocket: ws://localhost:8080/events");
-        System.out.println("  - Health:    http://localhost:8080/health");
+        System.out.println("  - WebSocket: ws://localhost:9202/events");
+        System.out.println("  - Health:    http://localhost:9202/health");
         System.out.println();
         System.out.println("Press Enter to stop...");
         System.out.println();

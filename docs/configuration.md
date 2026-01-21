@@ -10,7 +10,7 @@ The Argus agent is configured via Java system properties.
 
 | Property | Default | Description |
 |----------|---------|-------------|
-| `argus.server.port` | `8080` | WebSocket server port |
+| `argus.server.port` | `9202` | WebSocket server port |
 | `argus.buffer.size` | `65536` | Ring buffer size for event collection |
 
 ### Setting Properties
@@ -97,14 +97,14 @@ For production environments, consider:
        ssl_certificate_key /path/to/key.pem;
 
        location /events {
-           proxy_pass http://localhost:8080;
+           proxy_pass http://localhost:9202;
            proxy_http_version 1.1;
            proxy_set_header Upgrade $http_upgrade;
            proxy_set_header Connection "upgrade";
        }
 
        location /health {
-           proxy_pass http://localhost:8080;
+           proxy_pass http://localhost:9202;
        }
    }
    ```
@@ -134,7 +134,7 @@ FROM eclipse-temurin:21-jre
 COPY argus-agent.jar /opt/argus/
 COPY your-application.jar /app/
 
-ENV ARGUS_PORT=8080
+ENV ARGUS_PORT=9202
 ENV ARGUS_BUFFER_SIZE=65536
 
 EXPOSE ${ARGUS_PORT}
@@ -156,9 +156,9 @@ services:
   app:
     build: .
     ports:
-      - "8080:8080"
+      - "9202:9202"
     environment:
-      - ARGUS_PORT=8080
+      - ARGUS_PORT=9202
       - ARGUS_BUFFER_SIZE=131072
 ```
 
@@ -181,11 +181,11 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: "-javaagent:/opt/argus/argus-agent.jar --enable-preview"
             - name: ARGUS_SERVER_PORT
-              value: "8080"
+              value: "9202"
             - name: ARGUS_BUFFER_SIZE
               value: "65536"
           ports:
-            - containerPort: 8080
+            - containerPort: 9202
               name: argus
           livenessProbe:
             httpGet:

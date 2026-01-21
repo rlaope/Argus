@@ -81,6 +81,21 @@
             </div>
         </section>
 
+        <!-- Pinning Hotspots Section -->
+        <section id="hotspots-section" class="hotspots-section">
+            <div class="section-header">
+                <h2>Pinning Hotspots</h2>
+                <button id="refresh-hotspots" class="btn btn-small">Refresh</button>
+            </div>
+            <div class="hotspots-summary">
+                <span>Total Pinned: <strong id="hotspots-total">0</strong></span>
+                <span>Unique Locations: <strong id="hotspots-unique">0</strong></span>
+            </div>
+            <div id="hotspots-list" class="hotspots-list">
+                <div class="empty-state">No pinning events detected yet</div>
+            </div>
+        </section>
+
         <!-- Pinned Alerts Section -->
         <section id="pinned-section" class="pinned-section hidden">
             <div class="section-header">
@@ -242,6 +257,6 @@
         <p>Argus Virtual Thread Profiler - Real-time JFR Event Monitoring</p>
     </footer>
 
-    <script src="/js/app.js"></script>
+    <script type="module" src="/js/app.js"></script>
 </body>
 </html>
