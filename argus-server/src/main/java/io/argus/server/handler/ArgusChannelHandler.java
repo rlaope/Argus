@@ -146,6 +146,8 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
                     clients.add(ctx.channel());
                     LOG.log(System.Logger.Level.DEBUG, "Client connected: {0} (total: {1})",
                             ctx.channel().remoteAddress(), clients.size());
+                    // Send current thread state to the new client
+                    broadcaster.sendCurrentState(ctx.channel());
                     // Send recent events to the new client
                     broadcaster.sendRecentEvents(ctx.channel());
                 }

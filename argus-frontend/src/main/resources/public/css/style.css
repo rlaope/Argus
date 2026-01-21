@@ -550,10 +550,105 @@ main {
     min-height: 300px;
     max-height: 500px;
     overflow-y: auto;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 1rem;
-    align-content: start;
+}
+
+/* Thread State Sections */
+.thread-state-section {
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.thread-state-section.pinned {
+    border: 1px solid var(--accent-red);
+    background-color: rgba(248, 81, 73, 0.05);
+}
+
+.thread-state-section.running {
+    border: 1px solid var(--accent-green);
+}
+
+.thread-state-section.ended {
+    border: 1px solid var(--border-color);
+    opacity: 0.8;
+}
+
+.thread-state-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.state-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.state-indicator.running {
+    background-color: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+}
+
+.state-indicator.pinned {
+    background-color: var(--accent-red);
+    box-shadow: 0 0 6px var(--accent-red);
+    animation: pulse 1s infinite;
+}
+
+.state-indicator.ended {
+    background-color: var(--text-secondary);
+}
+
+.state-title {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.thread-state-section.pinned .state-title {
+    color: var(--accent-red);
+}
+
+.thread-state-section.running .state-title {
+    color: var(--accent-green);
+}
+
+.thread-state-section.ended .state-title {
+    color: var(--text-secondary);
+}
+
+.state-count {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background-color: var(--bg-tertiary);
+    padding: 0.125rem 0.5rem;
+    border-radius: 10px;
+}
+
+.thread-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.75rem;
+    padding: 0.75rem;
+}
+
+.thread-duration-fill.running {
+    background-color: var(--accent-green);
+}
+
+.thread-duration-fill.pinned {
+    background-color: var(--accent-red);
+}
+
+.thread-duration-fill.ended {
+    background-color: var(--text-secondary);
 }
 
 .empty-state {
