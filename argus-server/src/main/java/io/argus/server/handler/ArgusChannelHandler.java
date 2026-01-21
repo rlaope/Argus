@@ -111,6 +111,12 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
+        // Pinning analysis endpoint
+        if ("/pinning-analysis".equals(uri)) {
+            handlePinningAnalysis(ctx, request);
+            return;
+        }
+
         // WebSocket upgrade
         if (WEBSOCKET_PATH.equals(uri)) {
             handleWebSocketUpgrade(ctx, request);
@@ -274,6 +280,38 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         }
 
         sb.append("}");
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handlePinningAnalysis(ChannelHandlerContext ctx, FullHttpRequest request) {
+        var analysis = broadcaster.getPinningAnalyzer().getAnalysis();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"totalPinnedEvents\":").append(analysis.totalPinnedEvents()).append(",");
+        sb.append("\"uniqueStackTraces\":").append(analysis.uniqueStackTraces()).append(",");
+        sb.append("\"hotspots\":[");
+
+        boolean first = true;
+        for (var hotspot : analysis.hotspots()) {
+            if (!first) {
+                sb.append(",");
+            }
+            first = false;
+
+            sb.append("{");
+            sb.append("\"rank\":").append(hotspot.rank()).append(",");
+            sb.append("\"count\":").append(hotspot.count()).append(",");
+            sb.append("\"percentage\":").append(String.format("%.1f", hotspot.percentage())).append(",");
+            sb.append("\"stackTraceHash\":\"").append(hotspot.stackTraceHash()).append("\",");
+            sb.append("\"topFrame\":\"").append(escapeJson(hotspot.topFrame())).append("\",");
+            sb.append("\"fullStackTrace\":\"").append(escapeJson(hotspot.fullStackTrace())).append("\"");
+            sb.append("}");
+        }
+
+        sb.append("]");
+        sb.append("}");
+
         HttpResponseHelper.sendJson(ctx, request, sb.toString());
     }
 

@@ -71,7 +71,7 @@ The agent accepts the following system properties:
 | Property | Default | Description |
 |----------|---------|-------------|
 | `argus.server.enabled` | `false` | Enable built-in dashboard server |
-| `argus.server.port` | `9202` | Dashboard/WebSocket server port |
+| `argus.server.port` | `8080` | Dashboard/WebSocket server port |
 | `argus.buffer.size` | `65536` | Ring buffer size for event collection |
 
 ## Architecture

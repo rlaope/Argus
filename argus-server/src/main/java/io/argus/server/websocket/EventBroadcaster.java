@@ -2,6 +2,7 @@ package io.argus.server.websocket;
 
 import io.argus.core.buffer.RingBuffer;
 import io.argus.core.event.VirtualThreadEvent;
+import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.metrics.ServerMetrics;
 import io.argus.server.serialization.EventJsonSerializer;
 import io.argus.server.state.ActiveThreadsRegistry;
@@ -32,19 +33,21 @@ public final class EventBroadcaster {
     private final ActiveThreadsRegistry activeThreads;
     private final RecentEventsBuffer recentEvents;
     private final ThreadEventsBuffer threadEvents;
+    private final PinningAnalyzer pinningAnalyzer;
     private final EventJsonSerializer serializer;
     private final ScheduledExecutorService scheduler;
 
     /**
      * Creates an event broadcaster.
      *
-     * @param eventBuffer   the ring buffer to drain events from
-     * @param clients       the channel group of connected WebSocket clients
-     * @param metrics       the server metrics tracker
-     * @param activeThreads the active threads registry
-     * @param recentEvents  the recent events buffer
-     * @param threadEvents  the per-thread events buffer
-     * @param serializer    the event JSON serializer
+     * @param eventBuffer     the ring buffer to drain events from
+     * @param clients         the channel group of connected WebSocket clients
+     * @param metrics         the server metrics tracker
+     * @param activeThreads   the active threads registry
+     * @param recentEvents    the recent events buffer
+     * @param threadEvents    the per-thread events buffer
+     * @param pinningAnalyzer the pinning analyzer for hotspot detection
+     * @param serializer      the event JSON serializer
      */
     public EventBroadcaster(
             RingBuffer<VirtualThreadEvent> eventBuffer,
@@ -53,6 +56,7 @@ public final class EventBroadcaster {
             ActiveThreadsRegistry activeThreads,
             RecentEventsBuffer recentEvents,
             ThreadEventsBuffer threadEvents,
+            PinningAnalyzer pinningAnalyzer,
             EventJsonSerializer serializer) {
         this.eventBuffer = eventBuffer;
         this.clients = clients;
@@ -60,6 +64,7 @@ public final class EventBroadcaster {
         this.activeThreads = activeThreads;
         this.recentEvents = recentEvents;
         this.threadEvents = threadEvents;
+        this.pinningAnalyzer = pinningAnalyzer;
         this.serializer = serializer;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
                 r -> Thread.ofPlatform().name("argus-event-broadcaster").daemon(true).unstarted(r)
@@ -109,7 +114,10 @@ public final class EventBroadcaster {
                     metrics.incrementEnd();
                     activeThreads.unregister(event.threadId());
                 }
-                case VIRTUAL_THREAD_PINNED -> metrics.incrementPinned();
+                case VIRTUAL_THREAD_PINNED -> {
+                    metrics.incrementPinned();
+                    pinningAnalyzer.recordPinnedEvent(event);
+                }
                 case VIRTUAL_THREAD_SUBMIT_FAILED -> metrics.incrementSubmitFailed();
             }
 
@@ -141,5 +149,14 @@ public final class EventBroadcaster {
             channel.write(new TextWebSocketFrame(eventJson));
         }
         channel.flush();
+    }
+
+    /**
+     * Returns the pinning analyzer for hotspot analysis.
+     *
+     * @return the pinning analyzer
+     */
+    public PinningAnalyzer getPinningAnalyzer() {
+        return pinningAnalyzer;
     }
 }

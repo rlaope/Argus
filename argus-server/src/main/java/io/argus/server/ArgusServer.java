@@ -2,6 +2,7 @@ package io.argus.server;
 
 import io.argus.core.buffer.RingBuffer;
 import io.argus.core.event.VirtualThreadEvent;
+import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.handler.ArgusChannelHandler;
 import io.argus.server.metrics.ServerMetrics;
 import io.argus.server.serialization.EventJsonSerializer;
@@ -46,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class ArgusServer {
 
     private static final System.Logger LOG = System.getLogger(ArgusServer.class.getName());
-    private static final int DEFAULT_PORT = 9202;
+    private static final int DEFAULT_PORT = 8080;
     private static final String WEBSOCKET_PATH = "/events";
 
     private final int port;
@@ -59,6 +60,7 @@ public final class ArgusServer {
     private final ActiveThreadsRegistry activeThreads = new ActiveThreadsRegistry();
     private final RecentEventsBuffer recentEvents = new RecentEventsBuffer();
     private final ThreadEventsBuffer threadEvents = new ThreadEventsBuffer();
+    private final PinningAnalyzer pinningAnalyzer = new PinningAnalyzer();
     private final EventJsonSerializer serializer = new EventJsonSerializer();
     private EventBroadcaster broadcaster;
 
@@ -90,7 +92,7 @@ public final class ArgusServer {
 
         // Initialize broadcaster
         broadcaster = new EventBroadcaster(
-                eventBuffer, clients, metrics, activeThreads, recentEvents, threadEvents, serializer);
+                eventBuffer, clients, metrics, activeThreads, recentEvents, threadEvents, pinningAnalyzer, serializer);
 
         // Initialize Netty
         bossGroup = new NioEventLoopGroup(1);
@@ -186,6 +188,15 @@ public final class ArgusServer {
      */
     public ActiveThreadsRegistry getActiveThreads() {
         return activeThreads;
+    }
+
+    /**
+     * Returns the pinning analyzer.
+     *
+     * @return pinning analyzer
+     */
+    public PinningAnalyzer getPinningAnalyzer() {
+        return pinningAnalyzer;
     }
 
     /**

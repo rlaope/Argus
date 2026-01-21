@@ -18,11 +18,11 @@ import java.util.concurrent.CountDownLatch;
  *   ./gradlew :samples:virtual-thread-simulation:runSimulation -Dduration=10
  *
  * Test with curl:
- *   curl http://localhost:9202/health
- *   curl http://localhost:9202/metrics
+ *   curl http://localhost:8080/health
+ *   curl http://localhost:8080/metrics
  *
  * Dashboard:
- *   http://localhost:9202/
+ *   http://localhost:8080/
  */
 public class ThreadSimulation {
 
@@ -35,13 +35,13 @@ public class ThreadSimulation {
         System.out.println("=".repeat(60));
         System.out.println();
         System.out.println("Endpoints:");
-        System.out.println("  - Dashboard: http://localhost:9202/");
-        System.out.println("  - Metrics:   http://localhost:9202/metrics");
-        System.out.println("  - Health:    http://localhost:9202/health");
-        System.out.println("  - WebSocket: ws://localhost:9202/events");
+        System.out.println("  - Dashboard: http://localhost:8080/");
+        System.out.println("  - Metrics:   http://localhost:8080/metrics");
+        System.out.println("  - Health:    http://localhost:8080/health");
+        System.out.println("  - WebSocket: ws://localhost:8080/events");
         System.out.println();
         System.out.println("Test with curl:");
-        System.out.println("  curl http://localhost:9202/metrics | jq");
+        System.out.println("  curl http://localhost:8080/metrics | jq");
         System.out.println();
 
         CountDownLatch startLatch = new CountDownLatch(1);

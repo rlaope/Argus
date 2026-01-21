@@ -23,7 +23,7 @@ import java.lang.instrument.Instrumentation;
  * <ul>
  *   <li>{@code -Dargus.buffer.size=65536} - Ring buffer size</li>
  *   <li>{@code -Dargus.server.enabled=true} - Enable dashboard server</li>
- *   <li>{@code -Dargus.server.port=9202} - Server port</li>
+ *   <li>{@code -Dargus.server.port=8080} - Server port</li>
  * </ul>
  *
  * @see AgentConfig

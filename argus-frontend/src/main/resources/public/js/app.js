@@ -48,6 +48,15 @@
     const dumpOutput = document.getElementById('dump-output');
     const threadDumpBtn = document.getElementById('thread-dump-btn');
 
+    // Hotspots elements
+    const hotspotsTotal = document.getElementById('hotspots-total');
+    const hotspotsUnique = document.getElementById('hotspots-unique');
+    const hotspotsList = document.getElementById('hotspots-list');
+    const refreshHotspotsBtn = document.getElementById('refresh-hotspots');
+
+    // Track expanded hotspots by hash
+    const expandedHotspots = new Set();
+
     // Current state for dump
     let currentDumpText = '';
 
@@ -355,6 +364,69 @@
         } catch (e) {
             console.error('[Argus] Failed to fetch active threads:', e);
         }
+    }
+
+    // Fetch pinning analysis
+    async function fetchPinningAnalysis() {
+        try {
+            const response = await fetch('/pinning-analysis');
+            if (response.ok) {
+                const data = await response.json();
+                renderHotspots(data);
+            }
+        } catch (e) {
+            console.error('[Argus] Failed to fetch pinning analysis:', e);
+        }
+    }
+
+    function renderHotspots(data) {
+        hotspotsTotal.textContent = formatNumber(data.totalPinnedEvents);
+        hotspotsUnique.textContent = data.uniqueStackTraces;
+
+        if (data.hotspots.length === 0) {
+            hotspotsList.innerHTML = '<div class="empty-state">No pinning events detected yet</div>';
+            return;
+        }
+
+        hotspotsList.innerHTML = data.hotspots.map(hotspot => {
+            const isExpanded = expandedHotspots.has(hotspot.stackTraceHash);
+            return `
+            <div class="hotspot-item" data-hash="${hotspot.stackTraceHash}">
+                <div class="hotspot-header">
+                    <div class="hotspot-rank">
+                        <span class="hotspot-rank-number">${hotspot.rank}</span>
+                        <span class="hotspot-count"><strong>${formatNumber(hotspot.count)}</strong> events</span>
+                    </div>
+                    <span class="hotspot-percentage">${hotspot.percentage}%</span>
+                </div>
+                <div class="hotspot-frame">${escapeHtml(hotspot.topFrame)}</div>
+                <button class="hotspot-toggle">${isExpanded ? 'Hide stack trace' : 'Show stack trace'}</button>
+                <div class="hotspot-stack${isExpanded ? ' expanded' : ''}">${escapeHtml(hotspot.fullStackTrace)}</div>
+            </div>
+        `}).join('');
+
+        // Add click handlers for toggle buttons
+        hotspotsList.querySelectorAll('.hotspot-toggle').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const item = this.closest('.hotspot-item');
+                const hash = item.dataset.hash;
+                const stack = this.nextElementSibling;
+                const isExpanded = stack.classList.toggle('expanded');
+                this.textContent = isExpanded ? 'Hide stack trace' : 'Show stack trace';
+                if (isExpanded) {
+                    expandedHotspots.add(hash);
+                } else {
+                    expandedHotspots.delete(hash);
+                }
+            });
+        });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     function formatNumber(num) {
@@ -1027,14 +1099,19 @@
         }
     }
 
+    // Hotspots refresh button
+    refreshHotspotsBtn.addEventListener('click', fetchPinningAnalysis);
+
     // Initialize
     initCharts();
     connect();
     fetchMetrics(); // Initial fetch
     fetchActiveThreads(); // Restore active threads state
+    fetchPinningAnalysis(); // Initial hotspots fetch
 
     // Periodically sync with server
     setInterval(fetchMetrics, 1000);
     setInterval(fetchActiveThreads, 2000); // Sync active threads less frequently
     setInterval(updateCharts, 1000); // Update charts every second
+    setInterval(fetchPinningAnalysis, 5000); // Update hotspots every 5 seconds
 })();
