@@ -80,7 +80,7 @@ This guide covers common issues and their solutions.
 **Solution**:
 ```bash
 # Check what's using the port
-lsof -i :8080
+lsof -i :9202
 
 # Use a different port
 java -Dargus.server.port=9090 -jar argus-server.jar
@@ -94,26 +94,26 @@ java -Dargus.server.port=9090 -jar argus-server.jar
 
 1. **Verify server is running**
    ```bash
-   curl http://localhost:8080/health
+   curl http://localhost:9202/health
    # Should return: {"status":"healthy","clients":0}
    ```
 
 2. **Check firewall settings**
    ```bash
    # macOS
-   sudo pfctl -sr | grep 8080
+   sudo pfctl -sr | grep 9202
 
    # Linux
-   sudo iptables -L -n | grep 8080
+   sudo iptables -L -n | grep 9202
    ```
 
 3. **Verify WebSocket URL**
    ```javascript
    // Correct
-   const ws = new WebSocket('ws://localhost:8080/events');
+   const ws = new WebSocket('ws://localhost:9202/events');
 
    // Wrong
-   const ws = new WebSocket('ws://localhost:8080/');  // Missing /events
+   const ws = new WebSocket('ws://localhost:9202/');  // Missing /events
    ```
 
 ### No Events in WebSocket
@@ -132,7 +132,7 @@ java -Dargus.server.port=9090 -jar argus-server.jar
 **Test with sample data**:
 ```bash
 # Send test message
-wscat -c ws://localhost:8080/events
+wscat -c ws://localhost:9202/events
 > ping
 < pong
 ```

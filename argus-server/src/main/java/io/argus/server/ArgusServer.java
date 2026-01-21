@@ -47,7 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class ArgusServer {
 
     private static final System.Logger LOG = System.getLogger(ArgusServer.class.getName());
-    private static final int DEFAULT_PORT = 8080;
+    private static final int DEFAULT_PORT = 9202;
     private static final String WEBSOCKET_PATH = "/events";
 
     private final int port;

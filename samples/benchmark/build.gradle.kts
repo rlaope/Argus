@@ -95,7 +95,7 @@ tasks.register<JavaExec>("runWithArgusServer") {
         "-Xmx512m",
         "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${agentVersion}.jar",
         "-Dargus.server.enabled=true",
-        "-Dargus.server.port=8080"
+        "-Dargus.server.port=9202"
     )
 
     systemProperty("benchmark.mode", "argus-server")

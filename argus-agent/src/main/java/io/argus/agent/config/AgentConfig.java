@@ -10,13 +10,13 @@ package io.argus.agent.config;
  * <ul>
  *   <li>{@code argus.buffer.size} - Ring buffer size (default: 65536)</li>
  *   <li>{@code argus.server.enabled} - Enable built-in server (default: true)</li>
- *   <li>{@code argus.server.port} - Server port (default: 8080)</li>
+ *   <li>{@code argus.server.port} - Server port (default: 9202)</li>
  * </ul>
  */
 public final class AgentConfig {
 
     private static final int DEFAULT_BUFFER_SIZE = 65536;
-    private static final int DEFAULT_SERVER_PORT = 8080;
+    private static final int DEFAULT_SERVER_PORT = 9202;
     private static final boolean DEFAULT_SERVER_ENABLED = true;
 
     private final int bufferSize;

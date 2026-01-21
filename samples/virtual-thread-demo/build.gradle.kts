@@ -66,7 +66,7 @@ tasks.register<JavaExec>("runWithServer") {
         "--enable-preview",
         "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
-        "-Dargus.server.port=8080"
+        "-Dargus.server.port=9202"
     )
 }
 
@@ -87,6 +87,6 @@ tasks.register<JavaExec>("runServerDemo") {
         "--enable-preview",
         "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
-        "-Dargus.server.port=8080"
+        "-Dargus.server.port=9202"
     )
 }

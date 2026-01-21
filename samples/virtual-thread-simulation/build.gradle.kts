@@ -52,7 +52,7 @@ tasks.register<JavaExec>("runSimulation") {
         "--enable-preview",
         "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
-        "-Dargus.server.port=8080"
+        "-Dargus.server.port=9202"
     )
 
     if (duration != null) {
