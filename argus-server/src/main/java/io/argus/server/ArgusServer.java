@@ -2,6 +2,7 @@ package io.argus.server;
 
 import io.argus.core.buffer.RingBuffer;
 import io.argus.core.event.VirtualThreadEvent;
+import io.argus.server.analysis.CarrierThreadAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.handler.ArgusChannelHandler;
 import io.argus.server.metrics.ServerMetrics;
@@ -62,6 +63,7 @@ public final class ArgusServer {
     private final RecentEventsBuffer recentEvents = new RecentEventsBuffer();
     private final ThreadEventsBuffer threadEvents = new ThreadEventsBuffer();
     private final PinningAnalyzer pinningAnalyzer = new PinningAnalyzer();
+    private final CarrierThreadAnalyzer carrierAnalyzer = new CarrierThreadAnalyzer();
     private final ThreadStateManager threadStateManager = new ThreadStateManager();
     private final EventJsonSerializer serializer = new EventJsonSerializer();
     private EventBroadcaster broadcaster;
@@ -95,7 +97,7 @@ public final class ArgusServer {
         // Initialize broadcaster
         broadcaster = new EventBroadcaster(
                 eventBuffer, clients, metrics, activeThreads, recentEvents, threadEvents,
-                pinningAnalyzer, threadStateManager, serializer);
+                pinningAnalyzer, carrierAnalyzer, threadStateManager, serializer);
 
         // Initialize Netty
         bossGroup = new NioEventLoopGroup(1);

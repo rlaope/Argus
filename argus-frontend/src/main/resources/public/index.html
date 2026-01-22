@@ -96,6 +96,22 @@
             </div>
         </section>
 
+        <!-- Carrier Threads Section -->
+        <section id="carrier-section" class="carrier-section">
+            <div class="section-header carrier-header">
+                <h2>Carrier Threads</h2>
+                <button id="refresh-carriers" class="btn btn-small">Refresh</button>
+            </div>
+            <div class="carrier-summary">
+                <span>Total Carriers: <strong id="carrier-total">0</strong></span>
+                <span>VThreads Handled: <strong id="carrier-vthreads">0</strong></span>
+                <span>Avg per Carrier: <strong id="carrier-avg">0</strong></span>
+            </div>
+            <div id="carrier-heatmap" class="carrier-heatmap">
+                <div class="empty-state">No carrier thread data yet</div>
+            </div>
+        </section>
+
         <!-- Pinned Alerts Section -->
         <section id="pinned-section" class="pinned-section hidden">
             <div class="section-header">
@@ -134,6 +150,79 @@
                     </label>
                 </div>
             </div>
+
+            <!-- Filter Panel -->
+            <div class="filter-panel">
+                <div class="filter-row">
+                    <!-- Thread Name Search -->
+                    <div class="filter-group search-group">
+                        <label for="thread-search">Thread Name</label>
+                        <div class="search-input-wrapper">
+                            <input type="text" id="thread-search" placeholder="Search threads...">
+                            <select id="search-mode" title="Search mode">
+                                <option value="contains">Contains</option>
+                                <option value="glob">Glob</option>
+                                <option value="regex">Regex</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Time Range Selector -->
+                    <div class="filter-group time-group">
+                        <label>Time Range</label>
+                        <div class="time-range-wrapper">
+                            <input type="datetime-local" id="time-from" title="From">
+                            <span class="time-separator">to</span>
+                            <input type="datetime-local" id="time-to" title="To">
+                            <button id="time-clear" class="btn btn-small" title="Clear time range">Clear</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <!-- Event Type Filters -->
+                    <div class="filter-group type-group">
+                        <label>Event Types</label>
+                        <div class="event-type-filters">
+                            <label class="type-checkbox start">
+                                <input type="checkbox" id="filter-start" checked>
+                                <span class="type-label">START</span>
+                            </label>
+                            <label class="type-checkbox end">
+                                <input type="checkbox" id="filter-end" checked>
+                                <span class="type-label">END</span>
+                            </label>
+                            <label class="type-checkbox pinned">
+                                <input type="checkbox" id="filter-pinned" checked>
+                                <span class="type-label">PINNED</span>
+                            </label>
+                            <label class="type-checkbox submit-failed">
+                                <input type="checkbox" id="filter-submit-failed" checked>
+                                <span class="type-label">SUBMIT_FAILED</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Filter Actions -->
+                    <div class="filter-group actions-group">
+                        <button id="apply-filters" class="btn btn-primary">Apply</button>
+                        <button id="reset-filters" class="btn">Reset</button>
+                        <button id="share-filters" class="btn btn-icon" title="Copy filter URL">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Status -->
+                <div id="filter-status" class="filter-status hidden">
+                    <span id="filter-count">0</span> events matching filters
+                    <span id="filter-info"></span>
+                </div>
+            </div>
+
             <div id="events-log" class="events-log">
                 <div class="event-placeholder">Waiting for virtual thread events...</div>
             </div>

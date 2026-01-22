@@ -2,6 +2,7 @@ package io.argus.server.websocket;
 
 import io.argus.core.buffer.RingBuffer;
 import io.argus.core.event.VirtualThreadEvent;
+import io.argus.server.analysis.CarrierThreadAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.metrics.ServerMetrics;
 import io.argus.server.serialization.EventJsonSerializer;
@@ -35,6 +36,7 @@ public final class EventBroadcaster {
     private final RecentEventsBuffer recentEvents;
     private final ThreadEventsBuffer threadEvents;
     private final PinningAnalyzer pinningAnalyzer;
+    private final CarrierThreadAnalyzer carrierAnalyzer;
     private final ThreadStateManager threadStateManager;
     private final EventJsonSerializer serializer;
     private final ScheduledExecutorService scheduler;
@@ -50,6 +52,7 @@ public final class EventBroadcaster {
      * @param recentEvents       the recent events buffer
      * @param threadEvents       the per-thread events buffer
      * @param pinningAnalyzer    the pinning analyzer for hotspot detection
+     * @param carrierAnalyzer    the carrier thread analyzer
      * @param threadStateManager the thread state manager for real-time state tracking
      * @param serializer         the event JSON serializer
      */
@@ -61,6 +64,7 @@ public final class EventBroadcaster {
             RecentEventsBuffer recentEvents,
             ThreadEventsBuffer threadEvents,
             PinningAnalyzer pinningAnalyzer,
+            CarrierThreadAnalyzer carrierAnalyzer,
             ThreadStateManager threadStateManager,
             EventJsonSerializer serializer) {
         this.eventBuffer = eventBuffer;
@@ -70,6 +74,7 @@ public final class EventBroadcaster {
         this.recentEvents = recentEvents;
         this.threadEvents = threadEvents;
         this.pinningAnalyzer = pinningAnalyzer;
+        this.carrierAnalyzer = carrierAnalyzer;
         this.threadStateManager = threadStateManager;
         this.serializer = serializer;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
@@ -127,16 +132,19 @@ public final class EventBroadcaster {
                     metrics.incrementStart();
                     activeThreads.register(event.threadId(), event);
                     threadStateManager.onThreadStart(event);
+                    carrierAnalyzer.onThreadStart(event);
                 }
                 case VIRTUAL_THREAD_END -> {
                     metrics.incrementEnd();
                     activeThreads.unregister(event.threadId());
                     threadStateManager.onThreadEnd(event);
+                    carrierAnalyzer.onThreadEnd(event);
                 }
                 case VIRTUAL_THREAD_PINNED -> {
                     metrics.incrementPinned();
                     pinningAnalyzer.recordPinnedEvent(event);
                     threadStateManager.onThreadPinned(event);
+                    carrierAnalyzer.onThreadPinned(event);
                 }
                 case VIRTUAL_THREAD_SUBMIT_FAILED -> metrics.incrementSubmitFailed();
             }
@@ -178,6 +186,15 @@ public final class EventBroadcaster {
      */
     public PinningAnalyzer getPinningAnalyzer() {
         return pinningAnalyzer;
+    }
+
+    /**
+     * Returns the carrier thread analyzer.
+     *
+     * @return the carrier thread analyzer
+     */
+    public CarrierThreadAnalyzer getCarrierAnalyzer() {
+        return carrierAnalyzer;
     }
 
     /**

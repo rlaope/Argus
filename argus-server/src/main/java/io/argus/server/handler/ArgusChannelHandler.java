@@ -117,6 +117,12 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
+        // Carrier threads analysis endpoint
+        if ("/carrier-threads".equals(uri)) {
+            handleCarrierThreads(ctx, request);
+            return;
+        }
+
         // WebSocket upgrade
         if (WEBSOCKET_PATH.equals(uri)) {
             handleWebSocketUpgrade(ctx, request);
@@ -282,6 +288,39 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         }
 
         sb.append("}");
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handleCarrierThreads(ChannelHandlerContext ctx, FullHttpRequest request) {
+        var analysis = broadcaster.getCarrierAnalyzer().getAnalysis();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"totalCarriers\":").append(analysis.totalCarriers()).append(",");
+        sb.append("\"totalVirtualThreadsHandled\":").append(analysis.totalVirtualThreadsHandled()).append(",");
+        sb.append("\"avgVirtualThreadsPerCarrier\":").append(analysis.avgVirtualThreadsPerCarrier()).append(",");
+        sb.append("\"carriers\":[");
+
+        boolean first = true;
+        for (var carrier : analysis.carriers()) {
+            if (!first) {
+                sb.append(",");
+            }
+            first = false;
+
+            sb.append("{");
+            sb.append("\"carrierId\":").append(carrier.carrierId()).append(",");
+            sb.append("\"totalVirtualThreads\":").append(carrier.totalVirtualThreads()).append(",");
+            sb.append("\"currentVirtualThreads\":").append(carrier.currentVirtualThreads()).append(",");
+            sb.append("\"pinnedEvents\":").append(carrier.pinnedEvents()).append(",");
+            sb.append("\"utilizationPercent\":").append(carrier.utilizationPercent()).append(",");
+            sb.append("\"lastActivity\":\"").append(carrier.lastActivity()).append("\"");
+            sb.append("}");
+        }
+
+        sb.append("]");
+        sb.append("}");
+
         HttpResponseHelper.sendJson(ctx, request, sb.toString());
     }
 
