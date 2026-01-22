@@ -397,150 +397,6 @@ main {
     font-size: 0.75rem;
 }
 
-/* Carrier Threads Section */
-.carrier-section {
-    background-color: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
-    overflow: hidden;
-}
-
-.carrier-section .section-header {
-    background-color: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
-    justify-content: space-between;
-}
-
-.carrier-section .section-header h2 {
-    color: var(--accent-purple);
-}
-
-.carrier-summary {
-    display: flex;
-    gap: 2rem;
-    padding: 0.75rem 1.5rem;
-    background-color: var(--bg-tertiary);
-    border-bottom: 1px solid var(--border-color);
-    font-size: 0.875rem;
-    color: var(--text-secondary);
-}
-
-.carrier-summary strong {
-    color: var(--text-primary);
-}
-
-.carrier-heatmap {
-    padding: 1rem;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 0.75rem;
-}
-
-.carrier-card {
-    background-color: var(--bg-tertiary);
-    border-radius: 8px;
-    padding: 1rem;
-    border-left: 4px solid var(--accent-purple);
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.carrier-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.carrier-card.high-utilization {
-    border-left-color: var(--accent-green);
-    background-color: rgba(63, 185, 80, 0.1);
-}
-
-.carrier-card.has-pinned {
-    border-left-color: var(--accent-red);
-    background-color: rgba(248, 81, 73, 0.1);
-}
-
-.carrier-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.75rem;
-}
-
-.carrier-id {
-    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--accent-purple);
-}
-
-.carrier-card.high-utilization .carrier-id {
-    color: var(--accent-green);
-}
-
-.carrier-card.has-pinned .carrier-id {
-    color: var(--accent-red);
-}
-
-.carrier-utilization {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.125rem 0.5rem;
-    border-radius: 4px;
-    background-color: rgba(163, 113, 247, 0.2);
-    color: var(--accent-purple);
-}
-
-.carrier-card.high-utilization .carrier-utilization {
-    background-color: rgba(63, 185, 80, 0.2);
-    color: var(--accent-green);
-}
-
-.carrier-stats {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    font-size: 0.75rem;
-}
-
-.carrier-stat {
-    display: flex;
-    justify-content: space-between;
-    color: var(--text-secondary);
-}
-
-.carrier-stat-value {
-    color: var(--text-primary);
-    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
-}
-
-.carrier-stat-value.pinned {
-    color: var(--accent-red);
-    font-weight: 600;
-}
-
-.carrier-utilization-bar {
-    height: 4px;
-    background-color: var(--bg-primary);
-    border-radius: 2px;
-    overflow: hidden;
-    margin-top: 0.5rem;
-}
-
-.carrier-utilization-fill {
-    height: 100%;
-    background-color: var(--accent-purple);
-    border-radius: 2px;
-    transition: width 0.3s;
-}
-
-.carrier-card.high-utilization .carrier-utilization-fill {
-    background-color: var(--accent-green);
-}
-
-.carrier-card.has-pinned .carrier-utilization-fill {
-    background-color: var(--accent-red);
-}
 
 /* Pinned Section */
 .pinned-section {
@@ -693,8 +549,8 @@ main {
 .threads-container {
     padding: 1rem;
     min-height: 300px;
-    max-height: 800px;
-    overflow-y: auto;
+    max-height: none;
+    overflow-y: visible;
     display: flex;
     flex-direction: column;
     gap: 1rem;
@@ -704,7 +560,6 @@ main {
 .thread-state-section {
     background-color: var(--bg-tertiary);
     border-radius: 8px;
-    overflow: hidden;
 }
 
 .thread-state-section.pinned {
@@ -782,6 +637,8 @@ main {
     grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 0.75rem;
     padding: 0.75rem;
+    max-height: 400px;
+    overflow-y: auto;
 }
 
 .thread-duration-fill.running {
@@ -801,6 +658,16 @@ main {
     text-align: center;
     color: var(--text-secondary);
     padding: 3rem;
+}
+
+.empty-state p {
+    margin: 0.5rem 0;
+}
+
+.empty-state-note {
+    font-size: 0.75rem;
+    opacity: 0.7;
+    font-style: italic;
 }
 
 .thread-card {

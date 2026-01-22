@@ -76,12 +76,6 @@ const elements = {
     hotspotsList: document.getElementById('hotspots-list'),
     refreshHotspotsBtn: document.getElementById('refresh-hotspots'),
 
-    // Carrier threads
-    carrierTotal: document.getElementById('carrier-total'),
-    carrierVthreads: document.getElementById('carrier-vthreads'),
-    carrierAvg: document.getElementById('carrier-avg'),
-    carrierHeatmap: document.getElementById('carrier-heatmap'),
-    refreshCarriersBtn: document.getElementById('refresh-carriers'),
 
     // Help modal
     helpBtn: document.getElementById('help-btn'),
@@ -134,13 +128,11 @@ function init() {
     // Initial data fetch
     fetchMetrics();
     fetchPinningAnalysis();
-    fetchCarrierThreads();
 
     // Setup periodic updates
     setInterval(updateCharts, 1000);
     setInterval(fetchMetrics, 1000);
     setInterval(fetchPinningAnalysis, 5000);
-    setInterval(fetchCarrierThreads, 3000);
     setInterval(() => {
         renderThreadStateView(elements.threadsContainer, elements.threadCount);
     }, 1000);
@@ -181,8 +173,6 @@ function setupEventListeners() {
     // Hotspots refresh
     elements.refreshHotspotsBtn.addEventListener('click', fetchPinningAnalysis);
 
-    // Carrier refresh
-    elements.refreshCarriersBtn.addEventListener('click', fetchCarrierThreads);
 }
 
 function handleEvent(event) {
@@ -308,65 +298,6 @@ async function fetchPinningAnalysis() {
     }
 }
 
-async function fetchCarrierThreads() {
-    try {
-        const response = await fetch('/carrier-threads');
-        if (response.ok) {
-            const data = await response.json();
-            renderCarriers(data);
-        }
-    } catch (e) {
-        console.error('[Argus] Failed to fetch carrier threads:', e);
-    }
-}
-
-function renderCarriers(data) {
-    elements.carrierTotal.textContent = data.totalCarriers;
-    elements.carrierVthreads.textContent = formatNumber(data.totalVirtualThreadsHandled);
-    elements.carrierAvg.textContent = data.avgVirtualThreadsPerCarrier;
-
-    if (data.carriers.length === 0) {
-        elements.carrierHeatmap.innerHTML = '<div class="empty-state">No carrier thread data yet</div>';
-        return;
-    }
-
-    elements.carrierHeatmap.innerHTML = data.carriers.map(carrier => {
-        const isHighUtilization = carrier.utilizationPercent >= 70;
-        const hasPinned = carrier.pinnedEvents > 0;
-        let cardClass = 'carrier-card';
-        if (hasPinned) {
-            cardClass += ' has-pinned';
-        } else if (isHighUtilization) {
-            cardClass += ' high-utilization';
-        }
-
-        return `
-            <div class="${cardClass}">
-                <div class="carrier-card-header">
-                    <span class="carrier-id">Carrier #${carrier.carrierId}</span>
-                    <span class="carrier-utilization">${carrier.utilizationPercent}%</span>
-                </div>
-                <div class="carrier-stats">
-                    <div class="carrier-stat">
-                        <span>Total VThreads</span>
-                        <span class="carrier-stat-value">${formatNumber(carrier.totalVirtualThreads)}</span>
-                    </div>
-                    <div class="carrier-stat">
-                        <span>Current</span>
-                        <span class="carrier-stat-value">${carrier.currentVirtualThreads}</span>
-                    </div>
-                    <div class="carrier-stat">
-                        <span>Pinned</span>
-                        <span class="carrier-stat-value${carrier.pinnedEvents > 0 ? ' pinned' : ''}">${carrier.pinnedEvents}</span>
-                    </div>
-                </div>
-                <div class="carrier-utilization-bar">
-                    <div class="carrier-utilization-fill" style="width: ${carrier.utilizationPercent}%"></div>
-                </div>
-            </div>
-        `;
-    }).join('');
-}
 
 function renderHotspots(data) {
     elements.hotspotsTotal.textContent = formatNumber(data.totalPinnedEvents);
