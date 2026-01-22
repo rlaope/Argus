@@ -8,6 +8,8 @@ import jdk.jfr.consumer.RecordingStream;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -41,6 +43,9 @@ public final class JfrStreamingEngine {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicLong eventsProcessed = new AtomicLong(0);
     private final CountDownLatch startedLatch = new CountDownLatch(1);
+
+    // Track thread start times for duration calculation
+    private final Map<Long, Instant> threadStartTimes = new ConcurrentHashMap<>();
 
     private volatile RecordingStream recordingStream;
     private volatile Thread streamThread;
@@ -135,6 +140,9 @@ public final class JfrStreamingEngine {
         String threadName = extractor.extractThreadName(event);
         Instant timestamp = event.getStartTime();
 
+        // Track start time for duration calculation
+        threadStartTimes.put(threadId, timestamp);
+
         VirtualThreadEvent vtEvent = VirtualThreadEvent.start(threadId, threadName, timestamp);
         eventBuffer.offer(vtEvent);
         eventsProcessed.incrementAndGet();
@@ -145,7 +153,14 @@ public final class JfrStreamingEngine {
         String threadName = extractor.extractThreadName(event);
         Instant timestamp = event.getStartTime();
 
-        VirtualThreadEvent vtEvent = VirtualThreadEvent.end(threadId, threadName, timestamp);
+        // Calculate duration from tracked start time
+        long durationNanos = 0;
+        Instant startTime = threadStartTimes.remove(threadId);
+        if (startTime != null) {
+            durationNanos = Duration.between(startTime, timestamp).toNanos();
+        }
+
+        VirtualThreadEvent vtEvent = VirtualThreadEvent.end(threadId, threadName, timestamp, durationNanos);
         eventBuffer.offer(vtEvent);
         eventsProcessed.incrementAndGet();
     }
@@ -153,6 +168,7 @@ public final class JfrStreamingEngine {
     private void handlePinned(RecordedEvent event) {
         long threadId = extractor.extractThreadId(event);
         String threadName = extractor.extractThreadName(event);
+        // Note: JDK 21's jdk.VirtualThreadPinned event does not include carrier thread info
         long carrierThread = extractor.extractCarrierThreadId(event);
         Instant timestamp = event.getStartTime();
         long duration = event.getDuration().toNanos();
@@ -164,8 +180,8 @@ public final class JfrStreamingEngine {
         eventsProcessed.incrementAndGet();
 
         // Log pinning events as they are critical for performance
-        System.out.printf("[Argus] PINNED: thread=%d, carrier=%d, duration=%dns%n",
-                threadId, carrierThread, duration);
+        System.out.printf("[Argus] PINNED: thread=%d (%s), duration=%dms%n",
+                threadId, threadName != null ? threadName : "unnamed", duration / 1_000_000);
     }
 
     private void handleSubmitFailed(RecordedEvent event) {

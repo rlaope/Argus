@@ -38,7 +38,7 @@ public record VirtualThreadEvent(
     }
 
     /**
-     * Creates a thread end event.
+     * Creates a thread end event without duration.
      */
     public static VirtualThreadEvent end(long threadId, String threadName, Instant timestamp) {
         return new VirtualThreadEvent(
@@ -48,6 +48,21 @@ public record VirtualThreadEvent(
                 -1,
                 timestamp,
                 0,
+                null
+        );
+    }
+
+    /**
+     * Creates a thread end event with duration.
+     */
+    public static VirtualThreadEvent end(long threadId, String threadName, Instant timestamp, long durationNanos) {
+        return new VirtualThreadEvent(
+                EventType.VIRTUAL_THREAD_END,
+                threadId,
+                threadName,
+                -1,
+                timestamp,
+                durationNanos,
                 null
         );
     }

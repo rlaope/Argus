@@ -91,10 +91,18 @@ public final class JfrEventExtractor {
     /**
      * Extracts the carrier thread ID from a pinned event.
      *
+     * <p>Tries multiple approaches:
+     * <ol>
+     *   <li>carrierThread field (direct)</li>
+     *   <li>sampledThread field</li>
+     *   <li>eventThread's OS thread ID as carrier approximation</li>
+     * </ol>
+     *
      * @param event the JFR event
      * @return carrier thread ID, or -1 if not found
      */
     public long extractCarrierThreadId(RecordedEvent event) {
+        // Try carrierThread field first
         try {
             RecordedThread carrier = event.getValue("carrierThread");
             if (carrier != null) {
@@ -102,7 +110,48 @@ public final class JfrEventExtractor {
             }
         } catch (Exception ignored) {
         }
+
+        // Try sampledThread field (some JDK versions use this)
+        try {
+            RecordedThread sampled = event.getValue("sampledThread");
+            if (sampled != null) {
+                return sampled.getJavaThreadId();
+            }
+        } catch (Exception ignored) {
+        }
+
+        // Try to get carrier from eventThread's OS thread ID
+        // The OS thread ID represents the carrier thread for virtual threads
+        try {
+            RecordedThread eventThread = event.getValue("eventThread");
+            if (eventThread != null && eventThread.isVirtual()) {
+                // For virtual threads, the OS thread ID is the carrier's thread ID
+                long osThreadId = eventThread.getOSThreadId();
+                if (osThreadId > 0) {
+                    return osThreadId;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+
         return -1;
+    }
+
+    /**
+     * Debug method to print all available fields in a JFR event.
+     */
+    public void debugPrintFields(RecordedEvent event) {
+        System.out.println("[Argus Debug] Event: " + event.getEventType().getName());
+        event.getFields().forEach(field -> {
+            try {
+                Object value = event.getValue(field.getName());
+                System.out.printf("  %s (%s) = %s%n",
+                        field.getName(), field.getTypeName(), value);
+            } catch (Exception e) {
+                System.out.printf("  %s (%s) = ERROR: %s%n",
+                        field.getName(), field.getTypeName(), e.getMessage());
+            }
+        });
     }
 
     /**

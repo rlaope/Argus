@@ -693,7 +693,7 @@ main {
 .threads-container {
     padding: 1rem;
     min-height: 300px;
-    max-height: 500px;
+    max-height: 800px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
