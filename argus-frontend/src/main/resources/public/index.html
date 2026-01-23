@@ -14,6 +14,7 @@
             <h1>Argus</h1>
         </div>
         <div class="header-actions">
+            <button id="export-btn" class="btn" title="Export Events">Export</button>
             <button id="thread-dump-btn" class="btn" title="Capture Thread Dump">Thread Dump</button>
             <button id="help-btn" class="btn btn-icon" title="Help">?</button>
             <div id="connection-status" class="status disconnected">
@@ -272,6 +273,80 @@
                 </div>
                 <div class="dump-content">
                     <pre id="dump-output">Loading...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div id="export-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content export-modal">
+            <div class="modal-header">
+                <h2>Export Events</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="export-section">
+                    <h3>Format</h3>
+                    <div class="export-format-options">
+                        <label class="radio-label">
+                            <input type="radio" name="export-format" value="json" checked>
+                            <span>JSON</span>
+                            <small>Structured format with metadata</small>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="export-format" value="csv">
+                            <span>CSV</span>
+                            <small>Compatible with Excel/spreadsheets</small>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="export-format" value="jsonl">
+                            <span>JSON Lines</span>
+                            <small>One JSON object per line</small>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="export-section">
+                    <h3>Event Types</h3>
+                    <div class="export-type-filters">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-type-start" checked>
+                            <span>START</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-type-end" checked>
+                            <span>END</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-type-pinned" checked>
+                            <span>PINNED</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="export-type-submit-failed" checked>
+                            <span>SUBMIT_FAILED</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="export-section">
+                    <h3>Time Range (Optional)</h3>
+                    <div class="export-time-range">
+                        <div class="time-input-group">
+                            <label for="export-time-from">From</label>
+                            <input type="datetime-local" id="export-time-from">
+                        </div>
+                        <div class="time-input-group">
+                            <label for="export-time-to">To</label>
+                            <input type="datetime-local" id="export-time-to">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="export-actions">
+                    <button id="export-download-btn" class="btn btn-primary">Download</button>
+                    <button id="export-cancel-btn" class="btn">Cancel</button>
                 </div>
             </div>
         </div>

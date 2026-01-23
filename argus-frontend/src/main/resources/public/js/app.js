@@ -76,6 +76,19 @@ const elements = {
     hotspotsList: document.getElementById('hotspots-list'),
     refreshHotspotsBtn: document.getElementById('refresh-hotspots'),
 
+    // Export modal
+    exportBtn: document.getElementById('export-btn'),
+    exportModal: document.getElementById('export-modal'),
+    exportModalBackdrop: document.querySelector('#export-modal .modal-backdrop'),
+    exportModalClose: document.querySelector('#export-modal .modal-close'),
+    exportDownloadBtn: document.getElementById('export-download-btn'),
+    exportCancelBtn: document.getElementById('export-cancel-btn'),
+    exportTypeStart: document.getElementById('export-type-start'),
+    exportTypeEnd: document.getElementById('export-type-end'),
+    exportTypePinned: document.getElementById('export-type-pinned'),
+    exportTypeSubmitFailed: document.getElementById('export-type-submit-failed'),
+    exportTimeFrom: document.getElementById('export-time-from'),
+    exportTimeTo: document.getElementById('export-time-to'),
 
     // Help modal
     helpBtn: document.getElementById('help-btn'),
@@ -161,6 +174,7 @@ function setupEventListeners() {
             elements.helpModal.classList.add('hidden');
             elements.threadModal.classList.add('hidden');
             elements.dumpModal.classList.add('hidden');
+            elements.exportModal.classList.add('hidden');
         }
     });
 
@@ -173,6 +187,12 @@ function setupEventListeners() {
     // Hotspots refresh
     elements.refreshHotspotsBtn.addEventListener('click', fetchPinningAnalysis);
 
+    // Export modal
+    elements.exportBtn.addEventListener('click', () => elements.exportModal.classList.remove('hidden'));
+    elements.exportModalBackdrop.addEventListener('click', () => elements.exportModal.classList.add('hidden'));
+    elements.exportModalClose.addEventListener('click', () => elements.exportModal.classList.add('hidden'));
+    elements.exportCancelBtn.addEventListener('click', () => elements.exportModal.classList.add('hidden'));
+    elements.exportDownloadBtn.addEventListener('click', handleExport);
 }
 
 function handleEvent(event) {
@@ -441,6 +461,55 @@ function clearEvents() {
     elements.pinnedCard.classList.remove('has-pinned');
     clearFilterEvents(); // Clear filter storage
     fetchMetrics();
+}
+
+/**
+ * Handle export button click - build URL and trigger download
+ */
+function handleExport() {
+    // Get selected format
+    const formatRadios = document.querySelectorAll('input[name="export-format"]');
+    let format = 'json';
+    for (const radio of formatRadios) {
+        if (radio.checked) {
+            format = radio.value;
+            break;
+        }
+    }
+
+    // Get selected event types
+    const types = [];
+    if (elements.exportTypeStart.checked) types.push('START');
+    if (elements.exportTypeEnd.checked) types.push('END');
+    if (elements.exportTypePinned.checked) types.push('PINNED');
+    if (elements.exportTypeSubmitFailed.checked) types.push('SUBMIT_FAILED');
+
+    if (types.length === 0) {
+        alert('Please select at least one event type');
+        return;
+    }
+
+    // Build URL with query parameters
+    const params = new URLSearchParams();
+    params.set('format', format);
+    params.set('types', types.join(','));
+
+    // Add time range if specified
+    if (elements.exportTimeFrom.value) {
+        const fromDate = new Date(elements.exportTimeFrom.value);
+        params.set('from', fromDate.toISOString());
+    }
+    if (elements.exportTimeTo.value) {
+        const toDate = new Date(elements.exportTimeTo.value);
+        params.set('to', toDate.toISOString());
+    }
+
+    // Trigger download
+    const url = `/export?${params.toString()}`;
+    window.location.href = url;
+
+    // Close modal
+    elements.exportModal.classList.add('hidden');
 }
 
 // Start the application

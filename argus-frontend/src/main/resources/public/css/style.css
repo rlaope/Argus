@@ -1291,6 +1291,132 @@ main {
     padding-left: 1rem;
 }
 
+/* Export Modal */
+.export-modal {
+    max-width: 500px;
+    width: 90%;
+}
+
+.export-section {
+    margin-bottom: 1.5rem;
+}
+
+.export-section:last-of-type {
+    margin-bottom: 1rem;
+}
+
+.export-section h3 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.75rem 0;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.export-format-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.export-format-options .radio-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.export-format-options .radio-label:hover {
+    background-color: var(--border-color);
+}
+
+.export-format-options .radio-label input[type="radio"] {
+    margin-top: 0.25rem;
+    flex-shrink: 0;
+}
+
+.export-format-options .radio-label span {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.export-format-options .radio-label small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    margin-top: 0.125rem;
+}
+
+.export-type-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.export-type-filters .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.export-type-filters .checkbox-label:hover {
+    background-color: var(--border-color);
+}
+
+.export-type-filters .checkbox-label span {
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.export-time-range {
+    display: flex;
+    gap: 1rem;
+}
+
+.export-time-range .time-input-group {
+    flex: 1;
+}
+
+.export-time-range .time-input-group label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.export-time-range input[type="datetime-local"] {
+    width: 100%;
+    padding: 0.5rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.export-time-range input[type="datetime-local"]:focus {
+    outline: none;
+    border-color: var(--accent-blue);
+}
+
+.export-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
 /* Footer */
 footer {
     text-align: center;

@@ -15,6 +15,10 @@ import io.netty.channel.Channel;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -28,9 +32,11 @@ import java.util.concurrent.TimeUnit;
 public final class EventBroadcaster {
 
     private static final long BROADCAST_INTERVAL_MS = 10;
+    private static final int MAX_EXPORT_EVENTS = 10000;
 
     private final RingBuffer<VirtualThreadEvent> eventBuffer;
     private final ChannelGroup clients;
+    private final List<VirtualThreadEvent> exportableEvents = Collections.synchronizedList(new ArrayList<>());
     private final ServerMetrics metrics;
     private final ActiveThreadsRegistry activeThreads;
     private final RecentEventsBuffer recentEvents;
@@ -125,6 +131,12 @@ public final class EventBroadcaster {
         }
 
         eventBuffer.drain(event -> {
+            // Store for export (keep last MAX_EXPORT_EVENTS)
+            exportableEvents.add(event);
+            while (exportableEvents.size() > MAX_EXPORT_EVENTS) {
+                exportableEvents.remove(0);
+            }
+
             // Update metrics and state
             metrics.incrementTotal();
             switch (event.eventType()) {
@@ -195,6 +207,17 @@ public final class EventBroadcaster {
      */
     public CarrierThreadAnalyzer getCarrierAnalyzer() {
         return carrierAnalyzer;
+    }
+
+    /**
+     * Returns a copy of recent events for export.
+     *
+     * @return list of recent events
+     */
+    public List<VirtualThreadEvent> getRecentEvents() {
+        synchronized (exportableEvents) {
+            return new ArrayList<>(exportableEvents);
+        }
     }
 
     /**
