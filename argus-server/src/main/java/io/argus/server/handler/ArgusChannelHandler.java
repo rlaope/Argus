@@ -123,6 +123,12 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
+        // Export endpoint: /export?format=csv|json|jsonl&types=START,END,PINNED&from=ISO&to=ISO
+        if (uri.startsWith("/export")) {
+            handleExport(ctx, request, uri);
+            return;
+        }
+
         // WebSocket upgrade
         if (WEBSOCKET_PATH.equals(uri)) {
             handleWebSocketUpgrade(ctx, request);
@@ -405,6 +411,158 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             sb.append("    at ").append(element.toString()).append("\\n");
         }
         return sb.toString();
+    }
+
+    private void handleExport(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+        // Parse query parameters
+        var params = parseQueryParams(uri);
+        String format = params.getOrDefault("format", "json");
+        String typesParam = params.getOrDefault("types", "START,END,PINNED,SUBMIT_FAILED");
+        String fromParam = params.get("from");
+        String toParam = params.get("to");
+
+        // Parse event types filter
+        var allowedTypes = java.util.Set.of(typesParam.split(","));
+
+        // Parse time range
+        java.time.Instant fromTime = null;
+        java.time.Instant toTime = null;
+        try {
+            if (fromParam != null && !fromParam.isEmpty()) {
+                fromTime = java.time.Instant.parse(fromParam);
+            }
+            if (toParam != null && !toParam.isEmpty()) {
+                toTime = java.time.Instant.parse(toParam);
+            }
+        } catch (Exception e) {
+            HttpResponseHelper.sendBadRequest(ctx, request, "Invalid time format. Use ISO-8601.");
+            return;
+        }
+
+        // Get all events from broadcaster
+        var allEvents = broadcaster.getRecentEvents();
+
+        // Filter events
+        final java.time.Instant finalFromTime = fromTime;
+        final java.time.Instant finalToTime = toTime;
+        var filteredEvents = allEvents.stream()
+                .filter(e -> allowedTypes.contains(e.eventType().name().replace("VIRTUAL_THREAD_", "")))
+                .filter(e -> finalFromTime == null || !e.timestamp().isBefore(finalFromTime))
+                .filter(e -> finalToTime == null || !e.timestamp().isAfter(finalToTime))
+                .toList();
+
+        // Export in requested format
+        String content;
+        String contentType;
+        String filename;
+
+        switch (format.toLowerCase()) {
+            case "csv":
+                content = exportToCsv(filteredEvents);
+                contentType = "text/csv";
+                filename = "argus-events.csv";
+                break;
+            case "jsonl":
+                content = exportToJsonLines(filteredEvents);
+                contentType = "application/x-ndjson";
+                filename = "argus-events.jsonl";
+                break;
+            case "json":
+            default:
+                content = exportToJson(filteredEvents);
+                contentType = "application/json";
+                filename = "argus-events.json";
+                break;
+        }
+
+        HttpResponseHelper.sendDownload(ctx, request, content, contentType, filename);
+    }
+
+    private String exportToCsv(java.util.List<io.argus.core.event.VirtualThreadEvent> events) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("timestamp,type,threadId,threadName,duration,carrierThread,stackTrace\n");
+
+        for (var event : events) {
+            sb.append(event.timestamp()).append(",");
+            sb.append(event.eventType().name().replace("VIRTUAL_THREAD_", "")).append(",");
+            sb.append(event.threadId()).append(",");
+            sb.append(escapeCsv(event.threadName())).append(",");
+            sb.append(event.duration()).append(",");
+            sb.append(event.carrierThread() > 0 ? event.carrierThread() : "").append(",");
+            sb.append(escapeCsv(event.stackTrace())).append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    private String exportToJson(java.util.List<io.argus.core.event.VirtualThreadEvent> events) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"exportTime\":\"").append(java.time.Instant.now()).append("\",");
+        sb.append("\"eventCount\":").append(events.size()).append(",");
+        sb.append("\"events\":[");
+
+        boolean first = true;
+        for (var event : events) {
+            if (!first) sb.append(",");
+            first = false;
+            sb.append(eventToJson(event));
+        }
+
+        sb.append("]}");
+        return sb.toString();
+    }
+
+    private String exportToJsonLines(java.util.List<io.argus.core.event.VirtualThreadEvent> events) {
+        StringBuilder sb = new StringBuilder();
+        for (var event : events) {
+            sb.append(eventToJson(event)).append("\n");
+        }
+        return sb.toString();
+    }
+
+    private String eventToJson(io.argus.core.event.VirtualThreadEvent event) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"timestamp\":\"").append(event.timestamp()).append("\",");
+        sb.append("\"type\":\"").append(event.eventType().name().replace("VIRTUAL_THREAD_", "")).append("\",");
+        sb.append("\"threadId\":").append(event.threadId()).append(",");
+        if (event.threadName() != null) {
+            sb.append("\"threadName\":\"").append(escapeJson(event.threadName())).append("\",");
+        }
+        sb.append("\"duration\":").append(event.duration());
+        if (event.carrierThread() > 0) {
+            sb.append(",\"carrierThread\":").append(event.carrierThread());
+        }
+        if (event.stackTrace() != null) {
+            sb.append(",\"stackTrace\":\"").append(escapeJson(event.stackTrace())).append("\"");
+        }
+        sb.append("}");
+        return sb.toString();
+    }
+
+    private java.util.Map<String, String> parseQueryParams(String uri) {
+        java.util.Map<String, String> params = new java.util.HashMap<>();
+        int queryStart = uri.indexOf('?');
+        if (queryStart < 0) return params;
+
+        String query = uri.substring(queryStart + 1);
+        for (String param : query.split("&")) {
+            int eq = param.indexOf('=');
+            if (eq > 0) {
+                String key = param.substring(0, eq);
+                String value = java.net.URLDecoder.decode(param.substring(eq + 1), java.nio.charset.StandardCharsets.UTF_8);
+                params.put(key, value);
+            }
+        }
+        return params;
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private String escapeJson(String value) {

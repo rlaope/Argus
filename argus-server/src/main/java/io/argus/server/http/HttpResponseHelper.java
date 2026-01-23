@@ -64,4 +64,40 @@ public final class HttpResponseHelper {
     public static void sendNotFound(ChannelHandlerContext ctx, FullHttpRequest request) {
         send(ctx, request, HttpResponseStatus.NOT_FOUND, "Not Found", "text/plain");
     }
+
+    /**
+     * Sends a 400 Bad Request response.
+     *
+     * @param ctx     the channel handler context
+     * @param request the original HTTP request
+     * @param message the error message
+     */
+    public static void sendBadRequest(ChannelHandlerContext ctx, FullHttpRequest request, String message) {
+        send(ctx, request, HttpResponseStatus.BAD_REQUEST, message, "text/plain");
+    }
+
+    /**
+     * Sends a downloadable file response.
+     *
+     * @param ctx         the channel handler context
+     * @param request     the original HTTP request
+     * @param content     the file content
+     * @param contentType the content type
+     * @param filename    the suggested filename
+     */
+    public static void sendDownload(ChannelHandlerContext ctx, FullHttpRequest request,
+                                    String content, String contentType, String filename) {
+        ByteBuf buf = Unpooled.copiedBuffer(content, CharsetUtil.UTF_8);
+        FullHttpResponse response = new DefaultFullHttpResponse(
+                HttpVersion.HTTP_1_1, HttpResponseStatus.OK, buf);
+        response.headers()
+                .set(HttpHeaderNames.CONTENT_TYPE, contentType)
+                .setInt(HttpHeaderNames.CONTENT_LENGTH, buf.readableBytes())
+                .set(HttpHeaderNames.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"");
+
+        ChannelFuture future = ctx.writeAndFlush(response);
+        if (!HttpUtil.isKeepAlive(request)) {
+            future.addListener(ChannelFutureListener.CLOSE);
+        }
+    }
 }
