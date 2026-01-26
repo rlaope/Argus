@@ -10,8 +10,12 @@ The Argus agent is configured via Java system properties.
 
 | Property | Default | Description |
 |----------|---------|-------------|
+| `argus.server.enabled` | `false` | Enable built-in dashboard server |
 | `argus.server.port` | `9202` | WebSocket server port |
 | `argus.buffer.size` | `65536` | Ring buffer size for event collection |
+| `argus.gc.enabled` | `true` | Enable GC monitoring |
+| `argus.cpu.enabled` | `true` | Enable CPU monitoring |
+| `argus.cpu.interval` | `1000` | CPU sampling interval (ms) |
 
 ### Setting Properties
 
@@ -50,9 +54,68 @@ java -javaagent:argus-agent.jar \
      -jar high-traffic-app.jar
 ```
 
+## GC Monitoring Configuration
+
+GC monitoring captures garbage collection events and heap usage.
+
+```bash
+# Enable/disable GC monitoring
+java -javaagent:argus-agent.jar \
+     -Dargus.gc.enabled=true \
+     --enable-preview \
+     -jar your-application.jar
+```
+
+### GC Events Captured
+
+| Event | Description |
+|-------|-------------|
+| `jdk.GarbageCollection` | GC pause duration, cause, collector name |
+| `jdk.GCHeapSummary` | Heap used/committed before and after GC |
+
+### GC Metrics Available
+
+- Total GC events count
+- Total/Average/Max pause time
+- GC cause distribution
+- Recent GC history (last 20 events)
+- Current heap usage
+
+## CPU Monitoring Configuration
+
+CPU monitoring tracks JVM and system CPU utilization.
+
+```bash
+# Configure CPU monitoring
+java -javaagent:argus-agent.jar \
+     -Dargus.cpu.enabled=true \
+     -Dargus.cpu.interval=1000 \
+     --enable-preview \
+     -jar your-application.jar
+```
+
+### CPU Metrics Available
+
+- JVM CPU (user + system)
+- System CPU
+- Historical data (60-second rolling window)
+- Peak CPU values
+
+### Adjusting CPU Sampling Interval
+
+```bash
+# Sample every 500ms for more granular data
+-Dargus.cpu.interval=500
+
+# Sample every 2 seconds for lower overhead
+-Dargus.cpu.interval=2000
+```
+
 ## JFR Event Configuration
 
 Argus captures the following JFR events by default:
+
+### Virtual Thread Events
 
 | Event | Description | Overhead |
 |-------|-------------|----------|
@@ -60,6 +123,19 @@ Argus captures the following JFR events by default:
 | `jdk.VirtualThreadEnd` | Thread termination | Low |
 | `jdk.VirtualThreadPinned` | Thread pinning (with stack trace) | Medium |
 | `jdk.VirtualThreadSubmitFailed` | Submit failures | Low |
+
+### GC Events
+
+| Event | Description | Overhead |
+|-------|-------------|----------|
+| `jdk.GarbageCollection` | GC pause events | Low |
+| `jdk.GCHeapSummary` | Heap usage snapshots | Low |
+
+### CPU Events
+
+| Event | Description | Overhead |
+|-------|-------------|----------|
+| `jdk.CPULoad` | CPU utilization (periodic) | Low |
 
 ### JFR Settings
 

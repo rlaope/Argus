@@ -9,8 +9,10 @@ A next-generation real-time visualization profiler for JVM 21+ environments, foc
 ## Features
 
 - **Virtual Thread Monitoring**: Track creation, termination, and pinning of virtual threads
+- **Memory & GC Monitoring**: Real-time garbage collection tracking with heap usage visualization
+- **CPU Monitoring**: JVM and system CPU utilization tracking
 - **JFR Streaming**: Low-overhead event collection using JDK Flight Recorder
-- **Real-time Visualization**: WebSocket-based streaming to frontend
+- **Real-time Dashboard**: WebSocket-based streaming with interactive charts
 - **Lock-free Architecture**: High-performance ring buffer for event collection
 
 ## Requirements
@@ -73,6 +75,9 @@ The agent accepts the following system properties:
 | `argus.server.enabled` | `false` | Enable built-in dashboard server |
 | `argus.server.port` | `9202` | Dashboard/WebSocket server port |
 | `argus.buffer.size` | `65536` | Ring buffer size for event collection |
+| `argus.gc.enabled` | `true` | Enable GC monitoring |
+| `argus.cpu.enabled` | `true` | Enable CPU monitoring |
+| `argus.cpu.interval` | `1000` | CPU sampling interval in milliseconds |
 
 ## Architecture
 
@@ -98,10 +103,30 @@ The agent accepts the following system properties:
 
 ## JFR Events Captured
 
+### Virtual Thread Events
 - `jdk.VirtualThreadStart` - Thread creation
 - `jdk.VirtualThreadEnd` - Thread termination
 - `jdk.VirtualThreadPinned` - Pinning detection (critical for Loom performance)
 - `jdk.VirtualThreadSubmitFailed` - Submit failures
+
+### GC Events
+- `jdk.GarbageCollection` - GC pause duration, cause, and type
+- `jdk.GCHeapSummary` - Heap usage before and after GC
+
+### CPU Events
+- `jdk.CPULoad` - JVM and system CPU utilization
+
+## API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `/` | Dashboard UI |
+| `/health` | Health check |
+| `/metrics` | Virtual thread metrics |
+| `/gc-analysis` | GC statistics and recent events |
+| `/cpu-metrics` | CPU utilization history |
+| `/pinning-analysis` | Pinning hotspot analysis |
+| `/export` | Export events (CSV, JSON, JSONL) |
 
 ## Contributing
 

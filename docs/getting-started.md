@@ -60,8 +60,23 @@ The easiest way to see Argus in action is to run the included sample project.
 ### Step 2: Run the Sample with Argus
 
 ```bash
+# Basic virtual thread demo
 ./gradlew :samples:virtual-thread-demo:runWithArgus
+
+# Metrics demo with GC/CPU activity (recommended for testing dashboard)
+./gradlew :samples:virtual-thread-simulation:runMetricsDemo
 ```
+
+### Step 3: Open the Dashboard
+
+Open your browser and navigate to: **http://localhost:9202/**
+
+The dashboard displays:
+- Virtual thread events (START, END, PINNED)
+- Active thread count and states
+- GC Timeline and Heap Usage charts
+- CPU Utilization (JVM and System)
+- Pinning hotspots analysis
 
 ### Step 3: View the Output
 
@@ -109,12 +124,27 @@ Virtual Thread Profiler vdev
 
 ### Event Types
 
+#### Virtual Thread Events
+
 | Event | Description | When it Occurs |
 |-------|-------------|----------------|
 | `VIRTUAL_THREAD_START` | Thread created | `Thread.startVirtualThread()` or executor submit |
 | `VIRTUAL_THREAD_END` | Thread terminated | Virtual thread completes or is interrupted |
 | `VIRTUAL_THREAD_PINNED` | Thread pinned to carrier | **Critical!** `synchronized` block or native call |
 | `VIRTUAL_THREAD_SUBMIT_FAILED` | Submission failed | Executor rejected task |
+
+#### GC Events
+
+| Event | Description |
+|-------|-------------|
+| `GC_PAUSE` | Garbage collection occurred |
+| `GC_HEAP_SUMMARY` | Heap usage snapshot |
+
+#### CPU Events
+
+| Event | Description |
+|-------|-------------|
+| `CPU_LOAD` | JVM and system CPU utilization |
 
 ### Reading PINNED Events
 
