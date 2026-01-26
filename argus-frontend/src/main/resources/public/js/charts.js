@@ -370,13 +370,14 @@ export function updateGCCharts(data) {
     gcData.currentHeapUsed = data.currentHeapUsed || 0;
     gcData.currentHeapCommitted = data.currentHeapCommitted || 0;
 
-    // Update timeline from recent GCs
+    // Update timeline from recent GCs - modify arrays in place to keep Chart.js references
     if (data.recentGCs && data.recentGCs.length > 0) {
-        gcData.timeline.labels = [];
-        gcData.timeline.pauseTimes = [];
-        gcData.heapHistory.labels = [];
-        gcData.heapHistory.used = [];
-        gcData.heapHistory.committed = [];
+        // Clear arrays without breaking reference
+        gcData.timeline.labels.length = 0;
+        gcData.timeline.pauseTimes.length = 0;
+        gcData.heapHistory.labels.length = 0;
+        gcData.heapHistory.used.length = 0;
+        gcData.heapHistory.committed.length = 0;
 
         data.recentGCs.slice(-30).forEach(gc => {
             const time = new Date(gc.timestamp).toLocaleTimeString('en-US', {
@@ -409,11 +410,12 @@ export function updateCPUCharts(data) {
     cpuData.currentMachinePercent = parseFloat(data.currentMachinePercent) || 0;
     cpuData.peakJvmPercent = (parseFloat(data.peakJvmTotal) || 0) * 100;
 
-    // Update history from server
+    // Update history from server - modify arrays in place to keep Chart.js references
     if (data.history && data.history.length > 0) {
-        cpuData.history.labels = [];
-        cpuData.history.jvm = [];
-        cpuData.history.machine = [];
+        // Clear arrays without breaking reference
+        cpuData.history.labels.length = 0;
+        cpuData.history.jvm.length = 0;
+        cpuData.history.machine.length = 0;
 
         data.history.forEach(snapshot => {
             const time = new Date(snapshot.timestamp).toLocaleTimeString('en-US', {
