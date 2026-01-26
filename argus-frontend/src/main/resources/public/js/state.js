@@ -50,6 +50,37 @@ export const durationBuckets = {
     values: [0, 0, 0, 0, 0, 0, 0]
 };
 
+// GC data
+export const gcData = {
+    totalEvents: 0,
+    totalPauseMs: 0,
+    avgPauseMs: 0,
+    maxPauseMs: 0,
+    currentHeapUsed: 0,
+    currentHeapCommitted: 0,
+    timeline: {
+        labels: [],
+        pauseTimes: []
+    },
+    heapHistory: {
+        labels: [],
+        used: [],
+        committed: []
+    }
+};
+
+// CPU data
+export const cpuData = {
+    currentJvmPercent: 0,
+    currentMachinePercent: 0,
+    peakJvmPercent: 0,
+    history: {
+        labels: [],
+        jvm: [],
+        machine: []
+    }
+};
+
 // Per-second event counters for charts
 export let currentSecondEvents = { start: 0, end: 0, pinned: 0 };
 export let lastSecondTimestamp = Math.floor(Date.now() / 1000);

@@ -1,8 +1,12 @@
 package io.argus.server;
 
 import io.argus.core.buffer.RingBuffer;
+import io.argus.core.event.CPUEvent;
+import io.argus.core.event.GCEvent;
 import io.argus.core.event.VirtualThreadEvent;
 import io.argus.server.analysis.CarrierThreadAnalyzer;
+import io.argus.server.analysis.CPUAnalyzer;
+import io.argus.server.analysis.GCAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.handler.ArgusChannelHandler;
 import io.argus.server.metrics.ServerMetrics;
@@ -54,6 +58,8 @@ public final class ArgusServer {
 
     private final int port;
     private final RingBuffer<VirtualThreadEvent> eventBuffer;
+    private final RingBuffer<GCEvent> gcEventBuffer;
+    private final RingBuffer<CPUEvent> cpuEventBuffer;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     // Components
@@ -64,6 +70,8 @@ public final class ArgusServer {
     private final ThreadEventsBuffer threadEvents = new ThreadEventsBuffer();
     private final PinningAnalyzer pinningAnalyzer = new PinningAnalyzer();
     private final CarrierThreadAnalyzer carrierAnalyzer = new CarrierThreadAnalyzer();
+    private final GCAnalyzer gcAnalyzer = new GCAnalyzer();
+    private final CPUAnalyzer cpuAnalyzer = new CPUAnalyzer();
     private final ThreadStateManager threadStateManager = new ThreadStateManager();
     private final EventJsonSerializer serializer = new EventJsonSerializer();
     private EventBroadcaster broadcaster;
@@ -74,14 +82,29 @@ public final class ArgusServer {
     private Channel serverChannel;
 
     /**
-     * Creates a new Argus server.
+     * Creates a new Argus server with only virtual thread event buffer.
      *
      * @param port        the port to listen on
      * @param eventBuffer the ring buffer to read events from
      */
     public ArgusServer(int port, RingBuffer<VirtualThreadEvent> eventBuffer) {
+        this(port, eventBuffer, null, null);
+    }
+
+    /**
+     * Creates a new Argus server with GC and CPU event buffers.
+     *
+     * @param port           the port to listen on
+     * @param eventBuffer    the ring buffer for virtual thread events
+     * @param gcEventBuffer  the ring buffer for GC events (can be null)
+     * @param cpuEventBuffer the ring buffer for CPU events (can be null)
+     */
+    public ArgusServer(int port, RingBuffer<VirtualThreadEvent> eventBuffer,
+                       RingBuffer<GCEvent> gcEventBuffer, RingBuffer<CPUEvent> cpuEventBuffer) {
         this.port = port;
         this.eventBuffer = eventBuffer;
+        this.gcEventBuffer = gcEventBuffer;
+        this.cpuEventBuffer = cpuEventBuffer;
     }
 
     /**
@@ -96,8 +119,10 @@ public final class ArgusServer {
 
         // Initialize broadcaster
         broadcaster = new EventBroadcaster(
-                eventBuffer, clients, metrics, activeThreads, recentEvents, threadEvents,
-                pinningAnalyzer, carrierAnalyzer, threadStateManager, serializer);
+                eventBuffer, gcEventBuffer, cpuEventBuffer,
+                clients, metrics, activeThreads, recentEvents, threadEvents,
+                pinningAnalyzer, carrierAnalyzer, gcAnalyzer, cpuAnalyzer,
+                threadStateManager, serializer);
 
         // Initialize Netty
         bossGroup = new NioEventLoopGroup(1);
@@ -113,7 +138,9 @@ public final class ArgusServer {
                                 .addLast(new HttpServerCodec())
                                 .addLast(new HttpObjectAggregator(65536))
                                 .addLast(new WebSocketServerCompressionHandler())
-                                .addLast(new ArgusChannelHandler(clients, metrics, activeThreads, threadEvents, broadcaster));
+                                .addLast(new ArgusChannelHandler(
+                                        clients, metrics, activeThreads, threadEvents,
+                                        gcAnalyzer, cpuAnalyzer, broadcaster));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, 128)
@@ -202,6 +229,24 @@ public final class ArgusServer {
      */
     public PinningAnalyzer getPinningAnalyzer() {
         return pinningAnalyzer;
+    }
+
+    /**
+     * Returns the GC analyzer.
+     *
+     * @return GC analyzer
+     */
+    public GCAnalyzer getGcAnalyzer() {
+        return gcAnalyzer;
+    }
+
+    /**
+     * Returns the CPU analyzer.
+     *
+     * @return CPU analyzer
+     */
+    public CPUAnalyzer getCpuAnalyzer() {
+        return cpuAnalyzer;
     }
 
     /**

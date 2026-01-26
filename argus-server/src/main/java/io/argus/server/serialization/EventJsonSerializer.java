@@ -57,6 +57,9 @@ public final class EventJsonSerializer {
             case VIRTUAL_THREAD_END -> "END";
             case VIRTUAL_THREAD_PINNED -> "PINNED";
             case VIRTUAL_THREAD_SUBMIT_FAILED -> "SUBMIT_FAILED";
+            case GC_PAUSE -> "GC_PAUSE";
+            case GC_HEAP_SUMMARY -> "GC_HEAP_SUMMARY";
+            case CPU_LOAD -> "CPU_LOAD";
         };
     }
 
