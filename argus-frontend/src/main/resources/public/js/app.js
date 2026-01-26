@@ -5,7 +5,7 @@
  * the dashboard functionality.
  */
 import { initWebSocket } from './websocket.js';
-import { initCharts, updateCharts, trackEventForCharts } from './charts.js';
+import { initCharts, updateCharts, trackEventForCharts, updateGCCharts, updateCPUCharts } from './charts.js';
 import { initThreadView, renderThreadStateView, captureAllThreadsDump } from './threads.js';
 import {
     counts,
@@ -14,7 +14,9 @@ import {
     expandedHotspots,
     updateThreadStates,
     addToDurationBucket,
-    threadStates
+    threadStates,
+    gcData,
+    cpuData
 } from './state.js';
 import { formatNumber, formatTimestamp, escapeHtml, formatDuration } from './utils.js';
 import { initFilters, addEvent as addEventToFilter, clearEvents as clearFilterEvents } from './filter.js';
@@ -103,7 +105,24 @@ const elements = {
     // Charts
     eventsRateCanvas: document.getElementById('events-rate-chart'),
     activeThreadsCanvas: document.getElementById('active-threads-chart'),
-    durationCanvas: document.getElementById('duration-chart')
+    durationCanvas: document.getElementById('duration-chart'),
+    gcTimelineCanvas: document.getElementById('gc-timeline-chart'),
+    heapCanvas: document.getElementById('heap-chart'),
+    cpuCanvas: document.getElementById('cpu-chart'),
+
+    // GC metrics
+    gcEvents: document.getElementById('gc-events'),
+    heapUsed: document.getElementById('heap-used'),
+    gcTotalEvents: document.getElementById('gc-total-events'),
+    gcTotalPause: document.getElementById('gc-total-pause'),
+    gcAvgPause: document.getElementById('gc-avg-pause'),
+    gcMaxPause: document.getElementById('gc-max-pause'),
+
+    // CPU metrics
+    jvmCpu: document.getElementById('jvm-cpu'),
+    cpuJvmCurrent: document.getElementById('cpu-jvm-current'),
+    cpuSystemCurrent: document.getElementById('cpu-system-current'),
+    cpuPeakJvm: document.getElementById('cpu-peak-jvm')
 };
 
 const maxEvents = 500;
@@ -117,7 +136,10 @@ function init() {
     initCharts({
         eventsRate: elements.eventsRateCanvas,
         activeThreads: elements.activeThreadsCanvas,
-        duration: elements.durationCanvas
+        duration: elements.durationCanvas,
+        gcTimeline: elements.gcTimelineCanvas,
+        heap: elements.heapCanvas,
+        cpu: elements.cpuCanvas
     });
 
     // Initialize filters
@@ -141,11 +163,15 @@ function init() {
     // Initial data fetch
     fetchMetrics();
     fetchPinningAnalysis();
+    fetchGCAnalysis();
+    fetchCPUMetrics();
 
     // Setup periodic updates
     setInterval(updateCharts, 1000);
     setInterval(fetchMetrics, 1000);
     setInterval(fetchPinningAnalysis, 5000);
+    setInterval(fetchGCAnalysis, 2000);
+    setInterval(fetchCPUMetrics, 1000);
     setInterval(() => {
         renderThreadStateView(elements.threadsContainer, elements.threadCount);
     }, 1000);
@@ -316,6 +342,76 @@ async function fetchPinningAnalysis() {
     } catch (e) {
         console.error('[Argus] Failed to fetch pinning analysis:', e);
     }
+}
+
+async function fetchGCAnalysis() {
+    try {
+        const response = await fetch('/gc-analysis');
+        if (response.ok) {
+            const data = await response.json();
+            updateGCDisplay(data);
+            updateGCCharts(data);
+        }
+    } catch (e) {
+        console.error('[Argus] Failed to fetch GC analysis:', e);
+    }
+}
+
+async function fetchCPUMetrics() {
+    try {
+        const response = await fetch('/cpu-metrics');
+        if (response.ok) {
+            const data = await response.json();
+            updateCPUDisplay(data);
+            updateCPUCharts(data);
+        }
+    } catch (e) {
+        console.error('[Argus] Failed to fetch CPU metrics:', e);
+    }
+}
+
+function updateGCDisplay(data) {
+    if (elements.gcEvents) {
+        elements.gcEvents.textContent = formatNumber(data.totalGCEvents || 0);
+    }
+    if (elements.heapUsed && data.currentHeapUsed > 0) {
+        elements.heapUsed.textContent = formatBytes(data.currentHeapUsed);
+    }
+    if (elements.gcTotalEvents) {
+        elements.gcTotalEvents.textContent = formatNumber(data.totalGCEvents || 0);
+    }
+    if (elements.gcTotalPause) {
+        elements.gcTotalPause.textContent = (data.totalPauseTimeMs || 0) + 'ms';
+    }
+    if (elements.gcAvgPause) {
+        elements.gcAvgPause.textContent = (parseFloat(data.avgPauseTimeMs) || 0).toFixed(2) + 'ms';
+    }
+    if (elements.gcMaxPause) {
+        elements.gcMaxPause.textContent = (data.maxPauseTimeMs || 0) + 'ms';
+    }
+}
+
+function updateCPUDisplay(data) {
+    if (elements.jvmCpu) {
+        elements.jvmCpu.textContent = (parseFloat(data.currentJvmPercent) || 0).toFixed(1) + '%';
+    }
+    if (elements.cpuJvmCurrent) {
+        elements.cpuJvmCurrent.textContent = (parseFloat(data.currentJvmPercent) || 0).toFixed(1) + '%';
+    }
+    if (elements.cpuSystemCurrent) {
+        elements.cpuSystemCurrent.textContent = (parseFloat(data.currentMachinePercent) || 0).toFixed(1) + '%';
+    }
+    if (elements.cpuPeakJvm) {
+        elements.cpuPeakJvm.textContent = ((parseFloat(data.peakJvmTotal) || 0) * 100).toFixed(1) + '%';
+    }
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 

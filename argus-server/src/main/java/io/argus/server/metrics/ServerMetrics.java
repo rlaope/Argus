@@ -15,6 +15,8 @@ public final class ServerMetrics {
     private final AtomicLong endEvents = new AtomicLong(0);
     private final AtomicLong pinnedEvents = new AtomicLong(0);
     private final AtomicLong submitFailedEvents = new AtomicLong(0);
+    private final AtomicLong gcEvents = new AtomicLong(0);
+    private final AtomicLong cpuEvents = new AtomicLong(0);
 
     /**
      * Increments the total events counter.
@@ -51,6 +53,20 @@ public final class ServerMetrics {
         submitFailedEvents.incrementAndGet();
     }
 
+    /**
+     * Increments the GC events counter.
+     */
+    public void incrementGcEvent() {
+        gcEvents.incrementAndGet();
+    }
+
+    /**
+     * Increments the CPU events counter.
+     */
+    public void incrementCpuEvent() {
+        cpuEvents.incrementAndGet();
+    }
+
     public long getTotalEvents() {
         return totalEvents.get();
     }
@@ -71,6 +87,14 @@ public final class ServerMetrics {
         return submitFailedEvents.get();
     }
 
+    public long getGcEvents() {
+        return gcEvents.get();
+    }
+
+    public long getCpuEvents() {
+        return cpuEvents.get();
+    }
+
     /**
      * Returns a JSON representation of all metrics.
      *
@@ -80,13 +104,15 @@ public final class ServerMetrics {
      */
     public String toJson(int activeThreadCount, int connectedClients) {
         return String.format(
-                "{\"totalEvents\":%d,\"startEvents\":%d,\"endEvents\":%d,\"activeThreads\":%d,\"pinnedEvents\":%d,\"submitFailedEvents\":%d,\"connectedClients\":%d}",
+                "{\"totalEvents\":%d,\"startEvents\":%d,\"endEvents\":%d,\"activeThreads\":%d,\"pinnedEvents\":%d,\"submitFailedEvents\":%d,\"gcEvents\":%d,\"cpuEvents\":%d,\"connectedClients\":%d}",
                 totalEvents.get(),
                 startEvents.get(),
                 endEvents.get(),
                 activeThreadCount,
                 pinnedEvents.get(),
                 submitFailedEvents.get(),
+                gcEvents.get(),
+                cpuEvents.get(),
                 connectedClients
         );
     }

@@ -10,12 +10,17 @@ import {
     lastSecondTimestamp,
     resetCurrentSecondEvents,
     updateLastSecondTimestamp,
-    stateCounts
+    stateCounts,
+    gcData,
+    cpuData
 } from './state.js';
 
 let eventsRateChart = null;
 let activeThreadsChart = null;
 let durationChart = null;
+let gcTimelineChart = null;
+let heapChart = null;
+let cpuChart = null;
 
 const gridColor = 'rgba(48, 54, 61, 0.8)';
 const textColor = '#8b949e';
@@ -149,6 +154,160 @@ export function initCharts(canvases) {
             }
         }
     });
+
+    // GC Timeline Chart (Bar)
+    if (canvases.gcTimeline) {
+        gcTimelineChart = new Chart(canvases.gcTimeline, {
+            type: 'bar',
+            data: {
+                labels: gcData.timeline.labels,
+                datasets: [{
+                    label: 'GC Pause (ms)',
+                    data: gcData.timeline.pauseTimes,
+                    backgroundColor: 'rgba(163, 113, 247, 0.7)',
+                    borderColor: '#a371f7',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Heap Usage Chart (Line)
+    if (canvases.heap) {
+        heapChart = new Chart(canvases.heap, {
+            type: 'line',
+            data: {
+                labels: gcData.heapHistory.labels,
+                datasets: [
+                    {
+                        label: 'Used',
+                        data: gcData.heapHistory.used,
+                        borderColor: '#a371f7',
+                        backgroundColor: 'rgba(163, 113, 247, 0.2)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Committed',
+                        data: gcData.heapHistory.committed,
+                        borderColor: '#8b949e',
+                        backgroundColor: 'rgba(139, 148, 158, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        borderDash: [5, 5]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: textColor, boxWidth: 12, padding: 8, font: { size: 10 } }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            font: { size: 10 },
+                            callback: function(value) {
+                                return formatBytes(value);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // CPU Load Chart (Line)
+    if (canvases.cpu) {
+        cpuChart = new Chart(canvases.cpu, {
+            type: 'line',
+            data: {
+                labels: cpuData.history.labels,
+                datasets: [
+                    {
+                        label: 'JVM CPU',
+                        data: cpuData.history.jvm,
+                        borderColor: '#58a6ff',
+                        backgroundColor: 'rgba(88, 166, 255, 0.2)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'System CPU',
+                        data: cpuData.history.machine,
+                        borderColor: '#f85149',
+                        backgroundColor: 'rgba(248, 81, 73, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: textColor, boxWidth: 12, padding: 8, font: { size: 10 } }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            font: { size: 10 },
+                            callback: function(value) {
+                                return value + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+/**
+ * Format bytes to human readable string
+ */
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
 /**
@@ -194,6 +353,84 @@ export function updateCharts() {
     if (eventsRateChart) eventsRateChart.update('none');
     if (activeThreadsChart) activeThreadsChart.update('none');
     if (durationChart) durationChart.update('none');
+    if (gcTimelineChart) gcTimelineChart.update('none');
+    if (heapChart) heapChart.update('none');
+    if (cpuChart) cpuChart.update('none');
+}
+
+/**
+ * Update GC chart data from server response
+ */
+export function updateGCCharts(data) {
+    // Update GC state
+    gcData.totalEvents = data.totalGCEvents || 0;
+    gcData.totalPauseMs = data.totalPauseTimeMs || 0;
+    gcData.avgPauseMs = parseFloat(data.avgPauseTimeMs) || 0;
+    gcData.maxPauseMs = data.maxPauseTimeMs || 0;
+    gcData.currentHeapUsed = data.currentHeapUsed || 0;
+    gcData.currentHeapCommitted = data.currentHeapCommitted || 0;
+
+    // Update timeline from recent GCs - modify arrays in place to keep Chart.js references
+    if (data.recentGCs && data.recentGCs.length > 0) {
+        // Clear arrays without breaking reference
+        gcData.timeline.labels.length = 0;
+        gcData.timeline.pauseTimes.length = 0;
+        gcData.heapHistory.labels.length = 0;
+        gcData.heapHistory.used.length = 0;
+        gcData.heapHistory.committed.length = 0;
+
+        data.recentGCs.slice(-30).forEach(gc => {
+            const time = new Date(gc.timestamp).toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            gcData.timeline.labels.push(time);
+            gcData.timeline.pauseTimes.push(parseFloat(gc.pauseTimeMs) || 0);
+
+            if (gc.heapUsedAfter > 0) {
+                gcData.heapHistory.labels.push(time);
+                gcData.heapHistory.used.push(gc.heapUsedAfter);
+                gcData.heapHistory.committed.push(data.currentHeapCommitted);
+            }
+        });
+    }
+
+    if (gcTimelineChart) gcTimelineChart.update('none');
+    if (heapChart) heapChart.update('none');
+}
+
+/**
+ * Update CPU chart data from server response
+ */
+export function updateCPUCharts(data) {
+    // Update CPU state
+    cpuData.currentJvmPercent = parseFloat(data.currentJvmPercent) || 0;
+    cpuData.currentMachinePercent = parseFloat(data.currentMachinePercent) || 0;
+    cpuData.peakJvmPercent = (parseFloat(data.peakJvmTotal) || 0) * 100;
+
+    // Update history from server - modify arrays in place to keep Chart.js references
+    if (data.history && data.history.length > 0) {
+        // Clear arrays without breaking reference
+        cpuData.history.labels.length = 0;
+        cpuData.history.jvm.length = 0;
+        cpuData.history.machine.length = 0;
+
+        data.history.forEach(snapshot => {
+            const time = new Date(snapshot.timestamp).toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            cpuData.history.labels.push(time);
+            cpuData.history.jvm.push(parseFloat(snapshot.jvmPercent) || 0);
+            cpuData.history.machine.push(parseFloat(snapshot.machinePercent) || 0);
+        });
+    }
+
+    if (cpuChart) cpuChart.update('none');
 }
 
 /**

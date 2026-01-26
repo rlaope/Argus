@@ -2,6 +2,8 @@ package io.argus.server.handler;
 
 import java.util.Map;
 
+import io.argus.server.analysis.CPUAnalyzer;
+import io.argus.server.analysis.GCAnalyzer;
 import io.argus.server.http.HttpResponseHelper;
 import io.argus.server.http.StaticFileHandler;
 import io.argus.server.metrics.ServerMetrics;
@@ -32,6 +34,8 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
     private final ServerMetrics metrics;
     private final ActiveThreadsRegistry activeThreads;
     private final ThreadEventsBuffer threadEvents;
+    private final GCAnalyzer gcAnalyzer;
+    private final CPUAnalyzer cpuAnalyzer;
     private final EventBroadcaster broadcaster;
     private final StaticFileHandler staticFileHandler;
 
@@ -44,6 +48,8 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
      * @param metrics       the server metrics tracker
      * @param activeThreads the active threads registry
      * @param threadEvents  the per-thread events buffer
+     * @param gcAnalyzer    the GC analyzer
+     * @param cpuAnalyzer   the CPU analyzer
      * @param broadcaster   the event broadcaster
      */
     public ArgusChannelHandler(
@@ -51,11 +57,15 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             ServerMetrics metrics,
             ActiveThreadsRegistry activeThreads,
             ThreadEventsBuffer threadEvents,
+            GCAnalyzer gcAnalyzer,
+            CPUAnalyzer cpuAnalyzer,
             EventBroadcaster broadcaster) {
         this.clients = clients;
         this.metrics = metrics;
         this.activeThreads = activeThreads;
         this.threadEvents = threadEvents;
+        this.gcAnalyzer = gcAnalyzer;
+        this.cpuAnalyzer = cpuAnalyzer;
         this.broadcaster = broadcaster;
         this.staticFileHandler = new StaticFileHandler();
     }
@@ -120,6 +130,18 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         // Carrier threads analysis endpoint
         if ("/carrier-threads".equals(uri)) {
             handleCarrierThreads(ctx, request);
+            return;
+        }
+
+        // GC analysis endpoint
+        if ("/gc-analysis".equals(uri)) {
+            handleGCAnalysis(ctx, request);
+            return;
+        }
+
+        // CPU metrics endpoint
+        if ("/cpu-metrics".equals(uri)) {
+            handleCPUMetrics(ctx, request);
             return;
         }
 
@@ -357,6 +379,105 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         }
 
         sb.append("]");
+        sb.append("}");
+
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handleGCAnalysis(ChannelHandlerContext ctx, FullHttpRequest request) {
+        var analysis = gcAnalyzer.getAnalysis();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"totalGCEvents\":").append(analysis.totalGCEvents()).append(",");
+        sb.append("\"totalPauseTimeMs\":").append(analysis.totalPauseTimeMs()).append(",");
+        sb.append("\"avgPauseTimeMs\":").append(String.format("%.2f", analysis.avgPauseTimeMs())).append(",");
+        sb.append("\"maxPauseTimeMs\":").append(analysis.maxPauseTimeMs()).append(",");
+        sb.append("\"currentHeapUsed\":").append(analysis.currentHeapUsed()).append(",");
+        sb.append("\"currentHeapCommitted\":").append(analysis.currentHeapCommitted()).append(",");
+
+        if (analysis.lastGCTime() != null) {
+            sb.append("\"lastGCTime\":\"").append(analysis.lastGCTime()).append("\",");
+        }
+
+        // Cause distribution
+        sb.append("\"causeDistribution\":{");
+        boolean first = true;
+        for (var entry : analysis.causeDistribution().entrySet()) {
+            if (!first) sb.append(",");
+            first = false;
+            sb.append("\"").append(escapeJson(entry.getKey())).append("\":").append(entry.getValue());
+        }
+        sb.append("},");
+
+        // Recent GCs
+        sb.append("\"recentGCs\":[");
+        first = true;
+        for (var gc : analysis.recentGCs()) {
+            if (!first) sb.append(",");
+            first = false;
+
+            sb.append("{");
+            sb.append("\"timestamp\":\"").append(gc.timestamp()).append("\",");
+            if (gc.gcName() != null) {
+                sb.append("\"gcName\":\"").append(escapeJson(gc.gcName())).append("\",");
+            }
+            if (gc.gcCause() != null) {
+                sb.append("\"gcCause\":\"").append(escapeJson(gc.gcCause())).append("\",");
+            }
+            sb.append("\"pauseTimeMs\":").append(String.format("%.2f", gc.pauseTimeMs())).append(",");
+            sb.append("\"heapUsedBefore\":").append(gc.heapUsedBefore()).append(",");
+            sb.append("\"heapUsedAfter\":").append(gc.heapUsedAfter()).append(",");
+            sb.append("\"memoryReclaimed\":").append(gc.memoryReclaimed());
+            sb.append("}");
+        }
+        sb.append("]");
+
+        sb.append("}");
+
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handleCPUMetrics(ChannelHandlerContext ctx, FullHttpRequest request) {
+        var analysis = cpuAnalyzer.getAnalysis();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"totalSamples\":").append(analysis.totalSamples()).append(",");
+        sb.append("\"currentJvmUser\":").append(String.format("%.4f", analysis.currentJvmUser())).append(",");
+        sb.append("\"currentJvmSystem\":").append(String.format("%.4f", analysis.currentJvmSystem())).append(",");
+        sb.append("\"currentJvmTotal\":").append(String.format("%.4f", analysis.currentJvmTotal())).append(",");
+        sb.append("\"currentMachineTotal\":").append(String.format("%.4f", analysis.currentMachineTotal())).append(",");
+        sb.append("\"currentJvmPercent\":").append(String.format("%.2f", analysis.currentJvmPercent())).append(",");
+        sb.append("\"currentMachinePercent\":").append(String.format("%.2f", analysis.currentMachinePercent())).append(",");
+        sb.append("\"avgJvmTotal\":").append(String.format("%.4f", analysis.avgJvmTotal())).append(",");
+        sb.append("\"avgMachineTotal\":").append(String.format("%.4f", analysis.avgMachineTotal())).append(",");
+        sb.append("\"peakJvmTotal\":").append(String.format("%.4f", analysis.peakJvmTotal())).append(",");
+        sb.append("\"peakMachineTotal\":").append(String.format("%.4f", analysis.peakMachineTotal())).append(",");
+
+        if (analysis.lastUpdateTime() != null) {
+            sb.append("\"lastUpdateTime\":\"").append(analysis.lastUpdateTime()).append("\",");
+        }
+
+        // History
+        sb.append("\"history\":[");
+        boolean first = true;
+        for (var snapshot : analysis.history()) {
+            if (!first) sb.append(",");
+            first = false;
+
+            sb.append("{");
+            sb.append("\"timestamp\":\"").append(snapshot.timestamp()).append("\",");
+            sb.append("\"jvmUser\":").append(String.format("%.4f", snapshot.jvmUser())).append(",");
+            sb.append("\"jvmSystem\":").append(String.format("%.4f", snapshot.jvmSystem())).append(",");
+            sb.append("\"jvmTotal\":").append(String.format("%.4f", snapshot.jvmTotal())).append(",");
+            sb.append("\"machineTotal\":").append(String.format("%.4f", snapshot.machineTotal())).append(",");
+            sb.append("\"jvmPercent\":").append(String.format("%.2f", snapshot.jvmPercent())).append(",");
+            sb.append("\"machinePercent\":").append(String.format("%.2f", snapshot.machinePercent()));
+            sb.append("}");
+        }
+        sb.append("]");
+
         sb.append("}");
 
         HttpResponseHelper.sendJson(ctx, request, sb.toString());

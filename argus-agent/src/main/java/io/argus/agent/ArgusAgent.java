@@ -3,6 +3,8 @@ package io.argus.agent;
 import io.argus.agent.config.AgentConfig;
 import io.argus.agent.jfr.JfrStreamingEngine;
 import io.argus.core.buffer.RingBuffer;
+import io.argus.core.event.CPUEvent;
+import io.argus.core.event.GCEvent;
 import io.argus.core.event.VirtualThreadEvent;
 import io.argus.server.ArgusServer;
 
@@ -45,6 +47,8 @@ public final class ArgusAgent {
 
     private static volatile JfrStreamingEngine engine;
     private static volatile RingBuffer<VirtualThreadEvent> eventBuffer;
+    private static volatile RingBuffer<GCEvent> gcEventBuffer;
+    private static volatile RingBuffer<CPUEvent> cpuEventBuffer;
     private static volatile ArgusServer server;
     private static volatile AgentConfig config;
 
@@ -79,12 +83,29 @@ public final class ArgusAgent {
         // Load configuration
         config = AgentConfig.fromSystemProperties();
 
-        // Initialize event buffer
+        // Initialize event buffers
         eventBuffer = new RingBuffer<>(config.getBufferSize());
+
+        // Initialize GC event buffer if enabled
+        if (config.isGcEnabled()) {
+            gcEventBuffer = new RingBuffer<>(config.getBufferSize());
+        }
+
+        // Initialize CPU event buffer if enabled
+        if (config.isCpuEnabled()) {
+            cpuEventBuffer = new RingBuffer<>(config.getBufferSize());
+        }
 
         // Start JFR streaming engine
         System.out.println("[Argus] Initializing JFR streaming engine...");
-        engine = new JfrStreamingEngine(eventBuffer);
+        engine = new JfrStreamingEngine(
+                eventBuffer,
+                gcEventBuffer,
+                cpuEventBuffer,
+                config.isGcEnabled(),
+                config.isCpuEnabled(),
+                config.getCpuIntervalMs()
+        );
         engine.start();
 
         // Start server if enabled
@@ -100,7 +121,7 @@ public final class ArgusAgent {
     }
 
     private static void startServer() {
-        server = new ArgusServer(config.getServerPort(), eventBuffer);
+        server = new ArgusServer(config.getServerPort(), eventBuffer, gcEventBuffer, cpuEventBuffer);
         Thread.ofPlatform()
                 .name("argus-server")
                 .daemon(true)
@@ -145,6 +166,24 @@ public final class ArgusAgent {
      */
     public static RingBuffer<VirtualThreadEvent> getEventBuffer() {
         return eventBuffer;
+    }
+
+    /**
+     * Returns the GC event buffer for consumers.
+     *
+     * @return GC event buffer, or null if GC monitoring is disabled
+     */
+    public static RingBuffer<GCEvent> getGcEventBuffer() {
+        return gcEventBuffer;
+    }
+
+    /**
+     * Returns the CPU event buffer for consumers.
+     *
+     * @return CPU event buffer, or null if CPU monitoring is disabled
+     */
+    public static RingBuffer<CPUEvent> getCpuEventBuffer() {
+        return cpuEventBuffer;
     }
 
     /**

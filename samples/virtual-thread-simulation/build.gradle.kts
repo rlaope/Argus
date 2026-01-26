@@ -59,3 +59,34 @@ tasks.register<JavaExec>("runSimulation") {
         jvmArgs("-Dduration=$duration")
     }
 }
+
+// Run metrics demo with GC/CPU activity
+tasks.register<JavaExec>("runMetricsDemo") {
+    group = "application"
+    description = "Run metrics demo with GC, CPU, and virtual thread activity"
+
+    mainClass.set("io.argus.sample.MetricsDemo")
+    classpath = sourceSets["main"].runtimeClasspath
+
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+
+    // Duration in seconds (default: 60)
+    val duration = System.getProperty("duration")
+
+    jvmArgs(
+        "--enable-preview",
+        "-Xmx128m",  // Small heap to trigger GC frequently
+        "-XX:+UseG1GC",
+        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
+        "-Dargus.server.enabled=true",
+        "-Dargus.server.port=9202",
+        "-Dargus.gc.enabled=true",
+        "-Dargus.cpu.enabled=true"
+    )
+
+    if (duration != null) {
+        jvmArgs("-Dduration=$duration")
+    }
+}

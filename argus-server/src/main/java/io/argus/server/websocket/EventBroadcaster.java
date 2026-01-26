@@ -1,8 +1,12 @@
 package io.argus.server.websocket;
 
 import io.argus.core.buffer.RingBuffer;
+import io.argus.core.event.CPUEvent;
+import io.argus.core.event.GCEvent;
 import io.argus.core.event.VirtualThreadEvent;
 import io.argus.server.analysis.CarrierThreadAnalyzer;
+import io.argus.server.analysis.CPUAnalyzer;
+import io.argus.server.analysis.GCAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.metrics.ServerMetrics;
 import io.argus.server.serialization.EventJsonSerializer;
@@ -35,6 +39,8 @@ public final class EventBroadcaster {
     private static final int MAX_EXPORT_EVENTS = 10000;
 
     private final RingBuffer<VirtualThreadEvent> eventBuffer;
+    private final RingBuffer<GCEvent> gcEventBuffer;
+    private final RingBuffer<CPUEvent> cpuEventBuffer;
     private final ChannelGroup clients;
     private final List<VirtualThreadEvent> exportableEvents = Collections.synchronizedList(new ArrayList<>());
     private final ServerMetrics metrics;
@@ -43,6 +49,8 @@ public final class EventBroadcaster {
     private final ThreadEventsBuffer threadEvents;
     private final PinningAnalyzer pinningAnalyzer;
     private final CarrierThreadAnalyzer carrierAnalyzer;
+    private final GCAnalyzer gcAnalyzer;
+    private final CPUAnalyzer cpuAnalyzer;
     private final ThreadStateManager threadStateManager;
     private final EventJsonSerializer serializer;
     private final ScheduledExecutorService scheduler;
@@ -51,7 +59,9 @@ public final class EventBroadcaster {
     /**
      * Creates an event broadcaster.
      *
-     * @param eventBuffer        the ring buffer to drain events from
+     * @param eventBuffer        the ring buffer to drain virtual thread events from
+     * @param gcEventBuffer      the ring buffer to drain GC events from (can be null)
+     * @param cpuEventBuffer     the ring buffer to drain CPU events from (can be null)
      * @param clients            the channel group of connected WebSocket clients
      * @param metrics            the server metrics tracker
      * @param activeThreads      the active threads registry
@@ -59,11 +69,15 @@ public final class EventBroadcaster {
      * @param threadEvents       the per-thread events buffer
      * @param pinningAnalyzer    the pinning analyzer for hotspot detection
      * @param carrierAnalyzer    the carrier thread analyzer
+     * @param gcAnalyzer         the GC analyzer
+     * @param cpuAnalyzer        the CPU analyzer
      * @param threadStateManager the thread state manager for real-time state tracking
      * @param serializer         the event JSON serializer
      */
     public EventBroadcaster(
             RingBuffer<VirtualThreadEvent> eventBuffer,
+            RingBuffer<GCEvent> gcEventBuffer,
+            RingBuffer<CPUEvent> cpuEventBuffer,
             ChannelGroup clients,
             ServerMetrics metrics,
             ActiveThreadsRegistry activeThreads,
@@ -71,9 +85,13 @@ public final class EventBroadcaster {
             ThreadEventsBuffer threadEvents,
             PinningAnalyzer pinningAnalyzer,
             CarrierThreadAnalyzer carrierAnalyzer,
+            GCAnalyzer gcAnalyzer,
+            CPUAnalyzer cpuAnalyzer,
             ThreadStateManager threadStateManager,
             EventJsonSerializer serializer) {
         this.eventBuffer = eventBuffer;
+        this.gcEventBuffer = gcEventBuffer;
+        this.cpuEventBuffer = cpuEventBuffer;
         this.clients = clients;
         this.metrics = metrics;
         this.activeThreads = activeThreads;
@@ -81,6 +99,8 @@ public final class EventBroadcaster {
         this.threadEvents = threadEvents;
         this.pinningAnalyzer = pinningAnalyzer;
         this.carrierAnalyzer = carrierAnalyzer;
+        this.gcAnalyzer = gcAnalyzer;
+        this.cpuAnalyzer = cpuAnalyzer;
         this.threadStateManager = threadStateManager;
         this.serializer = serializer;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
@@ -126,57 +146,142 @@ public final class EventBroadcaster {
      * Drains events from the buffer and broadcasts to clients.
      */
     private void drainAndBroadcast() {
-        if (eventBuffer == null) {
-            return;
+        // Drain virtual thread events
+        if (eventBuffer != null) {
+            eventBuffer.drain(event -> {
+                // Store for export (keep last MAX_EXPORT_EVENTS)
+                exportableEvents.add(event);
+                while (exportableEvents.size() > MAX_EXPORT_EVENTS) {
+                    exportableEvents.remove(0);
+                }
+
+                // Update metrics and state
+                metrics.incrementTotal();
+                switch (event.eventType()) {
+                    case VIRTUAL_THREAD_START -> {
+                        metrics.incrementStart();
+                        activeThreads.register(event.threadId(), event);
+                        threadStateManager.onThreadStart(event);
+                        carrierAnalyzer.onThreadStart(event);
+                    }
+                    case VIRTUAL_THREAD_END -> {
+                        metrics.incrementEnd();
+                        activeThreads.unregister(event.threadId());
+                        threadStateManager.onThreadEnd(event);
+                        carrierAnalyzer.onThreadEnd(event);
+                    }
+                    case VIRTUAL_THREAD_PINNED -> {
+                        metrics.incrementPinned();
+                        pinningAnalyzer.recordPinnedEvent(event);
+                        threadStateManager.onThreadPinned(event);
+                        carrierAnalyzer.onThreadPinned(event);
+                    }
+                    case VIRTUAL_THREAD_SUBMIT_FAILED -> metrics.incrementSubmitFailed();
+                    default -> {
+                        // GC and CPU events handled separately
+                    }
+                }
+
+                // Serialize event
+                String json = serializer.serialize(event);
+
+                // Store in recent events
+                recentEvents.add(json);
+
+                // Store per-thread event history
+                threadEvents.add(event.threadId(), json);
+
+                // Broadcast to WebSocket clients
+                if (!clients.isEmpty()) {
+                    TextWebSocketFrame frame = new TextWebSocketFrame(json);
+                    clients.writeAndFlush(frame.retain());
+                    frame.release();
+                }
+            });
         }
 
-        eventBuffer.drain(event -> {
-            // Store for export (keep last MAX_EXPORT_EVENTS)
-            exportableEvents.add(event);
-            while (exportableEvents.size() > MAX_EXPORT_EVENTS) {
-                exportableEvents.remove(0);
-            }
+        // Drain GC events
+        if (gcEventBuffer != null && gcAnalyzer != null) {
+            gcEventBuffer.drain(event -> {
+                gcAnalyzer.recordGCEvent(event);
+                metrics.incrementGcEvent();
 
-            // Update metrics and state
-            metrics.incrementTotal();
-            switch (event.eventType()) {
-                case VIRTUAL_THREAD_START -> {
-                    metrics.incrementStart();
-                    activeThreads.register(event.threadId(), event);
-                    threadStateManager.onThreadStart(event);
-                    carrierAnalyzer.onThreadStart(event);
+                // Broadcast GC event to clients
+                if (!clients.isEmpty()) {
+                    String json = serializeGCEvent(event);
+                    TextWebSocketFrame frame = new TextWebSocketFrame(json);
+                    clients.writeAndFlush(frame.retain());
+                    frame.release();
                 }
-                case VIRTUAL_THREAD_END -> {
-                    metrics.incrementEnd();
-                    activeThreads.unregister(event.threadId());
-                    threadStateManager.onThreadEnd(event);
-                    carrierAnalyzer.onThreadEnd(event);
+            });
+        }
+
+        // Drain CPU events
+        if (cpuEventBuffer != null && cpuAnalyzer != null) {
+            cpuEventBuffer.drain(event -> {
+                cpuAnalyzer.recordCPUEvent(event);
+                metrics.incrementCpuEvent();
+
+                // Broadcast CPU event to clients
+                if (!clients.isEmpty()) {
+                    String json = serializeCPUEvent(event);
+                    TextWebSocketFrame frame = new TextWebSocketFrame(json);
+                    clients.writeAndFlush(frame.retain());
+                    frame.release();
                 }
-                case VIRTUAL_THREAD_PINNED -> {
-                    metrics.incrementPinned();
-                    pinningAnalyzer.recordPinnedEvent(event);
-                    threadStateManager.onThreadPinned(event);
-                    carrierAnalyzer.onThreadPinned(event);
-                }
-                case VIRTUAL_THREAD_SUBMIT_FAILED -> metrics.incrementSubmitFailed();
-            }
+            });
+        }
+    }
 
-            // Serialize event
-            String json = serializer.serialize(event);
+    /**
+     * Serializes a GC event to JSON.
+     */
+    private String serializeGCEvent(GCEvent event) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"type\":\"GC_EVENT\",");
+        sb.append("\"eventType\":\"").append(event.eventType().name()).append("\",");
+        sb.append("\"timestamp\":\"").append(event.timestamp()).append("\",");
+        if (event.duration() > 0) {
+            sb.append("\"duration\":").append(event.duration()).append(",");
+            sb.append("\"durationMs\":").append(event.durationMs()).append(",");
+        }
+        if (event.gcName() != null) {
+            sb.append("\"gcName\":\"").append(escapeJson(event.gcName())).append("\",");
+        }
+        if (event.gcCause() != null) {
+            sb.append("\"gcCause\":\"").append(escapeJson(event.gcCause())).append("\",");
+        }
+        if (event.heapUsedBefore() > 0) {
+            sb.append("\"heapUsedBefore\":").append(event.heapUsedBefore()).append(",");
+        }
+        if (event.heapUsedAfter() > 0) {
+            sb.append("\"heapUsedAfter\":").append(event.heapUsedAfter()).append(",");
+        }
+        if (event.heapCommitted() > 0) {
+            sb.append("\"heapCommitted\":").append(event.heapCommitted()).append(",");
+        }
+        // Remove trailing comma and close
+        if (sb.charAt(sb.length() - 1) == ',') {
+            sb.setLength(sb.length() - 1);
+        }
+        sb.append("}");
+        return sb.toString();
+    }
 
-            // Store in recent events
-            recentEvents.add(json);
-
-            // Store per-thread event history
-            threadEvents.add(event.threadId(), json);
-
-            // Broadcast to WebSocket clients
-            if (!clients.isEmpty()) {
-                TextWebSocketFrame frame = new TextWebSocketFrame(json);
-                clients.writeAndFlush(frame.retain());
-                frame.release();
-            }
-        });
+    /**
+     * Serializes a CPU event to JSON.
+     */
+    private String serializeCPUEvent(CPUEvent event) {
+        return String.format(
+                "{\"type\":\"CPU_EVENT\",\"timestamp\":\"%s\",\"jvmUser\":%.4f,\"jvmSystem\":%.4f,\"jvmTotal\":%.4f,\"machineTotal\":%.4f,\"jvmPercent\":%.2f,\"machinePercent\":%.2f}",
+                event.timestamp(),
+                event.jvmUser(),
+                event.jvmSystem(),
+                event.jvmTotal(),
+                event.machineTotal(),
+                event.jvmTotalPercent(),
+                event.machineTotalPercent()
+        );
     }
 
     /**
@@ -207,6 +312,24 @@ public final class EventBroadcaster {
      */
     public CarrierThreadAnalyzer getCarrierAnalyzer() {
         return carrierAnalyzer;
+    }
+
+    /**
+     * Returns the GC analyzer.
+     *
+     * @return the GC analyzer
+     */
+    public GCAnalyzer getGcAnalyzer() {
+        return gcAnalyzer;
+    }
+
+    /**
+     * Returns the CPU analyzer.
+     *
+     * @return the CPU analyzer
+     */
+    public CPUAnalyzer getCpuAnalyzer() {
+        return cpuAnalyzer;
     }
 
     /**

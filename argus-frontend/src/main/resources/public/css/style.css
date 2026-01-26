@@ -1706,6 +1706,95 @@ footer {
     color: var(--text-secondary);
 }
 
+/* GC & Memory Section */
+.gc-section {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.gc-section .section-header {
+    background-color: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    justify-content: space-between;
+}
+
+.gc-section .section-header h2 {
+    color: var(--accent-purple);
+}
+
+.gc-summary {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.gc-summary strong {
+    color: var(--text-primary);
+}
+
+.gc-section .charts-grid {
+    padding: 1rem;
+}
+
+/* CPU Section */
+.cpu-section {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+}
+
+.cpu-section .section-header {
+    background-color: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    justify-content: space-between;
+}
+
+.cpu-section .section-header h2 {
+    color: var(--accent-blue);
+}
+
+.cpu-summary {
+    display: flex;
+    gap: 2rem;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.cpu-summary strong {
+    color: var(--text-primary);
+}
+
+.cpu-section .charts-grid {
+    padding: 1rem;
+}
+
+.charts-grid.single {
+    grid-template-columns: 1fr;
+}
+
+.chart-card.wide {
+    grid-column: 1 / -1;
+}
+
+/* Metric card colors for GC/CPU */
+.metric-card.gc .metric-value {
+    color: var(--accent-purple);
+}
+
+.metric-card.memory .metric-value {
+    color: var(--accent-purple);
+}
+
+.metric-card.cpu .metric-value {
+    color: var(--accent-blue);
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .filter-row {
@@ -1734,5 +1823,11 @@ footer {
 
     .actions-group {
         flex-wrap: wrap;
+    }
+
+    .gc-summary,
+    .cpu-summary {
+        flex-direction: column;
+        gap: 0.5rem;
     }
 }
