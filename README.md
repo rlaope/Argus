@@ -8,12 +8,33 @@ A next-generation real-time visualization profiler for JVM 21+ environments, foc
 
 ## Features
 
-- **Virtual Thread Monitoring**: Track creation, termination, and pinning of virtual threads
-- **Memory & GC Monitoring**: Real-time garbage collection tracking with heap usage visualization
-- **CPU Monitoring**: JVM and system CPU utilization tracking
+### Virtual Thread Monitoring
+- **Thread Lifecycle**: Track creation, termination, and pinning of virtual threads
+- **Pinning Detection**: Identify pinned threads with detailed stack traces
+- **Real-time State Tracking**: Monitor running, pinned, and ended thread states
+
+### Memory & GC Monitoring
+- **GC Events**: Real-time garbage collection tracking with pause time analysis
+- **Heap Usage**: Before/after heap visualization with trend analysis
+- **Allocation Rate**: Track object allocation rate and top allocating classes
+- **Metaspace Monitoring**: Monitor metaspace usage and growth rate
+- **GC Overhead**: Calculate GC overhead percentage with warnings
+
+### CPU & Performance Monitoring
+- **CPU Utilization**: JVM and system CPU tracking with history
+- **Method Profiling**: Hot method detection via execution sampling
+- **Lock Contention**: Monitor thread contention and lock wait times
+
+### Correlation Analysis
+- **GC ↔ CPU Correlation**: Detect CPU spikes related to GC events
+- **GC ↔ Pinning Correlation**: Identify pinning increases during GC
+- **Automatic Recommendations**: Get actionable insights based on metrics
+
+### Core Features
 - **JFR Streaming**: Low-overhead event collection using JDK Flight Recorder
 - **Real-time Dashboard**: WebSocket-based streaming with interactive charts
 - **Lock-free Architecture**: High-performance ring buffer for event collection
+- **Data Export**: Export events in CSV, JSON, or JSONL formats
 
 ## Requirements
 
@@ -78,6 +99,16 @@ The agent accepts the following system properties:
 | `argus.gc.enabled` | `true` | Enable GC monitoring |
 | `argus.cpu.enabled` | `true` | Enable CPU monitoring |
 | `argus.cpu.interval` | `1000` | CPU sampling interval in milliseconds |
+| `argus.allocation.enabled` | `false` | Enable allocation tracking (high overhead) |
+| `argus.allocation.threshold` | `1048576` | Minimum allocation size to track (1MB) |
+| `argus.metaspace.enabled` | `true` | Enable metaspace monitoring |
+| `argus.profiling.enabled` | `false` | Enable method profiling (high overhead) |
+| `argus.profiling.interval` | `20` | Profiling sampling interval (ms) |
+| `argus.contention.enabled` | `false` | Enable lock contention tracking |
+| `argus.contention.threshold` | `50` | Minimum contention duration (ms) |
+| `argus.correlation.enabled` | `true` | Enable correlation analysis |
+
+See [Configuration Guide](docs/configuration.md) for detailed documentation.
 
 ## Architecture
 
@@ -109,12 +140,17 @@ The agent accepts the following system properties:
 - `jdk.VirtualThreadPinned` - Pinning detection (critical for Loom performance)
 - `jdk.VirtualThreadSubmitFailed` - Submit failures
 
-### GC Events
+### GC & Memory Events
 - `jdk.GarbageCollection` - GC pause duration, cause, and type
 - `jdk.GCHeapSummary` - Heap usage before and after GC
+- `jdk.ObjectAllocationInNewTLAB` - Object allocation tracking
+- `jdk.MetaspaceSummary` - Metaspace usage monitoring
 
-### CPU Events
+### CPU & Performance Events
 - `jdk.CPULoad` - JVM and system CPU utilization
+- `jdk.ExecutionSample` - Method execution sampling for CPU profiling
+- `jdk.JavaMonitorEnter` - Lock acquisition contention
+- `jdk.JavaMonitorWait` - Lock wait contention
 
 ## API Endpoints
 
@@ -127,6 +163,11 @@ The agent accepts the following system properties:
 | `/cpu-metrics` | CPU utilization history |
 | `/pinning-analysis` | Pinning hotspot analysis |
 | `/export` | Export events (CSV, JSON, JSONL) |
+| `/allocation-analysis` | Allocation rate and top allocating classes |
+| `/metaspace-metrics` | Metaspace usage and growth |
+| `/method-profiling` | Hot methods (Top 20) |
+| `/contention-analysis` | Lock contention hotspots |
+| `/correlation` | Correlation analysis and recommendations |
 
 ## Contributing
 

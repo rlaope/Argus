@@ -14,6 +14,14 @@ package io.argus.agent.config;
  *   <li>{@code argus.gc.enabled} - Enable GC monitoring (default: true)</li>
  *   <li>{@code argus.cpu.enabled} - Enable CPU monitoring (default: true)</li>
  *   <li>{@code argus.cpu.interval} - CPU sampling interval in ms (default: 1000)</li>
+ *   <li>{@code argus.allocation.enabled} - Enable allocation tracking (default: false, high overhead)</li>
+ *   <li>{@code argus.allocation.threshold} - Minimum allocation size to track in bytes (default: 1MB)</li>
+ *   <li>{@code argus.metaspace.enabled} - Enable metaspace monitoring (default: true)</li>
+ *   <li>{@code argus.profiling.enabled} - Enable method profiling (default: false, high overhead)</li>
+ *   <li>{@code argus.profiling.interval} - Profiling sampling interval in ms (default: 20)</li>
+ *   <li>{@code argus.contention.enabled} - Enable lock contention tracking (default: false)</li>
+ *   <li>{@code argus.contention.threshold} - Minimum contention time to track in ms (default: 50)</li>
+ *   <li>{@code argus.correlation.enabled} - Enable correlation analysis (default: true)</li>
  * </ul>
  */
 public final class AgentConfig {
@@ -24,6 +32,14 @@ public final class AgentConfig {
     private static final boolean DEFAULT_GC_ENABLED = true;
     private static final boolean DEFAULT_CPU_ENABLED = true;
     private static final int DEFAULT_CPU_INTERVAL_MS = 1000;
+    private static final boolean DEFAULT_ALLOCATION_ENABLED = false;  // High overhead, opt-in only
+    private static final int DEFAULT_ALLOCATION_THRESHOLD = 1024 * 1024;  // 1MB minimum
+    private static final boolean DEFAULT_METASPACE_ENABLED = true;
+    private static final boolean DEFAULT_PROFILING_ENABLED = false;
+    private static final int DEFAULT_PROFILING_INTERVAL_MS = 20;
+    private static final boolean DEFAULT_CONTENTION_ENABLED = false;  // Can generate many events, opt-in
+    private static final int DEFAULT_CONTENTION_THRESHOLD_MS = 50;  // Higher threshold for less noise
+    private static final boolean DEFAULT_CORRELATION_ENABLED = true;
 
     private final int bufferSize;
     private final int serverPort;
@@ -31,15 +47,35 @@ public final class AgentConfig {
     private final boolean gcEnabled;
     private final boolean cpuEnabled;
     private final int cpuIntervalMs;
+    private final boolean allocationEnabled;
+    private final int allocationThreshold;
+    private final boolean metaspaceEnabled;
+    private final boolean profilingEnabled;
+    private final int profilingIntervalMs;
+    private final boolean contentionEnabled;
+    private final int contentionThresholdMs;
+    private final boolean correlationEnabled;
 
     private AgentConfig(int bufferSize, int serverPort, boolean serverEnabled,
-                        boolean gcEnabled, boolean cpuEnabled, int cpuIntervalMs) {
+                        boolean gcEnabled, boolean cpuEnabled, int cpuIntervalMs,
+                        boolean allocationEnabled, int allocationThreshold,
+                        boolean metaspaceEnabled, boolean profilingEnabled,
+                        int profilingIntervalMs, boolean contentionEnabled,
+                        int contentionThresholdMs, boolean correlationEnabled) {
         this.bufferSize = bufferSize;
         this.serverPort = serverPort;
         this.serverEnabled = serverEnabled;
         this.gcEnabled = gcEnabled;
         this.cpuEnabled = cpuEnabled;
         this.cpuIntervalMs = cpuIntervalMs;
+        this.allocationEnabled = allocationEnabled;
+        this.allocationThreshold = allocationThreshold;
+        this.metaspaceEnabled = metaspaceEnabled;
+        this.profilingEnabled = profilingEnabled;
+        this.profilingIntervalMs = profilingIntervalMs;
+        this.contentionEnabled = contentionEnabled;
+        this.contentionThresholdMs = contentionThresholdMs;
+        this.correlationEnabled = correlationEnabled;
     }
 
     /**
@@ -57,8 +93,23 @@ public final class AgentConfig {
         boolean cpuEnabled = Boolean.parseBoolean(
                 System.getProperty("argus.cpu.enabled", String.valueOf(DEFAULT_CPU_ENABLED)));
         int cpuIntervalMs = Integer.getInteger("argus.cpu.interval", DEFAULT_CPU_INTERVAL_MS);
+        boolean allocationEnabled = Boolean.parseBoolean(
+                System.getProperty("argus.allocation.enabled", String.valueOf(DEFAULT_ALLOCATION_ENABLED)));
+        int allocationThreshold = Integer.getInteger("argus.allocation.threshold", DEFAULT_ALLOCATION_THRESHOLD);
+        boolean metaspaceEnabled = Boolean.parseBoolean(
+                System.getProperty("argus.metaspace.enabled", String.valueOf(DEFAULT_METASPACE_ENABLED)));
+        boolean profilingEnabled = Boolean.parseBoolean(
+                System.getProperty("argus.profiling.enabled", String.valueOf(DEFAULT_PROFILING_ENABLED)));
+        int profilingIntervalMs = Integer.getInteger("argus.profiling.interval", DEFAULT_PROFILING_INTERVAL_MS);
+        boolean contentionEnabled = Boolean.parseBoolean(
+                System.getProperty("argus.contention.enabled", String.valueOf(DEFAULT_CONTENTION_ENABLED)));
+        int contentionThresholdMs = Integer.getInteger("argus.contention.threshold", DEFAULT_CONTENTION_THRESHOLD_MS);
+        boolean correlationEnabled = Boolean.parseBoolean(
+                System.getProperty("argus.correlation.enabled", String.valueOf(DEFAULT_CORRELATION_ENABLED)));
 
-        return new AgentConfig(bufferSize, serverPort, serverEnabled, gcEnabled, cpuEnabled, cpuIntervalMs);
+        return new AgentConfig(bufferSize, serverPort, serverEnabled, gcEnabled, cpuEnabled, cpuIntervalMs,
+                allocationEnabled, allocationThreshold, metaspaceEnabled, profilingEnabled, profilingIntervalMs,
+                contentionEnabled, contentionThresholdMs, correlationEnabled);
     }
 
     /**
@@ -68,7 +119,10 @@ public final class AgentConfig {
      */
     public static AgentConfig defaults() {
         return new AgentConfig(DEFAULT_BUFFER_SIZE, DEFAULT_SERVER_PORT, DEFAULT_SERVER_ENABLED,
-                DEFAULT_GC_ENABLED, DEFAULT_CPU_ENABLED, DEFAULT_CPU_INTERVAL_MS);
+                DEFAULT_GC_ENABLED, DEFAULT_CPU_ENABLED, DEFAULT_CPU_INTERVAL_MS,
+                DEFAULT_ALLOCATION_ENABLED, DEFAULT_ALLOCATION_THRESHOLD, DEFAULT_METASPACE_ENABLED,
+                DEFAULT_PROFILING_ENABLED, DEFAULT_PROFILING_INTERVAL_MS, DEFAULT_CONTENTION_ENABLED,
+                DEFAULT_CONTENTION_THRESHOLD_MS, DEFAULT_CORRELATION_ENABLED);
     }
 
     /**
@@ -104,6 +158,38 @@ public final class AgentConfig {
         return cpuIntervalMs;
     }
 
+    public boolean isAllocationEnabled() {
+        return allocationEnabled;
+    }
+
+    public int getAllocationThreshold() {
+        return allocationThreshold;
+    }
+
+    public boolean isMetaspaceEnabled() {
+        return metaspaceEnabled;
+    }
+
+    public boolean isProfilingEnabled() {
+        return profilingEnabled;
+    }
+
+    public int getProfilingIntervalMs() {
+        return profilingIntervalMs;
+    }
+
+    public boolean isContentionEnabled() {
+        return contentionEnabled;
+    }
+
+    public int getContentionThresholdMs() {
+        return contentionThresholdMs;
+    }
+
+    public boolean isCorrelationEnabled() {
+        return correlationEnabled;
+    }
+
     @Override
     public String toString() {
         return "AgentConfig{" +
@@ -113,6 +199,14 @@ public final class AgentConfig {
                 ", gcEnabled=" + gcEnabled +
                 ", cpuEnabled=" + cpuEnabled +
                 ", cpuIntervalMs=" + cpuIntervalMs +
+                ", allocationEnabled=" + allocationEnabled +
+                ", allocationThreshold=" + allocationThreshold +
+                ", metaspaceEnabled=" + metaspaceEnabled +
+                ", profilingEnabled=" + profilingEnabled +
+                ", profilingIntervalMs=" + profilingIntervalMs +
+                ", contentionEnabled=" + contentionEnabled +
+                ", contentionThresholdMs=" + contentionThresholdMs +
+                ", correlationEnabled=" + correlationEnabled +
                 '}';
     }
 
@@ -126,6 +220,14 @@ public final class AgentConfig {
         private boolean gcEnabled = DEFAULT_GC_ENABLED;
         private boolean cpuEnabled = DEFAULT_CPU_ENABLED;
         private int cpuIntervalMs = DEFAULT_CPU_INTERVAL_MS;
+        private boolean allocationEnabled = DEFAULT_ALLOCATION_ENABLED;
+        private int allocationThreshold = DEFAULT_ALLOCATION_THRESHOLD;
+        private boolean metaspaceEnabled = DEFAULT_METASPACE_ENABLED;
+        private boolean profilingEnabled = DEFAULT_PROFILING_ENABLED;
+        private int profilingIntervalMs = DEFAULT_PROFILING_INTERVAL_MS;
+        private boolean contentionEnabled = DEFAULT_CONTENTION_ENABLED;
+        private int contentionThresholdMs = DEFAULT_CONTENTION_THRESHOLD_MS;
+        private boolean correlationEnabled = DEFAULT_CORRELATION_ENABLED;
 
         private Builder() {
         }
@@ -160,9 +262,52 @@ public final class AgentConfig {
             return this;
         }
 
+        public Builder allocationEnabled(boolean allocationEnabled) {
+            this.allocationEnabled = allocationEnabled;
+            return this;
+        }
+
+        public Builder allocationThreshold(int allocationThreshold) {
+            this.allocationThreshold = allocationThreshold;
+            return this;
+        }
+
+        public Builder metaspaceEnabled(boolean metaspaceEnabled) {
+            this.metaspaceEnabled = metaspaceEnabled;
+            return this;
+        }
+
+        public Builder profilingEnabled(boolean profilingEnabled) {
+            this.profilingEnabled = profilingEnabled;
+            return this;
+        }
+
+        public Builder profilingIntervalMs(int profilingIntervalMs) {
+            this.profilingIntervalMs = profilingIntervalMs;
+            return this;
+        }
+
+        public Builder contentionEnabled(boolean contentionEnabled) {
+            this.contentionEnabled = contentionEnabled;
+            return this;
+        }
+
+        public Builder contentionThresholdMs(int contentionThresholdMs) {
+            this.contentionThresholdMs = contentionThresholdMs;
+            return this;
+        }
+
+        public Builder correlationEnabled(boolean correlationEnabled) {
+            this.correlationEnabled = correlationEnabled;
+            return this;
+        }
+
         public AgentConfig build() {
             return new AgentConfig(bufferSize, serverPort, serverEnabled,
-                    gcEnabled, cpuEnabled, cpuIntervalMs);
+                    gcEnabled, cpuEnabled, cpuIntervalMs, allocationEnabled,
+                    allocationThreshold, metaspaceEnabled, profilingEnabled,
+                    profilingIntervalMs, contentionEnabled, contentionThresholdMs,
+                    correlationEnabled);
         }
     }
 }

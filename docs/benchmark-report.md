@@ -53,7 +53,7 @@ This document presents the performance overhead measurements of Argus Virtual Th
 
 **GC Overhead: None observed**
 
-## Summary
+## Summary (Basic Monitoring)
 
 | Metric | Overhead |
 |--------|----------|
@@ -62,9 +62,62 @@ This document presents the performance overhead measurements of Argus Virtual Th
 | Latency | No significant impact |
 | GC | No additional GC pressure |
 
+## Advanced Profiling Features (Phase 3-5)
+
+The following features are **disabled by default** due to higher overhead:
+
+### Feature Overhead Comparison
+
+| Feature | Event Frequency | Overhead Level | Default |
+|---------|----------------|----------------|---------|
+| GC Monitoring | Low (few per min) | **Very Low** | `true` |
+| CPU Monitoring | Low (1/sec) | **Very Low** | `true` |
+| Metaspace Monitoring | Low (at GC) | **Very Low** | `true` |
+| Allocation Tracking | High (millions/sec) | **High** | `false` |
+| Method Profiling | Medium (50/sec) | **Medium-High** | `false` |
+| Lock Contention | Variable | **Variable** | `false` |
+
+### Why High-Overhead Features are Disabled
+
+1. **Allocation Tracking** (`argus.allocation.enabled`)
+   - JFR events: `jdk.ObjectAllocationInNewTLAB`, `jdk.ObjectAllocationOutsideTLAB`
+   - Problem: Millions of objects allocated per second → millions of events
+   - Mitigation: Use threshold ≥ 1MB to track only large allocations
+
+2. **Method Profiling** (`argus.profiling.enabled`)
+   - JFR event: `jdk.ExecutionSample`
+   - Problem: Periodic stack trace capture of all threads at safepoints
+   - Mitigation: Increase interval (e.g., 50-100ms)
+
+3. **Lock Contention** (`argus.contention.enabled`)
+   - JFR events: `jdk.JavaMonitorEnter`, `jdk.JavaMonitorWait`
+   - Problem: High-concurrency apps may generate many contention events
+   - Mitigation: Use threshold ≥ 50ms to track only significant contention
+
+### Recommended Configurations
+
+**Production (safe defaults):**
+```bash
+-Dargus.gc.enabled=true
+-Dargus.cpu.enabled=true
+-Dargus.metaspace.enabled=true
+```
+
+**Development/Testing (full profiling):**
+```bash
+-Dargus.allocation.enabled=true
+-Dargus.allocation.threshold=1048576
+-Dargus.profiling.enabled=true
+-Dargus.profiling.interval=50
+-Dargus.contention.enabled=true
+-Dargus.contention.threshold=20
+```
+
 ## Conclusion
 
 Argus introduces approximately **9% throughput overhead** when profiling virtual thread events via JFR streaming. Memory overhead is minimal at **3.6 MB additional heap usage per 10,000 virtual threads**, representing less than 1% of the allocated heap. There is no measurable impact on latency or garbage collection behavior.
+
+**Note:** Advanced profiling features (allocation tracking, method profiling, contention tracking) are disabled by default due to potentially high event volume. Enable them only when needed for debugging or optimization, preferably for short durations.
 
 These overhead levels are acceptable for development and staging environments. For production use, consider the throughput trade-off based on your application's performance requirements.
 

@@ -53,11 +53,18 @@ The core module contains shared components used by other modules.
 
 **EventType.java**
 ```
-Enum defining virtual thread event types:
+Enum defining event types:
 ├── VIRTUAL_THREAD_START (1)
 ├── VIRTUAL_THREAD_END (2)
 ├── VIRTUAL_THREAD_PINNED (3)
-└── VIRTUAL_THREAD_SUBMIT_FAILED (4)
+├── VIRTUAL_THREAD_SUBMIT_FAILED (4)
+├── GC_PAUSE (10)
+├── GC_HEAP_SUMMARY (11)
+├── CPU_LOAD (20)
+├── ALLOCATION (30)
+├── METASPACE_SUMMARY (31)
+├── EXECUTION_SAMPLE (40)
+└── CONTENTION (41)
 ```
 
 **VirtualThreadEvent.java**
@@ -99,17 +106,36 @@ ArgusAgent.java
 JfrStreamingEngine.java
 ├── Uses RecordingStream (JDK 14+)
 ├── Subscribes to JFR events:
-│   ├── jdk.VirtualThreadStart
-│   ├── jdk.VirtualThreadEnd
-│   ├── jdk.VirtualThreadPinned (with stack trace)
-│   └── jdk.VirtualThreadSubmitFailed
-├── Converts events to VirtualThreadEvent
+│   ├── Virtual Thread Events:
+│   │   ├── jdk.VirtualThreadStart
+│   │   ├── jdk.VirtualThreadEnd
+│   │   ├── jdk.VirtualThreadPinned (with stack trace)
+│   │   └── jdk.VirtualThreadSubmitFailed
+│   ├── GC & Memory Events:
+│   │   ├── jdk.GarbageCollection
+│   │   ├── jdk.GCHeapSummary
+│   │   ├── jdk.ObjectAllocationInNewTLAB
+│   │   └── jdk.MetaspaceSummary
+│   └── CPU & Performance Events:
+│       ├── jdk.CPULoad
+│       ├── jdk.ExecutionSample
+│       ├── jdk.JavaMonitorEnter
+│       └── jdk.JavaMonitorWait
+├── Event Extractors:
+│   ├── VirtualThreadEventExtractor
+│   ├── GCEventExtractor
+│   ├── CPUEventExtractor
+│   ├── AllocationEventExtractor
+│   ├── MetaspaceEventExtractor
+│   ├── ExecutionSampleExtractor
+│   └── ContentionEventExtractor
+├── Converts events to typed event records
 └── Offers events to RingBuffer
 ```
 
 ### argus-server
 
-The server module provides a WebSocket interface for event streaming.
+The server module provides a WebSocket interface for event streaming and analysis.
 
 #### Components
 
@@ -118,9 +144,26 @@ ArgusServer.java
 ├── Netty-based HTTP/WebSocket server
 ├── Endpoints:
 │   ├── ws://host:port/events - WebSocket stream
-│   └── GET /health - Health check
+│   ├── GET /health - Health check
+│   ├── GET /metrics - Thread metrics
+│   ├── GET /gc-analysis - GC statistics
+│   ├── GET /cpu-metrics - CPU utilization
+│   ├── GET /pinning-analysis - Pinning hotspots
+│   ├── GET /allocation-analysis - Allocation metrics
+│   ├── GET /metaspace-metrics - Metaspace usage
+│   ├── GET /method-profiling - Hot methods
+│   ├── GET /contention-analysis - Lock contention
+│   └── GET /correlation - Correlation & recommendations
 ├── Event broadcaster (10ms interval)
 └── JSON serialization
+
+Analyzers:
+├── GCAnalyzer - GC pause, heap, overhead analysis
+├── AllocationAnalyzer - Allocation rate, top classes
+├── MetaspaceAnalyzer - Metaspace usage tracking
+├── MethodProfilingAnalyzer - Hot method detection
+├── ContentionAnalyzer - Lock contention hotspots
+└── CorrelationAnalyzer - Cross-metric correlation
 ```
 
 ## Data Flow

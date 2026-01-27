@@ -1,12 +1,21 @@
 package io.argus.server.websocket;
 
 import io.argus.core.buffer.RingBuffer;
+import io.argus.core.event.AllocationEvent;
+import io.argus.core.event.ContentionEvent;
 import io.argus.core.event.CPUEvent;
+import io.argus.core.event.ExecutionSampleEvent;
 import io.argus.core.event.GCEvent;
+import io.argus.core.event.MetaspaceEvent;
 import io.argus.core.event.VirtualThreadEvent;
+import io.argus.server.analysis.AllocationAnalyzer;
 import io.argus.server.analysis.CarrierThreadAnalyzer;
+import io.argus.server.analysis.ContentionAnalyzer;
+import io.argus.server.analysis.CorrelationAnalyzer;
 import io.argus.server.analysis.CPUAnalyzer;
 import io.argus.server.analysis.GCAnalyzer;
+import io.argus.server.analysis.MetaspaceAnalyzer;
+import io.argus.server.analysis.MethodProfilingAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.metrics.ServerMetrics;
 import io.argus.server.serialization.EventJsonSerializer;
@@ -41,6 +50,10 @@ public final class EventBroadcaster {
     private final RingBuffer<VirtualThreadEvent> eventBuffer;
     private final RingBuffer<GCEvent> gcEventBuffer;
     private final RingBuffer<CPUEvent> cpuEventBuffer;
+    private final RingBuffer<AllocationEvent> allocationEventBuffer;
+    private final RingBuffer<MetaspaceEvent> metaspaceEventBuffer;
+    private final RingBuffer<ExecutionSampleEvent> executionSampleEventBuffer;
+    private final RingBuffer<ContentionEvent> contentionEventBuffer;
     private final ChannelGroup clients;
     private final List<VirtualThreadEvent> exportableEvents = Collections.synchronizedList(new ArrayList<>());
     private final ServerMetrics metrics;
@@ -51,33 +64,51 @@ public final class EventBroadcaster {
     private final CarrierThreadAnalyzer carrierAnalyzer;
     private final GCAnalyzer gcAnalyzer;
     private final CPUAnalyzer cpuAnalyzer;
+    private final AllocationAnalyzer allocationAnalyzer;
+    private final MetaspaceAnalyzer metaspaceAnalyzer;
+    private final MethodProfilingAnalyzer methodProfilingAnalyzer;
+    private final ContentionAnalyzer contentionAnalyzer;
+    private final CorrelationAnalyzer correlationAnalyzer;
     private final ThreadStateManager threadStateManager;
     private final EventJsonSerializer serializer;
     private final ScheduledExecutorService scheduler;
     private final ScheduledExecutorService stateScheduler;
 
     /**
-     * Creates an event broadcaster.
+     * Creates an event broadcaster with full event buffer support.
      *
-     * @param eventBuffer        the ring buffer to drain virtual thread events from
-     * @param gcEventBuffer      the ring buffer to drain GC events from (can be null)
-     * @param cpuEventBuffer     the ring buffer to drain CPU events from (can be null)
-     * @param clients            the channel group of connected WebSocket clients
-     * @param metrics            the server metrics tracker
-     * @param activeThreads      the active threads registry
-     * @param recentEvents       the recent events buffer
-     * @param threadEvents       the per-thread events buffer
-     * @param pinningAnalyzer    the pinning analyzer for hotspot detection
-     * @param carrierAnalyzer    the carrier thread analyzer
-     * @param gcAnalyzer         the GC analyzer
-     * @param cpuAnalyzer        the CPU analyzer
-     * @param threadStateManager the thread state manager for real-time state tracking
-     * @param serializer         the event JSON serializer
+     * @param eventBuffer               the ring buffer for virtual thread events
+     * @param gcEventBuffer             the ring buffer for GC events (can be null)
+     * @param cpuEventBuffer            the ring buffer for CPU events (can be null)
+     * @param allocationEventBuffer     the ring buffer for allocation events (can be null)
+     * @param metaspaceEventBuffer      the ring buffer for metaspace events (can be null)
+     * @param executionSampleEventBuffer the ring buffer for execution sample events (can be null)
+     * @param contentionEventBuffer     the ring buffer for contention events (can be null)
+     * @param clients                   the channel group of connected WebSocket clients
+     * @param metrics                   the server metrics tracker
+     * @param activeThreads             the active threads registry
+     * @param recentEvents              the recent events buffer
+     * @param threadEvents              the per-thread events buffer
+     * @param pinningAnalyzer           the pinning analyzer for hotspot detection
+     * @param carrierAnalyzer           the carrier thread analyzer
+     * @param gcAnalyzer                the GC analyzer
+     * @param cpuAnalyzer               the CPU analyzer
+     * @param allocationAnalyzer        the allocation analyzer (can be null)
+     * @param metaspaceAnalyzer         the metaspace analyzer (can be null)
+     * @param methodProfilingAnalyzer   the method profiling analyzer (can be null)
+     * @param contentionAnalyzer        the contention analyzer (can be null)
+     * @param correlationAnalyzer       the correlation analyzer (can be null)
+     * @param threadStateManager        the thread state manager for real-time state tracking
+     * @param serializer                the event JSON serializer
      */
     public EventBroadcaster(
             RingBuffer<VirtualThreadEvent> eventBuffer,
             RingBuffer<GCEvent> gcEventBuffer,
             RingBuffer<CPUEvent> cpuEventBuffer,
+            RingBuffer<AllocationEvent> allocationEventBuffer,
+            RingBuffer<MetaspaceEvent> metaspaceEventBuffer,
+            RingBuffer<ExecutionSampleEvent> executionSampleEventBuffer,
+            RingBuffer<ContentionEvent> contentionEventBuffer,
             ChannelGroup clients,
             ServerMetrics metrics,
             ActiveThreadsRegistry activeThreads,
@@ -87,11 +118,20 @@ public final class EventBroadcaster {
             CarrierThreadAnalyzer carrierAnalyzer,
             GCAnalyzer gcAnalyzer,
             CPUAnalyzer cpuAnalyzer,
+            AllocationAnalyzer allocationAnalyzer,
+            MetaspaceAnalyzer metaspaceAnalyzer,
+            MethodProfilingAnalyzer methodProfilingAnalyzer,
+            ContentionAnalyzer contentionAnalyzer,
+            CorrelationAnalyzer correlationAnalyzer,
             ThreadStateManager threadStateManager,
             EventJsonSerializer serializer) {
         this.eventBuffer = eventBuffer;
         this.gcEventBuffer = gcEventBuffer;
         this.cpuEventBuffer = cpuEventBuffer;
+        this.allocationEventBuffer = allocationEventBuffer;
+        this.metaspaceEventBuffer = metaspaceEventBuffer;
+        this.executionSampleEventBuffer = executionSampleEventBuffer;
+        this.contentionEventBuffer = contentionEventBuffer;
         this.clients = clients;
         this.metrics = metrics;
         this.activeThreads = activeThreads;
@@ -101,6 +141,11 @@ public final class EventBroadcaster {
         this.carrierAnalyzer = carrierAnalyzer;
         this.gcAnalyzer = gcAnalyzer;
         this.cpuAnalyzer = cpuAnalyzer;
+        this.allocationAnalyzer = allocationAnalyzer;
+        this.metaspaceAnalyzer = metaspaceAnalyzer;
+        this.methodProfilingAnalyzer = methodProfilingAnalyzer;
+        this.contentionAnalyzer = contentionAnalyzer;
+        this.correlationAnalyzer = correlationAnalyzer;
         this.threadStateManager = threadStateManager;
         this.serializer = serializer;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
@@ -229,6 +274,34 @@ public final class EventBroadcaster {
                     clients.writeAndFlush(frame.retain());
                     frame.release();
                 }
+            });
+        }
+
+        // Drain allocation events
+        if (allocationEventBuffer != null && allocationAnalyzer != null) {
+            allocationEventBuffer.drain(event -> {
+                allocationAnalyzer.recordAllocationEvent(event);
+            });
+        }
+
+        // Drain metaspace events
+        if (metaspaceEventBuffer != null && metaspaceAnalyzer != null) {
+            metaspaceEventBuffer.drain(event -> {
+                metaspaceAnalyzer.recordMetaspaceEvent(event);
+            });
+        }
+
+        // Drain execution sample events
+        if (executionSampleEventBuffer != null && methodProfilingAnalyzer != null) {
+            executionSampleEventBuffer.drain(event -> {
+                methodProfilingAnalyzer.recordExecutionSample(event);
+            });
+        }
+
+        // Drain contention events
+        if (contentionEventBuffer != null && contentionAnalyzer != null) {
+            contentionEventBuffer.drain(event -> {
+                contentionAnalyzer.recordContentionEvent(event);
             });
         }
     }

@@ -77,13 +77,55 @@ tasks.register<JavaExec>("runMetricsDemo") {
 
     jvmArgs(
         "--enable-preview",
-        "-Xmx128m",  // Small heap to trigger GC frequently
+        "-Xmx512m",  // Enough heap for JFR + Netty + app
+        "-Xms256m",
         "-XX:+UseG1GC",
         "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
         "-Dargus.server.port=9202",
         "-Dargus.gc.enabled=true",
         "-Dargus.cpu.enabled=true"
+    )
+
+    if (duration != null) {
+        jvmArgs("-Dduration=$duration")
+    }
+}
+
+// Run metrics demo with ALL features enabled (including high-overhead ones)
+tasks.register<JavaExec>("runMetricsDemoFull") {
+    group = "application"
+    description = "Run metrics demo with ALL profiling features enabled (high overhead)"
+
+    mainClass.set("io.argus.sample.MetricsDemo")
+    classpath = sourceSets["main"].runtimeClasspath
+
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    })
+
+    val duration = System.getProperty("duration")
+
+    jvmArgs(
+        "--enable-preview",
+        "-Xmx1g",  // More heap for full profiling
+        "-Xms512m",
+        "-XX:+UseG1GC",
+        "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
+        "-Dargus.server.enabled=true",
+        "-Dargus.server.port=9202",
+        // Core features
+        "-Dargus.gc.enabled=true",
+        "-Dargus.cpu.enabled=true",
+        "-Dargus.metaspace.enabled=true",
+        // High-overhead features (opt-in)
+        "-Dargus.allocation.enabled=true",
+        "-Dargus.allocation.threshold=1048576",  // 1MB threshold
+        "-Dargus.profiling.enabled=true",
+        "-Dargus.profiling.interval=50",  // 50ms interval (lower overhead)
+        "-Dargus.contention.enabled=true",
+        "-Dargus.contention.threshold=20",  // 20ms threshold
+        "-Dargus.correlation.enabled=true"
     )
 
     if (duration != null) {
