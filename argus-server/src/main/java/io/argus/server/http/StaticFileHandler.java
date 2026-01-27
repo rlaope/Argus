@@ -78,6 +78,9 @@ public final class StaticFileHandler {
         if (uri.startsWith("/js/") && uri.endsWith(".js")) {
             return "public" + uri;
         }
+        if (uri.startsWith("/img/") && (uri.endsWith(".png") || uri.endsWith(".jpg") || uri.endsWith(".svg"))) {
+            return "public" + uri;
+        }
         return null;
     }
 
@@ -96,6 +99,15 @@ public final class StaticFileHandler {
         }
         if (uri.endsWith(".js")) {
             return "application/javascript; charset=UTF-8";
+        }
+        if (uri.endsWith(".png")) {
+            return "image/png";
+        }
+        if (uri.endsWith(".jpg") || uri.endsWith(".jpeg")) {
+            return "image/jpeg";
+        }
+        if (uri.endsWith(".svg")) {
+            return "image/svg+xml";
         }
         return "application/octet-stream";
     }
