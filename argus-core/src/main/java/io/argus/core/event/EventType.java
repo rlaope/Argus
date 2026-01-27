@@ -40,7 +40,29 @@ public enum EventType {
     /**
      * CPU load metrics.
      */
-    CPU_LOAD(20);
+    CPU_LOAD(20),
+
+    // Allocation Events (30-39)
+    /**
+     * Object allocation in new TLAB.
+     */
+    ALLOCATION(30),
+
+    /**
+     * Metaspace summary.
+     */
+    METASPACE_SUMMARY(31),
+
+    // Profiling Events (40-49)
+    /**
+     * Execution sample for method profiling.
+     */
+    EXECUTION_SAMPLE(40),
+
+    /**
+     * Thread contention event (lock wait/enter).
+     */
+    CONTENTION(41);
 
     private final int code;
 
@@ -61,6 +83,10 @@ public enum EventType {
             case 10 -> GC_PAUSE;
             case 11 -> GC_HEAP_SUMMARY;
             case 20 -> CPU_LOAD;
+            case 30 -> ALLOCATION;
+            case 31 -> METASPACE_SUMMARY;
+            case 40 -> EXECUTION_SAMPLE;
+            case 41 -> CONTENTION;
             default -> throw new IllegalArgumentException("Unknown event type code: " + code);
         };
     }

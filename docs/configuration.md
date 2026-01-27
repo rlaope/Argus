@@ -8,14 +8,35 @@ The Argus agent is configured via Java system properties.
 
 ### Available Properties
 
+#### Core Settings
 | Property | Default | Description |
 |----------|---------|-------------|
 | `argus.server.enabled` | `false` | Enable built-in dashboard server |
 | `argus.server.port` | `9202` | WebSocket server port |
 | `argus.buffer.size` | `65536` | Ring buffer size for event collection |
+
+#### GC & Memory Settings
+| Property | Default | Description |
+|----------|---------|-------------|
 | `argus.gc.enabled` | `true` | Enable GC monitoring |
+| `argus.allocation.enabled` | `true` | Enable allocation rate tracking |
+| `argus.allocation.threshold` | `1024` | Minimum allocation size to track (bytes) |
+| `argus.metaspace.enabled` | `true` | Enable metaspace monitoring |
+
+#### CPU & Performance Settings
+| Property | Default | Description |
+|----------|---------|-------------|
 | `argus.cpu.enabled` | `true` | Enable CPU monitoring |
 | `argus.cpu.interval` | `1000` | CPU sampling interval (ms) |
+| `argus.profiling.enabled` | `false` | Enable method profiling (higher overhead) |
+| `argus.profiling.interval` | `20` | Method profiling sampling interval (ms) |
+| `argus.contention.enabled` | `true` | Enable lock contention tracking |
+| `argus.contention.threshold` | `10` | Minimum contention duration to track (ms) |
+
+#### Analysis Settings
+| Property | Default | Description |
+|----------|---------|-------------|
+| `argus.correlation.enabled` | `true` | Enable correlation analysis |
 
 ### Setting Properties
 
@@ -111,6 +132,140 @@ java -javaagent:argus-agent.jar \
 -Dargus.cpu.interval=2000
 ```
 
+## Allocation Tracking Configuration
+
+Allocation tracking monitors object allocation rate and identifies top allocating classes.
+
+```bash
+# Configure allocation tracking
+java -javaagent:argus-agent.jar \
+     -Dargus.allocation.enabled=true \
+     -Dargus.allocation.threshold=1024 \
+     --enable-preview \
+     -jar your-application.jar
+```
+
+### Allocation Metrics Available
+
+- Total allocation count
+- Total bytes allocated
+- Allocation rate (MB/sec)
+- Peak allocation rate
+- Top 10 allocating classes
+
+### Tuning Allocation Threshold
+
+```bash
+# Track all allocations >= 512 bytes
+-Dargus.allocation.threshold=512
+
+# Track only large allocations >= 8KB
+-Dargus.allocation.threshold=8192
+```
+
+## Metaspace Monitoring Configuration
+
+Metaspace monitoring tracks class metadata memory usage.
+
+```bash
+# Enable/disable metaspace monitoring
+java -javaagent:argus-agent.jar \
+     -Dargus.metaspace.enabled=true \
+     --enable-preview \
+     -jar your-application.jar
+```
+
+### Metaspace Metrics Available
+
+- Current used/committed memory
+- Peak usage
+- Growth rate (MB/min)
+- Class count
+
+## Method Profiling Configuration
+
+Method profiling identifies CPU-intensive methods using execution sampling.
+
+**Warning**: Method profiling has higher overhead. Use with caution in production.
+
+```bash
+# Enable method profiling
+java -javaagent:argus-agent.jar \
+     -Dargus.profiling.enabled=true \
+     -Dargus.profiling.interval=20 \
+     --enable-preview \
+     -jar your-application.jar
+```
+
+### Method Profiling Metrics Available
+
+- Total sample count
+- Top 20 hot methods
+- Method sample percentage
+
+### Adjusting Profiling Interval
+
+```bash
+# More frequent sampling (higher accuracy, higher overhead)
+-Dargus.profiling.interval=10
+
+# Less frequent sampling (lower accuracy, lower overhead)
+-Dargus.profiling.interval=50
+```
+
+## Lock Contention Configuration
+
+Lock contention tracking monitors thread synchronization bottlenecks.
+
+```bash
+# Configure contention tracking
+java -javaagent:argus-agent.jar \
+     -Dargus.contention.enabled=true \
+     -Dargus.contention.threshold=10 \
+     --enable-preview \
+     -jar your-application.jar
+```
+
+### Contention Metrics Available
+
+- Total contention events
+- Total contention time
+- Top 10 contention hotspots
+- Per-thread contention time
+
+### Tuning Contention Threshold
+
+```bash
+# Track contention >= 5ms
+-Dargus.contention.threshold=5
+
+# Track only severe contention >= 50ms
+-Dargus.contention.threshold=50
+```
+
+## Correlation Analysis Configuration
+
+Correlation analysis detects relationships between different metrics.
+
+```bash
+# Enable/disable correlation analysis
+java -javaagent:argus-agent.jar \
+     -Dargus.correlation.enabled=true \
+     --enable-preview \
+     -jar your-application.jar
+```
+
+### Correlation Features
+
+- **GC ↔ CPU Correlation**: Detects CPU spikes within 1 second of GC events
+- **GC ↔ Pinning Correlation**: Identifies pinning increases during GC
+- **Automatic Recommendations**: Provides actionable insights:
+  - GC overhead warnings (> 10%)
+  - Memory leak detection (sustained heap growth)
+  - Lock contention hotspot alerts
+  - High allocation rate warnings
+  - Metaspace growth warnings
+
 ## JFR Event Configuration
 
 Argus captures the following JFR events by default:
@@ -124,18 +279,23 @@ Argus captures the following JFR events by default:
 | `jdk.VirtualThreadPinned` | Thread pinning (with stack trace) | Medium |
 | `jdk.VirtualThreadSubmitFailed` | Submit failures | Low |
 
-### GC Events
+### GC & Memory Events
 
 | Event | Description | Overhead |
 |-------|-------------|----------|
 | `jdk.GarbageCollection` | GC pause events | Low |
 | `jdk.GCHeapSummary` | Heap usage snapshots | Low |
+| `jdk.ObjectAllocationInNewTLAB` | Object allocation in TLAB | Medium |
+| `jdk.MetaspaceSummary` | Metaspace usage | Low |
 
-### CPU Events
+### CPU & Performance Events
 
 | Event | Description | Overhead |
 |-------|-------------|----------|
 | `jdk.CPULoad` | CPU utilization (periodic) | Low |
+| `jdk.ExecutionSample` | Method execution sampling | Medium-High |
+| `jdk.JavaMonitorEnter` | Lock acquisition contention | Low |
+| `jdk.JavaMonitorWait` | Lock wait contention | Low |
 
 ### JFR Settings
 

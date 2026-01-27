@@ -32,6 +32,11 @@ public final class GCAnalyzer {
     private volatile long lastHeapCommitted = 0;
     private volatile Instant lastGCTime = null;
 
+    // GC overhead tracking
+    private volatile long overheadWindowStartTime = System.currentTimeMillis();
+    private volatile long overheadWindowPauseNanos = 0;
+    private volatile double currentGcOverheadPercent = 0;
+
     /**
      * Records a GC event for analysis.
      *
@@ -44,6 +49,9 @@ public final class GCAnalyzer {
         if (event.duration() > 0) {
             totalPauseTimeNanos.addAndGet(event.duration());
             updateMax(maxPauseTimeNanos, event.duration());
+
+            // Update GC overhead calculation
+            updateGCOverhead(event.duration());
         }
 
         // Track cause distribution
@@ -78,6 +86,23 @@ public final class GCAnalyzer {
         }
     }
 
+    private synchronized void updateGCOverhead(long pauseNanos) {
+        long currentTime = System.currentTimeMillis();
+        overheadWindowPauseNanos += pauseNanos;
+
+        // Calculate overhead every 10 seconds
+        long windowDurationMs = currentTime - overheadWindowStartTime;
+        if (windowDurationMs >= 10000) {
+            // Convert window duration to nanos for calculation
+            long windowDurationNanos = windowDurationMs * 1_000_000L;
+            currentGcOverheadPercent = (overheadWindowPauseNanos * 100.0) / windowDurationNanos;
+
+            // Reset window
+            overheadWindowStartTime = currentTime;
+            overheadWindowPauseNanos = 0;
+        }
+    }
+
     /**
      * Returns the GC analysis results.
      *
@@ -99,6 +124,9 @@ public final class GCAnalyzer {
         Map<String, Long> causes = new ConcurrentHashMap<>();
         causeDistribution.forEach((cause, count) -> causes.put(cause, count.get()));
 
+        // GC overhead warning if > 10%
+        boolean overheadWarning = currentGcOverheadPercent > 10.0;
+
         return new GCAnalysisResult(
                 total,
                 totalPause / 1_000_000, // Convert to ms
@@ -108,8 +136,19 @@ public final class GCAnalyzer {
                 causes,
                 lastHeapUsed,
                 lastHeapCommitted,
-                lastGCTime
+                lastGCTime,
+                currentGcOverheadPercent,
+                overheadWarning
         );
+    }
+
+    /**
+     * Returns the current GC overhead percentage.
+     *
+     * @return GC overhead as a percentage (0-100)
+     */
+    public double getCurrentGcOverheadPercent() {
+        return currentGcOverheadPercent;
     }
 
     /**
@@ -155,6 +194,9 @@ public final class GCAnalyzer {
         lastHeapUsed = 0;
         lastHeapCommitted = 0;
         lastGCTime = null;
+        overheadWindowStartTime = System.currentTimeMillis();
+        overheadWindowPauseNanos = 0;
+        currentGcOverheadPercent = 0;
     }
 
     private void updateMax(AtomicLong max, long value) {
@@ -193,7 +235,9 @@ public final class GCAnalyzer {
             Map<String, Long> causeDistribution,
             long currentHeapUsed,
             long currentHeapCommitted,
-            Instant lastGCTime
+            Instant lastGCTime,
+            double gcOverheadPercent,
+            boolean isOverheadWarning
     ) {
     }
 }

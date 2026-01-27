@@ -12,7 +12,11 @@ import {
     updateLastSecondTimestamp,
     stateCounts,
     gcData,
-    cpuData
+    cpuData,
+    allocationData,
+    metaspaceData,
+    profilingData,
+    contentionData
 } from './state.js';
 
 let eventsRateChart = null;
@@ -21,6 +25,10 @@ let durationChart = null;
 let gcTimelineChart = null;
 let heapChart = null;
 let cpuChart = null;
+let allocationRateChart = null;
+let metaspaceChart = null;
+let hotMethodsChart = null;
+let contentionChart = null;
 
 const gridColor = 'rgba(48, 54, 61, 0.8)';
 const textColor = '#8b949e';
@@ -297,6 +305,171 @@ export function initCharts(canvases) {
             }
         });
     }
+
+    // Allocation Rate Chart (Line)
+    if (canvases.allocationRate) {
+        allocationRateChart = new Chart(canvases.allocationRate, {
+            type: 'line',
+            data: {
+                labels: allocationData.history.labels,
+                datasets: [{
+                    label: 'Allocation Rate (MB/s)',
+                    data: allocationData.history.rates,
+                    borderColor: '#f0883e',
+                    backgroundColor: 'rgba(240, 136, 62, 0.2)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            font: { size: 10 },
+                            callback: function(value) {
+                                return value.toFixed(1) + ' MB/s';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Metaspace Chart (Line)
+    if (canvases.metaspace) {
+        metaspaceChart = new Chart(canvases.metaspace, {
+            type: 'line',
+            data: {
+                labels: metaspaceData.history.labels,
+                datasets: [
+                    {
+                        label: 'Used',
+                        data: metaspaceData.history.used,
+                        borderColor: '#a371f7',
+                        backgroundColor: 'rgba(163, 113, 247, 0.2)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    },
+                    {
+                        label: 'Committed',
+                        data: metaspaceData.history.committed,
+                        borderColor: '#8b949e',
+                        backgroundColor: 'rgba(139, 148, 158, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0,
+                        borderDash: [5, 5]
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: textColor, boxWidth: 12, padding: 8, font: { size: 10 } }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            font: { size: 10 },
+                            callback: function(value) {
+                                return value.toFixed(0) + ' MB';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Hot Methods Chart (Bar)
+    if (canvases.hotMethods) {
+        hotMethodsChart = new Chart(canvases.hotMethods, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'CPU Samples',
+                    data: [],
+                    backgroundColor: 'rgba(88, 166, 255, 0.7)',
+                    borderColor: '#58a6ff',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: textColor, font: { size: 9 } }
+                    }
+                }
+            }
+        });
+    }
+
+    // Contention Chart (Bar)
+    if (canvases.contention) {
+        contentionChart = new Chart(canvases.contention, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Contention Time (ms)',
+                    data: [],
+                    backgroundColor: 'rgba(248, 81, 73, 0.7)',
+                    borderColor: '#f85149',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 0 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: textColor, font: { size: 9 } }
+                    }
+                }
+            }
+        });
+    }
 }
 
 /**
@@ -356,6 +529,10 @@ export function updateCharts() {
     if (gcTimelineChart) gcTimelineChart.update('none');
     if (heapChart) heapChart.update('none');
     if (cpuChart) cpuChart.update('none');
+    if (allocationRateChart) allocationRateChart.update('none');
+    if (metaspaceChart) metaspaceChart.update('none');
+    if (hotMethodsChart) hotMethodsChart.update('none');
+    if (contentionChart) contentionChart.update('none');
 }
 
 /**
@@ -443,5 +620,110 @@ export function trackEventForCharts(event) {
         currentSecondEvents.end++;
     } else if (event.type === 'PINNED') {
         currentSecondEvents.pinned++;
+    }
+}
+
+/**
+ * Update allocation chart data from server response
+ */
+export function updateAllocationCharts(data) {
+    // Update allocation state
+    allocationData.totalAllocations = data.totalAllocations || 0;
+    allocationData.totalAllocatedMB = parseFloat(data.totalAllocatedMB) || 0;
+    allocationData.allocationRateMBPerSec = parseFloat(data.allocationRateMBPerSec) || 0;
+    allocationData.peakAllocationRateMBPerSec = parseFloat(data.peakAllocationRateMBPerSec) || 0;
+    allocationData.topAllocatingClasses = data.topAllocatingClasses || [];
+
+    // Update history from server
+    if (data.history && data.history.length > 0) {
+        allocationData.history.labels.length = 0;
+        allocationData.history.rates.length = 0;
+
+        data.history.forEach(snapshot => {
+            const time = new Date(snapshot.timestamp).toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            allocationData.history.labels.push(time);
+            allocationData.history.rates.push(parseFloat(snapshot.allocationRateMBPerSec) || 0);
+        });
+    }
+
+    if (allocationRateChart) allocationRateChart.update('none');
+}
+
+/**
+ * Update metaspace chart data from server response
+ */
+export function updateMetaspaceCharts(data) {
+    // Update metaspace state
+    metaspaceData.currentUsedMB = parseFloat(data.currentUsedMB) || 0;
+    metaspaceData.currentCommittedMB = parseFloat(data.currentCommittedMB) || 0;
+    metaspaceData.peakUsedMB = parseFloat(data.peakUsedMB) || 0;
+    metaspaceData.growthRateMBPerMin = parseFloat(data.growthRateMBPerMin) || 0;
+    metaspaceData.classCount = data.currentClassCount || 0;
+
+    // Update history from server
+    if (data.history && data.history.length > 0) {
+        metaspaceData.history.labels.length = 0;
+        metaspaceData.history.used.length = 0;
+        metaspaceData.history.committed.length = 0;
+
+        data.history.forEach(snapshot => {
+            const time = new Date(snapshot.timestamp).toLocaleTimeString('en-US', {
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            metaspaceData.history.labels.push(time);
+            metaspaceData.history.used.push(parseFloat(snapshot.usedMB) || 0);
+            metaspaceData.history.committed.push(parseFloat(snapshot.committedMB) || 0);
+        });
+    }
+
+    if (metaspaceChart) metaspaceChart.update('none');
+}
+
+/**
+ * Update method profiling chart data from server response
+ */
+export function updateProfilingCharts(data) {
+    profilingData.totalSamples = data.totalSamples || 0;
+    profilingData.topMethods = data.topMethods || [];
+
+    if (hotMethodsChart && data.topMethods && data.topMethods.length > 0) {
+        // Take top 10 methods
+        const top10 = data.topMethods.slice(0, 10);
+
+        hotMethodsChart.data.labels = top10.map(m => {
+            const className = m.className.split('.').pop(); // Get simple class name
+            return className + '.' + m.methodName;
+        });
+        hotMethodsChart.data.datasets[0].data = top10.map(m => m.sampleCount);
+        hotMethodsChart.update('none');
+    }
+}
+
+/**
+ * Update contention chart data from server response
+ */
+export function updateContentionCharts(data) {
+    contentionData.totalContentionEvents = data.totalContentionEvents || 0;
+    contentionData.totalContentionTimeMs = data.totalContentionTimeMs || 0;
+    contentionData.hotspots = data.hotspots || [];
+
+    if (contentionChart && data.hotspots && data.hotspots.length > 0) {
+        // Take top 10 hotspots
+        const top10 = data.hotspots.slice(0, 10);
+
+        contentionChart.data.labels = top10.map(h => {
+            const className = h.monitorClass.split('.').pop();
+            return className;
+        });
+        contentionChart.data.datasets[0].data = top10.map(h => h.totalTimeMs);
+        contentionChart.update('none');
     }
 }

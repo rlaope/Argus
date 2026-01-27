@@ -5,7 +5,7 @@
  * the dashboard functionality.
  */
 import { initWebSocket } from './websocket.js';
-import { initCharts, updateCharts, trackEventForCharts, updateGCCharts, updateCPUCharts } from './charts.js';
+import { initCharts, updateCharts, trackEventForCharts, updateGCCharts, updateCPUCharts, updateAllocationCharts, updateMetaspaceCharts, updateProfilingCharts, updateContentionCharts } from './charts.js';
 import { initThreadView, renderThreadStateView, captureAllThreadsDump } from './threads.js';
 import {
     counts,
@@ -16,7 +16,12 @@ import {
     addToDurationBucket,
     threadStates,
     gcData,
-    cpuData
+    cpuData,
+    allocationData,
+    metaspaceData,
+    profilingData,
+    contentionData,
+    correlationData
 } from './state.js';
 import { formatNumber, formatTimestamp, escapeHtml, formatDuration } from './utils.js';
 import { initFilters, addEvent as addEventToFilter, clearEvents as clearFilterEvents } from './filter.js';
@@ -122,7 +127,29 @@ const elements = {
     jvmCpu: document.getElementById('jvm-cpu'),
     cpuJvmCurrent: document.getElementById('cpu-jvm-current'),
     cpuSystemCurrent: document.getElementById('cpu-system-current'),
-    cpuPeakJvm: document.getElementById('cpu-peak-jvm')
+    cpuPeakJvm: document.getElementById('cpu-peak-jvm'),
+
+    // GC Overhead
+    gcOverhead: document.getElementById('gc-overhead'),
+
+    // Allocation metrics
+    allocRate: document.getElementById('alloc-rate'),
+    allocTotal: document.getElementById('alloc-total'),
+    metaspaceUsed: document.getElementById('metaspace-used'),
+    classCount: document.getElementById('class-count'),
+    allocationRateCanvas: document.getElementById('allocation-rate-chart'),
+    metaspaceCanvas: document.getElementById('metaspace-chart'),
+
+    // Profiling metrics
+    cpuSamples: document.getElementById('cpu-samples'),
+    contentionEvents: document.getElementById('contention-events'),
+    contentionTime: document.getElementById('contention-time'),
+    hotMethodsCanvas: document.getElementById('hot-methods-chart'),
+    contentionCanvas: document.getElementById('contention-chart'),
+
+    // Recommendations
+    recommendationsList: document.getElementById('recommendations-list'),
+    refreshRecommendationsBtn: document.getElementById('refresh-recommendations')
 };
 
 const maxEvents = 500;
@@ -139,7 +166,11 @@ function init() {
         duration: elements.durationCanvas,
         gcTimeline: elements.gcTimelineCanvas,
         heap: elements.heapCanvas,
-        cpu: elements.cpuCanvas
+        cpu: elements.cpuCanvas,
+        allocationRate: elements.allocationRateCanvas,
+        metaspace: elements.metaspaceCanvas,
+        hotMethods: elements.hotMethodsCanvas,
+        contention: elements.contentionCanvas
     });
 
     // Initialize filters
@@ -165,6 +196,11 @@ function init() {
     fetchPinningAnalysis();
     fetchGCAnalysis();
     fetchCPUMetrics();
+    fetchAllocationAnalysis();
+    fetchMetaspaceMetrics();
+    fetchMethodProfiling();
+    fetchContentionAnalysis();
+    fetchCorrelation();
 
     // Setup periodic updates
     setInterval(updateCharts, 1000);
@@ -172,6 +208,11 @@ function init() {
     setInterval(fetchPinningAnalysis, 5000);
     setInterval(fetchGCAnalysis, 2000);
     setInterval(fetchCPUMetrics, 1000);
+    setInterval(fetchAllocationAnalysis, 2000);
+    setInterval(fetchMetaspaceMetrics, 5000);
+    setInterval(fetchMethodProfiling, 5000);
+    setInterval(fetchContentionAnalysis, 5000);
+    setInterval(fetchCorrelation, 10000);
     setInterval(() => {
         renderThreadStateView(elements.threadsContainer, elements.threadCount);
     }, 1000);
@@ -388,6 +429,19 @@ function updateGCDisplay(data) {
     }
     if (elements.gcMaxPause) {
         elements.gcMaxPause.textContent = (data.maxPauseTimeMs || 0) + 'ms';
+    }
+    if (elements.gcOverhead) {
+        const overhead = parseFloat(data.gcOverheadPercent) || 0;
+        elements.gcOverhead.textContent = overhead.toFixed(1) + '%';
+        // Add warning class if overhead > 10%
+        const card = elements.gcOverhead.closest('.metric-card');
+        if (card) {
+            if (data.isOverheadWarning) {
+                card.classList.add('warning');
+            } else {
+                card.classList.remove('warning');
+            }
+        }
     }
 }
 
@@ -606,6 +660,138 @@ function handleExport() {
 
     // Close modal
     elements.exportModal.classList.add('hidden');
+}
+
+async function fetchAllocationAnalysis() {
+    try {
+        const response = await fetch('/allocation-analysis');
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.error) {
+                updateAllocationDisplay(data);
+                updateAllocationCharts(data);
+            }
+        }
+    } catch (e) {
+        // Allocation tracking might not be enabled
+    }
+}
+
+async function fetchMetaspaceMetrics() {
+    try {
+        const response = await fetch('/metaspace-metrics');
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.error) {
+                updateMetaspaceDisplay(data);
+                updateMetaspaceCharts(data);
+            }
+        }
+    } catch (e) {
+        // Metaspace monitoring might not be enabled
+    }
+}
+
+async function fetchMethodProfiling() {
+    try {
+        const response = await fetch('/method-profiling');
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.error) {
+                updateProfilingDisplay(data);
+                updateProfilingCharts(data);
+            }
+        }
+    } catch (e) {
+        // Method profiling might not be enabled
+    }
+}
+
+async function fetchContentionAnalysis() {
+    try {
+        const response = await fetch('/contention-analysis');
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.error) {
+                updateContentionDisplay(data);
+                updateContentionCharts(data);
+            }
+        }
+    } catch (e) {
+        // Contention tracking might not be enabled
+    }
+}
+
+async function fetchCorrelation() {
+    try {
+        const response = await fetch('/correlation');
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.error) {
+                updateRecommendations(data);
+            }
+        }
+    } catch (e) {
+        // Correlation analysis might not be enabled
+    }
+}
+
+function updateAllocationDisplay(data) {
+    if (elements.allocRate) {
+        elements.allocRate.textContent = (parseFloat(data.allocationRateMBPerSec) || 0).toFixed(1) + ' MB/s';
+    }
+    if (elements.allocTotal) {
+        elements.allocTotal.textContent = (parseFloat(data.totalAllocatedMB) || 0).toFixed(1) + ' MB';
+    }
+}
+
+function updateMetaspaceDisplay(data) {
+    if (elements.metaspaceUsed) {
+        elements.metaspaceUsed.textContent = (parseFloat(data.currentUsedMB) || 0).toFixed(1) + ' MB';
+    }
+    if (elements.classCount) {
+        elements.classCount.textContent = formatNumber(data.currentClassCount || 0);
+    }
+}
+
+function updateProfilingDisplay(data) {
+    if (elements.cpuSamples) {
+        elements.cpuSamples.textContent = formatNumber(data.totalSamples || 0);
+    }
+}
+
+function updateContentionDisplay(data) {
+    if (elements.contentionEvents) {
+        elements.contentionEvents.textContent = formatNumber(data.totalContentionEvents || 0);
+    }
+    if (elements.contentionTime) {
+        elements.contentionTime.textContent = (data.totalContentionTimeMs || 0) + 'ms';
+    }
+}
+
+function updateRecommendations(data) {
+    if (!elements.recommendationsList) return;
+
+    const recommendations = data.recommendations || [];
+
+    if (recommendations.length === 0) {
+        elements.recommendationsList.innerHTML = '<div class="empty-state">No recommendations at this time</div>';
+        return;
+    }
+
+    elements.recommendationsList.innerHTML = recommendations.map(rec => {
+        const severityClass = rec.severity.toLowerCase();
+        return `
+            <div class="recommendation-item ${severityClass}">
+                <div class="recommendation-header">
+                    <span class="recommendation-type">${rec.type.replace(/_/g, ' ')}</span>
+                    <span class="recommendation-severity ${severityClass}">${rec.severity}</span>
+                </div>
+                <div class="recommendation-title">${escapeHtml(rec.title)}</div>
+                <div class="recommendation-description">${escapeHtml(rec.description)}</div>
+            </div>
+        `;
+    }).join('');
 }
 
 // Start the application

@@ -60,6 +60,10 @@ public final class EventJsonSerializer {
             case GC_PAUSE -> "GC_PAUSE";
             case GC_HEAP_SUMMARY -> "GC_HEAP_SUMMARY";
             case CPU_LOAD -> "CPU_LOAD";
+            case ALLOCATION -> "ALLOCATION";
+            case METASPACE_SUMMARY -> "METASPACE_SUMMARY";
+            case EXECUTION_SAMPLE -> "EXECUTION_SAMPLE";
+            case CONTENTION -> "CONTENTION";
         };
     }
 

@@ -59,6 +59,10 @@
                 <h3>CPU (JVM)</h3>
                 <div class="metric-value" id="jvm-cpu">-%</div>
             </div>
+            <div class="metric-card gc-overhead" data-tooltip="GC overhead percentage (GC time / total time)">
+                <h3>GC Overhead</h3>
+                <div class="metric-value" id="gc-overhead">-%</div>
+            </div>
         </section>
 
         <!-- Charts Section -->
@@ -147,6 +151,82 @@
                         <canvas id="cpu-chart"></canvas>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- Allocation & Metaspace Section -->
+        <section class="allocation-section">
+            <div class="section-header">
+                <h2>Allocation & Metaspace</h2>
+                <div class="allocation-summary">
+                    <span>Alloc Rate: <strong id="alloc-rate">- MB/s</strong></span>
+                    <span>Total Allocated: <strong id="alloc-total">- MB</strong></span>
+                    <span>Metaspace: <strong id="metaspace-used">- MB</strong></span>
+                    <span>Classes: <strong id="class-count">0</strong></span>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Allocation Rate</h3>
+                        <span class="chart-subtitle">memory allocation over time</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="allocation-rate-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Metaspace Usage</h3>
+                        <span class="chart-subtitle">metaspace memory over time</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="metaspace-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Profiling & Contention Section -->
+        <section class="profiling-section">
+            <div class="section-header">
+                <h2>Profiling & Contention</h2>
+                <div class="profiling-summary">
+                    <span>CPU Samples: <strong id="cpu-samples">0</strong></span>
+                    <span>Contention Events: <strong id="contention-events">0</strong></span>
+                    <span>Contention Time: <strong id="contention-time">0ms</strong></span>
+                </div>
+            </div>
+            <div class="charts-grid">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Hot Methods</h3>
+                        <span class="chart-subtitle">top CPU consuming methods</span>
+                    </div>
+                    <div class="chart-container tall">
+                        <canvas id="hot-methods-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <h3>Lock Contention</h3>
+                        <span class="chart-subtitle">top contention hotspots</span>
+                    </div>
+                    <div class="chart-container tall">
+                        <canvas id="contention-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recommendations Section -->
+        <section id="recommendations-section" class="recommendations-section">
+            <div class="section-header">
+                <h2>Recommendations</h2>
+                <button id="refresh-recommendations" class="btn btn-small">Refresh</button>
+            </div>
+            <div id="recommendations-list" class="recommendations-list">
+                <div class="empty-state">No recommendations at this time</div>
             </div>
         </section>
 

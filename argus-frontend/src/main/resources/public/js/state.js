@@ -81,6 +81,53 @@ export const cpuData = {
     }
 };
 
+// Allocation data
+export const allocationData = {
+    totalAllocations: 0,
+    totalAllocatedMB: 0,
+    allocationRateMBPerSec: 0,
+    peakAllocationRateMBPerSec: 0,
+    topAllocatingClasses: [],
+    history: {
+        labels: [],
+        rates: []
+    }
+};
+
+// Metaspace data
+export const metaspaceData = {
+    currentUsedMB: 0,
+    currentCommittedMB: 0,
+    peakUsedMB: 0,
+    growthRateMBPerMin: 0,
+    classCount: 0,
+    history: {
+        labels: [],
+        used: [],
+        committed: []
+    }
+};
+
+// Method profiling data
+export const profilingData = {
+    totalSamples: 0,
+    topMethods: []
+};
+
+// Contention data
+export const contentionData = {
+    totalContentionEvents: 0,
+    totalContentionTimeMs: 0,
+    hotspots: []
+};
+
+// Correlation data
+export const correlationData = {
+    gcCpuCorrelations: [],
+    gcPinningCorrelations: [],
+    recommendations: []
+};
+
 // Per-second event counters for charts
 export let currentSecondEvents = { start: 0, end: 0, pinned: 0 };
 export let lastSecondTimestamp = Math.floor(Date.now() / 1000);
