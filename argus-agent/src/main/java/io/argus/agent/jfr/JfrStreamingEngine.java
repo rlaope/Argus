@@ -61,7 +61,8 @@ public final class JfrStreamingEngine {
     private static final String EVENT_CPU_LOAD = "jdk.CPULoad";
 
     // Allocation events
-    private static final String EVENT_ALLOCATION = "jdk.ObjectAllocationInNewTLAB";
+    private static final String EVENT_ALLOCATION_TLAB = "jdk.ObjectAllocationInNewTLAB";
+    private static final String EVENT_ALLOCATION_OUTSIDE_TLAB = "jdk.ObjectAllocationOutsideTLAB";
     private static final String EVENT_METASPACE = "jdk.MetaspaceSummary";
 
     // Profiling events
@@ -289,7 +290,8 @@ public final class JfrStreamingEngine {
 
         // Enable allocation events if configured
         if (allocationEnabled) {
-            rs.enable(EVENT_ALLOCATION).withoutThreshold();
+            rs.enable(EVENT_ALLOCATION_TLAB).withoutThreshold();
+            rs.enable(EVENT_ALLOCATION_OUTSIDE_TLAB).withoutThreshold();
             System.out.printf("[Argus] Allocation tracking enabled (threshold: %d bytes)%n", allocationThreshold);
         }
 
@@ -337,7 +339,8 @@ public final class JfrStreamingEngine {
 
         // Allocation event handlers
         if (allocationEnabled) {
-            rs.onEvent(EVENT_ALLOCATION, this::handleAllocation);
+            rs.onEvent(EVENT_ALLOCATION_TLAB, this::handleAllocation);
+            rs.onEvent(EVENT_ALLOCATION_OUTSIDE_TLAB, this::handleAllocation);
         }
 
         // Metaspace event handlers
