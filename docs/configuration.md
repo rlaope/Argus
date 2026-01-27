@@ -19,8 +19,8 @@ The Argus agent is configured via Java system properties.
 | Property | Default | Description |
 |----------|---------|-------------|
 | `argus.gc.enabled` | `true` | Enable GC monitoring |
-| `argus.allocation.enabled` | `true` | Enable allocation rate tracking |
-| `argus.allocation.threshold` | `1024` | Minimum allocation size to track (bytes) |
+| `argus.allocation.enabled` | `false` | Enable allocation rate tracking (high overhead) |
+| `argus.allocation.threshold` | `1048576` | Minimum allocation size to track (1MB) |
 | `argus.metaspace.enabled` | `true` | Enable metaspace monitoring |
 
 #### CPU & Performance Settings
@@ -28,10 +28,10 @@ The Argus agent is configured via Java system properties.
 |----------|---------|-------------|
 | `argus.cpu.enabled` | `true` | Enable CPU monitoring |
 | `argus.cpu.interval` | `1000` | CPU sampling interval (ms) |
-| `argus.profiling.enabled` | `false` | Enable method profiling (higher overhead) |
+| `argus.profiling.enabled` | `false` | Enable method profiling (high overhead) |
 | `argus.profiling.interval` | `20` | Method profiling sampling interval (ms) |
-| `argus.contention.enabled` | `true` | Enable lock contention tracking |
-| `argus.contention.threshold` | `10` | Minimum contention duration to track (ms) |
+| `argus.contention.enabled` | `false` | Enable lock contention tracking |
+| `argus.contention.threshold` | `50` | Minimum contention duration to track (ms) |
 
 #### Analysis Settings
 | Property | Default | Description |
