@@ -44,8 +44,9 @@ header {
     gap: 0.75rem;
 }
 
-.logo-icon {
-    font-size: 2rem;
+.logo-img {
+    height: 36px;
+    width: auto;
 }
 
 .logo h1 {

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/argus_logo.png" alt="Argus Logo" width="120">
+</p>
+
 # Argus
 
 > *"Argus Panoptes, the all-seeing giant with a hundred eyes, never slept - for when some of his eyes closed, others remained open, watching everything."*
