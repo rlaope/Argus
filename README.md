@@ -99,13 +99,13 @@ The agent accepts the following system properties:
 | `argus.gc.enabled` | `true` | Enable GC monitoring |
 | `argus.cpu.enabled` | `true` | Enable CPU monitoring |
 | `argus.cpu.interval` | `1000` | CPU sampling interval in milliseconds |
-| `argus.allocation.enabled` | `true` | Enable allocation tracking |
-| `argus.allocation.threshold` | `1024` | Minimum allocation size to track (bytes) |
+| `argus.allocation.enabled` | `false` | Enable allocation tracking (high overhead) |
+| `argus.allocation.threshold` | `1048576` | Minimum allocation size to track (1MB) |
 | `argus.metaspace.enabled` | `true` | Enable metaspace monitoring |
-| `argus.profiling.enabled` | `false` | Enable method profiling (higher overhead) |
+| `argus.profiling.enabled` | `false` | Enable method profiling (high overhead) |
 | `argus.profiling.interval` | `20` | Profiling sampling interval (ms) |
-| `argus.contention.enabled` | `true` | Enable lock contention tracking |
-| `argus.contention.threshold` | `10` | Minimum contention duration (ms) |
+| `argus.contention.enabled` | `false` | Enable lock contention tracking |
+| `argus.contention.threshold` | `50` | Minimum contention duration (ms) |
 | `argus.correlation.enabled` | `true` | Enable correlation analysis |
 
 See [Configuration Guide](docs/configuration.md) for detailed documentation.

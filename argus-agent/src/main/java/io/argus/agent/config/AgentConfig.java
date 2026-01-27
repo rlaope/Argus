@@ -14,13 +14,13 @@ package io.argus.agent.config;
  *   <li>{@code argus.gc.enabled} - Enable GC monitoring (default: true)</li>
  *   <li>{@code argus.cpu.enabled} - Enable CPU monitoring (default: true)</li>
  *   <li>{@code argus.cpu.interval} - CPU sampling interval in ms (default: 1000)</li>
- *   <li>{@code argus.allocation.enabled} - Enable allocation tracking (default: true)</li>
- *   <li>{@code argus.allocation.threshold} - Minimum allocation size to track in bytes (default: 1024)</li>
+ *   <li>{@code argus.allocation.enabled} - Enable allocation tracking (default: false, high overhead)</li>
+ *   <li>{@code argus.allocation.threshold} - Minimum allocation size to track in bytes (default: 1MB)</li>
  *   <li>{@code argus.metaspace.enabled} - Enable metaspace monitoring (default: true)</li>
- *   <li>{@code argus.profiling.enabled} - Enable method profiling (default: false)</li>
+ *   <li>{@code argus.profiling.enabled} - Enable method profiling (default: false, high overhead)</li>
  *   <li>{@code argus.profiling.interval} - Profiling sampling interval in ms (default: 20)</li>
- *   <li>{@code argus.contention.enabled} - Enable lock contention tracking (default: true)</li>
- *   <li>{@code argus.contention.threshold} - Minimum contention time to track in ms (default: 10)</li>
+ *   <li>{@code argus.contention.enabled} - Enable lock contention tracking (default: false)</li>
+ *   <li>{@code argus.contention.threshold} - Minimum contention time to track in ms (default: 50)</li>
  *   <li>{@code argus.correlation.enabled} - Enable correlation analysis (default: true)</li>
  * </ul>
  */
@@ -32,13 +32,13 @@ public final class AgentConfig {
     private static final boolean DEFAULT_GC_ENABLED = true;
     private static final boolean DEFAULT_CPU_ENABLED = true;
     private static final int DEFAULT_CPU_INTERVAL_MS = 1000;
-    private static final boolean DEFAULT_ALLOCATION_ENABLED = true;
-    private static final int DEFAULT_ALLOCATION_THRESHOLD = 1024;
+    private static final boolean DEFAULT_ALLOCATION_ENABLED = false;  // High overhead, opt-in only
+    private static final int DEFAULT_ALLOCATION_THRESHOLD = 1024 * 1024;  // 1MB minimum
     private static final boolean DEFAULT_METASPACE_ENABLED = true;
     private static final boolean DEFAULT_PROFILING_ENABLED = false;
     private static final int DEFAULT_PROFILING_INTERVAL_MS = 20;
-    private static final boolean DEFAULT_CONTENTION_ENABLED = true;
-    private static final int DEFAULT_CONTENTION_THRESHOLD_MS = 10;
+    private static final boolean DEFAULT_CONTENTION_ENABLED = false;  // Can generate many events, opt-in
+    private static final int DEFAULT_CONTENTION_THRESHOLD_MS = 50;  // Higher threshold for less noise
     private static final boolean DEFAULT_CORRELATION_ENABLED = true;
 
     private final int bufferSize;
