@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/argus_logo.png" alt="Argus Logo" width="120">
+  <img src="assets/argus_logo.png" alt="Argus Logo" width="240">
 </p>
 
 # Argus
