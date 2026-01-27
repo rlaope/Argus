@@ -77,7 +77,8 @@ tasks.register<JavaExec>("runMetricsDemo") {
 
     jvmArgs(
         "--enable-preview",
-        "-Xmx128m",  // Small heap to trigger GC frequently
+        "-Xmx512m",  // Enough heap for JFR + Netty + app
+        "-Xms256m",
         "-XX:+UseG1GC",
         "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
