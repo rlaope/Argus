@@ -177,7 +177,7 @@ public final class ArgusServer {
                 clients, metrics, activeThreads, recentEvents, threadEvents,
                 pinningAnalyzer, carrierAnalyzer, gcAnalyzer, cpuAnalyzer,
                 allocationAnalyzer, metaspaceAnalyzer, methodProfilingAnalyzer, contentionAnalyzer,
-                threadStateManager, serializer);
+                correlationAnalyzer, threadStateManager, serializer);
 
         // Initialize Netty
         bossGroup = new NioEventLoopGroup(1);

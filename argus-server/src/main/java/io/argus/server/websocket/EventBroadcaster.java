@@ -68,6 +68,7 @@ public final class EventBroadcaster {
     private final MetaspaceAnalyzer metaspaceAnalyzer;
     private final MethodProfilingAnalyzer methodProfilingAnalyzer;
     private final ContentionAnalyzer contentionAnalyzer;
+    private final CorrelationAnalyzer correlationAnalyzer;
     private final ThreadStateManager threadStateManager;
     private final EventJsonSerializer serializer;
     private final ScheduledExecutorService scheduler;
@@ -96,6 +97,7 @@ public final class EventBroadcaster {
      * @param metaspaceAnalyzer         the metaspace analyzer (can be null)
      * @param methodProfilingAnalyzer   the method profiling analyzer (can be null)
      * @param contentionAnalyzer        the contention analyzer (can be null)
+     * @param correlationAnalyzer       the correlation analyzer (can be null)
      * @param threadStateManager        the thread state manager for real-time state tracking
      * @param serializer                the event JSON serializer
      */
@@ -120,6 +122,7 @@ public final class EventBroadcaster {
             MetaspaceAnalyzer metaspaceAnalyzer,
             MethodProfilingAnalyzer methodProfilingAnalyzer,
             ContentionAnalyzer contentionAnalyzer,
+            CorrelationAnalyzer correlationAnalyzer,
             ThreadStateManager threadStateManager,
             EventJsonSerializer serializer) {
         this.eventBuffer = eventBuffer;
@@ -142,6 +145,7 @@ public final class EventBroadcaster {
         this.metaspaceAnalyzer = metaspaceAnalyzer;
         this.methodProfilingAnalyzer = methodProfilingAnalyzer;
         this.contentionAnalyzer = contentionAnalyzer;
+        this.correlationAnalyzer = correlationAnalyzer;
         this.threadStateManager = threadStateManager;
         this.serializer = serializer;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
