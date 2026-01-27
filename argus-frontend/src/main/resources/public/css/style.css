@@ -134,9 +134,16 @@ main {
 /* Metrics */
 .metrics {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.75rem;
     margin-bottom: 1.5rem;
+}
+
+/* Ensure all 9 cards fit on one row for wider screens */
+@media (min-width: 1200px) {
+    .metrics {
+        grid-template-columns: repeat(9, 1fr);
+    }
 }
 
 .metric-card {

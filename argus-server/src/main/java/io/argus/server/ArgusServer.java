@@ -1,12 +1,21 @@
 package io.argus.server;
 
 import io.argus.core.buffer.RingBuffer;
+import io.argus.core.event.AllocationEvent;
+import io.argus.core.event.ContentionEvent;
 import io.argus.core.event.CPUEvent;
+import io.argus.core.event.ExecutionSampleEvent;
 import io.argus.core.event.GCEvent;
+import io.argus.core.event.MetaspaceEvent;
 import io.argus.core.event.VirtualThreadEvent;
+import io.argus.server.analysis.AllocationAnalyzer;
 import io.argus.server.analysis.CarrierThreadAnalyzer;
+import io.argus.server.analysis.ContentionAnalyzer;
+import io.argus.server.analysis.CorrelationAnalyzer;
 import io.argus.server.analysis.CPUAnalyzer;
 import io.argus.server.analysis.GCAnalyzer;
+import io.argus.server.analysis.MetaspaceAnalyzer;
+import io.argus.server.analysis.MethodProfilingAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.handler.ArgusChannelHandler;
 import io.argus.server.metrics.ServerMetrics;
@@ -60,6 +69,11 @@ public final class ArgusServer {
     private final RingBuffer<VirtualThreadEvent> eventBuffer;
     private final RingBuffer<GCEvent> gcEventBuffer;
     private final RingBuffer<CPUEvent> cpuEventBuffer;
+    private final RingBuffer<AllocationEvent> allocationEventBuffer;
+    private final RingBuffer<MetaspaceEvent> metaspaceEventBuffer;
+    private final RingBuffer<ExecutionSampleEvent> executionSampleEventBuffer;
+    private final RingBuffer<ContentionEvent> contentionEventBuffer;
+    private final boolean correlationEnabled;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     // Components
@@ -72,6 +86,11 @@ public final class ArgusServer {
     private final CarrierThreadAnalyzer carrierAnalyzer = new CarrierThreadAnalyzer();
     private final GCAnalyzer gcAnalyzer = new GCAnalyzer();
     private final CPUAnalyzer cpuAnalyzer = new CPUAnalyzer();
+    private final AllocationAnalyzer allocationAnalyzer = new AllocationAnalyzer();
+    private final MetaspaceAnalyzer metaspaceAnalyzer = new MetaspaceAnalyzer();
+    private final MethodProfilingAnalyzer methodProfilingAnalyzer = new MethodProfilingAnalyzer();
+    private final ContentionAnalyzer contentionAnalyzer = new ContentionAnalyzer();
+    private CorrelationAnalyzer correlationAnalyzer;
     private final ThreadStateManager threadStateManager = new ThreadStateManager();
     private final EventJsonSerializer serializer = new EventJsonSerializer();
     private EventBroadcaster broadcaster;
@@ -88,7 +107,7 @@ public final class ArgusServer {
      * @param eventBuffer the ring buffer to read events from
      */
     public ArgusServer(int port, RingBuffer<VirtualThreadEvent> eventBuffer) {
-        this(port, eventBuffer, null, null);
+        this(port, eventBuffer, null, null, null, null, null, null, false);
     }
 
     /**
@@ -101,10 +120,38 @@ public final class ArgusServer {
      */
     public ArgusServer(int port, RingBuffer<VirtualThreadEvent> eventBuffer,
                        RingBuffer<GCEvent> gcEventBuffer, RingBuffer<CPUEvent> cpuEventBuffer) {
+        this(port, eventBuffer, gcEventBuffer, cpuEventBuffer, null, null, null, null, false);
+    }
+
+    /**
+     * Creates a new Argus server with all event buffers.
+     *
+     * @param port                       the port to listen on
+     * @param eventBuffer                the ring buffer for virtual thread events
+     * @param gcEventBuffer              the ring buffer for GC events (can be null)
+     * @param cpuEventBuffer             the ring buffer for CPU events (can be null)
+     * @param allocationEventBuffer      the ring buffer for allocation events (can be null)
+     * @param metaspaceEventBuffer       the ring buffer for metaspace events (can be null)
+     * @param executionSampleEventBuffer the ring buffer for execution sample events (can be null)
+     * @param contentionEventBuffer      the ring buffer for contention events (can be null)
+     * @param correlationEnabled         whether correlation analysis is enabled
+     */
+    public ArgusServer(int port, RingBuffer<VirtualThreadEvent> eventBuffer,
+                       RingBuffer<GCEvent> gcEventBuffer, RingBuffer<CPUEvent> cpuEventBuffer,
+                       RingBuffer<AllocationEvent> allocationEventBuffer,
+                       RingBuffer<MetaspaceEvent> metaspaceEventBuffer,
+                       RingBuffer<ExecutionSampleEvent> executionSampleEventBuffer,
+                       RingBuffer<ContentionEvent> contentionEventBuffer,
+                       boolean correlationEnabled) {
         this.port = port;
         this.eventBuffer = eventBuffer;
         this.gcEventBuffer = gcEventBuffer;
         this.cpuEventBuffer = cpuEventBuffer;
+        this.allocationEventBuffer = allocationEventBuffer;
+        this.metaspaceEventBuffer = metaspaceEventBuffer;
+        this.executionSampleEventBuffer = executionSampleEventBuffer;
+        this.contentionEventBuffer = contentionEventBuffer;
+        this.correlationEnabled = correlationEnabled;
     }
 
     /**
@@ -117,11 +164,19 @@ public final class ArgusServer {
             throw new IllegalStateException("Server already running");
         }
 
-        // Initialize broadcaster
+        // Initialize correlation analyzer if enabled
+        if (correlationEnabled) {
+            correlationAnalyzer = new CorrelationAnalyzer();
+        }
+
+        // Initialize broadcaster with all event buffers
         broadcaster = new EventBroadcaster(
                 eventBuffer, gcEventBuffer, cpuEventBuffer,
+                allocationEventBuffer, metaspaceEventBuffer,
+                executionSampleEventBuffer, contentionEventBuffer,
                 clients, metrics, activeThreads, recentEvents, threadEvents,
                 pinningAnalyzer, carrierAnalyzer, gcAnalyzer, cpuAnalyzer,
+                allocationAnalyzer, metaspaceAnalyzer, methodProfilingAnalyzer, contentionAnalyzer,
                 threadStateManager, serializer);
 
         // Initialize Netty
@@ -140,7 +195,13 @@ public final class ArgusServer {
                                 .addLast(new WebSocketServerCompressionHandler())
                                 .addLast(new ArgusChannelHandler(
                                         clients, metrics, activeThreads, threadEvents,
-                                        gcAnalyzer, cpuAnalyzer, broadcaster));
+                                        gcAnalyzer, cpuAnalyzer,
+                                        allocationEventBuffer != null ? allocationAnalyzer : null,
+                                        metaspaceEventBuffer != null ? metaspaceAnalyzer : null,
+                                        executionSampleEventBuffer != null ? methodProfilingAnalyzer : null,
+                                        contentionEventBuffer != null ? contentionAnalyzer : null,
+                                        correlationAnalyzer,
+                                        broadcaster));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, 128)
