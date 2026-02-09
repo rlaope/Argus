@@ -191,6 +191,9 @@ function init() {
     // Setup event listeners
     setupEventListeners();
 
+    // Fetch feature flags (once)
+    fetchConfig();
+
     // Initial data fetch
     fetchMetrics();
     fetchPinningAnalysis();
@@ -219,7 +222,18 @@ function init() {
 }
 
 function setupEventListeners() {
-    // Tab switching
+    // Main tab switching (top-level: Virtual Threads / JVM Overview)
+    document.querySelectorAll('.main-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tabId = btn.dataset.mainTab;
+            document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.main-tab-content').forEach(c => c.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(`${tabId}-tab`).classList.add('active');
+        });
+    });
+
+    // Sub-tab switching (Thread View / Event History)
     elements.tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.dataset.tab;
@@ -791,6 +805,41 @@ function updateRecommendations(data) {
                 <div class="recommendation-description">${escapeHtml(rec.description)}</div>
             </div>
         `;
+    }).join('');
+}
+
+async function fetchConfig() {
+    try {
+        const response = await fetch('/config');
+        if (response.ok) {
+            const data = await response.json();
+            renderFeatureFlags(data.features);
+        }
+    } catch (e) {
+        console.error('[Argus] Failed to fetch config:', e);
+    }
+}
+
+function renderFeatureFlags(features) {
+    const container = document.getElementById('feature-flags-list');
+    if (!container || !features) return;
+
+    const featureNames = {
+        gc: 'GC',
+        cpu: 'CPU',
+        metaspace: 'Metaspace',
+        allocation: 'Allocation',
+        profiling: 'Profiling',
+        contention: 'Contention',
+        correlation: 'Correlation',
+        prometheus: 'Prometheus'
+    };
+
+    container.innerHTML = Object.entries(features).map(([key, info]) => {
+        const name = featureNames[key] || key;
+        const enabledClass = info.enabled ? 'enabled' : 'disabled';
+        const overheadTag = `<span class="overhead-tag ${info.overhead}">${info.overhead}</span>`;
+        return `<span class="feature-badge ${enabledClass}" title="${name}: ${info.enabled ? 'Enabled' : 'Disabled'} (${info.overhead} overhead)">${name} ${overheadTag}</span>`;
     }).join('');
 }
 

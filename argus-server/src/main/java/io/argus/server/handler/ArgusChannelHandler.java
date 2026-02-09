@@ -2,6 +2,7 @@ package io.argus.server.handler;
 
 import java.util.Map;
 
+import io.argus.core.config.AgentConfig;
 import io.argus.server.analysis.AllocationAnalyzer;
 import io.argus.server.analysis.ContentionAnalyzer;
 import io.argus.server.analysis.CorrelationAnalyzer;
@@ -36,6 +37,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
     private static final System.Logger LOG = System.getLogger(ArgusChannelHandler.class.getName());
     private static final String WEBSOCKET_PATH = "/events";
 
+    private final AgentConfig config;
     private final ChannelGroup clients;
     private final ServerMetrics metrics;
     private final ActiveThreadsRegistry activeThreads;
@@ -72,13 +74,14 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             GCAnalyzer gcAnalyzer,
             CPUAnalyzer cpuAnalyzer,
             EventBroadcaster broadcaster) {
-        this(clients, metrics, activeThreads, threadEvents, gcAnalyzer, cpuAnalyzer,
+        this(null, clients, metrics, activeThreads, threadEvents, gcAnalyzer, cpuAnalyzer,
                 null, null, null, null, null, broadcaster, null);
     }
 
     /**
      * Creates a new channel handler with full analyzer support.
      *
+     * @param config                  the agent configuration (null for defaults)
      * @param clients                 the channel group for WebSocket clients
      * @param metrics                 the server metrics tracker
      * @param activeThreads           the active threads registry
@@ -94,6 +97,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
      * @param prometheusCollector     the Prometheus metrics collector (null if disabled)
      */
     public ArgusChannelHandler(
+            AgentConfig config,
             ChannelGroup clients,
             ServerMetrics metrics,
             ActiveThreadsRegistry activeThreads,
@@ -107,6 +111,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             CorrelationAnalyzer correlationAnalyzer,
             EventBroadcaster broadcaster,
             PrometheusMetricsCollector prometheusCollector) {
+        this.config = config != null ? config : AgentConfig.defaults();
         this.clients = clients;
         this.metrics = metrics;
         this.activeThreads = activeThreads;
@@ -152,6 +157,12 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         // Prometheus metrics endpoint
         if ("/prometheus".equals(uri)) {
             handlePrometheusMetrics(ctx, request);
+            return;
+        }
+
+        // Config endpoint (feature flags)
+        if ("/config".equals(uri)) {
+            handleConfig(ctx, request);
             return;
         }
 
@@ -302,6 +313,32 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         clients.remove(ctx.channel());
         LOG.log(System.Logger.Level.DEBUG, "Client disconnected: {0} (total: {1})",
                 ctx.channel().remoteAddress(), clients.size());
+    }
+
+    private void handleConfig(ChannelHandlerContext ctx, FullHttpRequest request) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"features\":{");
+        sb.append("\"gc\":{\"enabled\":").append(config.isGcEnabled()).append(",\"overhead\":\"low\"},");
+        sb.append("\"cpu\":{\"enabled\":").append(config.isCpuEnabled()).append(",\"overhead\":\"low\"");
+        sb.append(",\"intervalMs\":").append(config.getCpuIntervalMs()).append("},");
+        sb.append("\"metaspace\":{\"enabled\":").append(config.isMetaspaceEnabled()).append(",\"overhead\":\"low\"},");
+        sb.append("\"allocation\":{\"enabled\":").append(config.isAllocationEnabled()).append(",\"overhead\":\"high\"");
+        sb.append(",\"thresholdBytes\":").append(config.getAllocationThreshold()).append("},");
+        sb.append("\"profiling\":{\"enabled\":").append(config.isProfilingEnabled()).append(",\"overhead\":\"high\"");
+        sb.append(",\"intervalMs\":").append(config.getProfilingIntervalMs()).append("},");
+        sb.append("\"contention\":{\"enabled\":").append(config.isContentionEnabled()).append(",\"overhead\":\"medium\"");
+        sb.append(",\"thresholdMs\":").append(config.getContentionThresholdMs()).append("},");
+        sb.append("\"correlation\":{\"enabled\":").append(config.isCorrelationEnabled()).append(",\"overhead\":\"low\"},");
+        sb.append("\"prometheus\":{\"enabled\":").append(config.isPrometheusEnabled()).append(",\"overhead\":\"low\"}");
+        sb.append("},");
+        sb.append("\"server\":{");
+        sb.append("\"port\":").append(config.getServerPort()).append(",");
+        sb.append("\"bufferSize\":").append(config.getBufferSize());
+        sb.append("}");
+        sb.append("}");
+
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
     }
 
     private void handlePrometheusMetrics(ChannelHandlerContext ctx, FullHttpRequest request) {
