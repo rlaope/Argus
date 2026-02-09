@@ -31,10 +31,10 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build with Gradle
-        run: ./gradlew build --no-daemon
+        run: ./gradlew build --no-daemon -Dorg.gradle.java.installations.fromEnv=JAVA_HOME
 
       - name: Run tests
-        run: ./gradlew test --no-daemon
+        run: ./gradlew test --no-daemon -Dorg.gradle.java.installations.fromEnv=JAVA_HOME
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
