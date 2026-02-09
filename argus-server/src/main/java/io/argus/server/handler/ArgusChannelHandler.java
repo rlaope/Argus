@@ -11,6 +11,7 @@ import io.argus.server.analysis.MetaspaceAnalyzer;
 import io.argus.server.analysis.MethodProfilingAnalyzer;
 import io.argus.server.http.HttpResponseHelper;
 import io.argus.server.http.StaticFileHandler;
+import io.argus.server.metrics.PrometheusMetricsCollector;
 import io.argus.server.metrics.ServerMetrics;
 import io.argus.server.state.ActiveThreadsRegistry;
 import io.argus.server.state.ThreadEventsBuffer;
@@ -47,6 +48,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
     private final ContentionAnalyzer contentionAnalyzer;
     private final CorrelationAnalyzer correlationAnalyzer;
     private final EventBroadcaster broadcaster;
+    private final PrometheusMetricsCollector prometheusCollector;
     private final StaticFileHandler staticFileHandler;
 
     private WebSocketServerHandshaker handshaker;
@@ -71,7 +73,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             CPUAnalyzer cpuAnalyzer,
             EventBroadcaster broadcaster) {
         this(clients, metrics, activeThreads, threadEvents, gcAnalyzer, cpuAnalyzer,
-                null, null, null, null, null, broadcaster);
+                null, null, null, null, null, broadcaster, null);
     }
 
     /**
@@ -89,6 +91,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
      * @param contentionAnalyzer      the contention analyzer
      * @param correlationAnalyzer     the correlation analyzer
      * @param broadcaster             the event broadcaster
+     * @param prometheusCollector     the Prometheus metrics collector (null if disabled)
      */
     public ArgusChannelHandler(
             ChannelGroup clients,
@@ -102,7 +105,8 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             MethodProfilingAnalyzer methodProfilingAnalyzer,
             ContentionAnalyzer contentionAnalyzer,
             CorrelationAnalyzer correlationAnalyzer,
-            EventBroadcaster broadcaster) {
+            EventBroadcaster broadcaster,
+            PrometheusMetricsCollector prometheusCollector) {
         this.clients = clients;
         this.metrics = metrics;
         this.activeThreads = activeThreads;
@@ -115,6 +119,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         this.contentionAnalyzer = contentionAnalyzer;
         this.correlationAnalyzer = correlationAnalyzer;
         this.broadcaster = broadcaster;
+        this.prometheusCollector = prometheusCollector;
         this.staticFileHandler = new StaticFileHandler();
     }
 
@@ -141,6 +146,12 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         if ("/metrics".equals(uri)) {
             String json = metrics.toJson(activeThreads.size(), clients.size());
             HttpResponseHelper.sendJson(ctx, request, json);
+            return;
+        }
+
+        // Prometheus metrics endpoint
+        if ("/prometheus".equals(uri)) {
+            handlePrometheusMetrics(ctx, request);
             return;
         }
 
@@ -291,6 +302,27 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         clients.remove(ctx.channel());
         LOG.log(System.Logger.Level.DEBUG, "Client disconnected: {0} (total: {1})",
                 ctx.channel().remoteAddress(), clients.size());
+    }
+
+    private void handlePrometheusMetrics(ChannelHandlerContext ctx, FullHttpRequest request) {
+        if (prometheusCollector == null) {
+            HttpResponseHelper.sendNotFound(ctx, request);
+            return;
+        }
+
+        long startNanos = System.nanoTime();
+        String metricsText = prometheusCollector.collectMetrics();
+        long durationNanos = System.nanoTime() - startNanos;
+
+        StringBuilder sb = new StringBuilder(metricsText.length() + 128);
+        sb.append(metricsText);
+        sb.append("# HELP argus_scrape_duration_seconds Time taken to collect metrics\n");
+        sb.append("# TYPE argus_scrape_duration_seconds gauge\n");
+        sb.append("argus_scrape_duration_seconds ")
+                .append(String.format("%.6f", durationNanos / 1_000_000_000.0))
+                .append('\n');
+
+        HttpResponseHelper.sendPrometheus(ctx, request, sb.toString());
     }
 
     private String serializeActiveThreads() {

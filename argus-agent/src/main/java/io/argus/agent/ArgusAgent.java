@@ -1,6 +1,6 @@
 package io.argus.agent;
 
-import io.argus.agent.config.AgentConfig;
+import io.argus.core.config.AgentConfig;
 import io.argus.agent.jfr.JfrStreamingEngine;
 import io.argus.core.buffer.RingBuffer;
 import io.argus.core.event.AllocationEvent;
@@ -169,7 +169,8 @@ public final class ArgusAgent {
                 metaspaceEventBuffer,
                 executionSampleEventBuffer,
                 contentionEventBuffer,
-                config.isCorrelationEnabled()
+                config.isCorrelationEnabled(),
+                config
         );
         Thread.ofPlatform()
                 .name("argus-server")

@@ -77,6 +77,17 @@ public final class HttpResponseHelper {
     }
 
     /**
+     * Sends a Prometheus exposition format response.
+     *
+     * @param ctx     the channel handler context
+     * @param request the original HTTP request
+     * @param content the Prometheus text format content
+     */
+    public static void sendPrometheus(ChannelHandlerContext ctx, FullHttpRequest request, String content) {
+        send(ctx, request, HttpResponseStatus.OK, content, "text/plain; version=0.0.4; charset=utf-8");
+    }
+
+    /**
      * Sends a downloadable file response.
      *
      * @param ctx         the channel handler context

@@ -1,4 +1,4 @@
-package io.argus.agent.config;
+package io.argus.core.config;
 
 /**
  * Configuration holder for the Argus agent.
@@ -22,6 +22,7 @@ package io.argus.agent.config;
  *   <li>{@code argus.contention.enabled} - Enable lock contention tracking (default: false)</li>
  *   <li>{@code argus.contention.threshold} - Minimum contention time to track in ms (default: 50)</li>
  *   <li>{@code argus.correlation.enabled} - Enable correlation analysis (default: true)</li>
+ *   <li>{@code argus.metrics.prometheus.enabled} - Enable Prometheus metrics endpoint (default: true)</li>
  * </ul>
  */
 public final class AgentConfig {
@@ -40,6 +41,7 @@ public final class AgentConfig {
     private static final boolean DEFAULT_CONTENTION_ENABLED = false;  // Can generate many events, opt-in
     private static final int DEFAULT_CONTENTION_THRESHOLD_MS = 50;  // Higher threshold for less noise
     private static final boolean DEFAULT_CORRELATION_ENABLED = true;
+    private static final boolean DEFAULT_PROMETHEUS_ENABLED = true;
 
     private final int bufferSize;
     private final int serverPort;
@@ -55,13 +57,15 @@ public final class AgentConfig {
     private final boolean contentionEnabled;
     private final int contentionThresholdMs;
     private final boolean correlationEnabled;
+    private final boolean prometheusEnabled;
 
     private AgentConfig(int bufferSize, int serverPort, boolean serverEnabled,
                         boolean gcEnabled, boolean cpuEnabled, int cpuIntervalMs,
                         boolean allocationEnabled, int allocationThreshold,
                         boolean metaspaceEnabled, boolean profilingEnabled,
                         int profilingIntervalMs, boolean contentionEnabled,
-                        int contentionThresholdMs, boolean correlationEnabled) {
+                        int contentionThresholdMs, boolean correlationEnabled,
+                        boolean prometheusEnabled) {
         this.bufferSize = bufferSize;
         this.serverPort = serverPort;
         this.serverEnabled = serverEnabled;
@@ -76,6 +80,7 @@ public final class AgentConfig {
         this.contentionEnabled = contentionEnabled;
         this.contentionThresholdMs = contentionThresholdMs;
         this.correlationEnabled = correlationEnabled;
+        this.prometheusEnabled = prometheusEnabled;
     }
 
     /**
@@ -106,10 +111,12 @@ public final class AgentConfig {
         int contentionThresholdMs = Integer.getInteger("argus.contention.threshold", DEFAULT_CONTENTION_THRESHOLD_MS);
         boolean correlationEnabled = Boolean.parseBoolean(
                 System.getProperty("argus.correlation.enabled", String.valueOf(DEFAULT_CORRELATION_ENABLED)));
+        boolean prometheusEnabled = Boolean.parseBoolean(
+                System.getProperty("argus.metrics.prometheus.enabled", String.valueOf(DEFAULT_PROMETHEUS_ENABLED)));
 
         return new AgentConfig(bufferSize, serverPort, serverEnabled, gcEnabled, cpuEnabled, cpuIntervalMs,
                 allocationEnabled, allocationThreshold, metaspaceEnabled, profilingEnabled, profilingIntervalMs,
-                contentionEnabled, contentionThresholdMs, correlationEnabled);
+                contentionEnabled, contentionThresholdMs, correlationEnabled, prometheusEnabled);
     }
 
     /**
@@ -122,7 +129,7 @@ public final class AgentConfig {
                 DEFAULT_GC_ENABLED, DEFAULT_CPU_ENABLED, DEFAULT_CPU_INTERVAL_MS,
                 DEFAULT_ALLOCATION_ENABLED, DEFAULT_ALLOCATION_THRESHOLD, DEFAULT_METASPACE_ENABLED,
                 DEFAULT_PROFILING_ENABLED, DEFAULT_PROFILING_INTERVAL_MS, DEFAULT_CONTENTION_ENABLED,
-                DEFAULT_CONTENTION_THRESHOLD_MS, DEFAULT_CORRELATION_ENABLED);
+                DEFAULT_CONTENTION_THRESHOLD_MS, DEFAULT_CORRELATION_ENABLED, DEFAULT_PROMETHEUS_ENABLED);
     }
 
     /**
@@ -190,6 +197,10 @@ public final class AgentConfig {
         return correlationEnabled;
     }
 
+    public boolean isPrometheusEnabled() {
+        return prometheusEnabled;
+    }
+
     @Override
     public String toString() {
         return "AgentConfig{" +
@@ -207,6 +218,7 @@ public final class AgentConfig {
                 ", contentionEnabled=" + contentionEnabled +
                 ", contentionThresholdMs=" + contentionThresholdMs +
                 ", correlationEnabled=" + correlationEnabled +
+                ", prometheusEnabled=" + prometheusEnabled +
                 '}';
     }
 
@@ -228,6 +240,7 @@ public final class AgentConfig {
         private boolean contentionEnabled = DEFAULT_CONTENTION_ENABLED;
         private int contentionThresholdMs = DEFAULT_CONTENTION_THRESHOLD_MS;
         private boolean correlationEnabled = DEFAULT_CORRELATION_ENABLED;
+        private boolean prometheusEnabled = DEFAULT_PROMETHEUS_ENABLED;
 
         private Builder() {
         }
@@ -302,12 +315,17 @@ public final class AgentConfig {
             return this;
         }
 
+        public Builder prometheusEnabled(boolean prometheusEnabled) {
+            this.prometheusEnabled = prometheusEnabled;
+            return this;
+        }
+
         public AgentConfig build() {
             return new AgentConfig(bufferSize, serverPort, serverEnabled,
                     gcEnabled, cpuEnabled, cpuIntervalMs, allocationEnabled,
                     allocationThreshold, metaspaceEnabled, profilingEnabled,
                     profilingIntervalMs, contentionEnabled, contentionThresholdMs,
-                    correlationEnabled);
+                    correlationEnabled, prometheusEnabled);
         }
     }
 }

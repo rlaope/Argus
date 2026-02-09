@@ -18,7 +18,9 @@ import io.argus.server.analysis.MetaspaceAnalyzer;
 import io.argus.server.analysis.MethodProfilingAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.handler.ArgusChannelHandler;
+import io.argus.server.metrics.PrometheusMetricsCollector;
 import io.argus.server.metrics.ServerMetrics;
+import io.argus.core.config.AgentConfig;
 import io.argus.server.serialization.EventJsonSerializer;
 import io.argus.server.state.ActiveThreadsRegistry;
 import io.argus.server.state.RecentEventsBuffer;
@@ -74,6 +76,7 @@ public final class ArgusServer {
     private final RingBuffer<ExecutionSampleEvent> executionSampleEventBuffer;
     private final RingBuffer<ContentionEvent> contentionEventBuffer;
     private final boolean correlationEnabled;
+    private final AgentConfig config;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     // Components
@@ -91,6 +94,7 @@ public final class ArgusServer {
     private final MethodProfilingAnalyzer methodProfilingAnalyzer = new MethodProfilingAnalyzer();
     private final ContentionAnalyzer contentionAnalyzer = new ContentionAnalyzer();
     private CorrelationAnalyzer correlationAnalyzer;
+    private PrometheusMetricsCollector prometheusCollector;
     private final ThreadStateManager threadStateManager = new ThreadStateManager();
     private final EventJsonSerializer serializer = new EventJsonSerializer();
     private EventBroadcaster broadcaster;
@@ -107,7 +111,7 @@ public final class ArgusServer {
      * @param eventBuffer the ring buffer to read events from
      */
     public ArgusServer(int port, RingBuffer<VirtualThreadEvent> eventBuffer) {
-        this(port, eventBuffer, null, null, null, null, null, null, false);
+        this(port, eventBuffer, null, null, null, null, null, null, false, null);
     }
 
     /**
@@ -120,7 +124,7 @@ public final class ArgusServer {
      */
     public ArgusServer(int port, RingBuffer<VirtualThreadEvent> eventBuffer,
                        RingBuffer<GCEvent> gcEventBuffer, RingBuffer<CPUEvent> cpuEventBuffer) {
-        this(port, eventBuffer, gcEventBuffer, cpuEventBuffer, null, null, null, null, false);
+        this(port, eventBuffer, gcEventBuffer, cpuEventBuffer, null, null, null, null, false, null);
     }
 
     /**
@@ -135,6 +139,7 @@ public final class ArgusServer {
      * @param executionSampleEventBuffer the ring buffer for execution sample events (can be null)
      * @param contentionEventBuffer      the ring buffer for contention events (can be null)
      * @param correlationEnabled         whether correlation analysis is enabled
+     * @param config                     the agent configuration (null for defaults)
      */
     public ArgusServer(int port, RingBuffer<VirtualThreadEvent> eventBuffer,
                        RingBuffer<GCEvent> gcEventBuffer, RingBuffer<CPUEvent> cpuEventBuffer,
@@ -142,7 +147,8 @@ public final class ArgusServer {
                        RingBuffer<MetaspaceEvent> metaspaceEventBuffer,
                        RingBuffer<ExecutionSampleEvent> executionSampleEventBuffer,
                        RingBuffer<ContentionEvent> contentionEventBuffer,
-                       boolean correlationEnabled) {
+                       boolean correlationEnabled,
+                       AgentConfig config) {
         this.port = port;
         this.eventBuffer = eventBuffer;
         this.gcEventBuffer = gcEventBuffer;
@@ -152,6 +158,7 @@ public final class ArgusServer {
         this.executionSampleEventBuffer = executionSampleEventBuffer;
         this.contentionEventBuffer = contentionEventBuffer;
         this.correlationEnabled = correlationEnabled;
+        this.config = config != null ? config : AgentConfig.defaults();
     }
 
     /**
@@ -167,6 +174,17 @@ public final class ArgusServer {
         // Initialize correlation analyzer if enabled
         if (correlationEnabled) {
             correlationAnalyzer = new CorrelationAnalyzer();
+        }
+
+        // Initialize Prometheus metrics collector if enabled
+        if (config.isPrometheusEnabled()) {
+            prometheusCollector = new PrometheusMetricsCollector(
+                    config, metrics, activeThreads,
+                    pinningAnalyzer, carrierAnalyzer, gcAnalyzer, cpuAnalyzer,
+                    allocationEventBuffer != null ? allocationAnalyzer : null,
+                    metaspaceEventBuffer != null ? metaspaceAnalyzer : null,
+                    executionSampleEventBuffer != null ? methodProfilingAnalyzer : null,
+                    contentionEventBuffer != null ? contentionAnalyzer : null);
         }
 
         // Initialize broadcaster with all event buffers
@@ -201,7 +219,8 @@ public final class ArgusServer {
                                         executionSampleEventBuffer != null ? methodProfilingAnalyzer : null,
                                         contentionEventBuffer != null ? contentionAnalyzer : null,
                                         correlationAnalyzer,
-                                        broadcaster));
+                                        broadcaster,
+                                        prometheusCollector));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, 128)
@@ -218,6 +237,9 @@ public final class ArgusServer {
         LOG.log(System.Logger.Level.INFO, "WebSocket endpoint: ws://localhost:" + port + WEBSOCKET_PATH);
         LOG.log(System.Logger.Level.INFO, "Metrics endpoint: http://localhost:" + port + "/metrics");
         LOG.log(System.Logger.Level.INFO, "Health endpoint: http://localhost:" + port + "/health");
+        if (config.isPrometheusEnabled()) {
+            LOG.log(System.Logger.Level.INFO, "Prometheus endpoint: http://localhost:" + port + "/prometheus");
+        }
     }
 
     /**
