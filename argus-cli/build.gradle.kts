@@ -19,6 +19,7 @@ tasks.jar {
 
 // Fat JAR for standalone execution
 tasks.register<Jar>("fatJar") {
+    dependsOn(tasks.jar, ":argus-core:jar")
     archiveClassifier.set("all")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
