@@ -6,6 +6,7 @@ import io.argus.core.config.AgentConfig;
 import io.argus.server.analysis.AllocationAnalyzer;
 import io.argus.server.analysis.ContentionAnalyzer;
 import io.argus.server.analysis.CorrelationAnalyzer;
+import io.argus.server.analysis.FlameGraphAnalyzer;
 import io.argus.server.analysis.CPUAnalyzer;
 import io.argus.server.analysis.GCAnalyzer;
 import io.argus.server.analysis.MetaspaceAnalyzer;
@@ -47,6 +48,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
     private final AllocationAnalyzer allocationAnalyzer;
     private final MetaspaceAnalyzer metaspaceAnalyzer;
     private final MethodProfilingAnalyzer methodProfilingAnalyzer;
+    private final FlameGraphAnalyzer flameGraphAnalyzer;
     private final ContentionAnalyzer contentionAnalyzer;
     private final CorrelationAnalyzer correlationAnalyzer;
     private final EventBroadcaster broadcaster;
@@ -75,7 +77,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             CPUAnalyzer cpuAnalyzer,
             EventBroadcaster broadcaster) {
         this(null, clients, metrics, activeThreads, threadEvents, gcAnalyzer, cpuAnalyzer,
-                null, null, null, null, null, broadcaster, null);
+                null, null, null, null, null, null, broadcaster, null);
     }
 
     /**
@@ -91,6 +93,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
      * @param allocationAnalyzer      the allocation analyzer
      * @param metaspaceAnalyzer       the metaspace analyzer
      * @param methodProfilingAnalyzer the method profiling analyzer
+     * @param flameGraphAnalyzer      the flame graph analyzer (null if profiling disabled)
      * @param contentionAnalyzer      the contention analyzer
      * @param correlationAnalyzer     the correlation analyzer
      * @param broadcaster             the event broadcaster
@@ -107,6 +110,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             AllocationAnalyzer allocationAnalyzer,
             MetaspaceAnalyzer metaspaceAnalyzer,
             MethodProfilingAnalyzer methodProfilingAnalyzer,
+            FlameGraphAnalyzer flameGraphAnalyzer,
             ContentionAnalyzer contentionAnalyzer,
             CorrelationAnalyzer correlationAnalyzer,
             EventBroadcaster broadcaster,
@@ -121,6 +125,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         this.allocationAnalyzer = allocationAnalyzer;
         this.metaspaceAnalyzer = metaspaceAnalyzer;
         this.methodProfilingAnalyzer = methodProfilingAnalyzer;
+        this.flameGraphAnalyzer = flameGraphAnalyzer;
         this.contentionAnalyzer = contentionAnalyzer;
         this.correlationAnalyzer = correlationAnalyzer;
         this.broadcaster = broadcaster;
@@ -233,6 +238,12 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
+        // Flame graph endpoint
+        if (uri.startsWith("/flame-graph")) {
+            handleFlameGraph(ctx, request, uri);
+            return;
+        }
+
         // Contention analysis endpoint
         if ("/contention-analysis".equals(uri)) {
             handleContentionAnalysis(ctx, request);
@@ -330,7 +341,13 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         sb.append("\"contention\":{\"enabled\":").append(config.isContentionEnabled()).append(",\"overhead\":\"medium\"");
         sb.append(",\"thresholdMs\":").append(config.getContentionThresholdMs()).append("},");
         sb.append("\"correlation\":{\"enabled\":").append(config.isCorrelationEnabled()).append(",\"overhead\":\"low\"},");
-        sb.append("\"prometheus\":{\"enabled\":").append(config.isPrometheusEnabled()).append(",\"overhead\":\"low\"}");
+        sb.append("\"prometheus\":{\"enabled\":").append(config.isPrometheusEnabled()).append(",\"overhead\":\"low\"},");
+        sb.append("\"otlp\":{\"enabled\":").append(config.isOtlpEnabled()).append(",\"overhead\":\"low\"");
+        if (config.isOtlpEnabled()) {
+            sb.append(",\"endpoint\":\"").append(escapeJson(config.getOtlpEndpoint())).append("\"");
+            sb.append(",\"intervalMs\":").append(config.getOtlpIntervalMs());
+        }
+        sb.append("}");
         sb.append("},");
         sb.append("\"server\":{");
         sb.append("\"port\":").append(config.getServerPort()).append(",");
@@ -725,6 +742,30 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         sb.append("}");
 
         HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handleFlameGraph(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+        if (flameGraphAnalyzer == null) {
+            HttpResponseHelper.sendJson(ctx, request, "{\"error\":\"Method profiling not enabled\"}");
+            return;
+        }
+
+        var params = parseQueryParams(uri);
+        String format = params.getOrDefault("format", "json");
+
+        if ("true".equals(params.get("reset"))) {
+            flameGraphAnalyzer.clear();
+            HttpResponseHelper.sendJson(ctx, request, "{\"status\":\"cleared\"}");
+            return;
+        }
+
+        if ("collapsed".equals(format)) {
+            String collapsed = flameGraphAnalyzer.getCollapsedStacks();
+            HttpResponseHelper.sendPlainText(ctx, request, collapsed);
+        } else {
+            String json = flameGraphAnalyzer.getFlameGraphJson();
+            HttpResponseHelper.sendJson(ctx, request, json);
+        }
     }
 
     private void handleMethodProfiling(ChannelHandlerContext ctx, FullHttpRequest request) {

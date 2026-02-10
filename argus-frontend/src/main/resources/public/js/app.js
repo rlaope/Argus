@@ -149,7 +149,15 @@ const elements = {
 
     // Recommendations
     recommendationsList: document.getElementById('recommendations-list'),
-    refreshRecommendationsBtn: document.getElementById('refresh-recommendations')
+    refreshRecommendationsBtn: document.getElementById('refresh-recommendations'),
+
+    // Flame graph
+    flamegraphContainer: document.getElementById('flamegraph-container'),
+    flamegraphSamples: document.getElementById('flamegraph-samples'),
+    flamegraphTimestamp: document.getElementById('flamegraph-timestamp'),
+    flamegraphPause: document.getElementById('flamegraph-pause'),
+    flamegraphReset: document.getElementById('flamegraph-reset'),
+    flamegraphDownload: document.getElementById('flamegraph-download')
 };
 
 const maxEvents = 500;
@@ -204,6 +212,7 @@ function init() {
     fetchMethodProfiling();
     fetchContentionAnalysis();
     fetchCorrelation();
+    fetchFlameGraph();
 
     // Setup periodic updates
     setInterval(updateCharts, 1000);
@@ -216,6 +225,7 @@ function init() {
     setInterval(fetchMethodProfiling, 5000);
     setInterval(fetchContentionAnalysis, 5000);
     setInterval(fetchCorrelation, 10000);
+    setInterval(fetchFlameGraph, 5000);
     setInterval(() => {
         renderThreadStateView(elements.threadsContainer, elements.threadCount);
     }, 1000);
@@ -243,6 +253,38 @@ function setupEventListeners() {
             document.getElementById(`${tabId}-tab`).classList.add('active');
         });
     });
+
+    // Flame graph pause/resume
+    if (elements.flamegraphPause) {
+        elements.flamegraphPause.addEventListener('click', () => {
+            flameGraphPaused = !flameGraphPaused;
+            elements.flamegraphPause.textContent = flameGraphPaused ? 'Resume' : 'Pause';
+            if (flameGraphPaused && elements.flamegraphTimestamp) {
+                elements.flamegraphTimestamp.textContent =
+                    'Paused at ' + new Date().toLocaleTimeString();
+            }
+        });
+    }
+
+    // Flame graph reset (clears server data + resets chart)
+    if (elements.flamegraphReset) {
+        elements.flamegraphReset.addEventListener('click', async () => {
+            await fetch('/flame-graph?reset=true');
+            flameChart = null;
+            flameGraphPaused = false;
+            if (elements.flamegraphPause) {
+                elements.flamegraphPause.textContent = 'Pause';
+            }
+            if (elements.flamegraphContainer) {
+                elements.flamegraphContainer.innerHTML =
+                    '<div class="flamegraph-placeholder">Collecting samples...</div>';
+            }
+            if (elements.flamegraphTimestamp) {
+                elements.flamegraphTimestamp.textContent =
+                    'Reset at ' + new Date().toLocaleTimeString();
+            }
+        });
+    }
 
     // Help modal
     elements.helpBtn.addEventListener('click', () => elements.helpModal.classList.remove('hidden'));
@@ -733,6 +775,67 @@ async function fetchContentionAnalysis() {
         }
     } catch (e) {
         // Contention tracking might not be enabled
+    }
+}
+
+// Flame graph state
+let flameChart = null;
+let flameGraphPaused = false;
+
+async function fetchFlameGraph() {
+    if (flameGraphPaused) return;
+    try {
+        const response = await fetch('/flame-graph');
+        if (response.ok) {
+            const data = await response.json();
+            if (!data.error && data.value > 0) {
+                renderFlameGraph(data);
+                if (elements.flamegraphSamples) {
+                    elements.flamegraphSamples.textContent = formatNumber(data.value);
+                }
+                if (elements.flamegraphTimestamp) {
+                    elements.flamegraphTimestamp.textContent =
+                        'Updated: ' + new Date().toLocaleTimeString();
+                }
+            }
+        }
+    } catch (e) {
+        // Flame graph / profiling might not be enabled
+    }
+}
+
+function renderFlameGraph(data) {
+    if (!elements.flamegraphContainer || typeof flamegraph === 'undefined') return;
+
+    const container = elements.flamegraphContainer;
+    const width = container.clientWidth - 32;
+
+    if (!flameChart) {
+        // Clear placeholder
+        container.innerHTML = '';
+
+        flameChart = flamegraph()
+            .width(width)
+            .cellHeight(18)
+            .transitionDuration(300)
+            .minFrameSize(2)
+            .transitionEase(d3.easeCubic)
+            .sort(true)
+            .title('')
+            .selfValue(false);
+
+        d3.select(container)
+            .datum(data)
+            .call(flameChart);
+    } else {
+        flameChart.width(width);
+        flameChart.update(data);
+    }
+
+    // Update download link
+    if (elements.flamegraphDownload) {
+        elements.flamegraphDownload.href = '/flame-graph?format=collapsed';
+        elements.flamegraphDownload.download = 'argus-flamegraph.collapsed';
     }
 }
 

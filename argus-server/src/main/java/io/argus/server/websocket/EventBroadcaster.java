@@ -15,6 +15,7 @@ import io.argus.server.analysis.CorrelationAnalyzer;
 import io.argus.server.analysis.CPUAnalyzer;
 import io.argus.server.analysis.GCAnalyzer;
 import io.argus.server.analysis.MetaspaceAnalyzer;
+import io.argus.server.analysis.FlameGraphAnalyzer;
 import io.argus.server.analysis.MethodProfilingAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.metrics.ServerMetrics;
@@ -67,6 +68,7 @@ public final class EventBroadcaster {
     private final AllocationAnalyzer allocationAnalyzer;
     private final MetaspaceAnalyzer metaspaceAnalyzer;
     private final MethodProfilingAnalyzer methodProfilingAnalyzer;
+    private final FlameGraphAnalyzer flameGraphAnalyzer;
     private final ContentionAnalyzer contentionAnalyzer;
     private final CorrelationAnalyzer correlationAnalyzer;
     private final ThreadStateManager threadStateManager;
@@ -96,6 +98,7 @@ public final class EventBroadcaster {
      * @param allocationAnalyzer        the allocation analyzer (can be null)
      * @param metaspaceAnalyzer         the metaspace analyzer (can be null)
      * @param methodProfilingAnalyzer   the method profiling analyzer (can be null)
+     * @param flameGraphAnalyzer        the flame graph analyzer (can be null)
      * @param contentionAnalyzer        the contention analyzer (can be null)
      * @param correlationAnalyzer       the correlation analyzer (can be null)
      * @param threadStateManager        the thread state manager for real-time state tracking
@@ -121,6 +124,7 @@ public final class EventBroadcaster {
             AllocationAnalyzer allocationAnalyzer,
             MetaspaceAnalyzer metaspaceAnalyzer,
             MethodProfilingAnalyzer methodProfilingAnalyzer,
+            FlameGraphAnalyzer flameGraphAnalyzer,
             ContentionAnalyzer contentionAnalyzer,
             CorrelationAnalyzer correlationAnalyzer,
             ThreadStateManager threadStateManager,
@@ -144,6 +148,7 @@ public final class EventBroadcaster {
         this.allocationAnalyzer = allocationAnalyzer;
         this.metaspaceAnalyzer = metaspaceAnalyzer;
         this.methodProfilingAnalyzer = methodProfilingAnalyzer;
+        this.flameGraphAnalyzer = flameGraphAnalyzer;
         this.contentionAnalyzer = contentionAnalyzer;
         this.correlationAnalyzer = correlationAnalyzer;
         this.threadStateManager = threadStateManager;
@@ -295,6 +300,9 @@ public final class EventBroadcaster {
         if (executionSampleEventBuffer != null && methodProfilingAnalyzer != null) {
             executionSampleEventBuffer.drain(event -> {
                 methodProfilingAnalyzer.recordExecutionSample(event);
+                if (flameGraphAnalyzer != null) {
+                    flameGraphAnalyzer.recordSample(event);
+                }
             });
         }
 

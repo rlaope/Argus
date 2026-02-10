@@ -83,6 +83,10 @@ public final class HttpResponseHelper {
      * @param request the original HTTP request
      * @param content the Prometheus text format content
      */
+    public static void sendPlainText(ChannelHandlerContext ctx, FullHttpRequest request, String content) {
+        send(ctx, request, HttpResponseStatus.OK, content, "text/plain; charset=utf-8");
+    }
+
     public static void sendPrometheus(ChannelHandlerContext ctx, FullHttpRequest request, String content) {
         send(ctx, request, HttpResponseStatus.OK, content, "text/plain; version=0.0.4; charset=utf-8");
     }

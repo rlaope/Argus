@@ -580,6 +580,62 @@ main {
     opacity: 0.5;
 }
 
+/* Flame Graph */
+.flamegraph-section {
+    margin-bottom: 1.5rem;
+}
+
+.flamegraph-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.flamegraph-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.flamegraph-actions .btn-small {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.flamegraph-actions .btn-small:hover {
+    color: var(--text-primary);
+    border-color: var(--accent-blue);
+}
+
+.flamegraph-container {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 300px;
+    overflow: hidden;
+}
+
+.flamegraph-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.flamegraph-container svg {
+    width: 100% !important;
+}
+
 /* Main Tab Navigation (top-level) */
 .main-tab-nav {
     display: flex;

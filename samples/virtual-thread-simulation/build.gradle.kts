@@ -45,19 +45,13 @@ tasks.register<JavaExec>("runSimulation") {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
 
-    // Pass duration property if provided: -Dduration=10
-    val duration = System.getProperty("duration")
-
     jvmArgs(
         "--enable-preview",
         "-javaagent:${rootProject.projectDir}/argus-agent/build/libs/argus-agent-${rootProject.property("argusVersion")}.jar",
         "-Dargus.server.enabled=true",
-        "-Dargus.server.port=9202"
+        "-Dargus.server.port=9202",
+        "-Dduration=${System.getProperty("duration") ?: "300"}"
     )
-
-    if (duration != null) {
-        jvmArgs("-Dduration=$duration")
-    }
 }
 
 // Run metrics demo with GC/CPU activity
@@ -72,9 +66,6 @@ tasks.register<JavaExec>("runMetricsDemo") {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
 
-    // Duration in seconds (default: 60)
-    val duration = System.getProperty("duration")
-
     jvmArgs(
         "--enable-preview",
         "-Xmx512m",  // Enough heap for JFR + Netty + app
@@ -84,12 +75,9 @@ tasks.register<JavaExec>("runMetricsDemo") {
         "-Dargus.server.enabled=true",
         "-Dargus.server.port=9202",
         "-Dargus.gc.enabled=true",
-        "-Dargus.cpu.enabled=true"
+        "-Dargus.cpu.enabled=true",
+        "-Dduration=${System.getProperty("duration") ?: "300"}"
     )
-
-    if (duration != null) {
-        jvmArgs("-Dduration=$duration")
-    }
 }
 
 // Run metrics demo with ALL features enabled (including high-overhead ones)
@@ -103,8 +91,6 @@ tasks.register<JavaExec>("runMetricsDemoFull") {
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(21))
     })
-
-    val duration = System.getProperty("duration")
 
     jvmArgs(
         "--enable-preview",
@@ -125,10 +111,8 @@ tasks.register<JavaExec>("runMetricsDemoFull") {
         "-Dargus.profiling.interval=50",  // 50ms interval (lower overhead)
         "-Dargus.contention.enabled=true",
         "-Dargus.contention.threshold=20",  // 20ms threshold
-        "-Dargus.correlation.enabled=true"
+        "-Dargus.correlation.enabled=true",
+        // Default: 5 minutes (override with -Dduration=N)
+        "-Dduration=${System.getProperty("duration") ?: "300"}"
     )
-
-    if (duration != null) {
-        jvmArgs("-Dduration=$duration")
-    }
 }

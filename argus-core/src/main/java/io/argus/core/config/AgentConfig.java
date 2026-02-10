@@ -23,6 +23,11 @@ package io.argus.core.config;
  *   <li>{@code argus.contention.threshold} - Minimum contention time to track in ms (default: 50)</li>
  *   <li>{@code argus.correlation.enabled} - Enable correlation analysis (default: true)</li>
  *   <li>{@code argus.metrics.prometheus.enabled} - Enable Prometheus metrics endpoint (default: true)</li>
+ *   <li>{@code argus.otlp.enabled} - Enable OTLP metrics push export (default: false)</li>
+ *   <li>{@code argus.otlp.endpoint} - OTLP collector endpoint (default: http://localhost:4318/v1/metrics)</li>
+ *   <li>{@code argus.otlp.interval} - OTLP push interval in ms (default: 15000)</li>
+ *   <li>{@code argus.otlp.headers} - OTLP auth headers as key=val,key=val (default: empty)</li>
+ *   <li>{@code argus.otlp.service.name} - OTLP resource service name (default: argus)</li>
  * </ul>
  */
 public final class AgentConfig {
@@ -42,6 +47,11 @@ public final class AgentConfig {
     private static final int DEFAULT_CONTENTION_THRESHOLD_MS = 50;  // Higher threshold for less noise
     private static final boolean DEFAULT_CORRELATION_ENABLED = true;
     private static final boolean DEFAULT_PROMETHEUS_ENABLED = true;
+    private static final boolean DEFAULT_OTLP_ENABLED = false;
+    private static final String DEFAULT_OTLP_ENDPOINT = "http://localhost:4318/v1/metrics";
+    private static final int DEFAULT_OTLP_INTERVAL_MS = 15000;
+    private static final String DEFAULT_OTLP_HEADERS = "";
+    private static final String DEFAULT_OTLP_SERVICE_NAME = "argus";
 
     private final int bufferSize;
     private final int serverPort;
@@ -58,6 +68,11 @@ public final class AgentConfig {
     private final int contentionThresholdMs;
     private final boolean correlationEnabled;
     private final boolean prometheusEnabled;
+    private final boolean otlpEnabled;
+    private final String otlpEndpoint;
+    private final int otlpIntervalMs;
+    private final String otlpHeaders;
+    private final String otlpServiceName;
 
     private AgentConfig(int bufferSize, int serverPort, boolean serverEnabled,
                         boolean gcEnabled, boolean cpuEnabled, int cpuIntervalMs,
@@ -65,7 +80,9 @@ public final class AgentConfig {
                         boolean metaspaceEnabled, boolean profilingEnabled,
                         int profilingIntervalMs, boolean contentionEnabled,
                         int contentionThresholdMs, boolean correlationEnabled,
-                        boolean prometheusEnabled) {
+                        boolean prometheusEnabled, boolean otlpEnabled,
+                        String otlpEndpoint, int otlpIntervalMs,
+                        String otlpHeaders, String otlpServiceName) {
         this.bufferSize = bufferSize;
         this.serverPort = serverPort;
         this.serverEnabled = serverEnabled;
@@ -81,6 +98,11 @@ public final class AgentConfig {
         this.contentionThresholdMs = contentionThresholdMs;
         this.correlationEnabled = correlationEnabled;
         this.prometheusEnabled = prometheusEnabled;
+        this.otlpEnabled = otlpEnabled;
+        this.otlpEndpoint = otlpEndpoint;
+        this.otlpIntervalMs = otlpIntervalMs;
+        this.otlpHeaders = otlpHeaders;
+        this.otlpServiceName = otlpServiceName;
     }
 
     /**
@@ -113,10 +135,17 @@ public final class AgentConfig {
                 System.getProperty("argus.correlation.enabled", String.valueOf(DEFAULT_CORRELATION_ENABLED)));
         boolean prometheusEnabled = Boolean.parseBoolean(
                 System.getProperty("argus.metrics.prometheus.enabled", String.valueOf(DEFAULT_PROMETHEUS_ENABLED)));
+        boolean otlpEnabled = Boolean.parseBoolean(
+                System.getProperty("argus.otlp.enabled", String.valueOf(DEFAULT_OTLP_ENABLED)));
+        String otlpEndpoint = System.getProperty("argus.otlp.endpoint", DEFAULT_OTLP_ENDPOINT);
+        int otlpIntervalMs = Integer.getInteger("argus.otlp.interval", DEFAULT_OTLP_INTERVAL_MS);
+        String otlpHeaders = System.getProperty("argus.otlp.headers", DEFAULT_OTLP_HEADERS);
+        String otlpServiceName = System.getProperty("argus.otlp.service.name", DEFAULT_OTLP_SERVICE_NAME);
 
         return new AgentConfig(bufferSize, serverPort, serverEnabled, gcEnabled, cpuEnabled, cpuIntervalMs,
                 allocationEnabled, allocationThreshold, metaspaceEnabled, profilingEnabled, profilingIntervalMs,
-                contentionEnabled, contentionThresholdMs, correlationEnabled, prometheusEnabled);
+                contentionEnabled, contentionThresholdMs, correlationEnabled, prometheusEnabled,
+                otlpEnabled, otlpEndpoint, otlpIntervalMs, otlpHeaders, otlpServiceName);
     }
 
     /**
@@ -129,7 +158,9 @@ public final class AgentConfig {
                 DEFAULT_GC_ENABLED, DEFAULT_CPU_ENABLED, DEFAULT_CPU_INTERVAL_MS,
                 DEFAULT_ALLOCATION_ENABLED, DEFAULT_ALLOCATION_THRESHOLD, DEFAULT_METASPACE_ENABLED,
                 DEFAULT_PROFILING_ENABLED, DEFAULT_PROFILING_INTERVAL_MS, DEFAULT_CONTENTION_ENABLED,
-                DEFAULT_CONTENTION_THRESHOLD_MS, DEFAULT_CORRELATION_ENABLED, DEFAULT_PROMETHEUS_ENABLED);
+                DEFAULT_CONTENTION_THRESHOLD_MS, DEFAULT_CORRELATION_ENABLED, DEFAULT_PROMETHEUS_ENABLED,
+                DEFAULT_OTLP_ENABLED, DEFAULT_OTLP_ENDPOINT, DEFAULT_OTLP_INTERVAL_MS,
+                DEFAULT_OTLP_HEADERS, DEFAULT_OTLP_SERVICE_NAME);
     }
 
     /**
@@ -201,6 +232,26 @@ public final class AgentConfig {
         return prometheusEnabled;
     }
 
+    public boolean isOtlpEnabled() {
+        return otlpEnabled;
+    }
+
+    public String getOtlpEndpoint() {
+        return otlpEndpoint;
+    }
+
+    public int getOtlpIntervalMs() {
+        return otlpIntervalMs;
+    }
+
+    public String getOtlpHeaders() {
+        return otlpHeaders;
+    }
+
+    public String getOtlpServiceName() {
+        return otlpServiceName;
+    }
+
     @Override
     public String toString() {
         return "AgentConfig{" +
@@ -219,6 +270,10 @@ public final class AgentConfig {
                 ", contentionThresholdMs=" + contentionThresholdMs +
                 ", correlationEnabled=" + correlationEnabled +
                 ", prometheusEnabled=" + prometheusEnabled +
+                ", otlpEnabled=" + otlpEnabled +
+                ", otlpEndpoint='" + otlpEndpoint + '\'' +
+                ", otlpIntervalMs=" + otlpIntervalMs +
+                ", otlpServiceName='" + otlpServiceName + '\'' +
                 '}';
     }
 
@@ -241,6 +296,11 @@ public final class AgentConfig {
         private int contentionThresholdMs = DEFAULT_CONTENTION_THRESHOLD_MS;
         private boolean correlationEnabled = DEFAULT_CORRELATION_ENABLED;
         private boolean prometheusEnabled = DEFAULT_PROMETHEUS_ENABLED;
+        private boolean otlpEnabled = DEFAULT_OTLP_ENABLED;
+        private String otlpEndpoint = DEFAULT_OTLP_ENDPOINT;
+        private int otlpIntervalMs = DEFAULT_OTLP_INTERVAL_MS;
+        private String otlpHeaders = DEFAULT_OTLP_HEADERS;
+        private String otlpServiceName = DEFAULT_OTLP_SERVICE_NAME;
 
         private Builder() {
         }
@@ -320,12 +380,38 @@ public final class AgentConfig {
             return this;
         }
 
+        public Builder otlpEnabled(boolean otlpEnabled) {
+            this.otlpEnabled = otlpEnabled;
+            return this;
+        }
+
+        public Builder otlpEndpoint(String otlpEndpoint) {
+            this.otlpEndpoint = otlpEndpoint;
+            return this;
+        }
+
+        public Builder otlpIntervalMs(int otlpIntervalMs) {
+            this.otlpIntervalMs = otlpIntervalMs;
+            return this;
+        }
+
+        public Builder otlpHeaders(String otlpHeaders) {
+            this.otlpHeaders = otlpHeaders;
+            return this;
+        }
+
+        public Builder otlpServiceName(String otlpServiceName) {
+            this.otlpServiceName = otlpServiceName;
+            return this;
+        }
+
         public AgentConfig build() {
             return new AgentConfig(bufferSize, serverPort, serverEnabled,
                     gcEnabled, cpuEnabled, cpuIntervalMs, allocationEnabled,
                     allocationThreshold, metaspaceEnabled, profilingEnabled,
                     profilingIntervalMs, contentionEnabled, contentionThresholdMs,
-                    correlationEnabled, prometheusEnabled);
+                    correlationEnabled, prometheusEnabled, otlpEnabled,
+                    otlpEndpoint, otlpIntervalMs, otlpHeaders, otlpServiceName);
         }
     }
 }

@@ -8,37 +8,47 @@
 
 Inspired by **Argus Panoptes** from Greek mythology - the giant with a hundred eyes who never slept and watched over everything - this project observes and analyzes all Virtual Threads in the JVM in real-time.
 
-A next-generation real-time visualization profiler for JVM 21+ environments, focusing on Virtual Threads (Project Loom) monitoring and memory analysis.
+A lightweight, zero-dependency JVM monitoring tool for Java 21+ environments. Real-time dashboard, terminal CLI, flame graphs, and OpenTelemetry export — all powered by JDK Flight Recorder.
 
 ## Features
+
+### Real-time Dashboard
+- **Interactive Charts**: WebSocket-based streaming with Chart.js visualizations
+- **Flame Graph**: Continuous profiling visualization with d3-flamegraph (zoom, hover, export)
+- **Dual Tabs**: Virtual Threads tab + JVM Overview tab
+
+### CLI Monitor (`argus top`)
+- **htop-style Terminal UI**: CPU, heap, GC, virtual threads at a glance
+- **ANSI Color Coding**: Green/yellow/red thresholds for instant status
+- **Zero Dependencies**: Standalone JAR, connects to any running Argus server
 
 ### Virtual Thread Monitoring
 - **Thread Lifecycle**: Track creation, termination, and pinning of virtual threads
 - **Pinning Detection**: Identify pinned threads with detailed stack traces
-- **Real-time State Tracking**: Monitor running, pinned, and ended thread states
+- **Carrier Thread Analysis**: Per-carrier virtual thread distribution
 
 ### Memory & GC Monitoring
 - **GC Events**: Real-time garbage collection tracking with pause time analysis
 - **Heap Usage**: Before/after heap visualization with trend analysis
 - **Allocation Rate**: Track object allocation rate and top allocating classes
 - **Metaspace Monitoring**: Monitor metaspace usage and growth rate
-- **GC Overhead**: Calculate GC overhead percentage with warnings
 
-### CPU & Performance Monitoring
-- **CPU Utilization**: JVM and system CPU tracking with history
+### CPU & Profiling
+- **CPU Utilization**: JVM and system CPU tracking with 60s history
 - **Method Profiling**: Hot method detection via execution sampling
+- **Flame Graph**: Interactive flame graph from continuous profiling data
 - **Lock Contention**: Monitor thread contention and lock wait times
 
-### Correlation Analysis
-- **GC ↔ CPU Correlation**: Detect CPU spikes related to GC events
-- **GC ↔ Pinning Correlation**: Identify pinning increases during GC
-- **Automatic Recommendations**: Get actionable insights based on metrics
-
-### Core Features
-- **JFR Streaming**: Low-overhead event collection using JDK Flight Recorder
-- **Real-time Dashboard**: WebSocket-based streaming with interactive charts
-- **Lock-free Architecture**: High-performance ring buffer for event collection
+### Observability Export
+- **Prometheus**: `/prometheus` endpoint for scraping
+- **OTLP Export**: Push metrics to OpenTelemetry collectors (hand-coded, no SDK)
 - **Data Export**: Export events in CSV, JSON, or JSONL formats
+
+### Core Architecture
+- **JFR Streaming**: Low-overhead event collection using JDK Flight Recorder
+- **Lock-free Ring Buffer**: High-performance event collection
+- **Zero External Dependencies**: Only Netty for HTTP server (no Jackson, no Gson, no OTEL SDK)
+- **Correlation Analysis**: Cross-metric correlation with automatic recommendations
 
 ## Requirements
 
@@ -47,48 +57,93 @@ A next-generation real-time visualization profiler for JVM 21+ environments, foc
 
 ## Installation
 
-### Option 1: Download via curl (Recommended)
+### Option 1: One-line Install (Recommended)
 
 ```bash
-# Download the latest agent JAR
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent.jar
-
-# Or download a specific version
-curl -LO https://github.com/rlaope/argus/releases/download/v0.1.0/argus-agent.jar
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
 ```
 
-### Option 2: Build from Source
+This downloads the agent + CLI, installs to `~/.argus/`, and adds the `argus` command to your PATH.
+
+```bash
+# Install a specific version
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.3.0
+```
+
+After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`).
+
+### Option 2: Manual Download
+
+```bash
+# Download JARs from GitHub Releases
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.3.0.jar
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.3.0-all.jar
+
+# Run the CLI directly
+java -jar argus-cli-0.3.0-all.jar
+```
+
+### Option 3: Build from Source
 
 ```bash
 git clone https://github.com/rlaope/argus.git
 cd argus
 ./gradlew build
+./gradlew :argus-cli:fatJar
 
-# JARs are located at:
-# argus-agent/build/libs/argus-agent-x.x.x-SNAPSHOT.jar
-# argus-server/build/libs/argus-server-x.x.x-SNAPSHOT.jar
+# JARs:
+# argus-agent/build/libs/argus-agent-0.3.0.jar
+# argus-cli/build/libs/argus-cli-0.3.0-all.jar
 ```
 
 ## Quick Start
 
-### Run with Java Agent
+### 1. Attach Argus to Your App
 
 ```bash
-java -javaagent:argus-agent.jar \
-     --enable-preview \
+java -javaagent:$(argus-agent --path) \
+     -jar your-application.jar
+
+# Or with the JAR path directly
+java -javaagent:~/.argus/argus-agent.jar \
      -jar your-application.jar
 ```
 
-### With Built-in Dashboard Server
+### 2. Open the Dashboard
+
+```
+http://localhost:9202/
+```
+
+### 3. Use the CLI Monitor
 
 ```bash
-java -javaagent:argus-agent.jar \
-     -Dargus.server.enabled=true \
-     --enable-preview \
-     -jar your-application.jar
+# Connect to local Argus server
+argus
 
-# Open dashboard: http://localhost:9202/
-# View metrics: curl http://localhost:9202/metrics
+# Custom host/port and refresh interval
+argus --host 192.168.1.100 --port 9202 --interval 2
+
+# Disable colors (for piping/logging)
+argus --no-color
+```
+
+### 4. Enable Profiling & Flame Graph
+
+```bash
+java -javaagent:~/.argus/argus-agent.jar \
+     -Dargus.profiling.enabled=true \
+     -Dargus.contention.enabled=true \
+     -jar your-application.jar
+```
+
+### 5. Export Metrics to OpenTelemetry
+
+```bash
+java -javaagent:~/.argus/argus-agent.jar \
+     -Dargus.otlp.enabled=true \
+     -Dargus.otlp.endpoint=http://localhost:4318/v1/metrics \
+     -jar your-application.jar
 ```
 
 ### Configuration
@@ -111,30 +166,37 @@ The agent accepts the following system properties:
 | `argus.contention.enabled` | `false` | Enable lock contention tracking |
 | `argus.contention.threshold` | `50` | Minimum contention duration (ms) |
 | `argus.correlation.enabled` | `true` | Enable correlation analysis |
-
-See [Configuration Guide](docs/configuration.md) for detailed documentation.
+| `argus.otlp.enabled` | `false` | Enable OTLP metrics export |
+| `argus.otlp.endpoint` | `http://localhost:4318/v1/metrics` | OTLP collector endpoint |
+| `argus.otlp.interval` | `15000` | OTLP push interval in milliseconds |
+| `argus.otlp.headers` | *(empty)* | Auth headers (`key=val,key=val`) |
+| `argus.otlp.service.name` | `argus` | OTLP resource service name |
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   argus-agent   │───▶│   argus-core    │◀───│  argus-server   │
-│  (JFR Stream)   │    │  (Ring Buffer)  │    │   (WebSocket)   │
+│  (JFR Stream)   │    │ (Config/Buffer) │    │ (Netty/Analysis)│
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                                              │
-         │              JFR Events                      │
-         ▼                                              ▼
-┌─────────────────┐                          ┌─────────────────┐
-│   Target JVM    │                          │    Frontend     │
-│ (Virtual Threads)│                          │  (Visualization)│
-└─────────────────┘                          └─────────────────┘
+         │                     ▲                       │
+         │                     │                       ▼
+         ▼              ┌──────┴──────┐     ┌─────────────────┐
+┌─────────────────┐     │  argus-cli  │     │ argus-frontend  │
+│   Target JVM    │     │ (argus top) │     │  (Dashboard UI) │
+└─────────────────┘     └─────────────┘     └─────────────────┘
+                              │                       │
+                         HTTP Polling            WebSocket +
+                         (10 endpoints)          Flame Graph
 ```
 
 ## Modules
 
-- **argus-core**: Core event models, ring buffer, and serialization
-- **argus-agent**: Java agent with JFR streaming engine
-- **argus-server**: WebSocket server for event streaming
+- **argus-core**: Shared config, event models, ring buffer
+- **argus-agent**: Java agent entry point with JFR streaming engine
+- **argus-server**: Netty HTTP/WebSocket server, 10 analyzers, Prometheus + OTLP export
+- **argus-frontend**: Static HTML/JS dashboard with Chart.js and d3-flamegraph
+- **argus-cli**: Standalone terminal monitor (`argus top`), zero external dependencies
 
 ## JFR Events Captured
 
@@ -172,6 +234,17 @@ See [Configuration Guide](docs/configuration.md) for detailed documentation.
 | `/method-profiling` | Hot methods (Top 20) |
 | `/contention-analysis` | Lock contention hotspots |
 | `/correlation` | Correlation analysis and recommendations |
+| `/flame-graph` | Flame graph data (JSON or `?format=collapsed`) |
+| `/prometheus` | Prometheus metrics endpoint |
+| `/carrier-threads` | Carrier thread distribution |
+| `/active-threads` | Currently active virtual threads |
+
+## Uninstall
+
+```bash
+rm -rf ~/.argus
+# Then remove the PATH line from ~/.zshrc or ~/.bashrc
+```
 
 ## Contributing
 

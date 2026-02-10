@@ -6,6 +6,9 @@
     <title>Argus - Virtual Thread Profiler</title>
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-flame-graph@4/dist/d3-flamegraph.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/d3-flame-graph@4/dist/d3-flamegraph.css">
 </head>
 <body>
     <header>
@@ -348,6 +351,23 @@
                             <canvas id="metaspace-chart"></canvas>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <!-- Flame Graph Section -->
+            <section class="flamegraph-section">
+                <div class="section-header">
+                    <h2>Flame Graph</h2>
+                    <div class="flamegraph-actions">
+                        <span>Samples: <strong id="flamegraph-samples">0</strong></span>
+                        <span id="flamegraph-timestamp" style="color: var(--text-dim); font-size: 0.85em;"></span>
+                        <button id="flamegraph-pause" class="btn btn-small">Pause</button>
+                        <button id="flamegraph-reset" class="btn btn-small">Reset</button>
+                        <a id="flamegraph-download" class="btn btn-small" title="Download collapsed stacks">Download</a>
+                    </div>
+                </div>
+                <div id="flamegraph-container" class="flamegraph-container">
+                    <div class="flamegraph-placeholder">Enable profiling (-Dargus.profiling.enabled=true) to see flame graph</div>
                 </div>
             </section>
 
