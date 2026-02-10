@@ -65,302 +65,325 @@
             </div>
         </section>
 
-        <!-- Charts Section -->
-        <section class="charts-section">
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>Events Rate</h3>
-                        <span class="chart-subtitle">events/sec over last 60s</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="events-rate-chart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>Active Threads</h3>
-                        <span class="chart-subtitle">concurrent threads over last 60s</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="active-threads-chart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>Thread Duration Distribution</h3>
-                        <span class="chart-subtitle">lifetime of completed threads</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="duration-chart"></canvas>
-                    </div>
-                </div>
+        <!-- Feature Flags Status -->
+        <div id="feature-flags" class="feature-flags">
+            <span class="feature-flags-label">Features:</span>
+            <div class="feature-flags-list" id="feature-flags-list">
+                <span class="feature-badge loading">Loading...</span>
             </div>
-        </section>
-
-        <!-- Memory & GC Section -->
-        <section class="gc-section">
-            <div class="section-header">
-                <h2>Memory & GC</h2>
-                <div class="gc-summary">
-                    <span>Total GC: <strong id="gc-total-events">0</strong></span>
-                    <span>Total Pause: <strong id="gc-total-pause">0ms</strong></span>
-                    <span>Avg Pause: <strong id="gc-avg-pause">0ms</strong></span>
-                    <span>Max Pause: <strong id="gc-max-pause">0ms</strong></span>
-                </div>
-            </div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>GC Pause Timeline</h3>
-                        <span class="chart-subtitle">pause duration over time</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="gc-timeline-chart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>Heap Usage</h3>
-                        <span class="chart-subtitle">memory usage over time</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="heap-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- CPU Section -->
-        <section class="cpu-section">
-            <div class="section-header">
-                <h2>CPU Utilization</h2>
-                <div class="cpu-summary">
-                    <span>JVM: <strong id="cpu-jvm-current">-%</strong></span>
-                    <span>System: <strong id="cpu-system-current">-%</strong></span>
-                    <span>Peak JVM: <strong id="cpu-peak-jvm">-%</strong></span>
-                </div>
-            </div>
-            <div class="charts-grid single">
-                <div class="chart-card wide">
-                    <div class="chart-header">
-                        <h3>CPU Load</h3>
-                        <span class="chart-subtitle">JVM and system CPU over last 60s</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="cpu-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Allocation & Metaspace Section -->
-        <section class="allocation-section">
-            <div class="section-header">
-                <h2>Allocation & Metaspace</h2>
-                <div class="allocation-summary">
-                    <span>Alloc Rate: <strong id="alloc-rate">- MB/s</strong></span>
-                    <span>Total Allocated: <strong id="alloc-total">- MB</strong></span>
-                    <span>Metaspace: <strong id="metaspace-used">- MB</strong></span>
-                    <span>Classes: <strong id="class-count">0</strong></span>
-                </div>
-            </div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>Allocation Rate</h3>
-                        <span class="chart-subtitle">memory allocation over time</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="allocation-rate-chart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>Metaspace Usage</h3>
-                        <span class="chart-subtitle">metaspace memory over time</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="metaspace-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Profiling & Contention Section -->
-        <section class="profiling-section">
-            <div class="section-header">
-                <h2>Profiling & Contention</h2>
-                <div class="profiling-summary">
-                    <span>CPU Samples: <strong id="cpu-samples">0</strong></span>
-                    <span>Contention Events: <strong id="contention-events">0</strong></span>
-                    <span>Contention Time: <strong id="contention-time">0ms</strong></span>
-                </div>
-            </div>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>Hot Methods</h3>
-                        <span class="chart-subtitle">top CPU consuming methods</span>
-                    </div>
-                    <div class="chart-container tall">
-                        <canvas id="hot-methods-chart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <h3>Lock Contention</h3>
-                        <span class="chart-subtitle">top contention hotspots</span>
-                    </div>
-                    <div class="chart-container tall">
-                        <canvas id="contention-chart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <!-- Recommendations Section -->
-        <section id="recommendations-section" class="recommendations-section">
-            <div class="section-header">
-                <h2>Recommendations</h2>
-                <button id="refresh-recommendations" class="btn btn-small">Refresh</button>
-            </div>
-            <div id="recommendations-list" class="recommendations-list">
-                <div class="empty-state">No recommendations at this time</div>
-            </div>
-        </section>
-
-        <!-- Pinning Hotspots Section -->
-        <section id="hotspots-section" class="hotspots-section">
-            <div class="section-header">
-                <h2>Pinning Hotspots</h2>
-                <button id="refresh-hotspots" class="btn btn-small">Refresh</button>
-            </div>
-            <div class="hotspots-summary">
-                <span>Total Pinned: <strong id="hotspots-total">0</strong></span>
-                <span>Unique Locations: <strong id="hotspots-unique">0</strong></span>
-            </div>
-            <div id="hotspots-list" class="hotspots-list">
-                <div class="empty-state">No pinning events detected yet</div>
-            </div>
-        </section>
-
-
-        <!-- Pinned Alerts Section -->
-        <section id="pinned-section" class="pinned-section hidden">
-            <div class="section-header">
-                <h2>Pinned Thread Alerts</h2>
-                <span class="badge" id="pinned-badge">0</span>
-            </div>
-            <div id="pinned-list" class="pinned-list"></div>
-        </section>
-
-        <!-- Tab Navigation -->
-        <div class="tab-nav">
-            <button class="tab-btn active" data-tab="threads">Thread View</button>
-            <button class="tab-btn" data-tab="events">Event History</button>
         </div>
 
-        <!-- Thread View Section -->
-        <section id="threads-tab" class="tab-content active">
-            <div class="threads-header">
-                <h2>Active Threads</h2>
-                <span class="thread-count" id="thread-count">0 threads</span>
-            </div>
-            <div id="threads-container" class="threads-container">
-                <div class="empty-state">No active threads</div>
-            </div>
-        </section>
+        <!-- Top-level Tab Navigation -->
+        <div class="main-tab-nav">
+            <button class="main-tab-btn active" data-main-tab="vt">Virtual Threads</button>
+            <button class="main-tab-btn" data-main-tab="jvm">JVM Overview</button>
+        </div>
 
-        <!-- Events Log Section -->
-        <section id="events-tab" class="tab-content">
-            <div class="events-header">
-                <h2>Virtual Thread Events</h2>
-                <div class="events-controls">
-                    <button id="clear-events" class="btn">Clear</button>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="auto-scroll" checked>
-                        Auto-scroll
-                    </label>
+        <!-- Virtual Threads Tab -->
+        <div id="vt-tab" class="main-tab-content active">
+
+            <!-- Pinned Alerts Section -->
+            <section id="pinned-section" class="pinned-section hidden">
+                <div class="section-header">
+                    <h2>Pinned Thread Alerts</h2>
+                    <span class="badge" id="pinned-badge">0</span>
                 </div>
+                <div id="pinned-list" class="pinned-list"></div>
+            </section>
+
+            <!-- Pinning Hotspots Section -->
+            <section id="hotspots-section" class="hotspots-section">
+                <div class="section-header">
+                    <h2>Pinning Hotspots</h2>
+                    <button id="refresh-hotspots" class="btn btn-small">Refresh</button>
+                </div>
+                <div class="hotspots-summary">
+                    <span>Total Pinned: <strong id="hotspots-total">0</strong></span>
+                    <span>Unique Locations: <strong id="hotspots-unique">0</strong></span>
+                </div>
+                <div id="hotspots-list" class="hotspots-list">
+                    <div class="empty-state">No pinning events detected yet</div>
+                </div>
+            </section>
+
+            <!-- Charts Section -->
+            <section class="charts-section">
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Events Rate</h3>
+                            <span class="chart-subtitle">events/sec over last 60s</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="events-rate-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Active Threads</h3>
+                            <span class="chart-subtitle">concurrent threads over last 60s</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="active-threads-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Thread Duration Distribution</h3>
+                            <span class="chart-subtitle">lifetime of completed threads</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="duration-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Recommendations Section -->
+            <section id="recommendations-section" class="recommendations-section">
+                <div class="section-header">
+                    <h2>Recommendations</h2>
+                    <button id="refresh-recommendations" class="btn btn-small">Refresh</button>
+                </div>
+                <div id="recommendations-list" class="recommendations-list">
+                    <div class="empty-state">No recommendations at this time</div>
+                </div>
+            </section>
+
+            <!-- Sub-tab Navigation -->
+            <div class="tab-nav">
+                <button class="tab-btn active" data-tab="threads">Thread View</button>
+                <button class="tab-btn" data-tab="events">Event History</button>
             </div>
 
-            <!-- Filter Panel -->
-            <div class="filter-panel">
-                <div class="filter-row">
-                    <!-- Thread Name Search -->
-                    <div class="filter-group search-group">
-                        <label for="thread-search">Thread Name</label>
-                        <div class="search-input-wrapper">
-                            <input type="text" id="thread-search" placeholder="Search threads...">
-                            <select id="search-mode" title="Search mode">
-                                <option value="contains">Contains</option>
-                                <option value="glob">Glob</option>
-                                <option value="regex">Regex</option>
-                            </select>
+            <!-- Thread View Section -->
+            <section id="threads-tab" class="tab-content active">
+                <div class="threads-header">
+                    <h2>Active Threads</h2>
+                    <span class="thread-count" id="thread-count">0 threads</span>
+                </div>
+                <div id="threads-container" class="threads-container">
+                    <div class="empty-state">No active threads</div>
+                </div>
+            </section>
+
+            <!-- Events Log Section -->
+            <section id="events-tab" class="tab-content">
+                <div class="events-header">
+                    <h2>Virtual Thread Events</h2>
+                    <div class="events-controls">
+                        <button id="clear-events" class="btn">Clear</button>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="auto-scroll" checked>
+                            Auto-scroll
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Filter Panel -->
+                <div class="filter-panel">
+                    <div class="filter-row">
+                        <!-- Thread Name Search -->
+                        <div class="filter-group search-group">
+                            <label for="thread-search">Thread Name</label>
+                            <div class="search-input-wrapper">
+                                <input type="text" id="thread-search" placeholder="Search threads...">
+                                <select id="search-mode" title="Search mode">
+                                    <option value="contains">Contains</option>
+                                    <option value="glob">Glob</option>
+                                    <option value="regex">Regex</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Time Range Selector -->
+                        <div class="filter-group time-group">
+                            <label>Time Range</label>
+                            <div class="time-range-wrapper">
+                                <input type="datetime-local" id="time-from" title="From">
+                                <span class="time-separator">to</span>
+                                <input type="datetime-local" id="time-to" title="To">
+                                <button id="time-clear" class="btn btn-small" title="Clear time range">Clear</button>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Time Range Selector -->
-                    <div class="filter-group time-group">
-                        <label>Time Range</label>
-                        <div class="time-range-wrapper">
-                            <input type="datetime-local" id="time-from" title="From">
-                            <span class="time-separator">to</span>
-                            <input type="datetime-local" id="time-to" title="To">
-                            <button id="time-clear" class="btn btn-small" title="Clear time range">Clear</button>
+                    <div class="filter-row">
+                        <!-- Event Type Filters -->
+                        <div class="filter-group type-group">
+                            <label>Event Types</label>
+                            <div class="event-type-filters">
+                                <label class="type-checkbox start">
+                                    <input type="checkbox" id="filter-start" checked>
+                                    <span class="type-label">START</span>
+                                </label>
+                                <label class="type-checkbox end">
+                                    <input type="checkbox" id="filter-end" checked>
+                                    <span class="type-label">END</span>
+                                </label>
+                                <label class="type-checkbox pinned">
+                                    <input type="checkbox" id="filter-pinned" checked>
+                                    <span class="type-label">PINNED</span>
+                                </label>
+                                <label class="type-checkbox submit-failed">
+                                    <input type="checkbox" id="filter-submit-failed" checked>
+                                    <span class="type-label">SUBMIT_FAILED</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Filter Actions -->
+                        <div class="filter-group actions-group">
+                            <button id="apply-filters" class="btn btn-primary">Apply</button>
+                            <button id="reset-filters" class="btn">Reset</button>
+                            <button id="share-filters" class="btn btn-icon" title="Copy filter URL">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filter Status -->
+                    <div id="filter-status" class="filter-status hidden">
+                        <span id="filter-count">0</span> events matching filters
+                        <span id="filter-info"></span>
+                    </div>
+                </div>
+
+                <div id="events-log" class="events-log">
+                    <div class="event-placeholder">Waiting for virtual thread events...</div>
+                </div>
+            </section>
+
+        </div>
+
+        <!-- JVM Overview Tab -->
+        <div id="jvm-tab" class="main-tab-content">
+
+            <!-- Memory & GC Section -->
+            <section class="gc-section">
+                <div class="section-header">
+                    <h2>Memory & GC</h2>
+                    <div class="gc-summary">
+                        <span>Total GC: <strong id="gc-total-events">0</strong></span>
+                        <span>Total Pause: <strong id="gc-total-pause">0ms</strong></span>
+                        <span>Avg Pause: <strong id="gc-avg-pause">0ms</strong></span>
+                        <span>Max Pause: <strong id="gc-max-pause">0ms</strong></span>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>GC Pause Timeline</h3>
+                            <span class="chart-subtitle">pause duration over time</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="gc-timeline-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Heap Usage</h3>
+                            <span class="chart-subtitle">memory usage over time</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="heap-chart"></canvas>
                         </div>
                     </div>
                 </div>
+            </section>
 
-                <div class="filter-row">
-                    <!-- Event Type Filters -->
-                    <div class="filter-group type-group">
-                        <label>Event Types</label>
-                        <div class="event-type-filters">
-                            <label class="type-checkbox start">
-                                <input type="checkbox" id="filter-start" checked>
-                                <span class="type-label">START</span>
-                            </label>
-                            <label class="type-checkbox end">
-                                <input type="checkbox" id="filter-end" checked>
-                                <span class="type-label">END</span>
-                            </label>
-                            <label class="type-checkbox pinned">
-                                <input type="checkbox" id="filter-pinned" checked>
-                                <span class="type-label">PINNED</span>
-                            </label>
-                            <label class="type-checkbox submit-failed">
-                                <input type="checkbox" id="filter-submit-failed" checked>
-                                <span class="type-label">SUBMIT_FAILED</span>
-                            </label>
+            <!-- CPU Section -->
+            <section class="cpu-section">
+                <div class="section-header">
+                    <h2>CPU Utilization</h2>
+                    <div class="cpu-summary">
+                        <span>JVM: <strong id="cpu-jvm-current">-%</strong></span>
+                        <span>System: <strong id="cpu-system-current">-%</strong></span>
+                        <span>Peak JVM: <strong id="cpu-peak-jvm">-%</strong></span>
+                    </div>
+                </div>
+                <div class="charts-grid single">
+                    <div class="chart-card wide">
+                        <div class="chart-header">
+                            <h3>CPU Load</h3>
+                            <span class="chart-subtitle">JVM and system CPU over last 60s</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="cpu-chart"></canvas>
                         </div>
                     </div>
+                </div>
+            </section>
 
-                    <!-- Filter Actions -->
-                    <div class="filter-group actions-group">
-                        <button id="apply-filters" class="btn btn-primary">Apply</button>
-                        <button id="reset-filters" class="btn">Reset</button>
-                        <button id="share-filters" class="btn btn-icon" title="Copy filter URL">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                            </svg>
-                        </button>
+            <!-- Allocation & Metaspace Section -->
+            <section class="allocation-section">
+                <div class="section-header">
+                    <h2>Allocation & Metaspace</h2>
+                    <div class="allocation-summary">
+                        <span>Alloc Rate: <strong id="alloc-rate">- MB/s</strong></span>
+                        <span>Total Allocated: <strong id="alloc-total">- MB</strong></span>
+                        <span>Metaspace: <strong id="metaspace-used">- MB</strong></span>
+                        <span>Classes: <strong id="class-count">0</strong></span>
                     </div>
                 </div>
-
-                <!-- Filter Status -->
-                <div id="filter-status" class="filter-status hidden">
-                    <span id="filter-count">0</span> events matching filters
-                    <span id="filter-info"></span>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Allocation Rate</h3>
+                            <span class="chart-subtitle">memory allocation over time</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="allocation-rate-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Metaspace Usage</h3>
+                            <span class="chart-subtitle">metaspace memory over time</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="metaspace-chart"></canvas>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </section>
 
-            <div id="events-log" class="events-log">
-                <div class="event-placeholder">Waiting for virtual thread events...</div>
-            </div>
-        </section>
+            <!-- Profiling & Contention Section -->
+            <section class="profiling-section">
+                <div class="section-header">
+                    <h2>Profiling & Contention</h2>
+                    <div class="profiling-summary">
+                        <span>CPU Samples: <strong id="cpu-samples">0</strong></span>
+                        <span>Contention Events: <strong id="contention-events">0</strong></span>
+                        <span>Contention Time: <strong id="contention-time">0ms</strong></span>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Hot Methods</h3>
+                            <span class="chart-subtitle">top CPU consuming methods</span>
+                        </div>
+                        <div class="chart-container tall">
+                            <canvas id="hot-methods-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Lock Contention</h3>
+                            <span class="chart-subtitle">top contention hotspots</span>
+                        </div>
+                        <div class="chart-container tall">
+                            <canvas id="contention-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
     </main>
 
     <!-- Thread Detail Modal -->

@@ -212,7 +212,7 @@ public final class ArgusServer {
                                 .addLast(new HttpObjectAggregator(65536))
                                 .addLast(new WebSocketServerCompressionHandler())
                                 .addLast(new ArgusChannelHandler(
-                                        clients, metrics, activeThreads, threadEvents,
+                                        config, clients, metrics, activeThreads, threadEvents,
                                         gcAnalyzer, cpuAnalyzer,
                                         allocationEventBuffer != null ? allocationAnalyzer : null,
                                         metaspaceEventBuffer != null ? metaspaceAnalyzer : null,
