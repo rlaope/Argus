@@ -15,9 +15,12 @@ import io.argus.server.analysis.CorrelationAnalyzer;
 import io.argus.server.analysis.CPUAnalyzer;
 import io.argus.server.analysis.GCAnalyzer;
 import io.argus.server.analysis.MetaspaceAnalyzer;
+import io.argus.server.analysis.FlameGraphAnalyzer;
 import io.argus.server.analysis.MethodProfilingAnalyzer;
 import io.argus.server.analysis.PinningAnalyzer;
 import io.argus.server.handler.ArgusChannelHandler;
+import io.argus.server.metrics.OtlpJsonBuilder;
+import io.argus.server.metrics.OtlpMetricsExporter;
 import io.argus.server.metrics.PrometheusMetricsCollector;
 import io.argus.server.metrics.ServerMetrics;
 import io.argus.core.config.AgentConfig;
@@ -92,9 +95,11 @@ public final class ArgusServer {
     private final AllocationAnalyzer allocationAnalyzer = new AllocationAnalyzer();
     private final MetaspaceAnalyzer metaspaceAnalyzer = new MetaspaceAnalyzer();
     private final MethodProfilingAnalyzer methodProfilingAnalyzer = new MethodProfilingAnalyzer();
+    private final FlameGraphAnalyzer flameGraphAnalyzer = new FlameGraphAnalyzer();
     private final ContentionAnalyzer contentionAnalyzer = new ContentionAnalyzer();
     private CorrelationAnalyzer correlationAnalyzer;
     private PrometheusMetricsCollector prometheusCollector;
+    private OtlpMetricsExporter otlpExporter;
     private final ThreadStateManager threadStateManager = new ThreadStateManager();
     private final EventJsonSerializer serializer = new EventJsonSerializer();
     private EventBroadcaster broadcaster;
@@ -187,6 +192,18 @@ public final class ArgusServer {
                     contentionEventBuffer != null ? contentionAnalyzer : null);
         }
 
+        // Initialize OTLP metrics exporter if enabled
+        if (config.isOtlpEnabled()) {
+            OtlpJsonBuilder otlpJsonBuilder = new OtlpJsonBuilder(
+                    config, metrics, activeThreads,
+                    pinningAnalyzer, carrierAnalyzer, gcAnalyzer, cpuAnalyzer,
+                    allocationEventBuffer != null ? allocationAnalyzer : null,
+                    metaspaceEventBuffer != null ? metaspaceAnalyzer : null,
+                    executionSampleEventBuffer != null ? methodProfilingAnalyzer : null,
+                    contentionEventBuffer != null ? contentionAnalyzer : null);
+            otlpExporter = new OtlpMetricsExporter(config, otlpJsonBuilder);
+        }
+
         // Initialize broadcaster with all event buffers
         broadcaster = new EventBroadcaster(
                 eventBuffer, gcEventBuffer, cpuEventBuffer,
@@ -194,7 +211,9 @@ public final class ArgusServer {
                 executionSampleEventBuffer, contentionEventBuffer,
                 clients, metrics, activeThreads, recentEvents, threadEvents,
                 pinningAnalyzer, carrierAnalyzer, gcAnalyzer, cpuAnalyzer,
-                allocationAnalyzer, metaspaceAnalyzer, methodProfilingAnalyzer, contentionAnalyzer,
+                allocationAnalyzer, metaspaceAnalyzer, methodProfilingAnalyzer,
+                executionSampleEventBuffer != null ? flameGraphAnalyzer : null,
+                contentionAnalyzer,
                 correlationAnalyzer, threadStateManager, serializer);
 
         // Initialize Netty
@@ -217,6 +236,7 @@ public final class ArgusServer {
                                         allocationEventBuffer != null ? allocationAnalyzer : null,
                                         metaspaceEventBuffer != null ? metaspaceAnalyzer : null,
                                         executionSampleEventBuffer != null ? methodProfilingAnalyzer : null,
+                                        executionSampleEventBuffer != null ? flameGraphAnalyzer : null,
                                         contentionEventBuffer != null ? contentionAnalyzer : null,
                                         correlationAnalyzer,
                                         broadcaster,
@@ -231,6 +251,11 @@ public final class ArgusServer {
         // Start event broadcasting
         broadcaster.start();
 
+        // Start OTLP exporter
+        if (otlpExporter != null) {
+            otlpExporter.start();
+        }
+
         // Log startup info
         LOG.log(System.Logger.Level.INFO, "Started on port " + port);
         LOG.log(System.Logger.Level.INFO, "Dashboard: http://localhost:" + port + "/");
@@ -240,6 +265,10 @@ public final class ArgusServer {
         if (config.isPrometheusEnabled()) {
             LOG.log(System.Logger.Level.INFO, "Prometheus endpoint: http://localhost:" + port + "/prometheus");
         }
+        if (config.isOtlpEnabled()) {
+            LOG.log(System.Logger.Level.INFO, "OTLP export: pushing to " + config.getOtlpEndpoint()
+                    + " every " + config.getOtlpIntervalMs() + "ms");
+        }
     }
 
     /**
@@ -248,6 +277,10 @@ public final class ArgusServer {
     public void stop() {
         if (!running.compareAndSet(true, false)) {
             return;
+        }
+
+        if (otlpExporter != null) {
+            otlpExporter.stop();
         }
 
         if (broadcaster != null) {

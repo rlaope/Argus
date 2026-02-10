@@ -8,6 +8,7 @@ include("argus-core")
 include("argus-agent")
 include("argus-server")
 include("argus-frontend")
+include("argus-cli")
 
 // Sample projects
 include("samples:virtual-thread-demo")
