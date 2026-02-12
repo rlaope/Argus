@@ -38,6 +38,16 @@ The Argus agent is configured via Java system properties.
 |----------|---------|-------------|
 | `argus.correlation.enabled` | `true` | Enable correlation analysis |
 
+#### Metrics Export Settings
+| Property | Default | Description |
+|----------|---------|-------------|
+| `argus.metrics.prometheus.enabled` | `true` | Enable `/prometheus` endpoint |
+| `argus.otlp.enabled` | `false` | Enable OTLP metrics push export |
+| `argus.otlp.endpoint` | `http://localhost:4318/v1/metrics` | OTLP collector endpoint |
+| `argus.otlp.interval` | `15000` | OTLP push interval (ms) |
+| `argus.otlp.headers` | *(empty)* | Auth headers (`key=val,key=val`) |
+| `argus.otlp.service.name` | `argus` | OTLP resource service name |
+
 ### Setting Properties
 
 ```bash
@@ -453,6 +463,80 @@ java -javaagent:argus-agent.jar \
      --enable-preview \
      -jar high-throughput-app.jar
 ```
+
+## Prometheus Endpoint
+
+Prometheus metrics are exposed at `/prometheus` by default.
+
+```bash
+# Scrape metrics
+curl http://localhost:9202/prometheus
+```
+
+### Prometheus scrape config
+
+```yaml
+scrape_configs:
+  - job_name: 'argus'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['localhost:9202']
+    metrics_path: '/prometheus'
+```
+
+## OTLP Export Configuration
+
+OTLP export pushes metrics to an OpenTelemetry collector in OTLP JSON format. No OpenTelemetry SDK is required — Argus hand-codes the OTLP protocol.
+
+```bash
+java -javaagent:argus-agent.jar \
+     -Dargus.otlp.enabled=true \
+     -Dargus.otlp.endpoint=http://localhost:4318/v1/metrics \
+     -Dargus.otlp.interval=15000 \
+     -jar your-application.jar
+```
+
+### With Authentication
+
+```bash
+java -javaagent:argus-agent.jar \
+     -Dargus.otlp.enabled=true \
+     -Dargus.otlp.endpoint=https://otel.example.com/v1/metrics \
+     -Dargus.otlp.headers=Authorization=Bearer\ mytoken \
+     -Dargus.otlp.service.name=my-service \
+     -jar your-application.jar
+```
+
+### Metrics Exported
+
+All 30+ metrics available via Prometheus are also exported via OTLP:
+
+| Type | Examples |
+|------|----------|
+| Gauge | `argus_virtual_threads_active`, `argus_cpu_jvm_percent`, `argus_heap_used_bytes` |
+| Sum (monotonic) | `argus_virtual_threads_started_total`, `argus_gc_pause_time_seconds_total` |
+
+## CLI Configuration
+
+The CLI tool (`argus top`) connects to a running Argus server via HTTP.
+
+```bash
+# Default: localhost:9202, 1s refresh
+argus
+
+# Custom settings
+argus --host 192.168.1.100 --port 9202 --interval 2
+
+# Disable colors (for piping/logging)
+argus --no-color
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--host`, `-h` | `localhost` | Argus server host |
+| `--port`, `-p` | `9202` | Argus server port |
+| `--interval`, `-i` | `1` | Refresh interval in seconds |
+| `--no-color` | *(off)* | Disable ANSI colors |
 
 ## Next Steps
 

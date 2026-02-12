@@ -224,6 +224,89 @@ java -version        # Runtime
 
 **Solution**: Only call `server.start()` once, or stop before restarting.
 
+## CLI Issues
+
+### CLI Shows "CONNECTION FAILED"
+
+**Symptom**: CLI displays "Cannot connect to Argus server".
+
+**Solutions**:
+
+1. **Verify server is running**
+   ```bash
+   curl http://localhost:9202/health
+   ```
+
+2. **Check host and port**
+   ```bash
+   argus --host 192.168.1.100 --port 9202
+   ```
+
+3. **Firewall blocking connection**
+   - Ensure port 9202 is accessible from the CLI host
+
+### CLI Shows All Zeros
+
+**Symptom**: CLI connects but all metrics show 0.
+
+**Cause**: The monitored application may be idle.
+
+**Solution**: Generate some load on the application and metrics will appear.
+
+## Flame Graph Issues
+
+### Flame Graph Not Showing
+
+**Symptom**: Dashboard shows "Enable profiling" placeholder.
+
+**Solutions**:
+
+1. **Enable profiling**
+   ```bash
+   java -javaagent:argus-agent.jar \
+        -Dargus.profiling.enabled=true \
+        -jar your-app.jar
+   ```
+
+2. **Wait for data** — flame graph needs a few seconds of sampling data
+
+3. **Check CDN access** — flame graph requires loading d3-flamegraph from CDN (cdn.jsdelivr.net)
+
+### Flame Graph Shows Old Data
+
+**Symptom**: Flame graph reflects historical data, not current activity.
+
+**Solution**: The flame graph auto-resets every 60 seconds. Use the **Reset** button to clear immediately and start fresh. Use the **Pause** button to freeze the current view.
+
+## OTLP Export Issues
+
+### Metrics Not Arriving at Collector
+
+**Symptom**: OTLP enabled but collector receives nothing.
+
+**Checklist**:
+
+1. **Verify OTLP is enabled**
+   ```bash
+   curl http://localhost:9202/config
+   # Should show "otlpEnabled": true
+   ```
+
+2. **Check endpoint URL** — must include `/v1/metrics` path
+   ```bash
+   -Dargus.otlp.endpoint=http://localhost:4318/v1/metrics
+   ```
+
+3. **Check collector is running**
+   ```bash
+   curl http://localhost:4318/v1/metrics
+   ```
+
+4. **Check auth headers** if using authenticated endpoint
+   ```bash
+   -Dargus.otlp.headers=Authorization=Bearer\ mytoken
+   ```
+
 ## Getting Help
 
 If you're still experiencing issues:

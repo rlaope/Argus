@@ -4,43 +4,30 @@ This document describes the internal architecture of Project Argus.
 
 ## Overview
 
-Project Argus consists of three main modules that work together to capture, buffer, and stream virtual thread events.
+Project Argus consists of five modules that work together to capture, analyze, and visualize JVM metrics.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Target JVM                                │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    Your Application                      │   │
-│  │                  (Virtual Threads)                       │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                            │                                     │
-│                     JFR Events                                   │
-│                            ▼                                     │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    argus-agent                           │   │
-│  │  ┌─────────────────┐    ┌─────────────────────────┐    │   │
-│  │  │ JfrStreaming    │───▶│      RingBuffer         │    │   │
-│  │  │    Engine       │    │    (argus-core)         │    │   │
-│  │  └─────────────────┘    └─────────────────────────┘    │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-                     WebSocket Stream
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      argus-server                                │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │                  WebSocket Handler                       │   │
-│  │              (Netty-based server)                        │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-                     JSON Events
-                            ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                       Frontend                                   │
-│              (Visualization Dashboard)                          │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   argus-agent   │───▶│   argus-core    │◀───│  argus-server   │
+│  (JFR Stream)   │    │ (Config/Buffer) │    │ (Netty/Analysis)│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                     ▲                       │
+         │                     │                       ▼
+         ▼              ┌──────┴──────┐     ┌─────────────────┐
+┌─────────────────┐     │  argus-cli  │     │ argus-frontend  │
+│   Target JVM    │     │ (argus top) │     │  (Dashboard UI) │
+└─────────────────┘     └─────────────┘     └─────────────────┘
+                              │                       │
+                         HTTP Polling            WebSocket +
+                         (10 endpoints)          Flame Graph
+```
+
+### Module Dependency Direction (NEVER violate)
+
+```
+argus-agent → argus-server → argus-core
+                           → argus-frontend
+argus-cli → argus-core (standalone, no server dependency)
 ```
 
 ## Module Details
@@ -149,21 +136,58 @@ ArgusServer.java
 │   ├── GET /gc-analysis - GC statistics
 │   ├── GET /cpu-metrics - CPU utilization
 │   ├── GET /pinning-analysis - Pinning hotspots
+│   ├── GET /carrier-threads - Carrier thread distribution
+│   ├── GET /active-threads - Active virtual threads
 │   ├── GET /allocation-analysis - Allocation metrics
 │   ├── GET /metaspace-metrics - Metaspace usage
 │   ├── GET /method-profiling - Hot methods
 │   ├── GET /contention-analysis - Lock contention
-│   └── GET /correlation - Correlation & recommendations
+│   ├── GET /correlation - Correlation & recommendations
+│   ├── GET /flame-graph - Flame graph (JSON + collapsed)
+│   ├── GET /prometheus - Prometheus metrics
+│   ├── GET /export - Event export (CSV/JSON/JSONL)
+│   └── GET /config - Server configuration status
 ├── Event broadcaster (10ms interval)
 └── JSON serialization
 
-Analyzers:
+Analyzers (10):
+├── PinningAnalyzer - Hotspot detection, stack trace dedup
+├── CarrierThreadAnalyzer - Per-carrier VT stats
 ├── GCAnalyzer - GC pause, heap, overhead analysis
+├── CPUAnalyzer - JVM/system CPU, 60s history
 ├── AllocationAnalyzer - Allocation rate, top classes
 ├── MetaspaceAnalyzer - Metaspace usage tracking
 ├── MethodProfilingAnalyzer - Hot method detection
 ├── ContentionAnalyzer - Lock contention hotspots
-└── CorrelationAnalyzer - Cross-metric correlation
+├── CorrelationAnalyzer - Cross-metric correlation
+└── FlameGraphAnalyzer - Stack trace tree, d3-flamegraph JSON
+
+Metrics Export:
+├── PrometheusMetricsCollector - /prometheus text format
+├── OtlpMetricsExporter - Push to OTLP collector (background thread)
+└── OtlpJsonBuilder - OTLP JSON format builder
+```
+
+### argus-frontend
+
+The frontend module contains the static HTML/JS dashboard.
+
+```
+Frontend:
+├── index.html - Dashboard with Chart.js + d3-flamegraph
+├── css/style.css - Styling
+└── js/app.js - WebSocket client, chart rendering, flame graph
+```
+
+### argus-cli
+
+The CLI module provides a standalone terminal monitor.
+
+```
+ArgusTop.java - Main entry, argument parsing, refresh loop
+ArgusClient.java - HTTP polling (10 endpoints in parallel)
+TerminalRenderer.java - ANSI escape code rendering
+MetricsSnapshot.java - Immutable data record for one poll cycle
 ```
 
 ## Data Flow
@@ -360,28 +384,14 @@ Event Broadcaster Thread
 └────┴────┴────┘
 ```
 
-## Future Architecture (Planned)
+## Design Decisions
 
-### Phase 2: Storage Layer
-
-```
-RingBuffer ──▶ DuckDB ──▶ Time-series queries
-                 │
-                 └──▶ 30-minute sliding window
-```
-
-### Phase 3: Visualization
-
-```
-WebSocket ──▶ Svelte 5 + PixiJS ──▶ Real-time thread map
-```
-
-### Phase 4: Analysis
-
-```
-Events ──▶ AI Analysis ──▶ Memory leak detection
-                     └──▶ Performance recommendations
-```
+- **Zero external dependencies** (except Netty for HTTP): No Jackson, no Gson, no OpenTelemetry SDK
+- **JSON**: Hand-built with StringBuilder
+- **Prometheus**: Manual text format (no Micrometer)
+- **OTLP**: Hand-coded JSON Protobuf encoding
+- **Flame graph**: 60-second auto-reset window for fresh data
+- **CLI**: Separate module polling via HTTP (not embedded in agent)
 
 ## Next Steps
 

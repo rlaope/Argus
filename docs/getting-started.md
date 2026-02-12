@@ -18,33 +18,40 @@ java -version
 
 ## Installation
 
-### Option 1: Download Pre-built JAR
-
-Download the latest release from the [Releases page](https://github.com/rlaope/argus/releases).
+### Option 1: One-line Install (Recommended)
 
 ```bash
-# Download the latest agent JAR
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent.jar
-
-# Or download a specific version
-curl -LO https://github.com/rlaope/argus/releases/download/v0.1.0/argus-agent.jar
-
-# Optional: Download server JAR (if not using embedded server)
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-server.jar
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
 ```
 
-### Option 2: Build from Source
+This installs to `~/.argus/` and adds the `argus` command to your PATH.
 
 ```bash
-# Clone the repository
+# Install a specific version
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.4.0
+```
+
+After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`).
+
+### Option 2: Manual Download
+
+```bash
+# Download JARs from GitHub Releases
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.4.0.jar
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.4.0-all.jar
+```
+
+### Option 3: Build from Source
+
+```bash
 git clone https://github.com/rlaope/argus.git
 cd argus
-
-# Build all modules
 ./gradlew build
+./gradlew :argus-cli:fatJar
 
-# The agent JAR will be at:
-# argus-agent/build/libs/argus-agent-x.x.x-SNAPSHOT.jar
+# JARs:
+# argus-agent/build/libs/argus-agent-0.4.0.jar
+# argus-cli/build/libs/argus-cli-0.4.0-all.jar
 ```
 
 ## Quick Start with Sample Project
@@ -71,14 +78,32 @@ The easiest way to see Argus in action is to run the included sample project.
 
 Open your browser and navigate to: **http://localhost:9202/**
 
-The dashboard displays:
-- Virtual thread events (START, END, PINNED)
-- Active thread count and states
-- GC Timeline and Heap Usage charts
-- CPU Utilization (JVM and System)
-- Pinning hotspots analysis
+The dashboard displays two tabs:
+- **Virtual Threads**: Thread events, active threads, pinning analysis
+- **JVM Overview**: CPU, GC, heap, flame graph, profiling, contention, correlation
 
-### Step 3: View the Output
+### Step 4: Use the CLI Monitor
+
+```bash
+# If installed via install.sh
+argus
+
+# Or run directly
+java -jar argus-cli/build/libs/argus-cli-0.4.0-all.jar
+```
+
+The CLI shows an htop-style terminal UI with CPU, heap, GC, virtual threads, hot methods, and contention data.
+
+### Step 5: Enable Flame Graph
+
+```bash
+# Run with profiling enabled for flame graph data
+./gradlew :samples:virtual-thread-simulation:runMetricsDemoFull
+```
+
+The flame graph appears in the dashboard under JVM Overview tab. It shows which methods consume the most CPU time.
+
+### Step 6: View the Output
 
 You'll see output like this:
 
@@ -171,25 +196,37 @@ Common causes:
 ### Basic Usage
 
 ```bash
-java -javaagent:path/to/argus-agent.jar \
-     --enable-preview \
+java -javaagent:~/.argus/argus-agent.jar \
+     -jar your-application.jar
+
+# Or using the helper command
+java -javaagent:$(argus-agent --path) \
      -jar your-application.jar
 ```
 
-### With Custom Configuration
+### With Full Profiling
 
 ```bash
-java -javaagent:argus-agent.jar \
-     -Dargus.buffer.size=131072 \
-     --enable-preview \
+java -javaagent:~/.argus/argus-agent.jar \
+     -Dargus.profiling.enabled=true \
+     -Dargus.contention.enabled=true \
+     -jar your-application.jar
+```
+
+### With OTLP Export
+
+```bash
+java -javaagent:~/.argus/argus-agent.jar \
+     -Dargus.otlp.enabled=true \
+     -Dargus.otlp.endpoint=http://localhost:4318/v1/metrics \
      -jar your-application.jar
 ```
 
 ### Example: Spring Boot Application
 
 ```bash
-java -javaagent:argus-agent.jar \
-     --enable-preview \
+java -javaagent:~/.argus/argus-agent.jar \
+     -Dargus.profiling.enabled=true \
      -jar myapp.jar \
      --spring.threads.virtual.enabled=true
 ```
