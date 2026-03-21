@@ -4,7 +4,7 @@ plugins {
 }
 
 application {
-    mainClass.set("io.argus.cli.ArgusTop")
+    mainClass.set("io.argus.cli.ArgusCli")
 }
 
 dependencies {
@@ -13,7 +13,7 @@ dependencies {
 
 tasks.jar {
     manifest {
-        attributes["Main-Class"] = "io.argus.cli.ArgusTop"
+        attributes["Main-Class"] = "io.argus.cli.ArgusCli"
     }
 }
 
@@ -23,7 +23,7 @@ tasks.register<Jar>("fatJar") {
     archiveClassifier.set("all")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
-        attributes["Main-Class"] = "io.argus.cli.ArgusTop"
+        attributes["Main-Class"] = "io.argus.cli.ArgusCli"
     }
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
     with(tasks.jar.get())

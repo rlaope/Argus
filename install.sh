@@ -57,8 +57,8 @@ if [ "$VERSION" = "latest" ]; then
         | grep '"tag_name"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 
     if [ -z "$VERSION" ]; then
-        warn "Could not resolve latest release. Using 'v0.3.0' as fallback."
-        VERSION="v0.3.0"
+        warn "Could not resolve latest release. Using 'v0.4.0' as fallback."
+        VERSION="v0.4.0"
     fi
 fi
 
@@ -89,10 +89,10 @@ ok "argus-cli.jar"
 
 # --- Create wrapper scripts ---
 
-# argus - CLI monitor (argus top)
+# argus - CLI diagnostic tool
 cat > "$BIN_DIR/argus" << 'WRAPPER'
 #!/usr/bin/env bash
-java -jar "$HOME/.argus/argus-cli.jar" "$@"
+exec java --enable-preview -jar "$HOME/.argus/argus-cli.jar" "$@"
 WRAPPER
 chmod +x "$BIN_DIR/argus"
 
@@ -156,15 +156,21 @@ echo ""
 echo -e "  1. Restart your terminal or run:"
 echo -e "     ${CYAN}source $PROFILE${RESET}"
 echo ""
-echo -e "  2. Attach to your Java app:"
+echo -e "  2. Diagnose any running JVM (no agent required):"
+echo -e "     ${CYAN}argus ps${RESET}                    # List JVM processes"
+echo -e "     ${CYAN}argus histo <pid>${RESET}            # Heap object histogram"
+echo -e "     ${CYAN}argus threads <pid>${RESET}          # Thread dump summary"
+echo -e "     ${CYAN}argus gc <pid>${RESET}               # GC statistics"
+echo -e "     ${CYAN}argus heap <pid>${RESET}             # Heap memory usage"
+echo -e "     ${CYAN}argus info <pid>${RESET}             # JVM information"
+echo ""
+echo -e "  3. For real-time monitoring, attach the agent:"
 echo -e "     ${CYAN}java -javaagent:\$(argus-agent --path) -jar your-app.jar${RESET}"
+echo -e "     ${CYAN}argus top${RESET}                    # Real-time dashboard"
+echo -e "     ${CYAN}http://localhost:9202/${RESET}       # Web dashboard"
 echo ""
-echo -e "  3. Open the dashboard:"
-echo -e "     ${CYAN}http://localhost:9202/${RESET}"
-echo ""
-echo -e "  4. Or use the CLI monitor:"
-echo -e "     ${CYAN}argus${RESET}"
-echo -e "     ${CYAN}argus --port 9202 --interval 2${RESET}"
+echo -e "  4. First-time setup (language, defaults):"
+echo -e "     ${CYAN}argus init${RESET}"
 echo ""
 echo -e "  ${BOLD}Uninstall:${RESET}"
 echo -e "     ${CYAN}rm -rf ~/.argus${RESET}  and remove the PATH line from $PROFILE"
