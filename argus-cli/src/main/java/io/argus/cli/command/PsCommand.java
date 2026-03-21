@@ -14,7 +14,7 @@ import java.util.List;
  */
 public final class PsCommand implements Command {
 
-    private static final int WIDTH = 60;
+    private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
 
     @Override
     public String name() {
@@ -44,24 +44,28 @@ public final class PsCommand implements Command {
             return;
         }
 
+        System.out.print(RichRenderer.brandedHeader(useColor, "ps", messages.get("desc.ps")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.ps"), WIDTH));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
+        int innerWidth = WIDTH - 4;
+        int classWidth = (innerWidth - 12) * 2 / 3;
+        int argsWidth = innerWidth - 12 - classWidth;
         // Header row
         String header = RichRenderer.padRight("PID", 8) + "  "
-                + RichRenderer.padRight("Main Class", 28) + "  "
+                + RichRenderer.padRight("Main Class", classWidth) + "  "
                 + "Arguments";
         System.out.println(RichRenderer.boxLine(header, WIDTH));
 
         String sep = "\u2500".repeat(8) + "  "
-                + "\u2500".repeat(28) + "  "
-                + "\u2500".repeat(14);
+                + "\u2500".repeat(classWidth) + "  "
+                + "\u2500".repeat(argsWidth);
         System.out.println(RichRenderer.boxLine(sep, WIDTH));
 
         for (ProcessInfo p : processes) {
             String pidStr = RichRenderer.padRight(String.valueOf(p.pid()), 8);
-            String cls = RichRenderer.padRight(truncate(p.mainClass(), 28), 28);
-            String args2 = truncate(p.arguments(), 14);
+            String cls = RichRenderer.padRight(RichRenderer.truncate(p.mainClass(), classWidth), classWidth);
+            String args2 = RichRenderer.truncate(p.arguments(), argsWidth);
             System.out.println(RichRenderer.boxLine(pidStr + "  " + cls + "  " + args2, WIDTH));
         }
 
@@ -77,23 +81,12 @@ public final class PsCommand implements Command {
             ProcessInfo p = processes.get(i);
             if (i > 0) sb.append(',');
             sb.append("{\"pid\":").append(p.pid())
-              .append(",\"mainClass\":\"").append(escape(p.mainClass())).append('"')
-              .append(",\"arguments\":\"").append(escape(p.arguments())).append('"')
+              .append(",\"mainClass\":\"").append(RichRenderer.escapeJson(p.mainClass())).append('"')
+              .append(",\"arguments\":\"").append(RichRenderer.escapeJson(p.arguments())).append('"')
               .append('}');
         }
         sb.append(']');
         System.out.println(sb);
-    }
-
-    private static String truncate(String s, int max) {
-        if (s == null) return "";
-        if (s.length() <= max) return s;
-        return s.substring(0, Math.max(0, max - 1)) + "\u2026";
-    }
-
-    private static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
     private static boolean hasFlag(String[] args, String flag) {

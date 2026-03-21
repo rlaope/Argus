@@ -15,7 +15,7 @@ import java.util.Map;
  */
 public final class HeapCommand implements Command {
 
-    private static final int WIDTH = 60;
+    private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
     private static final int BAR_WIDTH = 16;
 
     @Override
@@ -70,6 +70,7 @@ public final class HeapCommand implements Command {
             return;
         }
 
+        System.out.print(RichRenderer.brandedHeader(useColor, "heap", messages.get("desc.heap")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.heap"),
                 WIDTH, "pid:" + pid, "source:" + source));
         System.out.println(RichRenderer.emptyLine(WIDTH));
@@ -123,8 +124,8 @@ public final class HeapCommand implements Command {
         for (Map.Entry<String, HeapResult.SpaceInfo> e : result.spaces().entrySet()) {
             if (!first) sb.append(',');
             HeapResult.SpaceInfo s = e.getValue();
-            sb.append('"').append(escape(e.getKey())).append("\":")
-              .append("{\"name\":\"").append(escape(s.name())).append('"')
+            sb.append('"').append(RichRenderer.escapeJson(e.getKey())).append("\":")
+              .append("{\"name\":\"").append(RichRenderer.escapeJson(s.name())).append('"')
               .append(",\"used\":").append(s.used())
               .append(",\"committed\":").append(s.committed())
               .append(",\"max\":").append(s.max())
@@ -135,8 +136,5 @@ public final class HeapCommand implements Command {
         System.out.println(sb);
     }
 
-    private static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
+
 }

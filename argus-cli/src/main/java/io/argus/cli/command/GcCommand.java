@@ -12,7 +12,7 @@ import io.argus.cli.render.RichRenderer;
  */
 public final class GcCommand implements Command {
 
-    private static final int WIDTH = 60;
+    private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
     private static final int BAR_WIDTH = 16;
 
     @Override
@@ -67,6 +67,7 @@ public final class GcCommand implements Command {
             return;
         }
 
+        System.out.print(RichRenderer.brandedHeader(useColor, "gc", messages.get("desc.gc")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.gc"),
                 WIDTH, "pid:" + pid, "source:" + source));
         System.out.println(RichRenderer.emptyLine(WIDTH));
@@ -118,14 +119,14 @@ public final class GcCommand implements Command {
         sb.append("{\"totalEvents\":").append(result.totalEvents())
           .append(",\"totalPauseMs\":").append(result.totalPauseMs())
           .append(",\"overheadPercent\":").append(result.overheadPercent())
-          .append(",\"lastCause\":\"").append(escape(result.lastCause())).append('"')
+          .append(",\"lastCause\":\"").append(RichRenderer.escapeJson(result.lastCause())).append('"')
           .append(",\"heapUsed\":").append(result.heapUsed())
           .append(",\"heapCommitted\":").append(result.heapCommitted())
           .append(",\"collectors\":[");
         for (int i = 0; i < result.collectors().size(); i++) {
             GcResult.CollectorInfo c = result.collectors().get(i);
             if (i > 0) sb.append(',');
-            sb.append("{\"name\":\"").append(escape(c.name())).append('"')
+            sb.append("{\"name\":\"").append(RichRenderer.escapeJson(c.name())).append('"')
               .append(",\"count\":").append(c.count())
               .append(",\"totalMs\":").append(c.totalMs())
               .append('}');
@@ -134,8 +135,4 @@ public final class GcCommand implements Command {
         System.out.println(sb);
     }
 
-    private static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

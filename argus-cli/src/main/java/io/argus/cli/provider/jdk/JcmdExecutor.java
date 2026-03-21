@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 public final class JcmdExecutor {
 
     private static final int TIMEOUT_SECONDS = 10;
+    private static volatile Boolean jcmdAvailable;
 
     private JcmdExecutor() {}
 
@@ -43,36 +44,36 @@ public final class JcmdExecutor {
      * @return true if jcmd exits successfully
      */
     public static boolean isJcmdAvailable() {
+        Boolean cached = jcmdAvailable;
+        if (cached != null) return cached;
+        boolean result;
         try {
             Process process = new ProcessBuilder("jcmd", "-l")
-                    .redirectErrorStream(false)
+                    .redirectErrorStream(true)
                     .start();
             boolean finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
-                return false;
+                result = false;
+            } else {
+                result = process.exitValue() == 0;
             }
-            return process.exitValue() == 0;
         } catch (Exception e) {
-            return false;
+            result = false;
         }
+        jcmdAvailable = result;
+        return result;
     }
 
     private static String runProcess(String... args) {
         try {
             ProcessBuilder pb = new ProcessBuilder(args);
-            pb.redirectErrorStream(false);
+            pb.redirectErrorStream(true);
             Process process = pb.start();
 
-            // Read stdout and stderr concurrently to avoid blocking
-            String stdout;
-            String stderr;
-            try (BufferedReader outReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                 BufferedReader errReader = new BufferedReader(new InputStreamReader(process.getErrorStream()))) {
-
-                // Capture both streams; stderr is captured for error messages
-                stdout = outReader.lines().collect(Collectors.joining("\n"));
-                stderr = errReader.lines().collect(Collectors.joining("\n"));
+            String output;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                output = reader.lines().collect(Collectors.joining("\n"));
             }
 
             boolean finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
@@ -83,11 +84,10 @@ public final class JcmdExecutor {
 
             int exitCode = process.exitValue();
             if (exitCode != 0) {
-                String msg = stderr.isEmpty() ? stdout : stderr;
-                throw new RuntimeException("jcmd exited with code " + exitCode + ": " + msg);
+                throw new RuntimeException("jcmd exited with code " + exitCode + ": " + output);
             }
 
-            return stdout;
+            return output;
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {

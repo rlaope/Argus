@@ -27,9 +27,6 @@ public record CliConfig(
      * Returns defaults() if the file does not exist or cannot be read.
      */
     public static CliConfig load() {
-        if (!Files.exists(CONFIG_FILE)) {
-            return defaults();
-        }
         try (InputStream in = Files.newInputStream(CONFIG_FILE)) {
             Properties props = new Properties();
             props.load(in);
@@ -50,9 +47,7 @@ public record CliConfig(
      * Creates the directory if it does not exist.
      */
     public static void save(CliConfig config) throws IOException {
-        if (!Files.exists(CONFIG_DIR)) {
-            Files.createDirectories(CONFIG_DIR);
-        }
+        Files.createDirectories(CONFIG_DIR);
         Properties props = new Properties();
         props.setProperty("lang", config.lang());
         props.setProperty("defaultSource", config.defaultSource());

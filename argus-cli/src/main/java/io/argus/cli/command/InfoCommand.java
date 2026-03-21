@@ -14,7 +14,7 @@ import java.util.Map;
  */
 public final class InfoCommand implements Command {
 
-    private static final int WIDTH = 60;
+    private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
 
     @Override
     public String name() {
@@ -67,6 +67,7 @@ public final class InfoCommand implements Command {
             return;
         }
 
+        System.out.print(RichRenderer.brandedHeader(useColor, "info", messages.get("desc.info")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.info"),
                 WIDTH, "pid:" + pid));
         System.out.println(RichRenderer.emptyLine(WIDTH));
@@ -95,30 +96,27 @@ public final class InfoCommand implements Command {
 
     private static void printJson(InfoResult result) {
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"vmName\":\"").append(escape(result.vmName())).append('"')
-          .append(",\"vmVersion\":\"").append(escape(result.vmVersion())).append('"')
-          .append(",\"vmVendor\":\"").append(escape(result.vmVendor())).append('"')
+        sb.append("{\"vmName\":\"").append(RichRenderer.escapeJson(result.vmName())).append('"')
+          .append(",\"vmVersion\":\"").append(RichRenderer.escapeJson(result.vmVersion())).append('"')
+          .append(",\"vmVendor\":\"").append(RichRenderer.escapeJson(result.vmVendor())).append('"')
           .append(",\"uptimeMs\":").append(result.uptimeMs())
           .append(",\"pid\":").append(result.pid())
           .append(",\"vmFlags\":[");
         for (int i = 0; i < result.vmFlags().size(); i++) {
             if (i > 0) sb.append(',');
-            sb.append('"').append(escape(result.vmFlags().get(i))).append('"');
+            sb.append('"').append(RichRenderer.escapeJson(result.vmFlags().get(i))).append('"');
         }
         sb.append("],\"systemProperties\":{");
         boolean first = true;
         for (Map.Entry<String, String> e : result.systemProperties().entrySet()) {
             if (!first) sb.append(',');
-            sb.append('"').append(escape(e.getKey())).append("\":\"")
-              .append(escape(e.getValue())).append('"');
+            sb.append('"').append(RichRenderer.escapeJson(e.getKey())).append("\":\"")
+              .append(RichRenderer.escapeJson(e.getValue())).append('"');
             first = false;
         }
         sb.append("}}");
         System.out.println(sb);
     }
 
-    private static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
+
 }

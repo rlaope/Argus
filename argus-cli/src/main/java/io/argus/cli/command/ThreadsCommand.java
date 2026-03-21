@@ -16,7 +16,7 @@ import java.util.Map;
  */
 public final class ThreadsCommand implements Command {
 
-    private static final int WIDTH = 60;
+    private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
     private static final int BAR_WIDTH = 16;
 
     @Override
@@ -71,6 +71,7 @@ public final class ThreadsCommand implements Command {
             return;
         }
 
+        System.out.print(RichRenderer.brandedHeader(useColor, "threads", messages.get("desc.threads")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.threads"),
                 WIDTH, "pid:" + pid, "source:" + source));
         System.out.println(RichRenderer.emptyLine(WIDTH));
@@ -111,7 +112,7 @@ public final class ThreadsCommand implements Command {
                     ? "  " + AnsiStyle.style(useColor, AnsiStyle.YELLOW) + "\u26a0" + AnsiStyle.style(useColor, AnsiStyle.RESET)
                     : "";
 
-            String label = RichRenderer.padRight(state, 12);
+            String label = RichRenderer.padRight(state, 14);
             String countStr = RichRenderer.padLeft(String.valueOf(count), 4);
             String pctStr = String.format("(%3.0f%%)", pct);
 
@@ -128,7 +129,7 @@ public final class ThreadsCommand implements Command {
             System.out.println(RichRenderer.boxLine(dlHeader, WIDTH));
 
             for (ThreadResult.DeadlockInfo dl : result.deadlocks()) {
-                String dlLine = "  " + truncate(dl.thread1(), 20) + " \u2194 " + truncate(dl.thread2(), 20);
+                String dlLine = "  " + RichRenderer.truncate(dl.thread1(), 20) + " \u2194 " + RichRenderer.truncate(dl.thread2(), 20);
                 System.out.println(RichRenderer.boxLine(dlLine, WIDTH));
             }
         }
@@ -165,23 +166,14 @@ public final class ThreadsCommand implements Command {
         for (int i = 0; i < result.deadlocks().size(); i++) {
             ThreadResult.DeadlockInfo dl = result.deadlocks().get(i);
             if (i > 0) sb.append(',');
-            sb.append("{\"thread1\":\"").append(escape(dl.thread1())).append('"')
-              .append(",\"thread2\":\"").append(escape(dl.thread2())).append('"')
-              .append(",\"lockClass\":\"").append(escape(dl.lockClass())).append('"')
+            sb.append("{\"thread1\":\"").append(RichRenderer.escapeJson(dl.thread1())).append('"')
+              .append(",\"thread2\":\"").append(RichRenderer.escapeJson(dl.thread2())).append('"')
+              .append(",\"lockClass\":\"").append(RichRenderer.escapeJson(dl.lockClass())).append('"')
               .append('}');
         }
         sb.append("]}");
         System.out.println(sb);
     }
 
-    private static String truncate(String s, int max) {
-        if (s == null) return "";
-        if (s.length() <= max) return s;
-        return s.substring(0, Math.max(0, max - 1)) + "\u2026";
-    }
 
-    private static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

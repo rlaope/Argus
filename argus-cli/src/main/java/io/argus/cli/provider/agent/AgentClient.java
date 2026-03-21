@@ -19,6 +19,7 @@ public final class AgentClient {
 
     private final String baseUrl;
     private final HttpClient httpClient;
+    private Boolean reachableCache;
 
     public AgentClient() {
         this(DEFAULT_HOST, DEFAULT_PORT);
@@ -58,6 +59,8 @@ public final class AgentClient {
      * @return true if the agent responds with HTTP 200
      */
     public boolean isReachable() {
+        if (reachableCache != null) return reachableCache;
+        boolean result;
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + "/health"))
@@ -66,10 +69,12 @@ public final class AgentClient {
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            return response.statusCode() == 200;
+            result = response.statusCode() == 200;
         } catch (Exception e) {
-            return false;
+            result = false;
         }
+        reachableCache = result;
+        return result;
     }
 
     // -------------------------------------------------------------------------

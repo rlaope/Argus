@@ -12,7 +12,7 @@ import io.argus.cli.render.RichRenderer;
  */
 public final class HistoCommand implements Command {
 
-    private static final int WIDTH = 60;
+    private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
     private static final int DEFAULT_TOP = 20;
 
     @Override
@@ -72,25 +72,27 @@ public final class HistoCommand implements Command {
             return;
         }
 
+        System.out.print(RichRenderer.brandedHeader(useColor, "histo", messages.get("desc.histo")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.histo"),
                 WIDTH, "pid:" + pid, "source:" + source));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
+        int classWidth = WIDTH - 32;
         String header = RichRenderer.padLeft("#", 4) + "  "
-                + RichRenderer.padRight("Class", 28) + "  "
+                + RichRenderer.padRight("Class", classWidth) + "  "
                 + RichRenderer.padLeft("Count", 10) + "  "
                 + RichRenderer.padLeft("Size", 8);
         System.out.println(RichRenderer.boxLine(header, WIDTH));
 
         String sep = "\u2500".repeat(4) + "  "
-                + "\u2500".repeat(28) + "  "
+                + "\u2500".repeat(classWidth) + "  "
                 + "\u2500".repeat(10) + "  "
                 + "\u2500".repeat(8);
         System.out.println(RichRenderer.boxLine(sep, WIDTH));
 
         for (HistoResult.Entry e : result.entries()) {
             String rank = RichRenderer.padLeft(String.valueOf(e.rank()), 4);
-            String cls = RichRenderer.padRight(truncate(e.className(), 28), 28);
+            String cls = RichRenderer.padRight(RichRenderer.truncate(e.className(), classWidth), classWidth);
             String count = RichRenderer.padLeft(formatCount(e.instances()), 10);
             String size = RichRenderer.padLeft(RichRenderer.formatBytes(e.bytes()), 8);
             System.out.println(RichRenderer.boxLine(rank + "  " + cls + "  " + count + "  " + size, WIDTH));
@@ -112,7 +114,7 @@ public final class HistoCommand implements Command {
             HistoResult.Entry e = result.entries().get(i);
             if (i > 0) sb.append(',');
             sb.append("{\"rank\":").append(e.rank())
-              .append(",\"className\":\"").append(escape(e.className())).append('"')
+              .append(",\"className\":\"").append(RichRenderer.escapeJson(e.className())).append('"')
               .append(",\"instances\":").append(e.instances())
               .append(",\"bytes\":").append(e.bytes())
               .append('}');
@@ -127,14 +129,5 @@ public final class HistoCommand implements Command {
         return RichRenderer.formatNumber(n);
     }
 
-    private static String truncate(String s, int max) {
-        if (s == null) return "";
-        if (s.length() <= max) return s;
-        return s.substring(0, Math.max(0, max - 1)) + "\u2026";
-    }
 
-    private static String escape(String s) {
-        if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

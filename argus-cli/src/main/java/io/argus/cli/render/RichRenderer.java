@@ -8,7 +8,20 @@ import java.util.List;
  */
 public final class RichRenderer {
 
-    public static final int DEFAULT_WIDTH = 60;
+    public static int terminalWidth() {
+        try {
+            Process p = new ProcessBuilder("tput", "cols")
+                    .redirectErrorStream(true).start();
+            String out = new String(p.getInputStream().readAllBytes()).trim();
+            p.waitFor();
+            int w = Integer.parseInt(out);
+            return Math.max(60, Math.min(w, 200));
+        } catch (Exception e) {
+            return 80; // safe default
+        }
+    }
+
+    public static final int DEFAULT_WIDTH = terminalWidth();
 
     // Box-drawing characters
     private static final char TL = '╭';
@@ -190,6 +203,45 @@ public final class RichRenderer {
         if (s == null) s = "";
         if (s.length() >= width) return s;
         return s + " ".repeat(width - s.length());
+    }
+
+    /**
+     * Escapes backslashes and double-quotes for JSON string values.
+     */
+    public static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
+
+    /**
+     * Truncates a string to {@code max} characters, appending an ellipsis if shortened.
+     */
+    public static String truncate(String s, int max) {
+        if (s == null) return "";
+        if (s.length() <= max) return s;
+        return s.substring(0, Math.max(0, max - 1)) + "\u2026";
+    }
+
+    /**
+     * Renders a branded header with the Argus label, command name, and description.
+     * Format:
+     *   (blank line)
+     *    argus commandName
+     *    description
+     *   (blank line)
+     */
+    public static String brandedHeader(boolean useColor, String commandName, String description) {
+        StringBuilder sb = new StringBuilder();
+        String argusLabel = AnsiStyle.style(useColor, AnsiStyle.BOLD, AnsiStyle.CYAN)
+                + "argus"
+                + AnsiStyle.style(useColor, AnsiStyle.RESET);
+        sb.append('\n');
+        sb.append(" ").append(argusLabel).append(" ").append(commandName).append('\n');
+        sb.append(AnsiStyle.style(useColor, AnsiStyle.DIM))
+          .append(" ").append(description)
+          .append(AnsiStyle.style(useColor, AnsiStyle.RESET)).append('\n');
+        sb.append('\n');
+        return sb.toString();
     }
 
     /**
