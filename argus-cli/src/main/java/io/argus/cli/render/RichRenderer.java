@@ -99,13 +99,31 @@ public final class RichRenderer {
      * Content is truncated if too long.
      */
     public static String boxLine(String content, int width) {
-        // Inner width: width - 2 (for VERT chars) - 2 (for padding spaces)
         int innerWidth = width - 4;
         String text = content == null ? "" : content;
-        if (text.length() > innerWidth) {
-            text = text.substring(0, Math.max(0, innerWidth - 1)) + "…";
+        int visibleLen = stripAnsi(text).length();
+        if (visibleLen > innerWidth) {
+            // Truncate respecting ANSI codes
+            StringBuilder sb = new StringBuilder();
+            int visible = 0;
+            boolean inEscape = false;
+            for (int i = 0; i < text.length() && visible < innerWidth - 1; i++) {
+                char c = text.charAt(i);
+                if (c == '\033') { inEscape = true; sb.append(c); continue; }
+                if (inEscape) { sb.append(c); if (c == 'm') inEscape = false; continue; }
+                sb.append(c);
+                visible++;
+            }
+            sb.append(AnsiStyle.RESET).append("\u2026");
+            text = sb.toString();
+            visibleLen = innerWidth;
         }
-        return VERT + " " + padRight(text, innerWidth) + " " + VERT;
+        int padding = innerWidth - visibleLen;
+        return VERT + " " + text + " ".repeat(Math.max(0, padding)) + " " + VERT;
+    }
+
+    private static String stripAnsi(String s) {
+        return s.replaceAll("\033\\[[0-9;]*m", "");
     }
 
     /**

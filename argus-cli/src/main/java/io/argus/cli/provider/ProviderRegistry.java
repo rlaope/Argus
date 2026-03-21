@@ -5,6 +5,7 @@ import io.argus.cli.provider.agent.AgentGcProvider;
 import io.argus.cli.provider.agent.AgentHeapProvider;
 import io.argus.cli.provider.agent.AgentThreadProvider;
 import io.argus.cli.provider.jdk.JdkGcProvider;
+import io.argus.cli.provider.jdk.JdkGcUtilProvider;
 import io.argus.cli.provider.jdk.JdkHeapProvider;
 import io.argus.cli.provider.jdk.JdkHistoProvider;
 import io.argus.cli.provider.jdk.JdkInfoProvider;
@@ -35,6 +36,7 @@ public final class ProviderRegistry {
     private final List<HeapProvider> heapProviders = new ArrayList<>();
     private final List<InfoProvider> infoProviders = new ArrayList<>();
     private final List<ProcessProvider> processProviders = new ArrayList<>();
+    private final List<GcUtilProvider> gcUtilProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -66,6 +68,7 @@ public final class ProviderRegistry {
         heapProviders.add(new JdkHeapProvider());
         infoProviders.add(new JdkInfoProvider());
         processProviders.add(new JdkProcessProvider());
+        gcUtilProviders.add(new JdkGcUtilProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -123,6 +126,13 @@ public final class ProviderRegistry {
      */
     public ProcessProvider findProcessProvider() {
         return findBest(processProviders, 0L, null);
+    }
+
+    /**
+     * Finds the best GcUtilProvider for the given PID.
+     */
+    public GcUtilProvider findGcUtilProvider(long pid, String sourceOverride) {
+        return findBest(gcUtilProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------

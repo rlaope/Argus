@@ -1,0 +1,87 @@
+package io.argus.cli.provider.jdk;
+
+import io.argus.cli.model.GcUtilResult;
+import io.argus.cli.provider.GcUtilProvider;
+
+/**
+ * Provides GC utilization data via {@code jstat -gcutil}.
+ */
+public final class JdkGcUtilProvider implements GcUtilProvider {
+
+    @Override
+    public boolean isAvailable(long pid) {
+        return isJstatAvailable();
+    }
+
+    @Override
+    public int priority() {
+        return 10;
+    }
+
+    @Override
+    public String source() {
+        return "jdk";
+    }
+
+    @Override
+    public GcUtilResult getGcUtil(long pid) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("jstat", "-gcutil", String.valueOf(pid));
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            String output = new String(process.getInputStream().readAllBytes()).trim();
+            process.waitFor();
+
+            String[] lines = output.split("\n");
+            if (lines.length < 2) {
+                return empty();
+            }
+
+            // Parse the data line (second line)
+            String dataLine = lines[lines.length - 1].trim();
+            String[] values = dataLine.split("\\s+");
+            if (values.length < 11) {
+                return empty();
+            }
+
+            return new GcUtilResult(
+                    parseDouble(values[0]),   // S0
+                    parseDouble(values[1]),   // S1
+                    parseDouble(values[2]),   // E
+                    parseDouble(values[3]),   // O
+                    parseDouble(values[4]),   // M
+                    parseDouble(values[5]),   // CCS
+                    parseLong(values[6]),     // YGC
+                    parseDouble(values[7]),   // YGCT
+                    parseLong(values[8]),     // FGC
+                    parseDouble(values[9]),   // FGCT
+                    parseDouble(values[10])   // GCT
+            );
+        } catch (Exception e) {
+            return empty();
+        }
+    }
+
+    private static GcUtilResult empty() {
+        return new GcUtilResult(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
+    private static double parseDouble(String s) {
+        try { return Double.parseDouble(s); } catch (NumberFormatException e) { return 0.0; }
+    }
+
+    private static long parseLong(String s) {
+        try { return Long.parseLong(s); } catch (NumberFormatException e) { return 0; }
+    }
+
+    private static boolean isJstatAvailable() {
+        try {
+            Process p = new ProcessBuilder("jstat", "-help")
+                    .redirectErrorStream(true).start();
+            p.getInputStream().readAllBytes();
+            return p.waitFor() == 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+}

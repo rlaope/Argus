@@ -2,6 +2,7 @@ package io.argus.cli;
 
 import io.argus.cli.command.Command;
 import io.argus.cli.command.GcCommand;
+import io.argus.cli.command.GcUtilCommand;
 import io.argus.cli.command.HeapCommand;
 import io.argus.cli.command.HistoCommand;
 import io.argus.cli.command.InfoCommand;
@@ -90,6 +91,7 @@ public final class ArgusCli {
         register(commands, new HistoCommand());
         register(commands, new ThreadsCommand());
         register(commands, new GcCommand());
+        register(commands, new GcUtilCommand());
         register(commands, new HeapCommand());
         register(commands, new InfoCommand());
         register(commands, new TopCommand());
@@ -138,6 +140,7 @@ public final class ArgusCli {
         System.out.println("    histo  \033[2m<pid>\033[0m     Heap object histogram");
         System.out.println("    threads \033[2m<pid>\033[0m    Thread dump summary");
         System.out.println("    gc     \033[2m<pid>\033[0m     GC statistics");
+        System.out.println("    gcutil \033[2m<pid>\033[0m     GC generation utilization (like jstat)");
         System.out.println("    heap   \033[2m<pid>\033[0m     Heap memory usage");
         System.out.println("    info   \033[2m<pid>\033[0m     JVM information");
         System.out.println("    top              Real-time monitoring (agent required)");
