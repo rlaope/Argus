@@ -25,6 +25,7 @@ import java.util.Map;
  */
 public final class ArgusCli {
 
+    private static final String VERSION = "0.4.0";
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 9202;
 
@@ -39,6 +40,7 @@ public final class ArgusCli {
         String host = DEFAULT_HOST;
         int port = base.defaultPort();
         boolean help = false;
+        boolean version = false;
         String commandName = null;
         int commandArgStart = 0;
 
@@ -70,6 +72,8 @@ public final class ArgusCli {
                 try { port = Integer.parseInt(args[++i]); } catch (NumberFormatException ignored) {}
             } else if (arg.equals("--help") || arg.equals("-h")) {
                 help = true;
+            } else if (arg.equals("--version") || arg.equals("-v") || arg.equals("-V")) {
+                version = true;
             }
         }
 
@@ -89,6 +93,11 @@ public final class ArgusCli {
         register(commands, new HeapCommand());
         register(commands, new InfoCommand());
         register(commands, new TopCommand());
+
+        if (version) {
+            printVersion();
+            return;
+        }
 
         if (help || commandName == null) {
             printUsage(commands, messages);
@@ -113,36 +122,43 @@ public final class ArgusCli {
         map.put(cmd.name(), cmd);
     }
 
+    private static void printVersion() {
+        System.out.println("argus " + VERSION);
+    }
+
     private static void printUsage(Map<String, Command> commands, Messages messages) {
-        System.out.println("Argus CLI - JVM Diagnostic Tool");
         System.out.println();
-        System.out.println("Usage: argus <command> [<pid>] [options]");
+        System.out.println("  \033[1m\033[36margus\033[0m - JVM Diagnostic Tool  \033[2mv" + VERSION + "\033[0m");
         System.out.println();
-        System.out.println("Commands:");
-        System.out.println("  init          Initialize CLI configuration");
-        System.out.println("  ps            List running JVM processes");
-        System.out.println("  histo <pid>   Show heap object histogram");
-        System.out.println("  threads <pid> Show thread dump summary");
-        System.out.println("  gc <pid>      Show GC statistics");
-        System.out.println("  heap <pid>    Show heap memory usage");
-        System.out.println("  info <pid>    Show JVM information");
-        System.out.println("  top           Real-time JVM monitoring");
+        System.out.println("  \033[1mUsage:\033[0m argus <command> [<pid>] [options]");
         System.out.println();
-        System.out.println("Global Options:");
-        System.out.println("  --source=auto|agent|jdk   Data source (default: auto)");
-        System.out.println("  --no-color                Disable colors");
-        System.out.println("  --lang=en|ko|ja|zh        Output language");
-        System.out.println("  --format=table|json       Output format (default: table)");
-        System.out.println("  --host HOST               Agent host (default: localhost)");
-        System.out.println("  --port PORT               Agent port (default: 9202)");
-        System.out.println("  --help                    Show this help");
+        System.out.println("  \033[1mCommands:\033[0m");
+        System.out.println("    init             Initialize CLI configuration");
+        System.out.println("    ps               List running JVM processes");
+        System.out.println("    histo  \033[2m<pid>\033[0m     Heap object histogram");
+        System.out.println("    threads \033[2m<pid>\033[0m    Thread dump summary");
+        System.out.println("    gc     \033[2m<pid>\033[0m     GC statistics");
+        System.out.println("    heap   \033[2m<pid>\033[0m     Heap memory usage");
+        System.out.println("    info   \033[2m<pid>\033[0m     JVM information");
+        System.out.println("    top              Real-time monitoring (agent required)");
         System.out.println();
-        System.out.println("Examples:");
-        System.out.println("  argus ps");
-        System.out.println("  argus histo 12345");
-        System.out.println("  argus histo 12345 --top 50");
-        System.out.println("  argus threads 12345 --source=agent");
-        System.out.println("  argus gc 12345 --format=json");
-        System.out.println("  argus top --port 9202");
+        System.out.println("  \033[1mGlobal Options:\033[0m");
+        System.out.println("    --source=auto|agent|jdk   Data source (default: auto)");
+        System.out.println("    --no-color                Disable colors");
+        System.out.println("    --lang=en|ko|ja|zh        Output language");
+        System.out.println("    --format=table|json       Output format (default: table)");
+        System.out.println("    --host HOST               Agent host (default: localhost)");
+        System.out.println("    --port PORT               Agent port (default: 9202)");
+        System.out.println("    --help, -h                Show this help");
+        System.out.println("    --version, -v             Show version");
+        System.out.println();
+        System.out.println("  \033[1mExamples:\033[0m");
+        System.out.println("    \033[36margus ps\033[0m");
+        System.out.println("    \033[36margus histo 12345\033[0m");
+        System.out.println("    \033[36margus histo 12345 --top 50\033[0m");
+        System.out.println("    \033[36margus threads 12345 --source=agent\033[0m");
+        System.out.println("    \033[36margus gc 12345 --format=json\033[0m");
+        System.out.println("    \033[36margus top --port 9202\033[0m");
+        System.out.println();
     }
 }
