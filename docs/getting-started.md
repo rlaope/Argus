@@ -82,17 +82,28 @@ The dashboard displays two tabs:
 - **Virtual Threads**: Thread events, active threads, pinning analysis
 - **JVM Overview**: CPU, GC, heap, flame graph, profiling, contention, correlation
 
-### Step 4: Use the CLI Monitor
+### Step 4: Use the CLI
 
 ```bash
-# If installed via install.sh
-argus
+# First-time setup (choose language)
+argus init
+
+# Diagnose any running JVM (no agent required)
+argus ps                       # List JVM processes
+argus histo <pid>              # Heap object histogram
+argus threads <pid>            # Thread dump summary
+argus gc <pid>                 # GC statistics
+argus heap <pid>               # Heap memory usage
+argus info <pid>               # JVM information
+
+# Real-time monitoring (requires agent)
+argus top
 
 # Or run directly
-java -jar argus-cli/build/libs/argus-cli-0.4.0-all.jar
+java --enable-preview -jar argus-cli/build/libs/argus-cli-0.4.0-all.jar --help
 ```
 
-The CLI shows an htop-style terminal UI with CPU, heap, GC, virtual threads, hot methods, and contention data.
+The CLI auto-detects the best data source: Argus agent (HTTP) when available, JDK tools (`jcmd`) as fallback. Use `--source=agent|jdk` to override.
 
 ### Step 5: Enable Flame Graph
 

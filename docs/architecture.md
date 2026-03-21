@@ -15,11 +15,12 @@ Project Argus consists of five modules that work together to capture, analyze, a
          │                     │                       ▼
          ▼              ┌──────┴──────┐     ┌─────────────────┐
 ┌─────────────────┐     │  argus-cli  │     │ argus-frontend  │
-│   Target JVM    │     │ (argus top) │     │  (Dashboard UI) │
-└─────────────────┘     └─────────────┘     └─────────────────┘
-                              │                       │
-                         HTTP Polling            WebSocket +
-                         (10 endpoints)          Flame Graph
+│   Target JVM    │◀────│  (Unified   │     │  (Dashboard UI) │
+└─────────────────┘     │  Diagnostic)│     └─────────────────┘
+       ▲  jcmd          └─────────────┘            │
+       │                   │        │         WebSocket +
+       └───────────────────┘   HTTP Polling   Flame Graph
+         Direct JDK Access    (Agent Mode)
 ```
 
 ### Module Dependency Direction (NEVER violate)
@@ -181,13 +182,52 @@ Frontend:
 
 ### argus-cli
 
-The CLI module provides a standalone terminal monitor.
+The CLI module provides a unified JVM diagnostic tool with multiple data sources.
 
 ```
-ArgusTop.java - Main entry, argument parsing, refresh loop
-ArgusClient.java - HTTP polling (10 endpoints in parallel)
-TerminalRenderer.java - ANSI escape code rendering
-MetricsSnapshot.java - Immutable data record for one poll cycle
+ArgusCli.java - Main entry, subcommand routing, global option parsing
+
+command/
+├── Command.java - Command interface
+├── InitCommand.java - First-time setup wizard (language selection)
+├── PsCommand.java - List JVM processes
+├── HistoCommand.java - Heap object histogram
+├── ThreadsCommand.java - Thread dump summary
+├── GcCommand.java - GC statistics
+├── HeapCommand.java - Heap memory usage
+├── InfoCommand.java - JVM information
+└── TopCommand.java - Real-time monitoring (wraps ArgusClient)
+
+provider/
+├── DiagnosticProvider.java - Base interface (isAvailable, priority, source)
+├── ProviderRegistry.java - Auto-detection and source selection
+├── jdk/ - JDK tool providers (jcmd, priority=10)
+│   ├── JcmdExecutor.java - Shared jcmd process execution
+│   ├── JdkHistoProvider.java - GC.class_histogram
+│   ├── JdkThreadProvider.java - Thread.print
+│   ├── JdkGcProvider.java - GC.heap_info + VM.info
+│   ├── JdkHeapProvider.java - GC.heap_info
+│   ├── JdkInfoProvider.java - VM.version + VM.flags + VM.uptime
+│   └── JdkProcessProvider.java - jcmd -l
+└── agent/ - Argus agent providers (HTTP, priority=100)
+    ├── AgentClient.java - HTTP client for agent endpoints
+    ├── AgentThreadProvider.java - /thread-dump
+    ├── AgentGcProvider.java - /gc-analysis
+    └── AgentHeapProvider.java - /gc-analysis (heap subset)
+
+config/
+├── CliConfig.java - ~/.argus/config.properties (lang, source, format)
+└── Messages.java - i18n message loading (en, ko, ja, zh)
+
+render/
+├── AnsiStyle.java - ANSI escape code constants
+└── RichRenderer.java - Box-drawing, tables, progress bars
+
+Legacy (still used by TopCommand):
+├── ArgusTop.java - Original main loop
+├── ArgusClient.java - HTTP polling (10 endpoints in parallel)
+├── TerminalRenderer.java - ANSI escape code rendering
+└── MetricsSnapshot.java - Immutable data record for one poll cycle
 ```
 
 ## Data Flow

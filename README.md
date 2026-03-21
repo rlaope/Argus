@@ -17,10 +17,13 @@ A lightweight, zero-dependency JVM monitoring tool for Java 21+ environments. Re
 - **Flame Graph**: Continuous profiling visualization with d3-flamegraph (zoom, hover, export)
 - **Dual Tabs**: Virtual Threads tab + JVM Overview tab
 
-### CLI Monitor (`argus top`)
-- **htop-style Terminal UI**: CPU, heap, GC, virtual threads at a glance
-- **ANSI Color Coding**: Green/yellow/red thresholds for instant status
-- **Zero Dependencies**: Standalone JAR, connects to any running Argus server
+### CLI Diagnostic Tool
+- **Unified Interface**: `argus ps`, `histo`, `threads`, `gc`, `heap`, `info`, `top`
+- **No Agent Required**: Diagnose any running JVM via `jcmd` — no instrumentation needed
+- **Auto Source Detection**: Uses Argus agent (HTTP) when available, falls back to JDK tools
+- **Rich Terminal Output**: Box-drawing, color-coded progress bars, modern CLI aesthetics
+- **Multi-language**: English, Korean, Japanese, Chinese (`argus init` to configure)
+- **Pipeline-friendly**: `--format=json` for scripting and automation
 
 ### Virtual Thread Monitoring
 - **Thread Lifecycle**: Track creation, termination, and pinning of virtual threads
@@ -67,7 +70,7 @@ This downloads the agent + CLI, installs to `~/.argus/`, and adds the `argus` co
 
 ```bash
 # Install a specific version
-curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.3.0
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.4.0
 ```
 
 After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`).
@@ -76,11 +79,11 @@ After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashr
 
 ```bash
 # Download JARs from GitHub Releases
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.3.0.jar
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.3.0-all.jar
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.4.0.jar
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.4.0-all.jar
 
 # Run the CLI directly
-java -jar argus-cli-0.3.0-all.jar
+java --enable-preview -jar argus-cli-0.4.0-all.jar --help
 ```
 
 ### Option 3: Build from Source
@@ -92,43 +95,57 @@ cd argus
 ./gradlew :argus-cli:fatJar
 
 # JARs:
-# argus-agent/build/libs/argus-agent-0.3.0.jar
-# argus-cli/build/libs/argus-cli-0.3.0-all.jar
+# argus-agent/build/libs/argus-agent-0.4.0.jar
+# argus-cli/build/libs/argus-cli-0.4.0-all.jar
 ```
 
 ## Quick Start
 
-### 1. Attach Argus to Your App
+### 1. Diagnose Any Running JVM (No Agent Required)
 
 ```bash
+# First-time setup (choose language)
+argus init
+
+# List all running JVM processes
+argus ps
+
+# Heap object histogram
+argus histo <pid>
+argus histo <pid> --top 50
+
+# Thread dump summary with state distribution
+argus threads <pid>
+
+# GC statistics
+argus gc <pid>
+
+# Heap memory usage with per-space breakdown
+argus heap <pid>
+
+# JVM information (version, flags, uptime)
+argus info <pid>
+
+# JSON output for scripting
+argus gc <pid> --format=json
+```
+
+### 2. Real-time Monitoring (Requires Agent)
+
+```bash
+# Attach the agent to your app
 java -javaagent:$(argus-agent --path) \
      -jar your-application.jar
 
-# Or with the JAR path directly
-java -javaagent:~/.argus/argus-agent.jar \
-     -jar your-application.jar
+# Terminal dashboard
+argus top
+argus top --host 192.168.1.100 --port 9202 --interval 2
+
+# Web dashboard
+open http://localhost:9202/
 ```
 
-### 2. Open the Dashboard
-
-```
-http://localhost:9202/
-```
-
-### 3. Use the CLI Monitor
-
-```bash
-# Connect to local Argus server
-argus
-
-# Custom host/port and refresh interval
-argus --host 192.168.1.100 --port 9202 --interval 2
-
-# Disable colors (for piping/logging)
-argus --no-color
-```
-
-### 4. Enable Profiling & Flame Graph
+### 3. Enable Profiling & Flame Graph
 
 ```bash
 java -javaagent:~/.argus/argus-agent.jar \
@@ -137,7 +154,7 @@ java -javaagent:~/.argus/argus-agent.jar \
      -jar your-application.jar
 ```
 
-### 5. Export Metrics to OpenTelemetry
+### 4. Export Metrics to OpenTelemetry
 
 ```bash
 java -javaagent:~/.argus/argus-agent.jar \
@@ -183,11 +200,12 @@ The agent accepts the following system properties:
          │                     │                       ▼
          ▼              ┌──────┴──────┐     ┌─────────────────┐
 ┌─────────────────┐     │  argus-cli  │     │ argus-frontend  │
-│   Target JVM    │     │ (argus top) │     │  (Dashboard UI) │
-└─────────────────┘     └─────────────┘     └─────────────────┘
-                              │                       │
-                         HTTP Polling            WebSocket +
-                         (10 endpoints)          Flame Graph
+│   Target JVM    │◀────│  (Unified   │     │  (Dashboard UI) │
+└─────────────────┘     │  Diagnostic)│     └─────────────────┘
+       ▲  jcmd          └─────────────┘            │
+       │                   │        │         WebSocket +
+       └───────────────────┘   HTTP Polling   Flame Graph
+         Direct JDK Access    (Agent Mode)
 ```
 
 ## Modules
@@ -196,7 +214,7 @@ The agent accepts the following system properties:
 - **argus-agent**: Java agent entry point with JFR streaming engine
 - **argus-server**: Netty HTTP/WebSocket server, 10 analyzers, Prometheus + OTLP export
 - **argus-frontend**: Static HTML/JS dashboard with Chart.js and d3-flamegraph
-- **argus-cli**: Standalone terminal monitor (`argus top`), zero external dependencies
+- **argus-cli**: Unified JVM diagnostic CLI — `ps`, `histo`, `threads`, `gc`, `heap`, `info`, `top` with auto source detection (agent HTTP / JDK jcmd), i18n (en/ko/ja/zh), rich terminal output
 
 ## JFR Events Captured
 

@@ -518,25 +518,68 @@ All 30+ metrics available via Prometheus are also exported via OTLP:
 
 ## CLI Configuration
 
-The CLI tool (`argus top`) connects to a running Argus server via HTTP.
+The Argus CLI provides unified JVM diagnostics with auto source detection.
+
+### First-time Setup
 
 ```bash
-# Default: localhost:9202, 1s refresh
-argus
-
-# Custom settings
-argus --host 192.168.1.100 --port 9202 --interval 2
-
-# Disable colors (for piping/logging)
-argus --no-color
+argus init
 ```
+
+This creates `~/.argus/config.properties` with your preferred language and defaults.
+
+### CLI Commands
+
+```bash
+argus ps                       # List running JVM processes
+argus histo <pid>              # Heap object histogram
+argus histo <pid> --top 50     # Top 50 entries
+argus threads <pid>            # Thread dump summary
+argus gc <pid>                 # GC statistics
+argus heap <pid>               # Heap memory usage
+argus info <pid>               # JVM information
+argus top                      # Real-time monitoring (requires agent)
+```
+
+### Global Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--host`, `-h` | `localhost` | Argus server host |
-| `--port`, `-p` | `9202` | Argus server port |
-| `--interval`, `-i` | `1` | Refresh interval in seconds |
+| `--source=auto\|agent\|jdk` | `auto` | Data source selection |
 | `--no-color` | *(off)* | Disable ANSI colors |
+| `--lang=en\|ko\|ja\|zh` | `en` | Output language |
+| `--format=table\|json` | `table` | Output format |
+| `--host HOST` | `localhost` | Agent host (for `top` and agent source) |
+| `--port PORT` | `9202` | Agent port |
+
+### Source Auto-detection
+
+When `--source=auto` (default), the CLI:
+1. Tries connecting to the Argus agent via HTTP
+2. Falls back to JDK tools (`jcmd`) if agent is unavailable
+
+Use `--source=agent` or `--source=jdk` to force a specific source.
+
+### JSON Output
+
+All commands support `--format=json` for pipeline integration:
+
+```bash
+argus gc 12345 --format=json | jq '.heapUsed'
+argus histo 12345 --format=json --top 10 > heap-snapshot.json
+```
+
+### Config File
+
+Stored at `~/.argus/config.properties`:
+
+```properties
+lang=en
+default.source=auto
+color=true
+format=table
+default.port=9202
+```
 
 ## Next Steps
 

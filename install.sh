@@ -39,7 +39,7 @@ if ! command -v java &>/dev/null; then
     exit 1
 fi
 
-JAVA_VER=$(java -version 2>&1 | head -1 | sed 's/.*"\([0-9]*\).*/\1/')
+JAVA_VER=$(java -version 2>&1 | head -1 | awk -F'"' '{print $2}' | cut -d. -f1)
 if [ "$JAVA_VER" -lt 21 ] 2>/dev/null; then
     warn "Java $JAVA_VER detected. Argus requires Java 21+."
 fi
@@ -92,7 +92,33 @@ ok "argus-cli.jar"
 # argus - CLI diagnostic tool
 cat > "$BIN_DIR/argus" << 'WRAPPER'
 #!/usr/bin/env bash
-exec java --enable-preview -jar "$HOME/.argus/argus-cli.jar" "$@"
+find_java21() {
+    local candidates=()
+    [ -n "$ARGUS_JAVA_HOME" ] && [ -x "$ARGUS_JAVA_HOME/bin/java" ] && candidates+=("$ARGUS_JAVA_HOME/bin/java")
+    [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ] && candidates+=("$JAVA_HOME/bin/java")
+    if [ -d "$HOME/.jenv/versions" ]; then
+        for d in "$HOME/.jenv/versions"/21*/bin/java; do [ -x "$d" ] && candidates+=("$d"); done
+    fi
+    if command -v /usr/libexec/java_home &>/dev/null; then
+        local jh; jh=$(/usr/libexec/java_home -v 21 2>/dev/null)
+        [ -n "$jh" ] && [ -x "$jh/bin/java" ] && candidates+=("$jh/bin/java")
+    fi
+    for p in /usr/lib/jvm/java-21*/bin/java; do [ -x "$p" ] && candidates+=("$p"); done
+    for p in /Library/Java/JavaVirtualMachines/*/Contents/Home/bin/java; do [ -x "$p" ] && candidates+=("$p"); done
+    command -v java &>/dev/null && candidates+=("$(command -v java)")
+    for c in "${candidates[@]}"; do
+        local ver; ver=$("$c" -version 2>&1 | head -1 | awk -F'"' '{print $2}' | cut -d. -f1)
+        if [ "$ver" -ge 21 ] 2>/dev/null; then echo "$c"; return 0; fi
+    done
+    return 1
+}
+ARGUS_JAVA=$(find_java21)
+if [ $? -ne 0 ] || [ -z "$ARGUS_JAVA" ]; then
+    echo "Error: Java 21+ is required but not found." >&2
+    echo "Set ARGUS_JAVA_HOME or JAVA_HOME to a Java 21+ installation." >&2
+    exit 1
+fi
+exec "$ARGUS_JAVA" --enable-preview -jar "$HOME/.argus/argus-cli.jar" "$@"
 WRAPPER
 chmod +x "$BIN_DIR/argus"
 

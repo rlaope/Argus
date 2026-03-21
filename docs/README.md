@@ -15,7 +15,9 @@ Welcome to the Project Argus documentation.
 Argus is a lightweight, zero-dependency JVM monitoring tool for Java 21+. It provides:
 
 - **Real-time Dashboard** with interactive charts and flame graphs
-- **CLI Monitor (`argus top`)** for htop-style terminal monitoring
+- **Unified CLI** — `argus ps`, `histo`, `threads`, `gc`, `heap`, `info`, `top` with auto source detection
+- **No Agent Required** — diagnose any running JVM via `jcmd` (agent optional for richer data)
+- **Multi-language** — English, Korean, Japanese, Chinese
 - **Prometheus Endpoint** for metric scraping
 - **OTLP Export** for pushing metrics to OpenTelemetry collectors
 - **Virtual Thread Monitoring** with pinning detection
