@@ -92,7 +92,7 @@ public final class HistoCommand implements Command {
 
         for (HistoResult.Entry e : result.entries()) {
             String rank = RichRenderer.padLeft(String.valueOf(e.rank()), 4);
-            String cls = RichRenderer.padRight(RichRenderer.truncate(e.className(), classWidth), classWidth);
+            String cls = RichRenderer.padRight(RichRenderer.truncate(RichRenderer.humanClassName(e.className()), classWidth), classWidth);
             String count = RichRenderer.padLeft(formatCount(e.instances()), 10);
             String size = RichRenderer.padLeft(RichRenderer.formatBytes(e.bytes()), 8);
             System.out.println(RichRenderer.boxLine(rank + "  " + cls + "  " + count + "  " + size, WIDTH));

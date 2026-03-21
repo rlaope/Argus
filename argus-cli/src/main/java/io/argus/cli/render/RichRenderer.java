@@ -197,6 +197,54 @@ public final class RichRenderer {
     }
 
     /**
+     * Converts JVM internal type descriptors to human-readable class names.
+     * Examples: "[B" -> "byte[]", "[Ljava.lang.String;" -> "String[]",
+     * "java.util.HashMap$Node" -> "HashMap.Node"
+     */
+    public static String humanClassName(String name) {
+        if (name == null) return "?";
+        String s = name.trim();
+
+        // Count array dimensions
+        int dims = 0;
+        while (s.startsWith("[")) {
+            dims++;
+            s = s.substring(1);
+        }
+
+        // Primitive type descriptors
+        String base = switch (s) {
+            case "B" -> "byte";
+            case "C" -> "char";
+            case "D" -> "double";
+            case "F" -> "float";
+            case "I" -> "int";
+            case "J" -> "long";
+            case "S" -> "short";
+            case "Z" -> "boolean";
+            default -> {
+                // Object type: "Ljava.lang.String;" -> "java.lang.String"
+                if (s.startsWith("L") && s.endsWith(";")) {
+                    s = s.substring(1, s.length() - 1);
+                }
+                // Strip module info: "java.lang.String (java.base@21)" -> "java.lang.String"
+                int paren = s.indexOf(" (");
+                if (paren > 0) s = s.substring(0, paren);
+                // Inner class: "$" -> "."
+                s = s.replace('$', '.');
+                // Simplify: keep last 2 segments for long names
+                String[] parts = s.split("\\.");
+                if (parts.length > 3) {
+                    yield parts[parts.length - 2] + "." + parts[parts.length - 1];
+                }
+                yield s;
+            }
+        };
+
+        return base + "[]".repeat(dims);
+    }
+
+    /**
      * Right-pads the string with spaces to the given width.
      */
     public static String padRight(String s, int width) {
