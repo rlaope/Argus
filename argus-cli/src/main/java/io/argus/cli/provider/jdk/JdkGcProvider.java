@@ -52,12 +52,12 @@ public final class JdkGcProvider implements GcProvider {
             for (String line : heapInfo.split("\n")) {
                 Matcher m = HEAP_TOTAL_USED.matcher(line);
                 if (m.find() && heapUsed == 0) {
-                    heapCommitted = parseLong(m.group(1)) * 1024L;
-                    heapUsed = parseLong(m.group(2)) * 1024L;
+                    heapCommitted = JdkParseUtils.parseLong(m.group(1)) * 1024L;
+                    heapUsed = JdkParseUtils.parseLong(m.group(2)) * 1024L;
                 }
                 Matcher cm = COMMITTED.matcher(line);
                 if (cm.find() && heapCommitted == 0) {
-                    heapCommitted = parseLong(cm.group(1)) * 1024L;
+                    heapCommitted = JdkParseUtils.parseLong(cm.group(1)) * 1024L;
                 }
             }
         } catch (RuntimeException ignored) {}
@@ -95,11 +95,4 @@ public final class JdkGcProvider implements GcProvider {
         );
     }
 
-    private static long parseLong(String s) {
-        try {
-            return Long.parseLong(s.trim());
-        } catch (NumberFormatException e) {
-            return 0L;
-        }
-    }
 }

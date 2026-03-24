@@ -179,6 +179,14 @@ public final class RichRenderer {
     }
 
     /**
+     * Formats a KB value to a compact human-readable string.
+     * Examples: "512K", "256M", "2.5G"
+     */
+    public static String formatKB(long kb) {
+        return formatBytes(kb * 1024);
+    }
+
+    /**
      * Formats a long number with K/M suffix for large values.
      * Examples: "999", "1.2K", "5.3M"
      */

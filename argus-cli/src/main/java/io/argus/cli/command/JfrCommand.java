@@ -77,7 +77,7 @@ public final class JfrCommand implements Command {
             case "check" -> provider.checkRecording(pid);
             case "dump"  -> provider.dumpRecording(pid, filename);
             default -> {
-                System.err.println("Unknown jfr subcommand: " + subcommand);
+                System.err.println(messages.get("error.jfr.unknown.subcommand", subcommand));
                 printHelp(config.color(), messages);
                 yield null;
             }
@@ -101,7 +101,7 @@ public final class JfrCommand implements Command {
                 WIDTH, "pid:" + pid, "cmd:" + subcommand));
 
         String statusColor = "error".equalsIgnoreCase(result.status())
-                ? AnsiStyle.colorByThreshold(useColor, 100, 50, 80)
+                ? AnsiStyle.style(useColor, AnsiStyle.RED)
                 : AnsiStyle.style(useColor, AnsiStyle.GREEN);
         String reset = AnsiStyle.style(useColor, AnsiStyle.RESET);
 

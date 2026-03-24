@@ -72,14 +72,14 @@ public final class JdkHeapProvider implements HeapProvider {
             Matcher namedMatcher = NAMED_SPACE.matcher(line);
             if (namedMatcher.find()) {
                 String spaceName = namedMatcher.group(1).trim().replaceAll("\\s+", " ");
-                long spaceUsed = parseLong(namedMatcher.group(3)) * 1024L;
-                long spaceCommitted = parseLong(namedMatcher.group(4)) * 1024L;
+                long spaceUsed = JdkParseUtils.parseLong(namedMatcher.group(3)) * 1024L;
+                long spaceCommitted = JdkParseUtils.parseLong(namedMatcher.group(4)) * 1024L;
                 long spaceMax = spaceCommitted; // best available approximation
 
                 // Check for reserved as max
                 Matcher resMatcher = RESERVED_PATTERN.matcher(line);
                 if (resMatcher.find()) {
-                    spaceMax = parseLong(resMatcher.group(1)) * 1024L;
+                    spaceMax = JdkParseUtils.parseLong(resMatcher.group(1)) * 1024L;
                 }
 
                 spaces.put(spaceName, new HeapResult.SpaceInfo(spaceName, spaceUsed, spaceCommitted, spaceMax));
@@ -89,19 +89,19 @@ public final class JdkHeapProvider implements HeapProvider {
             // Match main heap total/used line
             Matcher totalMatcher = HEAP_TOTAL_USED.matcher(line);
             if (totalMatcher.find() && heapCommitted == 0) {
-                heapCommitted = parseLong(totalMatcher.group(1)) * 1024L;
-                heapUsed = parseLong(totalMatcher.group(2)) * 1024L;
+                heapCommitted = JdkParseUtils.parseLong(totalMatcher.group(1)) * 1024L;
+                heapUsed = JdkParseUtils.parseLong(totalMatcher.group(2)) * 1024L;
 
                 // Try to find reserved/max on same line
                 Matcher resMatcher = RESERVED_PATTERN.matcher(line);
-                heapMax = resMatcher.find() ? parseLong(resMatcher.group(1)) * 1024L : heapCommitted;
+                heapMax = resMatcher.find() ? JdkParseUtils.parseLong(resMatcher.group(1)) * 1024L : heapCommitted;
                 continue;
             }
 
             // Fallback: committed-only line
             Matcher committedMatcher = COMMITTED_PATTERN.matcher(line);
             if (committedMatcher.find() && heapCommitted == 0) {
-                heapCommitted = parseLong(committedMatcher.group(1)) * 1024L;
+                heapCommitted = JdkParseUtils.parseLong(committedMatcher.group(1)) * 1024L;
             }
         }
 
@@ -112,12 +112,4 @@ public final class JdkHeapProvider implements HeapProvider {
         return new HeapResult(heapUsed, heapCommitted, heapMax, Map.copyOf(spaces));
     }
 
-    private static long parseLong(String s) {
-        if (s == null) return 0L;
-        try {
-            return Long.parseLong(s.trim());
-        } catch (NumberFormatException e) {
-            return 0L;
-        }
-    }
 }

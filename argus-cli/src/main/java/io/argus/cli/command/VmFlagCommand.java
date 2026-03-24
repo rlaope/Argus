@@ -103,7 +103,7 @@ public final class VmFlagCommand implements Command {
                 flagName = setExpr.substring(0, eq).trim();
                 flagValue = setExpr.substring(eq + 1).trim();
             } else {
-                System.err.println("Invalid --set expression. Use: FlagName=value, +FlagName, or -FlagName");
+                System.err.println(messages.get("error.vmflag.invalid.set"));
                 return;
             }
         }

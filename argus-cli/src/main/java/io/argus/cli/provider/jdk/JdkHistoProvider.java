@@ -67,8 +67,8 @@ public final class JdkHistoProvider implements HistoProvider {
             if (trimmed.startsWith("Total")) {
                 String[] parts = trimmed.split("\\s+");
                 if (parts.length >= 3) {
-                    totalInstances = parseLong(parts[1]);
-                    totalBytes = parseLong(parts[2]);
+                    totalInstances = JdkParseUtils.parseLong(parts[1]);
+                    totalBytes = JdkParseUtils.parseLong(parts[2]);
                 }
                 continue;
             }
@@ -88,8 +88,8 @@ public final class JdkHistoProvider implements HistoProvider {
                 continue;
             }
 
-            long instances = parseLong(parts[1]);
-            long bytes = parseLong(parts[2]);
+            long instances = JdkParseUtils.parseLong(parts[1]);
+            long bytes = JdkParseUtils.parseLong(parts[2]);
             String className = stripModuleInfo(parts[3]);
 
             if (entries.size() < topN) {
@@ -111,11 +111,4 @@ public final class JdkHistoProvider implements HistoProvider {
         return raw.trim();
     }
 
-    private static long parseLong(String s) {
-        try {
-            return Long.parseLong(s.trim());
-        } catch (NumberFormatException e) {
-            return 0L;
-        }
-    }
 }

@@ -103,7 +103,7 @@ public final class NmtCommand implements Command {
         double reservedGB = totalReserved / 1024.0 / 1024.0;
         double committedGB = totalCommitted / 1024.0 / 1024.0;
         String totalInfo = String.format("  Reserved: %s    Committed: %s",
-                formatKB(totalReserved), formatKB(totalCommitted));
+                RichRenderer.formatKB(totalReserved), RichRenderer.formatKB(totalCommitted));
         System.out.println(RichRenderer.boxLine(totalInfo, WIDTH));
 
         if (totalReserved > 0) {
@@ -137,27 +137,14 @@ public final class NmtCommand implements Command {
                     + RichRenderer.padRight(RichRenderer.truncate(cat.name(), 18), 20)
                     + AnsiStyle.style(useColor, AnsiStyle.RESET);
             String line = nameCell
-                    + RichRenderer.padLeft(formatKB(cat.reservedKB()), 12) + "  "
-                    + RichRenderer.padLeft(formatKB(cat.committedKB()), 12) + "  "
+                    + RichRenderer.padLeft(RichRenderer.formatKB(cat.reservedKB()), 12) + "  "
+                    + RichRenderer.padLeft(RichRenderer.formatKB(cat.committedKB()), 12) + "  "
                     + bar + "  " + String.format("%5.1f%%", pct);
             System.out.println(RichRenderer.boxLine(line, WIDTH));
         }
 
         System.out.println(RichRenderer.emptyLine(WIDTH));
         System.out.println(RichRenderer.boxFooter(useColor, cats.size() + " categories", WIDTH));
-    }
-
-    /**
-     * Formats a KB value to a compact human-readable string.
-     */
-    private static String formatKB(long kb) {
-        if (kb < 1024) return kb + "K";
-        double mb = kb / 1024.0;
-        if (mb < 1024.0) return String.format("%.0fM", mb);
-        double gb = mb / 1024.0;
-        if (gb < 1024.0) return String.format("%.1fG", gb);
-        double tb = gb / 1024.0;
-        return String.format("%.1fT", tb);
     }
 
     private static void printJson(NmtResult result) {

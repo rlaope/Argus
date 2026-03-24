@@ -58,30 +58,22 @@ public final class JdkGcUtilProvider implements GcUtilProvider {
         }
 
         return new GcUtilResult(
-                parseDouble(values[0]),   // S0
-                parseDouble(values[1]),   // S1
-                parseDouble(values[2]),   // E
-                parseDouble(values[3]),   // O
-                parseDouble(values[4]),   // M
-                parseDouble(values[5]),   // CCS
-                parseLong(values[6]),     // YGC
-                parseDouble(values[7]),   // YGCT
-                parseLong(values[8]),     // FGC
-                parseDouble(values[9]),   // FGCT
-                parseDouble(values[10])   // GCT
+                JdkParseUtils.parseDouble(values[0]),   // S0
+                JdkParseUtils.parseDouble(values[1]),   // S1
+                JdkParseUtils.parseDouble(values[2]),   // E
+                JdkParseUtils.parseDouble(values[3]),   // O
+                JdkParseUtils.parseDouble(values[4]),   // M
+                JdkParseUtils.parseDouble(values[5]),   // CCS
+                JdkParseUtils.parseLong(values[6]),     // YGC
+                JdkParseUtils.parseDouble(values[7]),   // YGCT
+                JdkParseUtils.parseLong(values[8]),     // FGC
+                JdkParseUtils.parseDouble(values[9]),   // FGCT
+                JdkParseUtils.parseDouble(values[10])   // GCT
         );
     }
 
     private static GcUtilResult empty() {
         return new GcUtilResult(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-    }
-
-    private static double parseDouble(String s) {
-        try { return Double.parseDouble(s); } catch (NumberFormatException e) { return 0.0; }
-    }
-
-    private static long parseLong(String s) {
-        try { return Long.parseLong(s); } catch (NumberFormatException e) { return 0; }
     }
 
     private static boolean isJstatAvailable() {

@@ -77,7 +77,7 @@ public final class JdkClassLoaderProvider implements ClassLoaderProvider {
                 // "512 classes" or "512 class"
                 String[] parts = inside.split("\\s+");
                 if (parts.length >= 1) {
-                    classCount = parseLong(parts[0]);
+                    classCount = JdkParseUtils.parseLong(parts[0]);
                 }
                 rest = rest.substring(0, parenOpen).trim();
             }
@@ -101,11 +101,4 @@ public final class JdkClassLoaderProvider implements ClassLoaderProvider {
         return result;
     }
 
-    private static long parseLong(String s) {
-        try {
-            return Long.parseLong(s.trim());
-        } catch (NumberFormatException e) {
-            return 0L;
-        }
-    }
 }
