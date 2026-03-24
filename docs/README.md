@@ -5,10 +5,11 @@ Welcome to the Project Argus documentation.
 ## Table of Contents
 
 1. [Getting Started](getting-started.md) - Installation and quick start guide
-2. [Configuration](configuration.md) - Configuration options and tuning
-3. [Architecture](architecture.md) - System architecture and design
-4. [Troubleshooting](troubleshooting.md) - Common issues and solutions
-5. [Benchmark Report](benchmark-report.md) - Performance benchmarks
+2. [CLI Command Reference](cli-commands.md) - All 17 commands with usage and output examples
+3. [Configuration](configuration.md) - Configuration options and tuning
+4. [Architecture](architecture.md) - System architecture and design
+5. [Troubleshooting](troubleshooting.md) - Common issues and solutions
+6. [Benchmark Report](benchmark-report.md) - Performance benchmarks
 
 ## What is Argus?
 

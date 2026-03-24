@@ -17,13 +17,88 @@ A lightweight, zero-dependency JVM monitoring tool for Java 21+ environments. Re
 - **Flame Graph**: Continuous profiling visualization with d3-flamegraph (zoom, hover, export)
 - **Dual Tabs**: Virtual Threads tab + JVM Overview tab
 
-### CLI Diagnostic Tool (15 Commands)
-- **Unified Interface**: `argus ps`, `histo`, `threads`, `gc`, `gcutil`, `heap`, `sysprops`, `vmflag`, `nmt`, `classloader`, `jfr`, `info`, `top`
+### CLI Diagnostic Tool (17 Commands)
+- **Unified Interface**: `argus ps`, `histo`, `threads`, `gc`, `gcutil`, `heap`, `sysprops`, `vmflag`, `nmt`, `classloader`, `jfr`, `diff`, `report`, `info`, `top`
 - **No Agent Required**: Diagnose any running JVM via `jcmd`/`jstat` — no instrumentation needed
 - **Auto Source Detection**: Uses Argus agent (HTTP) when available, falls back to JDK tools
 - **Rich Terminal Output**: Box-drawing, color-coded progress bars, dynamic terminal width
 - **Multi-language**: English, Korean, Japanese, Chinese (`argus init` to configure)
 - **Pipeline-friendly**: `--format=json` for scripting and automation
+
+#### `argus report` — Comprehensive Diagnostic
+
+```
+$ argus report <pid>
+
+╭─ JVM Report ── pid:39113 ── source:auto ─────────────────────────────────────╮
+│                                                                              │
+│   ▸ JVM Info                                                                 │
+│     39113: OpenJDK 64-Bit Server VM version 21.0.9    Uptime: 57m 5s         │
+│                                                                              │
+│   ▸ Memory                                                                   │
+│     Heap    [███░░░░░░░░░░░░░]  41M / 256M  (16%)                            │
+│     Free    215M                                                             │
+│                                                                              │
+│   ▸ GC                                                                       │
+│     S0: 0%  S1: 0%  Eden: 0%  Old: 42%  Meta: 97%                            │
+│                                                                              │
+│   ▸ Threads                                                                  │
+│     Total: 29    Virtual: 0    Platform: 29                                  │
+│     TIMED_WAITING: 5  WAITING: 13  RUNNABLE: 11                              │
+│                                                                              │
+│   ▸ Top Heap Objects                                                         │
+│     1. byte[]                111.0K instances   16M                          │
+│     2. java.lang.String      107.2K instances   2M                           │
+│     3. java.lang.Class       18.9K instances   2M                            │
+│                                                                              │
+│   ▸ Warnings                                                                 │
+│     ⚠ Metaspace at 97% — near limit                                          │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+#### `argus histo` — Heap Object Histogram
+
+```
+$ argus histo <pid> --top 5
+
+╭─ Heap Histogram ── pid:39113 ── source:auto ─────────────────────────────────╮
+│                                                                              │
+│    #  Class                                                  Count      Size │
+│ ────  ────────────────────────────────────────────────  ──────────  ──────── │
+│    1  byte[]                                               111,050       16M │
+│    2  java.lang.String                                     107,249        2M │
+│    3  java.lang.Class                                       18,914        2M │
+│    4  ConcurrentHashMap.Node                                62,917        2M │
+│    5  java.lang.Object[]                                    25,496        1M │
+│                                                                              │
+│ Total: 718.6K objects · 40M                                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+#### `argus gcutil` — GC Generation Utilization
+
+```
+$ argus gcutil <pid>
+
+╭─ GC Utilization ── pid:39113 ── source:auto ─────────────────────────────────╮
+│                                                                              │
+│ S0      S1      Eden    Old     Meta    CCS     YGC    FGC    GCT            │
+│ ──────────────────────────────────────────────────────────────────────       │
+│ 0.0%    0.0%    0.0%    41.8%   96.5%   87.1%   18     2      10.000         │
+│                                                                              │
+│   S0    [░░░░░░░░░░░░░░░░░░░░]    0.0%                                       │
+│   S1    [░░░░░░░░░░░░░░░░░░░░]    0.0%                                       │
+│   Eden  [░░░░░░░░░░░░░░░░░░░░]    0.0%                                       │
+│   Old   [████████░░░░░░░░░░░░]   41.8%                                       │
+│   Meta  [███████████████████░]   96.5%                                       │
+│   CCS   [█████████████████░░░]   87.1%                                       │
+│                                                                              │
+│ YGC: 18 (0.163s)    FGC: 2 (0.215s)    Total: 10.000s                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+> See [CLI Command Reference](docs/cli-commands.md) for all 17 commands with full usage and output examples.
 
 ### Virtual Thread Monitoring
 - **Thread Lifecycle**: Track creation, termination, and pinning of virtual threads
