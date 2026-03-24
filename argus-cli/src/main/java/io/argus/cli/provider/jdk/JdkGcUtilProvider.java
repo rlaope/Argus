@@ -31,35 +31,45 @@ public final class JdkGcUtilProvider implements GcUtilProvider {
             Process process = pb.start();
             String output = new String(process.getInputStream().readAllBytes()).trim();
             process.waitFor();
-
-            String[] lines = output.split("\n");
-            if (lines.length < 2) {
-                return empty();
-            }
-
-            // Parse the data line (second line)
-            String dataLine = lines[lines.length - 1].trim();
-            String[] values = dataLine.split("\\s+");
-            if (values.length < 11) {
-                return empty();
-            }
-
-            return new GcUtilResult(
-                    parseDouble(values[0]),   // S0
-                    parseDouble(values[1]),   // S1
-                    parseDouble(values[2]),   // E
-                    parseDouble(values[3]),   // O
-                    parseDouble(values[4]),   // M
-                    parseDouble(values[5]),   // CCS
-                    parseLong(values[6]),     // YGC
-                    parseDouble(values[7]),   // YGCT
-                    parseLong(values[8]),     // FGC
-                    parseDouble(values[9]),   // FGCT
-                    parseDouble(values[10])   // GCT
-            );
+            return parseOutput(output);
         } catch (Exception e) {
             return empty();
         }
+    }
+
+    /**
+     * Parses the text output of {@code jstat -gcutil} into a {@link GcUtilResult}.
+     * Package-private for testing.
+     */
+    static GcUtilResult parseOutput(String output) {
+        if (output == null || output.isBlank()) {
+            return empty();
+        }
+        String[] lines = output.split("\n");
+        if (lines.length < 2) {
+            return empty();
+        }
+
+        // Parse the data line (last line)
+        String dataLine = lines[lines.length - 1].trim();
+        String[] values = dataLine.split("\\s+");
+        if (values.length < 11) {
+            return empty();
+        }
+
+        return new GcUtilResult(
+                parseDouble(values[0]),   // S0
+                parseDouble(values[1]),   // S1
+                parseDouble(values[2]),   // E
+                parseDouble(values[3]),   // O
+                parseDouble(values[4]),   // M
+                parseDouble(values[5]),   // CCS
+                parseLong(values[6]),     // YGC
+                parseDouble(values[7]),   // YGCT
+                parseLong(values[8]),     // FGC
+                parseDouble(values[9]),   // FGCT
+                parseDouble(values[10])   // GCT
+        );
     }
 
     private static GcUtilResult empty() {

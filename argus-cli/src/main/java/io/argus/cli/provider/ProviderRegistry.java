@@ -9,8 +9,13 @@ import io.argus.cli.provider.jdk.JdkGcUtilProvider;
 import io.argus.cli.provider.jdk.JdkHeapProvider;
 import io.argus.cli.provider.jdk.JdkHistoProvider;
 import io.argus.cli.provider.jdk.JdkInfoProvider;
+import io.argus.cli.provider.jdk.JdkClassLoaderProvider;
+import io.argus.cli.provider.jdk.JdkJfrProvider;
+import io.argus.cli.provider.jdk.JdkNmtProvider;
 import io.argus.cli.provider.jdk.JdkProcessProvider;
+import io.argus.cli.provider.jdk.JdkSysPropsProvider;
 import io.argus.cli.provider.jdk.JdkThreadProvider;
+import io.argus.cli.provider.jdk.JdkVmFlagProvider;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -37,6 +42,11 @@ public final class ProviderRegistry {
     private final List<InfoProvider> infoProviders = new ArrayList<>();
     private final List<ProcessProvider> processProviders = new ArrayList<>();
     private final List<GcUtilProvider> gcUtilProviders = new ArrayList<>();
+    private final List<SysPropsProvider> sysPropsProviders = new ArrayList<>();
+    private final List<VmFlagProvider> vmFlagProviders = new ArrayList<>();
+    private final List<NmtProvider> nmtProviders = new ArrayList<>();
+    private final List<ClassLoaderProvider> classLoaderProviders = new ArrayList<>();
+    private final List<JfrProvider> jfrProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -69,6 +79,11 @@ public final class ProviderRegistry {
         infoProviders.add(new JdkInfoProvider());
         processProviders.add(new JdkProcessProvider());
         gcUtilProviders.add(new JdkGcUtilProvider());
+        sysPropsProviders.add(new JdkSysPropsProvider());
+        vmFlagProviders.add(new JdkVmFlagProvider());
+        nmtProviders.add(new JdkNmtProvider());
+        classLoaderProviders.add(new JdkClassLoaderProvider());
+        jfrProviders.add(new JdkJfrProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -133,6 +148,41 @@ public final class ProviderRegistry {
      */
     public GcUtilProvider findGcUtilProvider(long pid, String sourceOverride) {
         return findBest(gcUtilProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best SysPropsProvider for the given PID.
+     */
+    public SysPropsProvider findSysPropsProvider(long pid, String sourceOverride) {
+        return findBest(sysPropsProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best VmFlagProvider for the given PID.
+     */
+    public VmFlagProvider findVmFlagProvider(long pid, String sourceOverride) {
+        return findBest(vmFlagProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best NmtProvider for the given PID.
+     */
+    public NmtProvider findNmtProvider(long pid, String sourceOverride) {
+        return findBest(nmtProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best ClassLoaderProvider for the given PID.
+     */
+    public ClassLoaderProvider findClassLoaderProvider(long pid, String sourceOverride) {
+        return findBest(classLoaderProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best JfrProvider for the given PID.
+     */
+    public JfrProvider findJfrProvider(long pid, String sourceOverride) {
+        return findBest(jfrProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------

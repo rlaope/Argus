@@ -34,6 +34,17 @@ public final class JdkHistoProvider implements HistoProvider {
         } catch (RuntimeException e) {
             return new HistoResult(List.of(), 0L, 0L);
         }
+        return parseOutput(output, topN);
+    }
+
+    /**
+     * Parses the text output of {@code jcmd GC.class_histogram} into a {@link HistoResult}.
+     * Package-private for testing.
+     */
+    static HistoResult parseOutput(String output, int topN) {
+        if (output == null || output.isBlank()) {
+            return new HistoResult(List.of(), 0L, 0L);
+        }
 
         List<HistoResult.Entry> entries = new ArrayList<>();
         long totalInstances = 0L;

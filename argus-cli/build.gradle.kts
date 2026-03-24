@@ -9,6 +9,7 @@ application {
 
 dependencies {
     implementation(project(":argus-core"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.0")
 }
 
 tasks.jar {
