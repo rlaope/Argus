@@ -184,6 +184,24 @@ $ argus --lang=ko report 39113
 
 Attach to your JVM for real-time monitoring with a web dashboard, flame graphs, and metric export.
 
+When the agent starts, you'll see the Argus banner:
+
+```
+       _____
+      /  _  \_______  ____  __ __  ______
+     /  /_\  \_  __ \/ ___\|  |  \/  ___/
+    /    |    \  | \/ /_/  >  |  /\___ \
+    \____|__  /__|  \___  /|____//____  >
+            \/     /_____/            \/
+
+    Virtual Thread Profiler v0.5.0
+[Argus] Initializing JFR streaming engine...
+[Argus] Agent initialized successfully
+[Argus] Ring buffer size: 65536
+[Argus] JFR streaming started
+[Argus] Dashboard: http://localhost:9202/
+```
+
 ### Features
 
 - **Real-time Dashboard** — WebSocket streaming with Chart.js, dual tabs (Virtual Threads + JVM Overview)
