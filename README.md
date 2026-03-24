@@ -49,6 +49,9 @@ Diagnose any running JVM process directly from the terminal. No agent, no instru
 ```
 $ argus report 39113
 
+ argus report
+ Comprehensive JVM diagnostic report. Collects all available metrics in one view.
+
 ╭─ JVM Report ── pid:39113 ── source:auto ─────────────────────────────────────╮
 │                                                                              │
 │   ▸ JVM Info                                                                 │
@@ -81,6 +84,9 @@ $ argus report 39113
 ```
 $ argus histo 39113 --top 5
 
+ argus histo
+ Analyzes heap memory objects. Count = live instances, Size = total bytes occupied.
+
 ╭─ Heap Histogram ── pid:39113 ── source:auto ─────────────────────────────────╮
 │                                                                              │
 │    #  Class                                                  Count      Size │
@@ -100,6 +106,9 @@ $ argus histo 39113 --top 5
 ```
 $ argus gcutil 39113
 
+ argus gcutil
+ Monitors GC generation utilization. S0/S1 = Survivor, E = Eden, O = Old, M = Metaspace, CCS = Compressed Class.
+
 ╭─ GC Utilization ── pid:39113 ── source:auto ─────────────────────────────────╮
 │                                                                              │
 │ S0      S1      Eden    Old     Meta    CCS     YGC    FGC    GCT            │
@@ -114,6 +123,43 @@ $ argus gcutil 39113
 │   CCS   [█████████████████░░░]   87.1%                                       │
 │                                                                              │
 │ YGC: 18 (0.163s)    FGC: 2 (0.215s)    Total: 10.000s                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+### Multi-language Support
+
+All commands support `--lang=en|ko|ja|zh`. Example with Korean (`--lang=ko`):
+
+```
+$ argus --lang=ko report 39113
+
+ argus report
+ 종합 JVM 진단 보고서. 사용 가능한 모든 지표를 한 화면에 수집합니다.
+
+╭─ JVM 보고서 ── pid:39113 ── source:auto ────────────────────────────────────────╮
+│                                                                              │
+│   ▸ JVM Info                                                                 │
+│     39113: OpenJDK 64-Bit Server VM version 21.0.9    Uptime: 1h 3m          │
+│                                                                              │
+│   ▸ Memory                                                                   │
+│     Heap    [██░░░░░░░░░░░░░░]  39M / 256M  (15%)                            │
+│     Free    217M                                                             │
+│                                                                              │
+│   ▸ GC                                                                       │
+│     S0: 0%  S1: 0%  Eden: 0%  Old: 41%  Meta: 96%                            │
+│                                                                              │
+│   ▸ Threads                                                                  │
+│     Total: 25    Virtual: 0    Platform: 25                                  │
+│     TIMED_WAITING: 6  RUNNABLE: 12  WAITING: 7                               │
+│                                                                              │
+│   ▸ Top Heap Objects                                                         │
+│     1. byte[]                110.9K instances   16M                          │
+│     2. java.lang.String      107.9K instances   2M                           │
+│     3. java.lang.Class       18.9K instances   2M                            │
+│                                                                              │
+│   ▸ Warnings                                                                 │
+│     ⚠ Metaspace at 96% — near limit                                          │
+│                                                                              │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
