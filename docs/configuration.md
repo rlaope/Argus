@@ -536,7 +536,14 @@ argus histo <pid>              # Heap object histogram
 argus histo <pid> --top 50     # Top 50 entries
 argus threads <pid>            # Thread dump summary
 argus gc <pid>                 # GC statistics
+argus gcutil <pid>             # GC generation utilization (jstat-style)
 argus heap <pid>               # Heap memory usage
+argus sysprops <pid>           # System properties (--filter supported)
+argus vmflag <pid>             # VM flags (--filter, --set supported)
+argus nmt <pid>                # Native memory tracking
+argus classloader <pid>        # Class loader hierarchy
+argus jfr <pid> start          # Start Flight Recorder
+argus jfr <pid> check          # Check recording status
 argus info <pid>               # JVM information
 argus top                      # Real-time monitoring (requires agent)
 ```

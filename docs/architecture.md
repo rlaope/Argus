@@ -194,7 +194,13 @@ command/
 ├── HistoCommand.java - Heap object histogram
 ├── ThreadsCommand.java - Thread dump summary
 ├── GcCommand.java - GC statistics
+├── GcUtilCommand.java - GC generation utilization (jstat-style)
 ├── HeapCommand.java - Heap memory usage
+├── SysPropsCommand.java - System properties viewer (--filter)
+├── VmFlagCommand.java - VM flag viewer/setter (--set)
+├── NmtCommand.java - Native memory tracking
+├── ClassLoaderCommand.java - Class loader hierarchy
+├── JfrCommand.java - Flight Recorder control (start/stop/check/dump)
 ├── InfoCommand.java - JVM information
 └── TopCommand.java - Real-time monitoring (wraps ArgusClient)
 
@@ -208,7 +214,14 @@ provider/
 │   ├── JdkGcProvider.java - GC.heap_info + VM.info
 │   ├── JdkHeapProvider.java - GC.heap_info
 │   ├── JdkInfoProvider.java - VM.version + VM.flags + VM.uptime
-│   └── JdkProcessProvider.java - jcmd -l
+│   ├── JdkProcessProvider.java - jcmd -l
+│   ├── JdkGcUtilProvider.java - jstat -gcutil
+│   ├── JdkSysPropsProvider.java - VM.system_properties
+│   ├── JdkVmFlagProvider.java - VM.flags + VM.set_flag
+│   ├── JdkNmtProvider.java - VM.native_memory summary
+│   ├── JdkClassLoaderProvider.java - VM.classloaders
+│   ├── JdkJfrProvider.java - JFR.start/stop/check/dump
+│   └── JdkParseUtils.java - Shared parseLong/parseDouble
 └── agent/ - Argus agent providers (HTTP, priority=100)
     ├── AgentClient.java - HTTP client for agent endpoints
     ├── AgentThreadProvider.java - /thread-dump

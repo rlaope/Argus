@@ -17,11 +17,11 @@ A lightweight, zero-dependency JVM monitoring tool for Java 21+ environments. Re
 - **Flame Graph**: Continuous profiling visualization with d3-flamegraph (zoom, hover, export)
 - **Dual Tabs**: Virtual Threads tab + JVM Overview tab
 
-### CLI Diagnostic Tool
-- **Unified Interface**: `argus ps`, `histo`, `threads`, `gc`, `heap`, `info`, `top`
-- **No Agent Required**: Diagnose any running JVM via `jcmd` — no instrumentation needed
+### CLI Diagnostic Tool (15 Commands)
+- **Unified Interface**: `argus ps`, `histo`, `threads`, `gc`, `gcutil`, `heap`, `sysprops`, `vmflag`, `nmt`, `classloader`, `jfr`, `info`, `top`
+- **No Agent Required**: Diagnose any running JVM via `jcmd`/`jstat` — no instrumentation needed
 - **Auto Source Detection**: Uses Argus agent (HTTP) when available, falls back to JDK tools
-- **Rich Terminal Output**: Box-drawing, color-coded progress bars, modern CLI aesthetics
+- **Rich Terminal Output**: Box-drawing, color-coded progress bars, dynamic terminal width
 - **Multi-language**: English, Korean, Japanese, Chinese (`argus init` to configure)
 - **Pipeline-friendly**: `--format=json` for scripting and automation
 
@@ -70,7 +70,7 @@ This downloads the agent + CLI, installs to `~/.argus/`, and adds the `argus` co
 
 ```bash
 # Install a specific version
-curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.4.0
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.5.0
 ```
 
 After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`).
@@ -79,11 +79,11 @@ After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashr
 
 ```bash
 # Download JARs from GitHub Releases
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.4.0.jar
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.4.0-all.jar
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.5.0.jar
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.5.0-all.jar
 
 # Run the CLI directly
-java --enable-preview -jar argus-cli-0.4.0-all.jar --help
+java --enable-preview -jar argus-cli-0.5.0-all.jar --help
 ```
 
 ### Option 3: Build from Source
@@ -95,8 +95,8 @@ cd argus
 ./gradlew :argus-cli:fatJar
 
 # JARs:
-# argus-agent/build/libs/argus-agent-0.4.0.jar
-# argus-cli/build/libs/argus-cli-0.4.0-all.jar
+# argus-agent/build/libs/argus-agent-0.5.0.jar
+# argus-cli/build/libs/argus-cli-0.5.0-all.jar
 ```
 
 ## Quick Start
@@ -117,11 +117,24 @@ argus histo <pid> --top 50
 # Thread dump summary with state distribution
 argus threads <pid>
 
-# GC statistics
+# GC statistics and generation utilization
 argus gc <pid>
+argus gcutil <pid>
 
-# Heap memory usage with per-space breakdown
+# Heap memory with detailed metrics
 argus heap <pid>
+
+# System properties, VM flags, native memory
+argus sysprops <pid> --filter=java.home
+argus vmflag <pid> --filter=Heap
+argus nmt <pid>
+
+# Class loader hierarchy
+argus classloader <pid>
+
+# Flight Recorder control
+argus jfr <pid> start --duration=60
+argus jfr <pid> check
 
 # JVM information (version, flags, uptime)
 argus info <pid>
@@ -214,7 +227,7 @@ The agent accepts the following system properties:
 - **argus-agent**: Java agent entry point with JFR streaming engine
 - **argus-server**: Netty HTTP/WebSocket server, 10 analyzers, Prometheus + OTLP export
 - **argus-frontend**: Static HTML/JS dashboard with Chart.js and d3-flamegraph
-- **argus-cli**: Unified JVM diagnostic CLI — `ps`, `histo`, `threads`, `gc`, `heap`, `info`, `top` with auto source detection (agent HTTP / JDK jcmd), i18n (en/ko/ja/zh), rich terminal output
+- **argus-cli**: Unified JVM diagnostic CLI — 15 commands (`ps`, `histo`, `threads`, `gc`, `gcutil`, `heap`, `sysprops`, `vmflag`, `nmt`, `classloader`, `jfr`, `info`, `top`) with auto source detection (agent HTTP / JDK jcmd/jstat), i18n (en/ko/ja/zh), rich terminal output, 64 unit tests
 
 ## JFR Events Captured
 

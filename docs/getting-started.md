@@ -93,7 +93,13 @@ argus ps                       # List JVM processes
 argus histo <pid>              # Heap object histogram
 argus threads <pid>            # Thread dump summary
 argus gc <pid>                 # GC statistics
+argus gcutil <pid>             # GC generation utilization
 argus heap <pid>               # Heap memory usage
+argus sysprops <pid>           # System properties
+argus vmflag <pid>             # VM flags (view/set)
+argus nmt <pid>                # Native memory tracking
+argus classloader <pid>        # Class loader hierarchy
+argus jfr <pid> start          # Flight Recorder control
 argus info <pid>               # JVM information
 
 # Real-time monitoring (requires agent)
