@@ -24,14 +24,25 @@ java -version
 curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
 ```
 
-This installs to `~/.argus/` and adds the `argus` command to your PATH.
+This does three things:
+
+1. Downloads `argus-agent.jar` and `argus-cli.jar` to `~/.argus/`
+2. Creates a wrapper script at `~/.argus/bin/argus` (auto-finds Java 11+ and runs the CLI jar)
+3. Adds `~/.argus/bin` to your PATH in `~/.zshrc` (or `~/.bashrc`)
+
+After installation, restart your terminal (or run `source ~/.zshrc`), then:
+
+```bash
+# Just type argus — it works anywhere
+argus ps
+argus histo 12345
+argus report 12345
+```
 
 ```bash
 # Install a specific version
-curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.4.0
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.5.0
 ```
-
-After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`).
 
 ### Option 2: Manual Download
 
