@@ -68,12 +68,10 @@ public final class InitCommand implements Command {
         Scanner scanner = new Scanner(System.in);
         String input = scanner.hasNextLine() ? scanner.nextLine().trim() : "1";
 
-        return switch (input) {
-            case "2" -> "ko";
-            case "3" -> "ja";
-            case "4" -> "zh";
-            default -> "en";
-        };
+        if (input.equals("2")) return "ko";
+        else if (input.equals("3")) return "ja";
+        else if (input.equals("4")) return "zh";
+        else return "en";
     }
 
     private static boolean hasFlag(String[] args, String flag) {

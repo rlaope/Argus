@@ -4,7 +4,7 @@
 
 # Argus
 
-> Lightweight JVM diagnostic toolkit for Java 21+. No agent required for CLI diagnostics.
+> Lightweight JVM diagnostic toolkit. CLI works on Java 11+, Agent requires Java 21+. No agent required for CLI diagnostics.
 
 Two independent tools in one package:
 
@@ -295,7 +295,8 @@ cd argus
 
 ### Requirements
 
-- Java 21+
+- **CLI**: Java 11+ (JDK required for `jcmd`/`jstat`)
+- **Agent**: Java 21+ (JFR streaming, Virtual Thread events)
 - Gradle 8.4+ (only if building from source)
 
 ### Uninstall

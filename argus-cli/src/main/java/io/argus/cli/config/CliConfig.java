@@ -8,19 +8,32 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 /**
- * Immutable configuration record for the Argus CLI.
+ * Immutable configuration for the Argus CLI.
  * Persisted to ~/.argus/config.properties.
  */
-public record CliConfig(
-        String lang,
-        String defaultSource,
-        boolean color,
-        String format,
-        int defaultPort
-) {
-
+public final class CliConfig {
     private static final Path CONFIG_DIR = Path.of(System.getProperty("user.home"), ".argus");
     private static final Path CONFIG_FILE = CONFIG_DIR.resolve("config.properties");
+
+    private final String lang;
+    private final String defaultSource;
+    private final boolean color;
+    private final String format;
+    private final int defaultPort;
+
+    public CliConfig(String lang, String defaultSource, boolean color, String format, int defaultPort) {
+        this.lang = lang;
+        this.defaultSource = defaultSource;
+        this.color = color;
+        this.format = format;
+        this.defaultPort = defaultPort;
+    }
+
+    public String lang() { return lang; }
+    public String defaultSource() { return defaultSource; }
+    public boolean color() { return color; }
+    public String format() { return format; }
+    public int defaultPort() { return defaultPort; }
 
     /**
      * Loads configuration from ~/.argus/config.properties.

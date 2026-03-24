@@ -12,7 +12,7 @@ public final class Messages {
     private final ResourceBundle bundle;
 
     public Messages(String lang) {
-        this.bundle = ResourceBundle.getBundle("messages", Locale.of(lang));
+        this.bundle = ResourceBundle.getBundle("messages", new Locale(lang));
     }
 
     /**

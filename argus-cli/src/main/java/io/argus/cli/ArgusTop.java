@@ -25,20 +25,24 @@ public final class ArgusTop {
         // Parse arguments
         for (int i = 0; i < args.length; i++) {
             switch (args[i]) {
-                case "--host", "-h" -> {
+                case "--host":
+                case "-h":
                     if (i + 1 < args.length) host = args[++i];
-                }
-                case "--port", "-p" -> {
+                    break;
+                case "--port":
+                case "-p":
                     if (i + 1 < args.length) port = Integer.parseInt(args[++i]);
-                }
-                case "--interval", "-i" -> {
+                    break;
+                case "--interval":
+                case "-i":
                     if (i + 1 < args.length) interval = Integer.parseInt(args[++i]);
-                }
-                case "--no-color" -> color = false;
-                case "--help" -> {
+                    break;
+                case "--no-color":
+                    color = false;
+                    break;
+                case "--help":
                     printUsage();
                     return;
-                }
             }
         }
 
@@ -83,22 +87,22 @@ public final class ArgusTop {
     }
 
     private static void printUsage() {
-        System.out.println("""
-                Argus Top - Terminal JVM Monitor
-
-                Usage: argus-top [OPTIONS]
-
-                Options:
-                  --host, -h HOST      Server host (default: localhost)
-                  --port, -p PORT      Server port (default: 9202)
-                  --interval, -i SECS  Refresh interval in seconds (default: 1)
-                  --no-color           Disable ANSI colors
-                  --help               Show this help
-
-                Examples:
-                  argus-top
-                  argus-top --port 9202 --interval 2
-                  argus-top --host 192.168.1.100 --port 9202 --no-color
-                """);
+        System.out.println(
+            "Argus Top - Terminal JVM Monitor\n"
+            + "\n"
+            + "Usage: argus-top [OPTIONS]\n"
+            + "\n"
+            + "Options:\n"
+            + "  --host, -h HOST      Server host (default: localhost)\n"
+            + "  --port, -p PORT      Server port (default: 9202)\n"
+            + "  --interval, -i SECS  Refresh interval in seconds (default: 1)\n"
+            + "  --no-color           Disable ANSI colors\n"
+            + "  --help               Show this help\n"
+            + "\n"
+            + "Examples:\n"
+            + "  argus-top\n"
+            + "  argus-top --port 9202 --interval 2\n"
+            + "  argus-top --host 192.168.1.100 --port 9202 --no-color\n"
+        );
     }
 }

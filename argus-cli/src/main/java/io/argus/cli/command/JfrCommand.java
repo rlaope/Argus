@@ -71,17 +71,26 @@ public final class JfrCommand implements Command {
             return;
         }
 
-        JfrResult result = switch (subcommand) {
-            case "start" -> provider.startRecording(pid, durationSec, filename);
-            case "stop"  -> provider.stopRecording(pid);
-            case "check" -> provider.checkRecording(pid);
-            case "dump"  -> provider.dumpRecording(pid, filename);
-            default -> {
+        JfrResult result;
+        switch (subcommand) {
+            case "start":
+                result = provider.startRecording(pid, durationSec, filename);
+                break;
+            case "stop":
+                result = provider.stopRecording(pid);
+                break;
+            case "check":
+                result = provider.checkRecording(pid);
+                break;
+            case "dump":
+                result = provider.dumpRecording(pid, filename);
+                break;
+            default:
                 System.err.println(messages.get("error.jfr.unknown.subcommand", subcommand));
                 printHelp(config.color(), messages);
-                yield null;
-            }
-        };
+                result = null;
+                break;
+        }
 
         if (result == null) return;
 

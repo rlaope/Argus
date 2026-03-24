@@ -18,6 +18,15 @@ tasks.jar {
     }
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.remove("--enable-preview")
+}
+
 // Fat JAR for standalone execution
 tasks.register<Jar>("fatJar") {
     dependsOn(tasks.jar, ":argus-core:jar")

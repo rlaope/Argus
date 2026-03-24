@@ -239,33 +239,41 @@ public final class RichRenderer {
         }
 
         // Primitive type descriptors
-        String base = switch (s) {
-            case "B" -> "byte";
-            case "C" -> "char";
-            case "D" -> "double";
-            case "F" -> "float";
-            case "I" -> "int";
-            case "J" -> "long";
-            case "S" -> "short";
-            case "Z" -> "boolean";
-            default -> {
-                // Object type: "Ljava.lang.String;" -> "java.lang.String"
-                if (s.startsWith("L") && s.endsWith(";")) {
-                    s = s.substring(1, s.length() - 1);
-                }
-                // Strip module info: "java.lang.String (java.base@21)" -> "java.lang.String"
-                int paren = s.indexOf(" (");
-                if (paren > 0) s = s.substring(0, paren);
-                // Inner class: "$" -> "."
-                s = s.replace('$', '.');
-                // Simplify: keep last 2 segments for long names
-                String[] parts = s.split("\\.");
-                if (parts.length > 3) {
-                    yield parts[parts.length - 2] + "." + parts[parts.length - 1];
-                }
-                yield s;
+        String base;
+        if (s.equals("B")) {
+            base = "byte";
+        } else if (s.equals("C")) {
+            base = "char";
+        } else if (s.equals("D")) {
+            base = "double";
+        } else if (s.equals("F")) {
+            base = "float";
+        } else if (s.equals("I")) {
+            base = "int";
+        } else if (s.equals("J")) {
+            base = "long";
+        } else if (s.equals("S")) {
+            base = "short";
+        } else if (s.equals("Z")) {
+            base = "boolean";
+        } else {
+            // Object type: "Ljava.lang.String;" -> "java.lang.String"
+            if (s.startsWith("L") && s.endsWith(";")) {
+                s = s.substring(1, s.length() - 1);
             }
-        };
+            // Strip module info: "java.lang.String (java.base@21)" -> "java.lang.String"
+            int paren = s.indexOf(" (");
+            if (paren > 0) s = s.substring(0, paren);
+            // Inner class: "$" -> "."
+            s = s.replace('$', '.');
+            // Simplify: keep last 2 segments for long names
+            String[] parts = s.split("\\.");
+            if (parts.length > 3) {
+                base = parts[parts.length - 2] + "." + parts[parts.length - 1];
+            } else {
+                base = s;
+            }
+        }
 
         return base + "[]".repeat(dims);
     }
