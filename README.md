@@ -4,31 +4,50 @@
 
 # Argus
 
-> *"Argus Panoptes, the all-seeing giant with a hundred eyes, never slept - for when some of his eyes closed, others remained open, watching everything."*
+> Lightweight JVM diagnostic toolkit for Java 21+. No agent required for CLI diagnostics.
 
-Inspired by **Argus Panoptes** from Greek mythology - the giant with a hundred eyes who never slept and watched over everything - this project observes and analyzes all Virtual Threads in the JVM in real-time.
+Two independent tools in one package:
 
-A lightweight, zero-dependency JVM monitoring tool for Java 21+ environments. Real-time dashboard, terminal CLI, flame graphs, and OpenTelemetry export — all powered by JDK Flight Recorder.
+- **`argus` CLI** — 17 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
+- **Argus Agent** — Real-time web dashboard with JFR streaming, flame graphs, and metric export
 
-## Features
+```bash
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
+```
 
-### Real-time Dashboard
-- **Interactive Charts**: WebSocket-based streaming with Chart.js visualizations
-- **Flame Graph**: Continuous profiling visualization with d3-flamegraph (zoom, hover, export)
-- **Dual Tabs**: Virtual Threads tab + JVM Overview tab
+---
 
-### CLI Diagnostic Tool (17 Commands)
-- **Unified Interface**: `argus ps`, `histo`, `threads`, `gc`, `gcutil`, `heap`, `sysprops`, `vmflag`, `nmt`, `classloader`, `jfr`, `diff`, `report`, `info`, `top`
-- **No Agent Required**: Diagnose any running JVM via `jcmd`/`jstat` — no instrumentation needed
-- **Auto Source Detection**: Uses Argus agent (HTTP) when available, falls back to JDK tools
-- **Rich Terminal Output**: Box-drawing, color-coded progress bars, dynamic terminal width
-- **Multi-language**: English, Korean, Japanese, Chinese (`argus init` to configure)
-- **Pipeline-friendly**: `--format=json` for scripting and automation
+<br>
 
-#### `argus report` — Comprehensive Diagnostic
+## Argus CLI
+
+Diagnose any running JVM process directly from the terminal. No agent, no instrumentation, no restart needed.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `argus ps` | List running JVM processes |
+| `argus histo <pid>` | Heap object histogram |
+| `argus threads <pid>` | Thread dump summary |
+| `argus gc <pid>` | GC statistics |
+| `argus gcutil <pid>` | GC generation utilization (jstat-style) |
+| `argus heap <pid>` | Heap memory with detailed metrics |
+| `argus sysprops <pid>` | System properties (`--filter` supported) |
+| `argus vmflag <pid>` | VM flags (`--filter`, `--set` supported) |
+| `argus nmt <pid>` | Native memory tracking |
+| `argus classloader <pid>` | Class loader hierarchy |
+| `argus jfr <pid> start\|stop\|check\|dump` | Flight Recorder control |
+| `argus diff <pid> [interval]` | Heap snapshot diff (leak detection) |
+| `argus report <pid>` | Comprehensive diagnostic report |
+| `argus info <pid>` | JVM information and flags |
+| `argus top` | Real-time monitoring (agent required) |
+| `argus init` | First-time setup (language selection) |
+
+### `argus report` — Comprehensive Diagnostic
 
 ```
-$ argus report <pid>
+$ argus report 39113
 
 ╭─ JVM Report ── pid:39113 ── source:auto ─────────────────────────────────────╮
 │                                                                              │
@@ -57,10 +76,10 @@ $ argus report <pid>
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
-#### `argus histo` — Heap Object Histogram
+### `argus histo` — Heap Object Histogram
 
 ```
-$ argus histo <pid> --top 5
+$ argus histo 39113 --top 5
 
 ╭─ Heap Histogram ── pid:39113 ── source:auto ─────────────────────────────────╮
 │                                                                              │
@@ -76,10 +95,10 @@ $ argus histo <pid> --top 5
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
-#### `argus gcutil` — GC Generation Utilization
+### `argus gcutil` — GC Generation Utilization
 
 ```
-$ argus gcutil <pid>
+$ argus gcutil 39113
 
 ╭─ GC Utilization ── pid:39113 ── source:auto ─────────────────────────────────╮
 │                                                                              │
@@ -98,184 +117,133 @@ $ argus gcutil <pid>
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
-> See [CLI Command Reference](docs/cli-commands.md) for all 17 commands with full usage and output examples.
+### Global Options
 
-### Virtual Thread Monitoring
-- **Thread Lifecycle**: Track creation, termination, and pinning of virtual threads
-- **Pinning Detection**: Identify pinned threads with detailed stack traces
-- **Carrier Thread Analysis**: Per-carrier virtual thread distribution
+```
+--source=auto|agent|jdk   Data source (default: auto)
+--no-color                Disable colors
+--lang=en|ko|ja|zh        Output language
+--format=table|json       Output format (default: table)
+--help, -h                Show help
+--version, -v             Show version
+```
 
-### Memory & GC Monitoring
-- **GC Events**: Real-time garbage collection tracking with pause time analysis
-- **Heap Usage**: Before/after heap visualization with trend analysis
-- **Allocation Rate**: Track object allocation rate and top allocating classes
-- **Metaspace Monitoring**: Monitor metaspace usage and growth rate
+> See [CLI Command Reference](docs/cli-commands.md) for all 17 commands with full output examples.
 
-### CPU & Profiling
-- **CPU Utilization**: JVM and system CPU tracking with 60s history
-- **Method Profiling**: Hot method detection via execution sampling
-- **Flame Graph**: Interactive flame graph from continuous profiling data
-- **Lock Contention**: Monitor thread contention and lock wait times
+---
 
-### Observability Export
-- **Prometheus**: `/prometheus` endpoint for scraping
-- **OTLP Export**: Push metrics to OpenTelemetry collectors (hand-coded, no SDK)
-- **Data Export**: Export events in CSV, JSON, or JSONL formats
+<br>
 
-### Core Architecture
-- **JFR Streaming**: Low-overhead event collection using JDK Flight Recorder
-- **Lock-free Ring Buffer**: High-performance event collection
-- **Zero External Dependencies**: Only Netty for HTTP server (no Jackson, no Gson, no OTEL SDK)
-- **Correlation Analysis**: Cross-metric correlation with automatic recommendations
+## Argus Agent (Dashboard)
 
-## Requirements
+Attach to your JVM for real-time monitoring with a web dashboard, flame graphs, and metric export.
 
-- Java 21+
-- Gradle 8.4+ (only if building from source)
+### Features
+
+- **Real-time Dashboard** — WebSocket streaming with Chart.js, dual tabs (Virtual Threads + JVM Overview)
+- **Flame Graph** — Continuous profiling with d3-flamegraph (zoom, hover, export)
+- **Virtual Thread Monitoring** — Lifecycle tracking, pinning detection, carrier thread analysis
+- **Memory & GC** — Heap usage, GC pause analysis, allocation rate, metaspace monitoring
+- **CPU & Profiling** — CPU tracking with 60s history, hot method detection, lock contention
+- **Metric Export** — Prometheus `/prometheus` endpoint, OTLP push export, CSV/JSON/JSONL data export
+- **Correlation Analysis** — Cross-metric correlation with automatic recommendations
+
+### Quick Start
+
+```bash
+# 1. Attach agent to your app
+java -javaagent:$(argus-agent --path) -jar your-app.jar
+
+# 2. Open dashboard
+open http://localhost:9202/
+
+# 3. Enable profiling + flame graph
+java -javaagent:~/.argus/argus-agent.jar \
+     -Dargus.profiling.enabled=true \
+     -Dargus.contention.enabled=true \
+     -jar your-app.jar
+
+# 4. Export to OpenTelemetry
+java -javaagent:~/.argus/argus-agent.jar \
+     -Dargus.otlp.enabled=true \
+     -Dargus.otlp.endpoint=http://localhost:4318/v1/metrics \
+     -jar your-app.jar
+```
+
+### API Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `/` | Dashboard UI |
+| `/health` | Health check |
+| `/metrics` | Virtual thread metrics |
+| `/gc-analysis` | GC statistics and recent events |
+| `/cpu-metrics` | CPU utilization history |
+| `/pinning-analysis` | Pinning hotspot analysis |
+| `/allocation-analysis` | Allocation rate and top classes |
+| `/metaspace-metrics` | Metaspace usage and growth |
+| `/method-profiling` | Hot methods (Top 20) |
+| `/contention-analysis` | Lock contention hotspots |
+| `/correlation` | Correlation analysis and recommendations |
+| `/flame-graph` | Flame graph data (JSON or `?format=collapsed`) |
+| `/prometheus` | Prometheus metrics endpoint |
+| `/carrier-threads` | Carrier thread distribution |
+| `/active-threads` | Currently active virtual threads |
+| `/export` | Export events (CSV, JSON, JSONL) |
+
+### Agent Configuration
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `argus.server.port` | `9202` | Dashboard server port |
+| `argus.gc.enabled` | `true` | GC monitoring |
+| `argus.cpu.enabled` | `true` | CPU monitoring |
+| `argus.profiling.enabled` | `false` | Method profiling (high overhead) |
+| `argus.contention.enabled` | `false` | Lock contention tracking |
+| `argus.allocation.enabled` | `false` | Allocation tracking (high overhead) |
+| `argus.otlp.enabled` | `false` | OTLP push export |
+| `argus.otlp.endpoint` | `http://localhost:4318/v1/metrics` | OTLP collector URL |
+
+> See [Configuration Guide](docs/configuration.md) for all options.
+
+---
+
+<br>
 
 ## Installation
 
-### Option 1: One-line Install (Recommended)
+### One-line Install (Recommended)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
 ```
 
-This downloads the agent + CLI, installs to `~/.argus/`, and adds the `argus` command to your PATH.
+Installs both CLI + Agent to `~/.argus/` and adds `argus` to PATH.
 
-```bash
-# Install a specific version
-curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.5.0
-```
-
-After installation, restart your terminal or run `source ~/.zshrc` (or `~/.bashrc`).
-
-### Option 2: Manual Download
-
-```bash
-# Download JARs from GitHub Releases
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.5.0.jar
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.5.0-all.jar
-
-# Run the CLI directly
-java --enable-preview -jar argus-cli-0.5.0-all.jar --help
-```
-
-### Option 3: Build from Source
+### Build from Source
 
 ```bash
 git clone https://github.com/rlaope/argus.git
 cd argus
 ./gradlew build
 ./gradlew :argus-cli:fatJar
-
-# JARs:
-# argus-agent/build/libs/argus-agent-0.5.0.jar
-# argus-cli/build/libs/argus-cli-0.5.0-all.jar
 ```
 
-## Quick Start
+### Requirements
 
-### 1. Diagnose Any Running JVM (No Agent Required)
+- Java 21+
+- Gradle 8.4+ (only if building from source)
+
+### Uninstall
 
 ```bash
-# First-time setup (choose language)
-argus init
-
-# List all running JVM processes
-argus ps
-
-# Heap object histogram
-argus histo <pid>
-argus histo <pid> --top 50
-
-# Thread dump summary with state distribution
-argus threads <pid>
-
-# GC statistics and generation utilization
-argus gc <pid>
-argus gcutil <pid>
-
-# Heap memory with detailed metrics
-argus heap <pid>
-
-# System properties, VM flags, native memory
-argus sysprops <pid> --filter=java.home
-argus vmflag <pid> --filter=Heap
-argus nmt <pid>
-
-# Class loader hierarchy
-argus classloader <pid>
-
-# Flight Recorder control
-argus jfr <pid> start --duration=60
-argus jfr <pid> check
-
-# JVM information (version, flags, uptime)
-argus info <pid>
-
-# JSON output for scripting
-argus gc <pid> --format=json
+rm -rf ~/.argus
+# Remove the PATH line from ~/.zshrc or ~/.bashrc
 ```
 
-### 2. Real-time Monitoring (Requires Agent)
+---
 
-```bash
-# Attach the agent to your app
-java -javaagent:$(argus-agent --path) \
-     -jar your-application.jar
-
-# Terminal dashboard
-argus top
-argus top --host 192.168.1.100 --port 9202 --interval 2
-
-# Web dashboard
-open http://localhost:9202/
-```
-
-### 3. Enable Profiling & Flame Graph
-
-```bash
-java -javaagent:~/.argus/argus-agent.jar \
-     -Dargus.profiling.enabled=true \
-     -Dargus.contention.enabled=true \
-     -jar your-application.jar
-```
-
-### 4. Export Metrics to OpenTelemetry
-
-```bash
-java -javaagent:~/.argus/argus-agent.jar \
-     -Dargus.otlp.enabled=true \
-     -Dargus.otlp.endpoint=http://localhost:4318/v1/metrics \
-     -jar your-application.jar
-```
-
-### Configuration
-
-The agent accepts the following system properties:
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| `argus.server.enabled` | `false` | Enable built-in dashboard server |
-| `argus.server.port` | `9202` | Dashboard/WebSocket server port |
-| `argus.buffer.size` | `65536` | Ring buffer size for event collection |
-| `argus.gc.enabled` | `true` | Enable GC monitoring |
-| `argus.cpu.enabled` | `true` | Enable CPU monitoring |
-| `argus.cpu.interval` | `1000` | CPU sampling interval in milliseconds |
-| `argus.allocation.enabled` | `false` | Enable allocation tracking (high overhead) |
-| `argus.allocation.threshold` | `1048576` | Minimum allocation size to track (1MB) |
-| `argus.metaspace.enabled` | `true` | Enable metaspace monitoring |
-| `argus.profiling.enabled` | `false` | Enable method profiling (high overhead) |
-| `argus.profiling.interval` | `20` | Profiling sampling interval (ms) |
-| `argus.contention.enabled` | `false` | Enable lock contention tracking |
-| `argus.contention.threshold` | `50` | Minimum contention duration (ms) |
-| `argus.correlation.enabled` | `true` | Enable correlation analysis |
-| `argus.otlp.enabled` | `false` | Enable OTLP metrics export |
-| `argus.otlp.endpoint` | `http://localhost:4318/v1/metrics` | OTLP collector endpoint |
-| `argus.otlp.interval` | `15000` | OTLP push interval in milliseconds |
-| `argus.otlp.headers` | *(empty)* | Auth headers (`key=val,key=val`) |
-| `argus.otlp.service.name` | `argus` | OTLP resource service name |
+<br>
 
 ## Architecture
 
@@ -296,78 +264,22 @@ The agent accepts the following system properties:
          Direct JDK Access    (Agent Mode)
 ```
 
-## Modules
-
-- **argus-core**: Shared config, event models, ring buffer
-- **argus-agent**: Java agent entry point with JFR streaming engine
-- **argus-server**: Netty HTTP/WebSocket server, 10 analyzers, Prometheus + OTLP export
-- **argus-frontend**: Static HTML/JS dashboard with Chart.js and d3-flamegraph
-- **argus-cli**: Unified JVM diagnostic CLI — 15 commands (`ps`, `histo`, `threads`, `gc`, `gcutil`, `heap`, `sysprops`, `vmflag`, `nmt`, `classloader`, `jfr`, `info`, `top`) with auto source detection (agent HTTP / JDK jcmd/jstat), i18n (en/ko/ja/zh), rich terminal output, 64 unit tests
-
-## JFR Events Captured
-
-### Virtual Thread Events
-- `jdk.VirtualThreadStart` - Thread creation
-- `jdk.VirtualThreadEnd` - Thread termination
-- `jdk.VirtualThreadPinned` - Pinning detection (critical for Loom performance)
-- `jdk.VirtualThreadSubmitFailed` - Submit failures
-
-### GC & Memory Events
-- `jdk.GarbageCollection` - GC pause duration, cause, and type
-- `jdk.GCHeapSummary` - Heap usage before and after GC
-- `jdk.ObjectAllocationInNewTLAB` - Object allocation tracking
-- `jdk.MetaspaceSummary` - Metaspace usage monitoring
-
-### CPU & Performance Events
-- `jdk.CPULoad` - JVM and system CPU utilization
-- `jdk.ExecutionSample` - Method execution sampling for CPU profiling
-- `jdk.JavaMonitorEnter` - Lock acquisition contention
-- `jdk.JavaMonitorWait` - Lock wait contention
-
-## API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `/` | Dashboard UI |
-| `/health` | Health check |
-| `/metrics` | Virtual thread metrics |
-| `/gc-analysis` | GC statistics and recent events |
-| `/cpu-metrics` | CPU utilization history |
-| `/pinning-analysis` | Pinning hotspot analysis |
-| `/export` | Export events (CSV, JSON, JSONL) |
-| `/allocation-analysis` | Allocation rate and top allocating classes |
-| `/metaspace-metrics` | Metaspace usage and growth |
-| `/method-profiling` | Hot methods (Top 20) |
-| `/contention-analysis` | Lock contention hotspots |
-| `/correlation` | Correlation analysis and recommendations |
-| `/flame-graph` | Flame graph data (JSON or `?format=collapsed`) |
-| `/prometheus` | Prometheus metrics endpoint |
-| `/carrier-threads` | Carrier thread distribution |
-| `/active-threads` | Currently active virtual threads |
-
-## Uninstall
-
-```bash
-rm -rf ~/.argus
-# Then remove the PATH line from ~/.zshrc or ~/.bashrc
-```
+| Module | Description |
+|--------|-------------|
+| **argus-core** | Shared config, event models, ring buffer |
+| **argus-agent** | Java agent with JFR streaming engine |
+| **argus-server** | Netty HTTP/WS server, 10 analyzers, Prometheus + OTLP |
+| **argus-frontend** | Static dashboard with Chart.js and d3-flamegraph |
+| **argus-cli** | 17 diagnostic commands, auto source detection, i18n, 64 unit tests |
 
 ## Contributing
 
-**Everyone is welcome!** Project Argus is an open-source project and we welcome all forms of contributions.
-
-- Bug reports & feature requests
-- Code contributions (bug fixes, new features)
-- Documentation improvements
-- Testing and feedback
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
+Contributions welcome — bug reports, features, docs, testing.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## Maintainer
 
-- **[@rlaope](https://github.com/rlaope)** - Project Lead & Maintainer
-
-For questions, suggestions, or collaboration inquiries, please open a GitHub Issue or contact [@rlaope](https://github.com/rlaope) directly.
+[@rlaope](https://github.com/rlaope)
 
 ## License
 
