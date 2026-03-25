@@ -87,6 +87,67 @@ curl -fSL "$DOWNLOAD_BASE/argus-cli-${VER_NUM}-all.jar" -o "$INSTALL_DIR/argus-c
     || { warn "argus-cli not found in release. CLI may not be available in $VERSION."; }
 ok "argus-cli.jar"
 
+# --- Download async-profiler ---
+
+ASPROF_VERSION="3.0"
+ASPROF_DIR="$INSTALL_DIR/lib/async-profiler"
+
+detect_asprof_platform() {
+    local os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    local arch=$(uname -m)
+
+    case "$os" in
+        darwin*) echo "macos"; return ;;
+        linux)
+            local prefix="linux"
+            # Detect musl (Alpine/Docker)
+            if [ -f /lib/ld-musl-*.so.1 ] 2>/dev/null || (ldd --version 2>&1 | grep -qi musl); then
+                prefix="linux-musl"
+            fi
+            case "$arch" in
+                x86_64|amd64) echo "${prefix}-x64" ;;
+                aarch64|arm64) echo "${prefix}-arm64" ;;
+                *) echo "" ;;
+            esac
+            ;;
+        *) echo "" ;;
+    esac
+}
+
+ASPROF_PLATFORM=$(detect_asprof_platform)
+
+if [ -n "$ASPROF_PLATFORM" ]; then
+    if [ "$ASPROF_PLATFORM" = "macos" ]; then
+        ASPROF_FILE="async-profiler-${ASPROF_VERSION}-${ASPROF_PLATFORM}.zip"
+    else
+        ASPROF_FILE="async-profiler-${ASPROF_VERSION}-${ASPROF_PLATFORM}.tar.gz"
+    fi
+    ASPROF_URL="https://github.com/async-profiler/async-profiler/releases/download/v${ASPROF_VERSION}/${ASPROF_FILE}"
+
+    info "Downloading async-profiler ${ASPROF_VERSION} for ${ASPROF_PLATFORM}..."
+    ASPROF_TMP="$INSTALL_DIR/lib/${ASPROF_FILE}"
+    mkdir -p "$INSTALL_DIR/lib"
+    curl -fSL "$ASPROF_URL" -o "$ASPROF_TMP" \
+        || { warn "async-profiler download failed. 'argus profile' will download on first use."; ASPROF_TMP=""; }
+
+    if [ -n "$ASPROF_TMP" ] && [ -f "$ASPROF_TMP" ]; then
+        rm -rf "$ASPROF_DIR" "$INSTALL_DIR/lib/extract-tmp"
+        mkdir -p "$INSTALL_DIR/lib/extract-tmp"
+        if [ "$ASPROF_PLATFORM" = "macos" ]; then
+            unzip -o -q "$ASPROF_TMP" -d "$INSTALL_DIR/lib/extract-tmp"
+        else
+            tar xzf "$ASPROF_TMP" -C "$INSTALL_DIR/lib/extract-tmp"
+        fi
+        # Move extracted dir (e.g., async-profiler-3.0-macos/) to async-profiler/
+        mv "$INSTALL_DIR/lib/extract-tmp"/async-profiler-* "$ASPROF_DIR" 2>/dev/null
+        rm -rf "$INSTALL_DIR/lib/extract-tmp" "$ASPROF_TMP"
+        chmod +x "$ASPROF_DIR/bin/asprof" 2>/dev/null
+        ok "async-profiler ${ASPROF_VERSION} (${ASPROF_PLATFORM})"
+    fi
+else
+    warn "async-profiler not available for this platform. 'argus profile' will not work."
+fi
+
 # --- Create wrapper scripts ---
 
 # argus - CLI diagnostic tool
