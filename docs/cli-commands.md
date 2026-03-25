@@ -383,6 +383,44 @@ $ argus info 39113
 
 ---
 
+## argus profile \<pid\>
+
+CPU, allocation, lock, and wall-clock profiling powered by async-profiler. Auto-downloads the native binary on first use.
+
+```bash
+$ argus profile 29286 --duration 3
+```
+
+```
+ argus profile
+ Profiling with async-profiler. Shows hottest methods by sample count.
+
+╭─ Profile Results ── pid:29286 ── cpu 3s ── 3 samples ────────────────────────╮
+│                                                                              │
+│   #   Method                                           Samples        %      │
+│   ────  ────────────────────────────────────────────  ──────────  ────────   │
+│   1   __psynch_cvwait                                        2    66.7%  ███ │
+│   2   std::__1::basic_ostream<char, std::__1::cha…           1    33.3%  █   │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--type cpu|alloc|lock|wall` — Profiling type (default: cpu)
+- `--duration N` — Duration in seconds (default: 30)
+- `--flame` — Generate flame graph HTML and open in browser
+- `--file NAME` — Output file for flame graph
+- `--top N` — Show top N methods (default: 20)
+- `--format=json` — JSON output
+
+Flame graph example:
+```bash
+$ argus profile 12345 --flame --duration 60
+# Generates HTML flame graph and opens in browser
+```
+
+---
+
 ## argus diff \<pid\> [interval]
 
 Compares two heap snapshots to detect memory growth — useful for memory leak investigation.

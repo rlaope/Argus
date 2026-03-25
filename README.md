@@ -38,6 +38,7 @@ Diagnose any running JVM process directly from the terminal. No agent, no instru
 | `argus nmt <pid>` | Native memory tracking |
 | `argus classloader <pid>` | Class loader hierarchy |
 | `argus jfr <pid> start\|stop\|check\|dump` | Flight Recorder control |
+| `argus profile <pid>` | CPU/allocation/lock profiling (async-profiler) |
 | `argus diff <pid> [interval]` | Heap snapshot diff (leak detection) |
 | `argus report <pid>` | Comprehensive diagnostic report |
 | `argus info <pid>` | JVM information and flags |
@@ -125,6 +126,26 @@ $ argus gcutil 39113
 │ YGC: 18 (0.163s)    FGC: 2 (0.215s)    Total: 10.000s                        │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
+
+### `argus profile` — async-profiler Integration
+
+```
+$ argus profile 29286 --duration 3
+
+ argus profile
+ Profiling with async-profiler. Shows hottest methods by sample count.
+
+╭─ Profile Results ── pid:29286 ── cpu 3s ── 3 samples ────────────────────────╮
+│                                                                              │
+│   #   Method                                           Samples        %      │
+│   ────  ────────────────────────────────────────────  ──────────  ────────   │
+│   1   __psynch_cvwait                                        2    66.7%  ███ │
+│   2   std::__1::basic_ostream<char, std::__1::cha…           1    33.3%  █   │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options: `--type cpu|alloc|lock|wall`, `--duration N`, `--flame` (HTML flame graph + browser open), `--top N`
 
 ### Multi-language Support
 
