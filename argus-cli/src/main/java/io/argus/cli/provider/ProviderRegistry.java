@@ -10,6 +10,7 @@ import io.argus.cli.provider.jdk.JdkHeapProvider;
 import io.argus.cli.provider.jdk.JdkHistoProvider;
 import io.argus.cli.provider.jdk.JdkInfoProvider;
 import io.argus.cli.provider.jdk.JdkClassLoaderProvider;
+import io.argus.cli.provider.jdk.AsProfProvider;
 import io.argus.cli.provider.jdk.JdkJfrProvider;
 import io.argus.cli.provider.jdk.JdkNmtProvider;
 import io.argus.cli.provider.jdk.JdkProcessProvider;
@@ -47,6 +48,7 @@ public final class ProviderRegistry {
     private final List<NmtProvider> nmtProviders = new ArrayList<>();
     private final List<ClassLoaderProvider> classLoaderProviders = new ArrayList<>();
     private final List<JfrProvider> jfrProviders = new ArrayList<>();
+    private final List<ProfileProvider> profileProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -84,6 +86,7 @@ public final class ProviderRegistry {
         nmtProviders.add(new JdkNmtProvider());
         classLoaderProviders.add(new JdkClassLoaderProvider());
         jfrProviders.add(new JdkJfrProvider());
+        profileProviders.add(new AsProfProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -183,6 +186,13 @@ public final class ProviderRegistry {
      */
     public JfrProvider findJfrProvider(long pid, String sourceOverride) {
         return findBest(jfrProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best ProfileProvider for the given PID.
+     */
+    public ProfileProvider findProfileProvider(long pid, String sourceOverride) {
+        return findBest(profileProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------

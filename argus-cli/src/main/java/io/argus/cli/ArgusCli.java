@@ -11,6 +11,7 @@ import io.argus.cli.command.InitCommand;
 import io.argus.cli.command.ClassLoaderCommand;
 import io.argus.cli.command.JfrCommand;
 import io.argus.cli.command.NmtCommand;
+import io.argus.cli.command.ProfileCommand;
 import io.argus.cli.command.PsCommand;
 import io.argus.cli.command.ReportCommand;
 import io.argus.cli.command.SysPropsCommand;
@@ -104,6 +105,7 @@ public final class ArgusCli {
         register(commands, new VmFlagCommand());
         register(commands, new NmtCommand());
         register(commands, new ClassLoaderCommand());
+        register(commands, new ProfileCommand());
         register(commands, new JfrCommand());
         register(commands, new DiffCommand());
         register(commands, new ReportCommand());
@@ -160,7 +162,8 @@ public final class ArgusCli {
         System.out.println("    vmflag   \033[2m<pid>\033[0m   Show or set VM flags");
         System.out.println("    nmt      \033[2m<pid>\033[0m   Native memory tracking");
         System.out.println("    classloader \033[2m<pid>\033[0m Class loader hierarchy");
-        System.out.println("    jfr      \033[2m<pid>\033[0m   Flight Recorder control");
+        System.out.println("    profile  \033[2m<pid>\033[0m   CPU/allocation/lock profiling");
+    System.out.println("    jfr      \033[2m<pid>\033[0m   Flight Recorder control");
         System.out.println("    diff \033[2m<pid>\033[0m     Heap snapshot diff (leak detection)");
         System.out.println("    report \033[2m<pid>\033[0m   Comprehensive diagnostic report");
         System.out.println("    info     \033[2m<pid>\033[0m   JVM information");
