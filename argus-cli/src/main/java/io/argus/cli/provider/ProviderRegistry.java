@@ -6,6 +6,7 @@ import io.argus.cli.provider.agent.AgentHeapProvider;
 import io.argus.cli.provider.agent.AgentThreadProvider;
 import io.argus.cli.provider.jdk.JdkGcProvider;
 import io.argus.cli.provider.jdk.JdkGcUtilProvider;
+import io.argus.cli.provider.jdk.JdkHeapDumpProvider;
 import io.argus.cli.provider.jdk.JdkHeapProvider;
 import io.argus.cli.provider.jdk.JdkHistoProvider;
 import io.argus.cli.provider.jdk.JdkInfoProvider;
@@ -49,6 +50,7 @@ public final class ProviderRegistry {
     private final List<ClassLoaderProvider> classLoaderProviders = new ArrayList<>();
     private final List<JfrProvider> jfrProviders = new ArrayList<>();
     private final List<ProfileProvider> profileProviders = new ArrayList<>();
+    private final List<HeapDumpProvider> heapDumpProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -87,6 +89,7 @@ public final class ProviderRegistry {
         classLoaderProviders.add(new JdkClassLoaderProvider());
         jfrProviders.add(new JdkJfrProvider());
         profileProviders.add(new AsProfProvider());
+        heapDumpProviders.add(new JdkHeapDumpProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -193,6 +196,13 @@ public final class ProviderRegistry {
      */
     public ProfileProvider findProfileProvider(long pid, String sourceOverride) {
         return findBest(profileProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best HeapDumpProvider for the given PID.
+     */
+    public HeapDumpProvider findHeapDumpProvider(long pid, String sourceOverride) {
+        return findBest(heapDumpProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------

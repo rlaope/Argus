@@ -5,6 +5,7 @@ import io.argus.cli.command.DiffCommand;
 import io.argus.cli.command.GcCommand;
 import io.argus.cli.command.GcUtilCommand;
 import io.argus.cli.command.HeapCommand;
+import io.argus.cli.command.HeapDumpCommand;
 import io.argus.cli.command.HistoCommand;
 import io.argus.cli.command.InfoCommand;
 import io.argus.cli.command.InitCommand;
@@ -110,6 +111,7 @@ public final class ArgusCli {
         register(commands, new DiffCommand());
         register(commands, new ReportCommand());
         register(commands, new InfoCommand());
+        register(commands, new HeapDumpCommand());
         register(commands, new TopCommand());
 
         if (version) {
@@ -167,6 +169,7 @@ public final class ArgusCli {
         System.out.println("    diff \033[2m<pid>\033[0m     Heap snapshot diff (leak detection)");
         System.out.println("    report \033[2m<pid>\033[0m   Comprehensive diagnostic report");
         System.out.println("    info     \033[2m<pid>\033[0m   JVM information");
+        System.out.println("    heapdump \033[2m<pid>\033[0m   Generate heap dump (with STW warning)");
         System.out.println("    top              Real-time monitoring (agent required)");
         System.out.println();
         System.out.println("  \033[1mGlobal Options:\033[0m");

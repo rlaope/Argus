@@ -233,6 +233,31 @@ else
     ok "PATH already configured in $PROFILE"
 fi
 
+# --- Install shell completions ---
+
+COMPLETIONS_DIR="$INSTALL_DIR/completions"
+mkdir -p "$COMPLETIONS_DIR"
+
+# Download completion scripts from repo
+COMP_BASE="https://raw.githubusercontent.com/rlaope/argus/master/completions"
+curl -fsSL "$COMP_BASE/argus.bash" -o "$COMPLETIONS_DIR/argus.bash" 2>/dev/null
+curl -fsSL "$COMP_BASE/argus.zsh" -o "$COMPLETIONS_DIR/argus.zsh" 2>/dev/null
+
+# Source completion in shell profile
+case "$SHELL_NAME" in
+    zsh)
+        if ! grep -q 'argus.zsh' "$PROFILE" 2>/dev/null; then
+            echo "source \"\$HOME/.argus/completions/argus.zsh\"" >> "$PROFILE"
+        fi
+        ;;
+    bash)
+        if ! grep -q 'argus.bash' "$PROFILE" 2>/dev/null; then
+            echo "source \"\$HOME/.argus/completions/argus.bash\"" >> "$PROFILE"
+        fi
+        ;;
+esac
+ok "Shell completions installed"
+
 # --- Done ---
 
 echo ""
