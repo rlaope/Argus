@@ -8,7 +8,7 @@
 
 Two independent tools in one package:
 
-- **`argus` CLI** — 17 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
+- **`argus` CLI** — 23 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
 - **Argus Agent** — Real-time web dashboard with JFR streaming, flame graphs, and metric export
 
 ```bash
@@ -42,6 +42,13 @@ Diagnose any running JVM process directly from the terminal. No agent, no instru
 | `argus diff <pid> [interval]` | Heap snapshot diff (leak detection) |
 | `argus report <pid>` | Comprehensive diagnostic report |
 | `argus info <pid>` | JVM information and flags |
+| `argus heapdump <pid>` | Generate heap dump (with STW warning) |
+| `argus deadlock <pid>` | Detect Java-level deadlocks |
+| `argus env <pid>` | JVM launch environment |
+| `argus compiler <pid>` | JIT compiler and code cache stats |
+| `argus finalizer <pid>` | Finalizer queue status |
+| `argus stringtable <pid>` | Interned string table statistics |
+| `argus pool <pid>` | Thread pool analysis |
 | `argus top` | Real-time monitoring (agent required) |
 | `argus init` | First-time setup (language selection) |
 
@@ -356,7 +363,7 @@ rm -rf ~/.argus
 | **argus-agent** | Java agent with JFR streaming engine |
 | **argus-server** | Netty HTTP/WS server, 10 analyzers, Prometheus + OTLP |
 | **argus-frontend** | Static dashboard with Chart.js and d3-flamegraph |
-| **argus-cli** | 17 diagnostic commands, auto source detection, i18n, 64 unit tests |
+| **argus-cli** | 23 diagnostic commands, auto source detection, i18n |
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 17 Argus CLI commands with usage examples and actual output.
+Complete reference for all 23 Argus CLI commands with usage examples and actual output.
 
 ## Global Options
 
@@ -498,6 +498,190 @@ Options:
 - `--host HOST` — Argus agent host (default: localhost)
 - `--port PORT` — Argus agent port (default: 9202)
 - `--interval N` — Refresh interval in seconds (default: 1)
+
+---
+
+## argus heapdump \<pid\>
+
+Generates a heap dump (.hprof) file. Shows a Stop-The-World warning before proceeding.
+
+```bash
+$ argus heapdump 39113
+```
+
+Options:
+- `--file=<path>` — Output file path
+- `--live` — Live objects only (default)
+- `--all` — All objects including garbage
+- `--yes` — Skip confirmation prompt
+
+---
+
+## argus deadlock \<pid\>
+
+Detects Java-level deadlocks by analyzing thread dumps. Shows lock chains, held/waiting locks, and stack traces.
+
+```bash
+$ argus deadlock 39113
+```
+
+```
+ argus deadlock
+ Analyzes thread dumps to detect Java-level deadlocks. Shows lock chains and stack traces.
+
+╭─ Deadlock Detection ── pid:39113 ── source:auto ─────────────────────────────╮
+│                                                                              │
+│ ✔ No deadlocks detected                                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+When deadlocks are found, shows:
+- Thread names and states
+- Lock addresses and classes (waiting/holding)
+- Top stack frame for each thread
+
+---
+
+## argus env \<pid\>
+
+Shows JVM launch environment: command line, java home, classpath, and VM arguments.
+
+```bash
+$ argus env 39113
+```
+
+```
+ argus env
+ Shows JVM launch environment: command line, java home, classpath, and VM arguments.
+
+╭─ JVM Environment ── pid:39113 ── source:auto ────────────────────────────────╮
+│                                                                              │
+│ Command Line                                                                 │
+│   com.example.MyApp --port 8080                                              │
+│                                                                              │
+│ Java Home:  /usr/lib/jvm/java-21-openjdk                                     │
+│ Working Dir:  /opt/myapp                                                     │
+│ Classpath                                                                    │
+│   /opt/myapp/lib/app.jar                                                     │
+│                                                                              │
+│ VM Arguments                                                                 │
+│   -Xms128m                                                                   │
+│   -Xmx2048m                                                                  │
+│   -XX:+HeapDumpOnOutOfMemoryError                                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+---
+
+## argus compiler \<pid\>
+
+Shows JIT compiler status and code cache usage. High code cache usage may cause deoptimization.
+
+```bash
+$ argus compiler 39113
+```
+
+```
+ argus compiler
+ Shows JIT compiler status and code cache usage. High code cache usage may cause deoptimization.
+
+╭─ JIT Compiler ── pid:39113 ── source:auto ───────────────────────────────────╮
+│                                                                              │
+│ ✔ Compilation enabled                                                        │
+│                                                                              │
+│ Code Cache  [█████░░░░░░░░░░░░░░░]  233M / 1.0G  (23%)                      │
+│   Max Used: 342M    Free: 791M                                               │
+│                                                                              │
+│ Blobs: 35.3K    nmethods: 32.9K    adapters: 2.3K                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Warnings:
+- Code cache usage > 80% — may trigger deoptimization
+
+---
+
+## argus finalizer \<pid\>
+
+Shows finalizer queue status and pending count. High pending count may indicate resource leak.
+
+```bash
+$ argus finalizer 39113
+```
+
+```
+ argus finalizer
+ Shows pending finalizers and finalizer thread state. High pending count may indicate resource leak.
+
+╭─ Finalizer Queue ── pid:39113 ── source:auto ────────────────────────────────╮
+│                                                                              │
+│ ✔ No pending finalizers                                                      │
+│                                                                              │
+│ Finalizer Thread:  WAITING                                                   │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Warnings:
+- Pending count > 100 — possible resource leak or slow finalization
+
+---
+
+## argus stringtable \<pid\>
+
+Shows interned string table statistics. Useful for tuning `-XX:StringTableSize`.
+
+```bash
+$ argus stringtable 39113
+```
+
+```
+ argus stringtable
+ Shows interned string table statistics. Useful for tuning -XX:StringTableSize.
+
+╭─ String Table ── pid:39113 ── source:auto ───────────────────────────────────╮
+│                                                                              │
+│ Category                   Count        Size                                 │
+│ ────────────────────────────────────────────                                 │
+│ Buckets                     4.3K          0B                                 │
+│ Entries                    16.7K          0B                                 │
+│ Literals                  242.8K         19M                                 │
+│ ────────────────────────────────────────────                                 │
+│ Total                                    24M                                 │
+│                                                                              │
+│ Avg literal size: 82.0 bytes                                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+---
+
+## argus pool \<pid\>
+
+Groups threads by pool name and shows state distribution per pool.
+
+```bash
+$ argus pool 39113
+```
+
+```
+ argus pool
+ Groups threads by pool name and shows state distribution per pool.
+
+╭─ Thread Pools ── pid:39113 ── source:auto ───────────────────────────────────╮
+│                                                                              │
+│ Threads: 83    Pools: 12                                                     │
+│                                                                              │
+│ Pool Name                      Count  State                                  │
+│ ──────────────────────────────────────────────────────────────────────────   │
+│ DefaultDispatcher-worker          15  TWAIT:15                               │
+│ (JVM Internal)                     6  WAIT:1 RUN:4 TWAIT:1                   │
+│ ForkJoinPool.commonPool            4  WAIT:3 RUN:1                           │
+│ pool-1                             3  RUN:1 WAIT:2                           │
+│ (JIT Compiler)                     2  RUN:2                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--top N` — Show top N pools
 
 ---
 
