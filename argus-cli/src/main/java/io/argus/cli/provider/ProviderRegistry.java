@@ -4,7 +4,10 @@ import io.argus.cli.provider.agent.AgentClient;
 import io.argus.cli.provider.agent.AgentGcProvider;
 import io.argus.cli.provider.agent.AgentHeapProvider;
 import io.argus.cli.provider.agent.AgentThreadProvider;
+import io.argus.cli.provider.jdk.JdkCompilerProvider;
 import io.argus.cli.provider.jdk.JdkDeadlockProvider;
+import io.argus.cli.provider.jdk.JdkEnvProvider;
+import io.argus.cli.provider.jdk.JdkFinalizerProvider;
 import io.argus.cli.provider.jdk.JdkGcProvider;
 import io.argus.cli.provider.jdk.JdkGcUtilProvider;
 import io.argus.cli.provider.jdk.JdkHeapDumpProvider;
@@ -15,7 +18,9 @@ import io.argus.cli.provider.jdk.JdkClassLoaderProvider;
 import io.argus.cli.provider.jdk.AsProfProvider;
 import io.argus.cli.provider.jdk.JdkJfrProvider;
 import io.argus.cli.provider.jdk.JdkNmtProvider;
+import io.argus.cli.provider.jdk.JdkPoolProvider;
 import io.argus.cli.provider.jdk.JdkProcessProvider;
+import io.argus.cli.provider.jdk.JdkStringTableProvider;
 import io.argus.cli.provider.jdk.JdkSysPropsProvider;
 import io.argus.cli.provider.jdk.JdkThreadProvider;
 import io.argus.cli.provider.jdk.JdkVmFlagProvider;
@@ -53,6 +58,11 @@ public final class ProviderRegistry {
     private final List<ProfileProvider> profileProviders = new ArrayList<>();
     private final List<HeapDumpProvider> heapDumpProviders = new ArrayList<>();
     private final List<DeadlockProvider> deadlockProviders = new ArrayList<>();
+    private final List<EnvProvider> envProviders = new ArrayList<>();
+    private final List<CompilerProvider> compilerProviders = new ArrayList<>();
+    private final List<FinalizerProvider> finalizerProviders = new ArrayList<>();
+    private final List<StringTableProvider> stringTableProviders = new ArrayList<>();
+    private final List<PoolProvider> poolProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -93,6 +103,11 @@ public final class ProviderRegistry {
         profileProviders.add(new AsProfProvider());
         heapDumpProviders.add(new JdkHeapDumpProvider());
         deadlockProviders.add(new JdkDeadlockProvider());
+        envProviders.add(new JdkEnvProvider());
+        compilerProviders.add(new JdkCompilerProvider());
+        finalizerProviders.add(new JdkFinalizerProvider());
+        stringTableProviders.add(new JdkStringTableProvider());
+        poolProviders.add(new JdkPoolProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -213,6 +228,41 @@ public final class ProviderRegistry {
      */
     public DeadlockProvider findDeadlockProvider(long pid, String sourceOverride) {
         return findBest(deadlockProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best EnvProvider for the given PID.
+     */
+    public EnvProvider findEnvProvider(long pid, String sourceOverride) {
+        return findBest(envProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best CompilerProvider for the given PID.
+     */
+    public CompilerProvider findCompilerProvider(long pid, String sourceOverride) {
+        return findBest(compilerProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best FinalizerProvider for the given PID.
+     */
+    public FinalizerProvider findFinalizerProvider(long pid, String sourceOverride) {
+        return findBest(finalizerProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best StringTableProvider for the given PID.
+     */
+    public StringTableProvider findStringTableProvider(long pid, String sourceOverride) {
+        return findBest(stringTableProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best PoolProvider for the given PID.
+     */
+    public PoolProvider findPoolProvider(long pid, String sourceOverride) {
+        return findBest(poolProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------

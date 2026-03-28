@@ -21,6 +21,11 @@ _argus() {
         'info:JVM information'
         'heapdump:Generate heap dump'
         'deadlock:Detect Java-level deadlocks'
+        'env:JVM launch environment'
+        'compiler:JIT compiler and code cache stats'
+        'finalizer:Finalizer queue status'
+        'stringtable:String table statistics'
+        'pool:Thread pool analysis'
         'top:Real-time monitoring'
     )
 
