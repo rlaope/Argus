@@ -1,7 +1,11 @@
 package io.argus.cli;
 
 import io.argus.cli.command.Command;
+import io.argus.cli.command.CompilerCommand;
+import io.argus.cli.command.DeadlockCommand;
 import io.argus.cli.command.DiffCommand;
+import io.argus.cli.command.EnvCommand;
+import io.argus.cli.command.FinalizerCommand;
 import io.argus.cli.command.GcCommand;
 import io.argus.cli.command.GcUtilCommand;
 import io.argus.cli.command.HeapCommand;
@@ -12,9 +16,11 @@ import io.argus.cli.command.InitCommand;
 import io.argus.cli.command.ClassLoaderCommand;
 import io.argus.cli.command.JfrCommand;
 import io.argus.cli.command.NmtCommand;
+import io.argus.cli.command.PoolCommand;
 import io.argus.cli.command.ProfileCommand;
 import io.argus.cli.command.PsCommand;
 import io.argus.cli.command.ReportCommand;
+import io.argus.cli.command.StringTableCommand;
 import io.argus.cli.command.SysPropsCommand;
 import io.argus.cli.command.ThreadsCommand;
 import io.argus.cli.command.TopCommand;
@@ -112,6 +118,12 @@ public final class ArgusCli {
         register(commands, new ReportCommand());
         register(commands, new InfoCommand());
         register(commands, new HeapDumpCommand());
+        register(commands, new DeadlockCommand());
+        register(commands, new EnvCommand());
+        register(commands, new CompilerCommand());
+        register(commands, new FinalizerCommand());
+        register(commands, new StringTableCommand());
+        register(commands, new PoolCommand());
         register(commands, new TopCommand());
 
         if (version) {
@@ -170,6 +182,12 @@ public final class ArgusCli {
         System.out.println("    report \033[2m<pid>\033[0m   Comprehensive diagnostic report");
         System.out.println("    info     \033[2m<pid>\033[0m   JVM information");
         System.out.println("    heapdump \033[2m<pid>\033[0m   Generate heap dump (with STW warning)");
+        System.out.println("    deadlock \033[2m<pid>\033[0m   Detect Java-level deadlocks");
+        System.out.println("    env      \033[2m<pid>\033[0m   JVM launch environment");
+        System.out.println("    compiler \033[2m<pid>\033[0m   JIT compiler and code cache stats");
+        System.out.println("    finalizer \033[2m<pid>\033[0m  Finalizer queue status");
+        System.out.println("    stringtable \033[2m<pid>\033[0m String table statistics");
+        System.out.println("    pool     \033[2m<pid>\033[0m   Thread pool analysis");
         System.out.println("    top              Real-time monitoring (agent required)");
         System.out.println();
         System.out.println("  \033[1mGlobal Options:\033[0m");
