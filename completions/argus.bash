@@ -3,7 +3,7 @@ _argus_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    commands="init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr diff report info heapdump top"
+    commands="init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr diff report info heapdump deadlock top"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands --help --version" -- "$cur"))

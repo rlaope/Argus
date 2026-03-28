@@ -1,6 +1,7 @@
 package io.argus.cli;
 
 import io.argus.cli.command.Command;
+import io.argus.cli.command.DeadlockCommand;
 import io.argus.cli.command.DiffCommand;
 import io.argus.cli.command.GcCommand;
 import io.argus.cli.command.GcUtilCommand;
@@ -112,6 +113,7 @@ public final class ArgusCli {
         register(commands, new ReportCommand());
         register(commands, new InfoCommand());
         register(commands, new HeapDumpCommand());
+        register(commands, new DeadlockCommand());
         register(commands, new TopCommand());
 
         if (version) {
@@ -170,6 +172,7 @@ public final class ArgusCli {
         System.out.println("    report \033[2m<pid>\033[0m   Comprehensive diagnostic report");
         System.out.println("    info     \033[2m<pid>\033[0m   JVM information");
         System.out.println("    heapdump \033[2m<pid>\033[0m   Generate heap dump (with STW warning)");
+        System.out.println("    deadlock \033[2m<pid>\033[0m   Detect Java-level deadlocks");
         System.out.println("    top              Real-time monitoring (agent required)");
         System.out.println();
         System.out.println("  \033[1mGlobal Options:\033[0m");

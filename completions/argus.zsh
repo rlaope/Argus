@@ -20,6 +20,7 @@ _argus() {
         'report:Comprehensive diagnostic report'
         'info:JVM information'
         'heapdump:Generate heap dump'
+        'deadlock:Detect Java-level deadlocks'
         'top:Real-time monitoring'
     )
 

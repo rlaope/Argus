@@ -4,6 +4,7 @@ import io.argus.cli.provider.agent.AgentClient;
 import io.argus.cli.provider.agent.AgentGcProvider;
 import io.argus.cli.provider.agent.AgentHeapProvider;
 import io.argus.cli.provider.agent.AgentThreadProvider;
+import io.argus.cli.provider.jdk.JdkDeadlockProvider;
 import io.argus.cli.provider.jdk.JdkGcProvider;
 import io.argus.cli.provider.jdk.JdkGcUtilProvider;
 import io.argus.cli.provider.jdk.JdkHeapDumpProvider;
@@ -51,6 +52,7 @@ public final class ProviderRegistry {
     private final List<JfrProvider> jfrProviders = new ArrayList<>();
     private final List<ProfileProvider> profileProviders = new ArrayList<>();
     private final List<HeapDumpProvider> heapDumpProviders = new ArrayList<>();
+    private final List<DeadlockProvider> deadlockProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -90,6 +92,7 @@ public final class ProviderRegistry {
         jfrProviders.add(new JdkJfrProvider());
         profileProviders.add(new AsProfProvider());
         heapDumpProviders.add(new JdkHeapDumpProvider());
+        deadlockProviders.add(new JdkDeadlockProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -203,6 +206,13 @@ public final class ProviderRegistry {
      */
     public HeapDumpProvider findHeapDumpProvider(long pid, String sourceOverride) {
         return findBest(heapDumpProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best DeadlockProvider for the given PID.
+     */
+    public DeadlockProvider findDeadlockProvider(long pid, String sourceOverride) {
+        return findBest(deadlockProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------
