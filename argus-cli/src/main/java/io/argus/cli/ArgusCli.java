@@ -1,6 +1,7 @@
 package io.argus.cli;
 
 import io.argus.cli.command.Command;
+import io.argus.cli.command.ClassStatCommand;
 import io.argus.cli.command.CompilerCommand;
 import io.argus.cli.command.DeadlockCommand;
 import io.argus.cli.command.DiffCommand;
@@ -9,6 +10,7 @@ import io.argus.cli.command.EnvCommand;
 import io.argus.cli.command.FinalizerCommand;
 import io.argus.cli.command.GcCauseCommand;
 import io.argus.cli.command.GcCommand;
+import io.argus.cli.command.GcNewCommand;
 import io.argus.cli.command.GcUtilCommand;
 import io.argus.cli.command.HeapCommand;
 import io.argus.cli.command.HeapDumpCommand;
@@ -25,6 +27,7 @@ import io.argus.cli.command.ProfileCommand;
 import io.argus.cli.command.PsCommand;
 import io.argus.cli.command.ReportCommand;
 import io.argus.cli.command.StringTableCommand;
+import io.argus.cli.command.SymbolTableCommand;
 import io.argus.cli.command.SysPropsCommand;
 import io.argus.cli.command.ThreadsCommand;
 import io.argus.cli.command.TopCommand;
@@ -136,6 +139,9 @@ public final class ArgusCli {
         register(commands, new VmSetCommand());
         register(commands, new VmLogCommand());
         register(commands, new JmxCommand());
+        register(commands, new ClassStatCommand());
+        register(commands, new GcNewCommand());
+        register(commands, new SymbolTableCommand());
         register(commands, new TopCommand());
 
         if (version) {
@@ -206,6 +212,9 @@ public final class ArgusCli {
         System.out.println("    vmset  \033[2m<pid> Flag=val\033[0m  Set VM flag at runtime");
         System.out.println("    vmlog    \033[2m<pid>\033[0m   JVM unified logging control");
         System.out.println("    jmx    \033[2m<pid> [cmd]\033[0m  JMX agent control");
+        System.out.println("    classstat \033[2m<pid>\033[0m  Class loading statistics");
+        System.out.println("    gcnew    \033[2m<pid>\033[0m   Young generation GC detail");
+        System.out.println("    symboltable \033[2m<pid>\033[0m Symbol table statistics");
         System.out.println("    top              Real-time monitoring (agent required)");
         System.out.println();
         System.out.println("  \033[1mGlobal Options:\033[0m");

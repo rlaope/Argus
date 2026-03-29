@@ -21,6 +21,12 @@ Every new command MUST include ALL of the following:
 10. **Unit tests** — Parser test in `argus-cli/src/test/java/io/argus/cli/provider/jdk/`
 11. **Documentation** — Update `README.md` (command table + count) and `docs/cli-commands.md`
 12. **Real JVM test** — Build fat JAR and test against a live JVM process
+13. **Sync verification** — After all changes, verify these 4 sources are in sync:
+    - CLI help output (`argus` with no args) — all commands listed
+    - `README.md` — command table and count updated
+    - `docs/cli-commands.md` — command reference and count updated
+    - `completions/argus.bash` + `argus.zsh` — command names included
+    - `install.sh` — if install logic references specific commands, update it too
 
 ## Commit Convention
 - `feat:` for new features, `fix:` for bug fixes, `docs:` for documentation

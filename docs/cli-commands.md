@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 29 Argus CLI commands with usage examples and actual output.
+Complete reference for all 32 Argus CLI commands with usage examples and actual output.
 
 ## Global Options
 
@@ -806,6 +806,85 @@ Subcommands:
 - `start-local` — Start local-only JMX agent
 - `start` — Start remote JMX agent (opens network port)
 - `stop` — Stop JMX agent
+
+---
+
+## argus classstat \<pid\>
+
+Shows class loading throughput: loaded/unloaded counts, bytes, and time spent.
+
+```bash
+$ argus classstat 39113
+```
+
+```
+ argus classstat
+ Shows class loading throughput: loaded/unloaded counts, bytes consumed, and time spent.
+
+╭─ Class Loading ── pid:39113 ── source:auto ──────────────────────────────────╮
+│                                                                              │
+│ Loaded:    112.0K  (220722.8 KB)                                             │
+│ Unloaded:  3.4K  (4372.5 KB)                                                │
+│                                                                              │
+│ Net:       108.7K                                                            │
+│ Time:      20.510s                                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+---
+
+## argus gcnew \<pid\>
+
+Shows young gen detail: survivor spaces, tenuring threshold, eden usage. Useful for tuning MaxTenuringThreshold.
+
+```bash
+$ argus gcnew 39113
+```
+
+```
+ argus gcnew
+ Shows young gen detail: survivor spaces, tenuring threshold, eden usage.
+
+╭─ Young Generation ── pid:39113 ── source:auto ───────────────────────────────╮
+│                                                                              │
+│   Eden  [█░░░░░░░░░░░░░░░]  11M / 350M  (3%)                                │
+│   S0    [░░░░░░░░░░░░░░░░]  0B / 0B  (0%)                                   │
+│   S1    [░░░░░░░░░░░░░░░░]  0B / 0B  (0%)                                   │
+│                                                                              │
+│ Tenuring Threshold:  15 / 15                                                 │
+│ Desired Survivor:        23M                                                 │
+│                                                                              │
+│ YGC: 328  (3.104s)                                                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+---
+
+## argus symboltable \<pid\>
+
+Shows JVM symbol table statistics (class/method/field names). Complements stringtable.
+
+```bash
+$ argus symboltable 39113
+```
+
+```
+ argus symboltable
+ Shows JVM symbol table statistics (class/method/field names). Complements stringtable.
+
+╭─ Symbol Table ── pid:39113 ── source:auto ───────────────────────────────────╮
+│                                                                              │
+│ Category                   Count        Size                                 │
+│ ────────────────────────────────────────────                                 │
+│ Buckets                    20.4K          0B                                 │
+│ Entries                    77.5K          0B                                 │
+│ Literals                    1.3M         95M                                 │
+│ ────────────────────────────────────────────                                 │
+│ Total                                   117M                                 │
+│                                                                              │
+│ Avg literal size: 76.0 bytes                                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
 
 ---
 

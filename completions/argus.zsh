@@ -32,6 +32,9 @@ _argus() {
         'vmset:Set VM flag at runtime'
         'vmlog:JVM unified logging control'
         'jmx:JMX agent control'
+        'classstat:Class loading statistics'
+        'gcnew:Young generation GC detail'
+        'symboltable:Symbol table statistics'
         'top:Real-time monitoring'
     )
 
