@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 23 Argus CLI commands with usage examples and actual output.
+Complete reference for all 29 Argus CLI commands with usage examples and actual output.
 
 ## Global Options
 
@@ -682,6 +682,130 @@ $ argus pool 39113
 
 Options:
 - `--top N` — Show top N pools
+
+---
+
+## argus gccause \<pid\>
+
+Shows last and current GC cause alongside generation utilization stats. Root-cause analysis for unexpected GC pauses.
+
+```bash
+$ argus gccause 39113
+```
+
+```
+ argus gccause
+ Shows last and current GC cause alongside generation utilization.
+
+╭─ GC Cause ── pid:39113 ── source:auto ───────────────────────────────────────╮
+│                                                                              │
+│ Last GC Cause:     Humongous Allocation                                      │
+│ Current GC Cause:  No GC                                                     │
+│                                                                              │
+│   Eden  [█████████████░░░░░░░]   62.8%                                       │
+│   Old   [███████████████████░]   94.5%                                       │
+│   Meta  [████████████████████]   98.8%                                       │
+│                                                                              │
+│ YGC: 236 (2.380s)    FGC: 6 (1.105s)    GCT: 7.897s                         │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+---
+
+## argus metaspace \<pid\>
+
+Shows detailed metaspace breakdown by space type (Class/Non-Class). Requires Java 16+.
+
+```bash
+$ argus metaspace 39113
+```
+
+```
+ argus metaspace
+ Shows metaspace usage breakdown by space type (Class/Non-Class).
+
+╭─ Metaspace ── pid:39113 ── source:auto ──────────────────────────────────────╮
+│                                                                              │
+│ Used  [████████████████████]  548M / 555M  (99%)                             │
+│   Reserved: 1.5G                                                             │
+│                                                                              │
+│ Space                 Used   Committed    Reserved                           │
+│ ──────────────────────────────────────────────────                           │
+│ Non-Class             478M        481M        512M                           │
+│ Class                  70M         73M        1.0G                           │
+│                                                                              │
+│ ⚠ Metaspace usage high — possible classloader leak                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+---
+
+## argus dynlibs \<pid\>
+
+Lists native libraries loaded in the JVM process, grouped by category (JDK/App/System).
+
+```bash
+$ argus dynlibs 39113
+```
+
+Options:
+- `--filter=<pattern>` — Filter library paths
+
+---
+
+## argus vmset \<pid\> Flag=value
+
+Sets a manageable VM flag on a live JVM without restart. Requires confirmation unless `--yes` is passed.
+
+```bash
+$ argus vmset 39113 HeapDumpOnOutOfMemoryError=true --yes
+```
+
+Options:
+- `--yes` — Skip confirmation prompt
+
+---
+
+## argus vmlog \<pid\> [options]
+
+Controls JVM unified logging (GC, JIT, safepoint) on a running JVM without restart.
+
+```bash
+# Show current log configuration
+$ argus vmlog 39113
+
+# Enable GC logging to stdout
+$ argus vmlog 39113 what=gc=info output=#0
+
+# Enable JIT compilation logging
+$ argus vmlog 39113 what=jit+compilation=debug
+```
+
+---
+
+## argus jmx \<pid\> [subcommand]
+
+Controls JMX Management Agent. Enables VisualVM/JConsole to connect to a running JVM.
+
+```bash
+# Check status
+$ argus jmx 39113
+
+# Start local JMX (same-host only)
+$ argus jmx 39113 start-local
+
+# Start remote JMX
+$ argus jmx 39113 start --port=9999 --no-auth --no-ssl
+
+# Stop JMX agent
+$ argus jmx 39113 stop
+```
+
+Subcommands:
+- `status` (default) — Show JMX agent status
+- `start-local` — Start local-only JMX agent
+- `start` — Start remote JMX agent (opens network port)
+- `stop` — Stop JMX agent
 
 ---
 
