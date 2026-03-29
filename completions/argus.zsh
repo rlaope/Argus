@@ -26,6 +26,12 @@ _argus() {
         'finalizer:Finalizer queue status'
         'stringtable:String table statistics'
         'pool:Thread pool analysis'
+        'gccause:GC cause with utilization stats'
+        'metaspace:Detailed metaspace breakdown'
+        'dynlibs:Loaded native libraries'
+        'vmset:Set VM flag at runtime'
+        'vmlog:JVM unified logging control'
+        'jmx:JMX agent control'
         'top:Real-time monitoring'
     )
 

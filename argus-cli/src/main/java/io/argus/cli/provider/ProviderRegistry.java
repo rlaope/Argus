@@ -6,8 +6,10 @@ import io.argus.cli.provider.agent.AgentHeapProvider;
 import io.argus.cli.provider.agent.AgentThreadProvider;
 import io.argus.cli.provider.jdk.JdkCompilerProvider;
 import io.argus.cli.provider.jdk.JdkDeadlockProvider;
+import io.argus.cli.provider.jdk.JdkDynLibsProvider;
 import io.argus.cli.provider.jdk.JdkEnvProvider;
 import io.argus.cli.provider.jdk.JdkFinalizerProvider;
+import io.argus.cli.provider.jdk.JdkGcCauseProvider;
 import io.argus.cli.provider.jdk.JdkGcProvider;
 import io.argus.cli.provider.jdk.JdkGcUtilProvider;
 import io.argus.cli.provider.jdk.JdkHeapDumpProvider;
@@ -17,6 +19,7 @@ import io.argus.cli.provider.jdk.JdkInfoProvider;
 import io.argus.cli.provider.jdk.JdkClassLoaderProvider;
 import io.argus.cli.provider.jdk.AsProfProvider;
 import io.argus.cli.provider.jdk.JdkJfrProvider;
+import io.argus.cli.provider.jdk.JdkMetaspaceProvider;
 import io.argus.cli.provider.jdk.JdkNmtProvider;
 import io.argus.cli.provider.jdk.JdkPoolProvider;
 import io.argus.cli.provider.jdk.JdkProcessProvider;
@@ -63,6 +66,9 @@ public final class ProviderRegistry {
     private final List<FinalizerProvider> finalizerProviders = new ArrayList<>();
     private final List<StringTableProvider> stringTableProviders = new ArrayList<>();
     private final List<PoolProvider> poolProviders = new ArrayList<>();
+    private final List<GcCauseProvider> gcCauseProviders = new ArrayList<>();
+    private final List<MetaspaceProvider> metaspaceProviders = new ArrayList<>();
+    private final List<DynLibsProvider> dynLibsProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -108,6 +114,9 @@ public final class ProviderRegistry {
         finalizerProviders.add(new JdkFinalizerProvider());
         stringTableProviders.add(new JdkStringTableProvider());
         poolProviders.add(new JdkPoolProvider());
+        gcCauseProviders.add(new JdkGcCauseProvider());
+        metaspaceProviders.add(new JdkMetaspaceProvider());
+        dynLibsProviders.add(new JdkDynLibsProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -263,6 +272,27 @@ public final class ProviderRegistry {
      */
     public PoolProvider findPoolProvider(long pid, String sourceOverride) {
         return findBest(poolProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best GcCauseProvider for the given PID.
+     */
+    public GcCauseProvider findGcCauseProvider(long pid, String sourceOverride) {
+        return findBest(gcCauseProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best MetaspaceProvider for the given PID.
+     */
+    public MetaspaceProvider findMetaspaceProvider(long pid, String sourceOverride) {
+        return findBest(metaspaceProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best DynLibsProvider for the given PID.
+     */
+    public DynLibsProvider findDynLibsProvider(long pid, String sourceOverride) {
+        return findBest(dynLibsProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------
