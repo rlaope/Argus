@@ -4,10 +4,14 @@ import io.argus.cli.provider.agent.AgentClient;
 import io.argus.cli.provider.agent.AgentGcProvider;
 import io.argus.cli.provider.agent.AgentHeapProvider;
 import io.argus.cli.provider.agent.AgentThreadProvider;
+import io.argus.cli.provider.jdk.JdkClassStatProvider;
 import io.argus.cli.provider.jdk.JdkCompilerProvider;
 import io.argus.cli.provider.jdk.JdkDeadlockProvider;
+import io.argus.cli.provider.jdk.JdkDynLibsProvider;
 import io.argus.cli.provider.jdk.JdkEnvProvider;
 import io.argus.cli.provider.jdk.JdkFinalizerProvider;
+import io.argus.cli.provider.jdk.JdkGcCauseProvider;
+import io.argus.cli.provider.jdk.JdkGcNewProvider;
 import io.argus.cli.provider.jdk.JdkGcProvider;
 import io.argus.cli.provider.jdk.JdkGcUtilProvider;
 import io.argus.cli.provider.jdk.JdkHeapDumpProvider;
@@ -17,10 +21,12 @@ import io.argus.cli.provider.jdk.JdkInfoProvider;
 import io.argus.cli.provider.jdk.JdkClassLoaderProvider;
 import io.argus.cli.provider.jdk.AsProfProvider;
 import io.argus.cli.provider.jdk.JdkJfrProvider;
+import io.argus.cli.provider.jdk.JdkMetaspaceProvider;
 import io.argus.cli.provider.jdk.JdkNmtProvider;
 import io.argus.cli.provider.jdk.JdkPoolProvider;
 import io.argus.cli.provider.jdk.JdkProcessProvider;
 import io.argus.cli.provider.jdk.JdkStringTableProvider;
+import io.argus.cli.provider.jdk.JdkSymbolTableProvider;
 import io.argus.cli.provider.jdk.JdkSysPropsProvider;
 import io.argus.cli.provider.jdk.JdkThreadProvider;
 import io.argus.cli.provider.jdk.JdkVmFlagProvider;
@@ -63,6 +69,12 @@ public final class ProviderRegistry {
     private final List<FinalizerProvider> finalizerProviders = new ArrayList<>();
     private final List<StringTableProvider> stringTableProviders = new ArrayList<>();
     private final List<PoolProvider> poolProviders = new ArrayList<>();
+    private final List<GcCauseProvider> gcCauseProviders = new ArrayList<>();
+    private final List<MetaspaceProvider> metaspaceProviders = new ArrayList<>();
+    private final List<DynLibsProvider> dynLibsProviders = new ArrayList<>();
+    private final List<ClassStatProvider> classStatProviders = new ArrayList<>();
+    private final List<GcNewProvider> gcNewProviders = new ArrayList<>();
+    private final List<SymbolTableProvider> symbolTableProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -108,6 +120,12 @@ public final class ProviderRegistry {
         finalizerProviders.add(new JdkFinalizerProvider());
         stringTableProviders.add(new JdkStringTableProvider());
         poolProviders.add(new JdkPoolProvider());
+        gcCauseProviders.add(new JdkGcCauseProvider());
+        metaspaceProviders.add(new JdkMetaspaceProvider());
+        dynLibsProviders.add(new JdkDynLibsProvider());
+        classStatProviders.add(new JdkClassStatProvider());
+        gcNewProviders.add(new JdkGcNewProvider());
+        symbolTableProviders.add(new JdkSymbolTableProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -263,6 +281,48 @@ public final class ProviderRegistry {
      */
     public PoolProvider findPoolProvider(long pid, String sourceOverride) {
         return findBest(poolProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best GcCauseProvider for the given PID.
+     */
+    public GcCauseProvider findGcCauseProvider(long pid, String sourceOverride) {
+        return findBest(gcCauseProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best MetaspaceProvider for the given PID.
+     */
+    public MetaspaceProvider findMetaspaceProvider(long pid, String sourceOverride) {
+        return findBest(metaspaceProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best DynLibsProvider for the given PID.
+     */
+    public DynLibsProvider findDynLibsProvider(long pid, String sourceOverride) {
+        return findBest(dynLibsProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best ClassStatProvider for the given PID.
+     */
+    public ClassStatProvider findClassStatProvider(long pid, String sourceOverride) {
+        return findBest(classStatProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best GcNewProvider for the given PID.
+     */
+    public GcNewProvider findGcNewProvider(long pid, String sourceOverride) {
+        return findBest(gcNewProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best SymbolTableProvider for the given PID.
+     */
+    public SymbolTableProvider findSymbolTableProvider(long pid, String sourceOverride) {
+        return findBest(symbolTableProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------

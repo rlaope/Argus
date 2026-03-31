@@ -8,7 +8,7 @@
 
 Two independent tools in one package:
 
-- **`argus` CLI** — 23 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
+- **`argus` CLI** — 32 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
 - **Argus Agent** — Real-time web dashboard with JFR streaming, flame graphs, and metric export
 
 ```bash
@@ -49,6 +49,15 @@ Diagnose any running JVM process directly from the terminal. No agent, no instru
 | `argus finalizer <pid>` | Finalizer queue status |
 | `argus stringtable <pid>` | Interned string table statistics |
 | `argus pool <pid>` | Thread pool analysis |
+| `argus gccause <pid>` | GC cause with utilization stats |
+| `argus metaspace <pid>` | Detailed metaspace breakdown |
+| `argus dynlibs <pid>` | Loaded native libraries |
+| `argus vmset <pid> Flag=val` | Set VM flag at runtime |
+| `argus vmlog <pid>` | JVM unified logging control |
+| `argus jmx <pid> [cmd]` | JMX agent control |
+| `argus classstat <pid>` | Class loading statistics |
+| `argus gcnew <pid>` | Young generation GC detail |
+| `argus symboltable <pid>` | Symbol table statistics |
 | `argus top` | Real-time monitoring (agent required) |
 | `argus init` | First-time setup (language selection) |
 
@@ -363,7 +372,7 @@ rm -rf ~/.argus
 | **argus-agent** | Java agent with JFR streaming engine |
 | **argus-server** | Netty HTTP/WS server, 10 analyzers, Prometheus + OTLP |
 | **argus-frontend** | Static dashboard with Chart.js and d3-flamegraph |
-| **argus-cli** | 23 diagnostic commands, auto source detection, i18n |
+| **argus-cli** | 32 diagnostic commands, auto source detection, i18n |
 
 ## Contributing
 
