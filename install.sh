@@ -153,33 +153,42 @@ fi
 # argus - CLI diagnostic tool
 cat > "$BIN_DIR/argus" << 'WRAPPER'
 #!/usr/bin/env bash
-find_java11() {
+find_java() {
     local candidates=()
     [ -n "$ARGUS_JAVA_HOME" ] && [ -x "$ARGUS_JAVA_HOME/bin/java" ] && candidates+=("$ARGUS_JAVA_HOME/bin/java")
     [ -n "$JAVA_HOME" ] && [ -x "$JAVA_HOME/bin/java" ] && candidates+=("$JAVA_HOME/bin/java")
+    if command -v /usr/libexec/java_home &>/dev/null; then
+        for v in 21 17 11; do
+            local jh; jh=$(/usr/libexec/java_home -v $v 2>/dev/null)
+            [ -n "$jh" ] && [ -x "$jh/bin/java" ] && candidates+=("$jh/bin/java")
+        done
+    fi
     if [ -d "$HOME/.jenv/versions" ]; then
         for d in "$HOME/.jenv/versions"/*/bin/java; do [ -x "$d" ] && candidates+=("$d"); done
     fi
-    if command -v /usr/libexec/java_home &>/dev/null; then
-        local jh; jh=$(/usr/libexec/java_home -v 11 2>/dev/null)
-        [ -n "$jh" ] && [ -x "$jh/bin/java" ] && candidates+=("$jh/bin/java")
-    fi
-    for p in /usr/lib/jvm/java-*/bin/java; do [ -x "$p" ] && candidates+=("$p"); done
     for p in /Library/Java/JavaVirtualMachines/*/Contents/Home/bin/java; do [ -x "$p" ] && candidates+=("$p"); done
+    for p in /usr/lib/jvm/java-*/bin/java; do [ -x "$p" ] && candidates+=("$p"); done
     command -v java &>/dev/null && candidates+=("$(command -v java)")
+    local best="" best_ver=0
     for c in "${candidates[@]}"; do
         local ver; ver=$("$c" -version 2>&1 | head -1 | awk -F'"' '{print $2}' | cut -d. -f1)
-        if [ "$ver" -ge 11 ] 2>/dev/null; then echo "$c"; return 0; fi
+        if [ "$ver" -ge 11 ] 2>/dev/null && [ "$ver" -gt "$best_ver" ] 2>/dev/null; then
+            best="$c"; best_ver="$ver"
+        fi
     done
+    [ -n "$best" ] && echo "$best" && return 0
     return 1
 }
-ARGUS_JAVA=$(find_java11)
+ARGUS_JAVA=$(find_java)
 if [ $? -ne 0 ] || [ -z "$ARGUS_JAVA" ]; then
     echo "Error: Java 11+ is required but not found." >&2
-    echo "Set ARGUS_JAVA_HOME or JAVA_HOME to a Java 11+ installation." >&2
+    echo "Set ARGUS_JAVA_HOME or JAVA_HOME." >&2
     exit 1
 fi
-exec "$ARGUS_JAVA" -jar "$HOME/.argus/argus-cli.jar" "$@"
+JAVA_VER=$("$ARGUS_JAVA" -version 2>&1 | head -1 | awk -F'"' '{print $2}' | cut -d. -f1)
+PREVIEW=""
+[ "$JAVA_VER" -ge 21 ] 2>/dev/null && PREVIEW="--enable-preview"
+exec "$ARGUS_JAVA" $PREVIEW -jar "$HOME/.argus/argus-cli.jar" "$@"
 WRAPPER
 chmod +x "$BIN_DIR/argus"
 
@@ -242,6 +251,7 @@ mkdir -p "$COMPLETIONS_DIR"
 COMP_BASE="https://raw.githubusercontent.com/rlaope/argus/master/completions"
 curl -fsSL "$COMP_BASE/argus.bash" -o "$COMPLETIONS_DIR/argus.bash" 2>/dev/null
 curl -fsSL "$COMP_BASE/argus.zsh" -o "$COMPLETIONS_DIR/argus.zsh" 2>/dev/null
+curl -fsSL "$COMP_BASE/argus.fish" -o "$COMPLETIONS_DIR/argus.fish" 2>/dev/null
 
 # Source completion in shell profile
 case "$SHELL_NAME" in
@@ -254,6 +264,11 @@ case "$SHELL_NAME" in
         if ! grep -q 'argus.bash' "$PROFILE" 2>/dev/null; then
             echo "source \"\$HOME/.argus/completions/argus.bash\"" >> "$PROFILE"
         fi
+        ;;
+    fish)
+        FISH_COMP_DIR="$HOME/.config/fish/completions"
+        mkdir -p "$FISH_COMP_DIR"
+        cp "$COMPLETIONS_DIR/argus.fish" "$FISH_COMP_DIR/argus.fish" 2>/dev/null
         ;;
 esac
 ok "Shell completions installed"

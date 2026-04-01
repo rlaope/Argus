@@ -1,0 +1,66 @@
+# Fish completions for argus
+
+set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr diff report info heapdump deadlock env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top
+
+# Disable file completions for argus
+complete -c argus -f
+
+# Commands
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a init -d 'Initialize CLI configuration'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a ps -d 'List running JVM processes'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a histo -d 'Heap object histogram'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a threads -d 'Thread dump summary'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gc -d 'GC statistics'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gcutil -d 'GC generation utilization'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a heap -d 'Heap memory usage'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a sysprops -d 'JVM system properties'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a vmflag -d 'VM flags'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a nmt -d 'Native memory tracking'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a classloader -d 'Class loader hierarchy'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a profile -d 'CPU/allocation/lock profiling'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a jfr -d 'Flight Recorder control'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a diff -d 'Heap snapshot diff'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a report -d 'Comprehensive diagnostic report'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a info -d 'JVM information'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a heapdump -d 'Generate heap dump'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a deadlock -d 'Detect Java-level deadlocks'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a env -d 'JVM launch environment'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a compiler -d 'JIT compiler and code cache stats'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a finalizer -d 'Finalizer queue status'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a stringtable -d 'String table statistics'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a pool -d 'Thread pool analysis'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gccause -d 'GC cause with utilization stats'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a metaspace -d 'Detailed metaspace breakdown'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a dynlibs -d 'Loaded native libraries'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a vmset -d 'Set VM flag at runtime'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a vmlog -d 'JVM unified logging control'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a jmx -d 'JMX agent control'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a classstat -d 'Class loading statistics'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gcnew -d 'Young generation GC detail'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a symboltable -d 'Symbol table statistics'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a top -d 'Real-time monitoring'
+
+# Global options
+complete -c argus -l help -d 'Show help'
+complete -c argus -l version -d 'Show version'
+complete -c argus -l source -xa 'auto agent jdk' -d 'Data source'
+complete -c argus -l no-color -d 'Disable colors'
+complete -c argus -l lang -xa 'en ko ja zh' -d 'Output language'
+complete -c argus -l format -xa 'table json' -d 'Output format'
+complete -c argus -l host -d 'Agent host'
+complete -c argus -l port -d 'Agent port'
+
+# Subcommand-specific options
+complete -c argus -n "__fish_seen_subcommand_from jfr" -a 'start stop check dump' -d 'JFR subcommand'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l type -xa 'cpu alloc lock wall' -d 'Profiling type'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l duration -d 'Duration in seconds'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l flame -d 'Generate flame graph'
+complete -c argus -n "__fish_seen_subcommand_from histo diff pool" -l top -d 'Top N entries'
+complete -c argus -n "__fish_seen_subcommand_from sysprops vmflag dynlibs" -l filter -d 'Filter pattern'
+complete -c argus -n "__fish_seen_subcommand_from heapdump" -l file -d 'Output file'
+complete -c argus -n "__fish_seen_subcommand_from heapdump" -l live -d 'Live objects only'
+complete -c argus -n "__fish_seen_subcommand_from heapdump" -l all -d 'All objects'
+complete -c argus -n "__fish_seen_subcommand_from heapdump vmset" -l yes -d 'Skip confirmation'
+complete -c argus -n "__fish_seen_subcommand_from jmx" -a 'status start start-local stop' -d 'JMX subcommand'
+complete -c argus -n "__fish_seen_subcommand_from top" -l interval -d 'Refresh interval'
+complete -c argus -n "__fish_seen_subcommand_from gcutil" -l watch -d 'Watch interval'

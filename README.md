@@ -315,11 +315,19 @@ java -javaagent:~/.argus/argus-agent.jar \
 
 ### One-line Install (Recommended)
 
+**macOS / Linux:**
 ```bash
 curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
 ```
 
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/rlaope/argus/master/install.ps1 | iex
+```
+
 Installs both CLI + Agent to `~/.argus/` and adds `argus` to PATH.
+
+**Shell completions:** bash, zsh, fish, PowerShell are all supported and installed automatically.
 
 ### Build from Source
 
