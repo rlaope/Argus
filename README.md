@@ -4,7 +4,7 @@
 
 # Argus
 
-> Lightweight JVM diagnostic toolkit. CLI works on Java 11+, Agent requires Java 21+. No agent required for CLI diagnostics.
+> Lightweight JVM diagnostic toolkit. CLI works on Java 11+, Dashboard on Java 17+, full features on Java 21+. No agent required for CLI diagnostics.
 
 Two independent tools in one package:
 
@@ -341,8 +341,30 @@ cd argus
 ### Requirements
 
 - **CLI**: Java 11+ (JDK required for `jcmd`/`jstat`)
-- **Agent**: Java 21+ (JFR streaming, Virtual Thread events)
+- **Agent + Dashboard**: Java 17+ (MXBean polling) or Java 21+ (full JFR streaming)
 - Gradle 8.4+ (only if building from source)
+
+### Java Version Compatibility
+
+Argus adapts its capabilities based on the target JVM version at runtime:
+
+| Feature | Java 11+ | Java 17+ | Java 21+ |
+|---------|:--------:|:--------:|:--------:|
+| CLI (33 commands) | ✅ | ✅ | ✅ |
+| Dashboard & Web UI | — | ✅ | ✅ |
+| GC Analysis | CLI only | ✅ MXBean | ✅ JFR |
+| CPU Monitoring | CLI only | ✅ MXBean | ✅ JFR |
+| Heap / Memory | CLI only | ✅ MXBean | ✅ JFR |
+| Metaspace | CLI only | ✅ MXBean | ✅ JFR |
+| Thread Analysis | CLI only | ✅ MXBean | ✅ JFR |
+| Lock Contention | — | — | ✅ JFR |
+| Allocation Tracking | — | — | ✅ JFR |
+| Virtual Thread Monitoring | — | — | ✅ JFR |
+| Flame Graph | — | — | ✅ JFR |
+| Micrometer Metrics | — | ✅ | ✅ |
+| Spring Boot Starter | — | ✅ | ✅ |
+
+> **Note**: On Java 17-20, the agent uses MXBean polling for GC/CPU/Memory metrics. Virtual thread monitoring and JFR-based profiling require Java 21+. The dashboard automatically adapts its UI based on the detected Java version.
 
 ### Uninstall
 
