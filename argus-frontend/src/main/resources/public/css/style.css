@@ -5,17 +5,17 @@
 }
 
 :root {
-    --bg-primary: #0d1117;
-    --bg-secondary: #161b22;
-    --bg-tertiary: #21262d;
-    --text-primary: #c9d1d9;
-    --text-secondary: #8b949e;
-    --accent-blue: #58a6ff;
-    --accent-green: #3fb950;
-    --accent-red: #f85149;
-    --accent-orange: #d29922;
-    --accent-purple: #a371f7;
-    --border-color: #30363d;
+    --bg-primary: #ffffff;
+    --bg-secondary: #fafafa;
+    --bg-tertiary: #f5f5f5;
+    --text-primary: #212121;
+    --text-secondary: #757575;
+    --accent-green: #2E7D32;
+    --accent-red: #C62828;
+    --accent-orange: #F9A825;
+    --accent-brown: #8D6E63;
+    --accent-blue: #1565C0;
+    --border-color: #e0e0e0;
 }
 
 body {
@@ -34,7 +34,7 @@ header {
     justify-content: space-between;
     align-items: center;
     padding: 1rem 2rem;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -78,18 +78,20 @@ header {
 }
 
 .status.connected {
-    background-color: rgba(63, 185, 80, 0.15);
+    background-color: rgba(46, 125, 50, 0.08);
     color: var(--accent-green);
+    border: 1px solid rgba(46, 125, 50, 0.2);
 }
 
 .status.connected .status-dot {
     background-color: var(--accent-green);
-    box-shadow: 0 0 8px var(--accent-green);
+    box-shadow: 0 0 6px rgba(46, 125, 50, 0.4);
 }
 
 .status.disconnected {
-    background-color: rgba(248, 81, 73, 0.15);
+    background-color: rgba(198, 40, 40, 0.08);
     color: var(--accent-red);
+    border: 1px solid rgba(198, 40, 40, 0.2);
 }
 
 .status.disconnected .status-dot {
@@ -100,25 +102,26 @@ header {
 main {
     flex: 1;
     padding: 2rem;
-    max-width: 1400px;
+    max-width: 1800px;
     margin: 0 auto;
     width: 100%;
 }
 
 /* Buttons */
 .btn {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
     padding: 0.5rem 1rem;
     border-radius: 6px;
     cursor: pointer;
     font-size: 0.875rem;
-    transition: background-color 0.2s;
+    transition: border-color 0.2s, color 0.2s, background-color 0.2s;
 }
 
 .btn:hover {
-    background-color: var(--border-color);
+    background-color: var(--bg-tertiary);
+    border-color: #bdbdbd;
 }
 
 .btn-icon {
@@ -148,13 +151,18 @@ main {
 }
 
 .metric-card {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1.25rem;
     text-align: center;
     position: relative;
     cursor: help;
+    transition: border-color 0.2s;
+}
+
+.metric-card:hover {
+    border-color: #bdbdbd;
 }
 
 .metric-card::after {
@@ -163,8 +171,8 @@ main {
     bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background-color: var(--bg-tertiary);
-    color: var(--text-primary);
+    background-color: var(--text-primary);
+    color: #ffffff;
     padding: 0.75rem 1rem;
     border-radius: 6px;
     font-size: 0.75rem;
@@ -175,8 +183,8 @@ main {
     visibility: hidden;
     transition: opacity 0.2s, visibility 0.2s;
     z-index: 100;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    border: none;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     margin-bottom: 8px;
 }
 
@@ -207,7 +215,7 @@ main {
 
 .metric-card.alert.has-pinned {
     border-color: var(--accent-red);
-    background-color: rgba(248, 81, 73, 0.1);
+    background-color: rgba(198, 40, 40, 0.04);
 }
 
 .metric-card.alert.has-pinned .metric-value {
@@ -217,7 +225,7 @@ main {
 
 @keyframes pulse {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+    50% { opacity: 0.5; }
 }
 
 /* Charts Section */
@@ -232,7 +240,7 @@ main {
 }
 
 .chart-card {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1rem;
@@ -266,7 +274,7 @@ main {
 
 /* Hotspots Section */
 .hotspots-section {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-bottom: 1.5rem;
@@ -274,7 +282,7 @@ main {
 }
 
 .hotspots-section .section-header {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     justify-content: space-between;
 }
@@ -287,7 +295,7 @@ main {
     display: flex;
     gap: 2rem;
     padding: 0.75rem 1.5rem;
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     font-size: 0.875rem;
     color: var(--text-secondary);
@@ -304,7 +312,7 @@ main {
 }
 
 .hotspot-item {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
     border-radius: 6px;
     padding: 1rem;
     margin-bottom: 0.5rem;
@@ -330,7 +338,7 @@ main {
 
 .hotspot-rank-number {
     background-color: var(--accent-orange);
-    color: var(--bg-primary);
+    color: #ffffff;
     width: 24px;
     height: 24px;
     border-radius: 50%;
@@ -352,12 +360,13 @@ main {
 }
 
 .hotspot-percentage {
-    background-color: rgba(210, 153, 34, 0.2);
+    background-color: rgba(249, 168, 37, 0.12);
     color: var(--accent-orange);
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
     font-size: 0.75rem;
     font-weight: 600;
+    border: 1px solid rgba(249, 168, 37, 0.25);
 }
 
 .hotspot-frame {
@@ -383,7 +392,8 @@ main {
 
 .hotspot-stack {
     display: none;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     padding: 0.75rem;
     margin-top: 0.5rem;
@@ -408,8 +418,8 @@ main {
 
 /* Pinned Section */
 .pinned-section {
-    background-color: rgba(248, 81, 73, 0.1);
-    border: 1px solid var(--accent-red);
+    background-color: rgba(198, 40, 40, 0.04);
+    border: 1px solid rgba(198, 40, 40, 0.3);
     border-radius: 8px;
     margin-bottom: 1.5rem;
     overflow: hidden;
@@ -424,8 +434,8 @@ main {
     align-items: center;
     gap: 0.75rem;
     padding: 1rem 1.5rem;
-    background-color: rgba(248, 81, 73, 0.15);
-    border-bottom: 1px solid var(--accent-red);
+    background-color: rgba(198, 40, 40, 0.06);
+    border-bottom: 1px solid rgba(198, 40, 40, 0.2);
 }
 
 .section-header h2 {
@@ -449,7 +459,8 @@ main {
 }
 
 .pinned-item {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 0.75rem 1rem;
     margin-bottom: 0.5rem;
@@ -486,6 +497,7 @@ main {
     font-size: 0.75rem;
     color: var(--text-secondary);
     background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
     padding: 0.5rem;
     border-radius: 4px;
     overflow-x: auto;
@@ -499,7 +511,7 @@ main {
     align-items: center;
     gap: 0.75rem;
     padding: 0.5rem 1rem;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-bottom: 1rem;
@@ -534,16 +546,16 @@ main {
 }
 
 .feature-badge.enabled {
-    background-color: rgba(63, 185, 80, 0.15);
+    background-color: rgba(46, 125, 50, 0.06);
     color: var(--accent-green);
-    border: 1px solid rgba(63, 185, 80, 0.3);
+    border: 1px solid rgba(46, 125, 50, 0.25);
 }
 
 .feature-badge.disabled {
-    background-color: rgba(139, 148, 158, 0.1);
+    background-color: var(--bg-tertiary);
     color: var(--text-secondary);
     border: 1px solid var(--border-color);
-    opacity: 0.6;
+    opacity: 0.7;
 }
 
 .feature-badge.loading {
@@ -560,17 +572,17 @@ main {
 }
 
 .feature-badge.enabled .overhead-tag.high {
-    background-color: rgba(248, 81, 73, 0.2);
+    background-color: rgba(198, 40, 40, 0.1);
     color: var(--accent-red);
 }
 
 .feature-badge.enabled .overhead-tag.medium {
-    background-color: rgba(210, 153, 34, 0.2);
+    background-color: rgba(249, 168, 37, 0.12);
     color: var(--accent-orange);
 }
 
 .feature-badge.enabled .overhead-tag.low {
-    background-color: rgba(63, 185, 80, 0.15);
+    background-color: rgba(46, 125, 50, 0.08);
     color: var(--accent-green);
 }
 
@@ -601,7 +613,7 @@ main {
 .flamegraph-actions .btn-small {
     padding: 0.25rem 0.75rem;
     font-size: 0.8rem;
-    background: var(--card-bg);
+    background: var(--bg-primary);
     border: 1px solid var(--border-color);
     color: var(--text-secondary);
     border-radius: 4px;
@@ -611,11 +623,11 @@ main {
 
 .flamegraph-actions .btn-small:hover {
     color: var(--text-primary);
-    border-color: var(--accent-blue);
+    border-color: #bdbdbd;
 }
 
 .flamegraph-container {
-    background: var(--card-bg);
+    background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1rem;
@@ -706,7 +718,7 @@ main {
 
 .tab-content {
     display: none;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-top: none;
     border-radius: 0 0 8px 8px;
@@ -747,17 +759,18 @@ main {
 
 /* Thread State Sections */
 .thread-state-section {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
 }
 
 .thread-state-section.pinned {
-    border: 1px solid var(--accent-red);
-    background-color: rgba(248, 81, 73, 0.05);
+    border: 1px solid rgba(198, 40, 40, 0.35);
+    background-color: rgba(198, 40, 40, 0.03);
 }
 
 .thread-state-section.running {
-    border: 1px solid var(--accent-green);
+    border: 1px solid rgba(46, 125, 50, 0.3);
 }
 
 .thread-state-section.ended {
@@ -770,8 +783,9 @@ main {
     align-items: center;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-tertiary);
     border-bottom: 1px solid var(--border-color);
+    border-radius: 8px 8px 0 0;
 }
 
 .state-indicator {
@@ -782,12 +796,12 @@ main {
 
 .state-indicator.running {
     background-color: var(--accent-green);
-    box-shadow: 0 0 6px var(--accent-green);
+    box-shadow: 0 0 5px rgba(46, 125, 50, 0.4);
 }
 
 .state-indicator.pinned {
     background-color: var(--accent-red);
-    box-shadow: 0 0 6px var(--accent-red);
+    box-shadow: 0 0 5px rgba(198, 40, 40, 0.4);
     animation: pulse 1s infinite;
 }
 
@@ -816,7 +830,8 @@ main {
 .state-count {
     font-size: 0.75rem;
     color: var(--text-secondary);
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
     padding: 0.125rem 0.5rem;
     border-radius: 10px;
 }
@@ -860,21 +875,21 @@ main {
 }
 
 .thread-card {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 1rem;
-    transition: border-color 0.2s, transform 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .thread-card:hover {
-    border-color: var(--accent-blue);
-    transform: translateY(-2px);
+    border-color: #bdbdbd;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .thread-card.pinned {
-    border-color: var(--accent-red);
-    background-color: rgba(248, 81, 73, 0.1);
+    border-color: rgba(198, 40, 40, 0.4);
+    background-color: rgba(198, 40, 40, 0.03);
 }
 
 .thread-card-header {
@@ -908,23 +923,26 @@ main {
 }
 
 .thread-status.running {
-    background-color: rgba(63, 185, 80, 0.2);
+    background-color: rgba(46, 125, 50, 0.1);
     color: var(--accent-green);
+    border: 1px solid rgba(46, 125, 50, 0.2);
 }
 
 .thread-status.pinned {
-    background-color: rgba(248, 81, 73, 0.2);
+    background-color: rgba(198, 40, 40, 0.1);
     color: var(--accent-red);
+    border: 1px solid rgba(198, 40, 40, 0.2);
     animation: pulse 1s infinite;
 }
 
 .thread-status.ended {
-    background-color: rgba(139, 148, 158, 0.2);
+    background-color: var(--bg-tertiary);
     color: var(--text-secondary);
+    border: 1px solid var(--border-color);
 }
 
 .thread-card.ended {
-    opacity: 0.6;
+    opacity: 0.65;
     border-style: dashed;
 }
 
@@ -959,7 +977,7 @@ main {
 
 .thread-duration-bar {
     height: 4px;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-tertiary);
     border-radius: 2px;
     overflow: hidden;
     margin-top: 0.5rem;
@@ -1030,12 +1048,12 @@ main {
     padding: 0.5rem 1rem;
     border-radius: 4px;
     margin-bottom: 2px;
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
     align-items: center;
 }
 
 .event-item:hover {
-    background-color: var(--border-color);
+    background-color: var(--bg-tertiary);
 }
 
 .event-time {
@@ -1072,7 +1090,7 @@ main {
 }
 
 .event-item.pinned {
-    background-color: rgba(248, 81, 73, 0.15);
+    background-color: rgba(198, 40, 40, 0.05);
     border-left: 3px solid var(--accent-red);
 }
 
@@ -1099,12 +1117,12 @@ main {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: rgba(0, 0, 0, 0.7);
+    background-color: rgba(0, 0, 0, 0.4);
 }
 
 .modal-content {
     position: relative;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     max-width: 600px;
@@ -1112,7 +1130,7 @@ main {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
 
 .modal-header {
@@ -1184,6 +1202,7 @@ main {
 
 .modal-body code {
     background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
     padding: 0.125rem 0.375rem;
     border-radius: 4px;
     font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
@@ -1238,7 +1257,8 @@ main {
 }
 
 .thread-stat {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     padding: 1rem;
     border-radius: 8px;
     text-align: center;
@@ -1284,7 +1304,8 @@ main {
 .thread-events-list {
     max-height: 300px;
     overflow-y: auto;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     padding: 0.5rem;
 }
@@ -1306,7 +1327,8 @@ main {
     align-items: center;
     gap: 1rem;
     padding: 0.75rem 1rem;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     margin-bottom: 0.5rem;
 }
@@ -1328,17 +1350,17 @@ main {
 }
 
 .thread-event-icon.start {
-    background-color: rgba(63, 185, 80, 0.2);
+    background-color: rgba(46, 125, 50, 0.1);
     color: var(--accent-green);
 }
 
 .thread-event-icon.end {
-    background-color: rgba(88, 166, 255, 0.2);
+    background-color: rgba(21, 101, 192, 0.1);
     color: var(--accent-blue);
 }
 
 .thread-event-icon.pinned {
-    background-color: rgba(248, 81, 73, 0.2);
+    background-color: rgba(198, 40, 40, 0.1);
     color: var(--accent-red);
 }
 
@@ -1373,6 +1395,7 @@ main {
     margin-top: 0.5rem;
     padding: 0.5rem;
     background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
     font-size: 0.6875rem;
@@ -1397,8 +1420,8 @@ main {
 }
 
 .btn-primary:hover {
-    background-color: #4a90e0;
-    border-color: #4a90e0;
+    background-color: #1976D2;
+    border-color: #1976D2;
 }
 
 /* Dump View Modal */
@@ -1428,7 +1451,7 @@ main {
 }
 
 .dump-content {
-    background-color: var(--bg-primary);
+    background-color: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     overflow: hidden;
@@ -1514,14 +1537,16 @@ main {
     align-items: flex-start;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, border-color 0.2s;
 }
 
 .export-format-options .radio-label:hover {
-    background-color: var(--border-color);
+    background-color: var(--bg-tertiary);
+    border-color: #bdbdbd;
 }
 
 .export-format-options .radio-label input[type="radio"] {
@@ -1552,14 +1577,15 @@ main {
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.75rem;
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s;
 }
 
 .export-type-filters .checkbox-label:hover {
-    background-color: var(--border-color);
+    background-color: var(--bg-tertiary);
 }
 
 .export-type-filters .checkbox-label span {
@@ -1586,7 +1612,7 @@ main {
 .export-time-range input[type="datetime-local"] {
     width: 100%;
     padding: 0.5rem;
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     color: var(--text-primary);
@@ -1613,6 +1639,7 @@ footer {
     color: var(--text-secondary);
     font-size: 0.75rem;
     border-top: 1px solid var(--border-color);
+    background-color: var(--bg-primary);
 }
 
 /* Scrollbar styling */
@@ -1622,22 +1649,22 @@ footer {
 }
 
 ::-webkit-scrollbar-track {
-    background: var(--bg-primary);
+    background: #f5f5f5;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--border-color);
+    background: #bdbdbd;
     border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
+    background: #9e9e9e;
 }
 
 /* Filter Panel */
 .filter-panel {
     padding: 1rem 1.5rem;
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -1679,7 +1706,7 @@ footer {
 
 .search-input-wrapper input[type="text"] {
     flex: 1;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-right: none;
     border-radius: 6px 0 0 6px;
@@ -1695,7 +1722,7 @@ footer {
 }
 
 .search-input-wrapper select {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 0 6px 6px 0;
     padding: 0.5rem 0.75rem;
@@ -1721,7 +1748,7 @@ footer {
 }
 
 .time-range-wrapper input[type="datetime-local"] {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
@@ -1736,8 +1763,8 @@ footer {
 }
 
 .time-range-wrapper input[type="datetime-local"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
     cursor: pointer;
+    opacity: 0.6;
 }
 
 .time-separator {
@@ -1768,7 +1795,7 @@ footer {
     appearance: none;
     width: 16px;
     height: 16px;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 2px solid var(--border-color);
     border-radius: 4px;
     cursor: pointer;
@@ -1776,7 +1803,7 @@ footer {
 }
 
 .type-checkbox input[type="checkbox"]:checked {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
 }
 
 .type-checkbox input[type="checkbox"]:checked::after {
@@ -1874,8 +1901,8 @@ footer {
 .filter-status {
     margin-top: 0.75rem;
     padding: 0.5rem 0.75rem;
-    background-color: rgba(88, 166, 255, 0.1);
-    border: 1px solid var(--accent-blue);
+    background-color: rgba(21, 101, 192, 0.06);
+    border: 1px solid rgba(21, 101, 192, 0.2);
     border-radius: 6px;
     font-size: 0.75rem;
     color: var(--accent-blue);
@@ -1897,7 +1924,7 @@ footer {
 
 /* GC & Memory Section */
 .gc-section {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-bottom: 1.5rem;
@@ -1905,13 +1932,13 @@ footer {
 }
 
 .gc-section .section-header {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     justify-content: space-between;
 }
 
 .gc-section .section-header h2 {
-    color: var(--accent-purple);
+    color: var(--accent-brown);
 }
 
 .gc-summary {
@@ -1931,7 +1958,7 @@ footer {
 
 /* CPU Section */
 .cpu-section {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-bottom: 1.5rem;
@@ -1939,7 +1966,7 @@ footer {
 }
 
 .cpu-section .section-header {
-    background-color: var(--bg-tertiary);
+    background-color: var(--bg-secondary);
     border-bottom: 1px solid var(--border-color);
     justify-content: space-between;
 }
@@ -1973,15 +2000,19 @@ footer {
 
 /* Metric card colors for GC/CPU */
 .metric-card.gc .metric-value {
-    color: var(--accent-purple);
+    color: var(--accent-brown);
 }
 
 .metric-card.memory .metric-value {
-    color: var(--accent-purple);
+    color: var(--accent-brown);
 }
 
 .metric-card.cpu .metric-value {
     color: var(--accent-blue);
+}
+
+.metric-card.gc-overhead .metric-value {
+    color: var(--accent-orange);
 }
 
 /* Responsive adjustments */

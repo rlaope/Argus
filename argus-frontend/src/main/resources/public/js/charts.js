@@ -30,8 +30,8 @@ let metaspaceChart = null;
 let hotMethodsChart = null;
 let contentionChart = null;
 
-const gridColor = 'rgba(48, 54, 61, 0.8)';
-const textColor = '#8b949e';
+const gridColor = '#e0e0e0';
+const textColor = '#757575';
 
 /**
  * Initialize all charts
@@ -46,8 +46,8 @@ export function initCharts(canvases) {
                 {
                     label: 'START',
                     data: eventsRateData.start,
-                    borderColor: '#3fb950',
-                    backgroundColor: 'rgba(63, 185, 80, 0.1)',
+                    borderColor: '#2E7D32',
+                    backgroundColor: 'rgba(46, 125, 50, 0.1)',
                     fill: true,
                     tension: 0.3,
                     pointRadius: 0
@@ -55,8 +55,8 @@ export function initCharts(canvases) {
                 {
                     label: 'END',
                     data: eventsRateData.end,
-                    borderColor: '#58a6ff',
-                    backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                    borderColor: '#1565C0',
+                    backgroundColor: 'rgba(21, 101, 192, 0.1)',
                     fill: true,
                     tension: 0.3,
                     pointRadius: 0
@@ -64,8 +64,8 @@ export function initCharts(canvases) {
                 {
                     label: 'PINNED',
                     data: eventsRateData.pinned,
-                    borderColor: '#f85149',
-                    backgroundColor: 'rgba(248, 81, 73, 0.1)',
+                    borderColor: '#C62828',
+                    backgroundColor: 'rgba(198, 40, 40, 0.1)',
                     fill: true,
                     tension: 0.3,
                     pointRadius: 0
@@ -101,8 +101,8 @@ export function initCharts(canvases) {
             datasets: [{
                 label: 'Active Threads',
                 data: activeThreadsData.values,
-                borderColor: '#a371f7',
-                backgroundColor: 'rgba(163, 113, 247, 0.2)',
+                borderColor: '#2E7D32',
+                backgroundColor: 'rgba(46, 125, 50, 0.2)',
                 fill: true,
                 tension: 0.3,
                 pointRadius: 0
@@ -133,13 +133,13 @@ export function initCharts(canvases) {
                 label: 'Threads',
                 data: durationBuckets.values,
                 backgroundColor: [
-                    'rgba(63, 185, 80, 0.7)',
-                    'rgba(88, 166, 255, 0.7)',
-                    'rgba(163, 113, 247, 0.7)',
-                    'rgba(210, 153, 34, 0.7)',
-                    'rgba(248, 81, 73, 0.7)',
-                    'rgba(248, 81, 73, 0.8)',
-                    'rgba(248, 81, 73, 0.9)'
+                    'rgba(46, 125, 50, 0.7)',
+                    'rgba(46, 125, 50, 0.5)',
+                    'rgba(249, 168, 37, 0.6)',
+                    'rgba(249, 168, 37, 0.8)',
+                    'rgba(198, 40, 40, 0.6)',
+                    'rgba(198, 40, 40, 0.75)',
+                    'rgba(198, 40, 40, 0.9)'
                 ],
                 borderWidth: 0
             }]
@@ -172,8 +172,8 @@ export function initCharts(canvases) {
                 datasets: [{
                     label: 'GC Pause (ms)',
                     data: gcData.timeline.pauseTimes,
-                    backgroundColor: 'rgba(163, 113, 247, 0.7)',
-                    borderColor: '#a371f7',
+                    backgroundColor: 'rgba(141, 110, 99, 0.7)',
+                    borderColor: '#8D6E63',
                     borderWidth: 1
                 }]
             },
@@ -204,8 +204,8 @@ export function initCharts(canvases) {
                     {
                         label: 'Used',
                         data: gcData.heapHistory.used,
-                        borderColor: '#a371f7',
-                        backgroundColor: 'rgba(163, 113, 247, 0.2)',
+                        borderColor: '#8D6E63',
+                        backgroundColor: 'rgba(141, 110, 99, 0.2)',
                         fill: true,
                         tension: 0.3,
                         pointRadius: 0
@@ -213,8 +213,8 @@ export function initCharts(canvases) {
                     {
                         label: 'Committed',
                         data: gcData.heapHistory.committed,
-                        borderColor: '#8b949e',
-                        backgroundColor: 'rgba(139, 148, 158, 0.1)',
+                        borderColor: '#9e9e9e',
+                        backgroundColor: 'rgba(158, 158, 158, 0.1)',
                         fill: true,
                         tension: 0.3,
                         pointRadius: 0,
@@ -260,8 +260,8 @@ export function initCharts(canvases) {
                     {
                         label: 'JVM CPU',
                         data: cpuData.history.jvm,
-                        borderColor: '#58a6ff',
-                        backgroundColor: 'rgba(88, 166, 255, 0.2)',
+                        borderColor: '#1565C0',
+                        backgroundColor: 'rgba(21, 101, 192, 0.2)',
                         fill: true,
                         tension: 0.3,
                         pointRadius: 0
@@ -269,8 +269,8 @@ export function initCharts(canvases) {
                     {
                         label: 'System CPU',
                         data: cpuData.history.machine,
-                        borderColor: '#f85149',
-                        backgroundColor: 'rgba(248, 81, 73, 0.1)',
+                        borderColor: '#C62828',
+                        backgroundColor: 'rgba(198, 40, 40, 0.1)',
                         fill: true,
                         tension: 0.3,
                         pointRadius: 0
@@ -315,8 +315,8 @@ export function initCharts(canvases) {
                 datasets: [{
                     label: 'Allocation Rate (MB/s)',
                     data: allocationData.history.rates,
-                    borderColor: '#f0883e',
-                    backgroundColor: 'rgba(240, 136, 62, 0.2)',
+                    borderColor: '#F9A825',
+                    backgroundColor: 'rgba(249, 168, 37, 0.2)',
                     fill: true,
                     tension: 0.3,
                     pointRadius: 0
@@ -355,8 +355,8 @@ export function initCharts(canvases) {
                     {
                         label: 'Used',
                         data: metaspaceData.history.used,
-                        borderColor: '#a371f7',
-                        backgroundColor: 'rgba(163, 113, 247, 0.2)',
+                        borderColor: '#8D6E63',
+                        backgroundColor: 'rgba(141, 110, 99, 0.2)',
                         fill: true,
                         tension: 0.3,
                         pointRadius: 0
@@ -364,8 +364,8 @@ export function initCharts(canvases) {
                     {
                         label: 'Committed',
                         data: metaspaceData.history.committed,
-                        borderColor: '#8b949e',
-                        backgroundColor: 'rgba(139, 148, 158, 0.1)',
+                        borderColor: '#9e9e9e',
+                        backgroundColor: 'rgba(158, 158, 158, 0.1)',
                         fill: true,
                         tension: 0.3,
                         pointRadius: 0,
@@ -410,8 +410,8 @@ export function initCharts(canvases) {
                 datasets: [{
                     label: 'CPU Samples',
                     data: [],
-                    backgroundColor: 'rgba(88, 166, 255, 0.7)',
-                    borderColor: '#58a6ff',
+                    backgroundColor: 'rgba(21, 101, 192, 0.7)',
+                    borderColor: '#1565C0',
                     borderWidth: 1
                 }]
             },
@@ -445,8 +445,8 @@ export function initCharts(canvases) {
                 datasets: [{
                     label: 'Contention Time (ms)',
                     data: [],
-                    backgroundColor: 'rgba(248, 81, 73, 0.7)',
-                    borderColor: '#f85149',
+                    backgroundColor: 'rgba(198, 40, 40, 0.7)',
+                    borderColor: '#C62828',
                     borderWidth: 1
                 }]
             },
