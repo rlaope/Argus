@@ -845,6 +845,13 @@ main {
     flex-wrap: wrap;
 }
 
+.time-preset.active,
+.export-time-preset.active {
+    background: var(--green);
+    color: white;
+    border-color: var(--green);
+}
+
 .time-separator {
     font-size: 0.75rem;
     color: var(--ink-3);

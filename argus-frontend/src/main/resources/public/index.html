@@ -427,10 +427,14 @@
                         <div class="filter-group time-group">
                             <label>Time Range</label>
                             <div class="time-range-wrapper">
-                                <input type="datetime-local" id="time-from" title="From">
-                                <span class="time-separator">to</span>
-                                <input type="datetime-local" id="time-to" title="To">
-                                <button id="time-clear" class="btn btn-small" title="Clear time range">Clear</button>
+                                <button class="btn btn-small time-preset" data-minutes="1">1m</button>
+                                <button class="btn btn-small time-preset" data-minutes="5">5m</button>
+                                <button class="btn btn-small time-preset" data-minutes="15">15m</button>
+                                <button class="btn btn-small time-preset" data-minutes="60">1h</button>
+                                <input type="text" id="time-from" placeholder="From (auto)" title="From" readonly style="width:130px;font-size:0.75rem;">
+                                <span class="time-separator">—</span>
+                                <input type="text" id="time-to" placeholder="To (auto)" title="To" readonly style="width:130px;font-size:0.75rem;">
+                                <button id="time-clear" class="btn btn-small" title="Clear">Clear</button>
                             </div>
                         </div>
                     </div>
@@ -609,16 +613,14 @@
                 </div>
                 <div class="export-section">
                     <h3>Time Range (Optional)</h3>
-                    <div class="export-time-range">
-                        <div class="time-input-group">
-                            <label for="export-time-from">From</label>
-                            <input type="datetime-local" id="export-time-from">
-                        </div>
-                        <div class="time-input-group">
-                            <label for="export-time-to">To</label>
-                            <input type="datetime-local" id="export-time-to">
-                        </div>
+                    <div class="export-time-presets" style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <button class="btn btn-small export-time-preset" data-minutes="5">Last 5m</button>
+                        <button class="btn btn-small export-time-preset" data-minutes="15">Last 15m</button>
+                        <button class="btn btn-small export-time-preset" data-minutes="60">Last 1h</button>
+                        <button class="btn btn-small export-time-preset" data-minutes="0">All</button>
                     </div>
+                    <input type="hidden" id="export-time-from">
+                    <input type="hidden" id="export-time-to">
                 </div>
                 <div class="export-actions">
                     <button id="export-download-btn" class="btn btn-primary">Download</button>
@@ -671,6 +673,40 @@
         </div>
     </div>
 
+    <script>
+    // Time preset buttons for event filter
+    document.querySelectorAll('.time-preset').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var mins = parseInt(btn.dataset.minutes);
+            var now = new Date();
+            var from = new Date(now.getTime() - mins * 60000);
+            document.getElementById('time-from').value = from.toISOString().slice(0, 16);
+            document.getElementById('time-to').value = now.toISOString().slice(0, 16);
+            document.querySelectorAll('.time-preset').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            // Trigger filter apply
+            var applyBtn = document.getElementById('apply-filters');
+            if (applyBtn) applyBtn.click();
+        });
+    });
+    // Export time presets
+    document.querySelectorAll('.export-time-preset').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var mins = parseInt(btn.dataset.minutes);
+            document.querySelectorAll('.export-time-preset').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            if (mins === 0) {
+                document.getElementById('export-time-from').value = '';
+                document.getElementById('export-time-to').value = '';
+            } else {
+                var now = new Date();
+                var from = new Date(now.getTime() - mins * 60000);
+                document.getElementById('export-time-from').value = from.toISOString();
+                document.getElementById('export-time-to').value = now.toISOString();
+            }
+        });
+    });
+    </script>
     <script type="module" src="/js/app.js"></script>
 </body>
 </html>
