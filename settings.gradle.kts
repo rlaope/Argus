@@ -9,6 +9,8 @@ include("argus-agent")
 include("argus-server")
 include("argus-frontend")
 include("argus-cli")
+include("argus-micrometer")
+include("argus-spring-boot-starter")
 
 // Sample projects
 include("samples:virtual-thread-demo")
