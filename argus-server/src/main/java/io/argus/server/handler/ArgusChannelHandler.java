@@ -3,6 +3,7 @@ package io.argus.server.handler;
 import java.util.Map;
 
 import io.argus.core.config.AgentConfig;
+import io.argus.server.command.ServerCommandExecutor;
 import io.argus.server.analysis.AllocationAnalyzer;
 import io.argus.server.analysis.ContentionAnalyzer;
 import io.argus.server.analysis.CorrelationAnalyzer;
@@ -259,6 +260,25 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         // Export endpoint: /export?format=csv|json|jsonl&types=START,END,PINNED&from=ISO&to=ISO
         if (uri.startsWith("/export")) {
             handleExport(ctx, request, uri);
+            return;
+        }
+
+        // Console command execution endpoint
+        if (uri.startsWith("/api/exec")) {
+            handleExecCommand(ctx, request, uri);
+            return;
+        }
+
+        // Console process info endpoint
+        if ("/api/process".equals(uri)) {
+            String info = ServerCommandExecutor.getProcessInfo();
+            HttpResponseHelper.sendJson(ctx, request, "{\"processInfo\":\"" + escapeJson(info) + "\"}");
+            return;
+        }
+
+        // Console commands list endpoint
+        if ("/api/commands".equals(uri)) {
+            handleCommandsList(ctx, request);
             return;
         }
 
@@ -1124,12 +1144,77 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         if (value == null) {
             return "";
         }
-        return value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        StringBuilder sb = new StringBuilder(value.length() + 64);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\' -> sb.append("\\\\");
+                case '"' -> sb.append("\\\"");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                case '\b' -> sb.append("\\b");
+                case '\f' -> sb.append("\\f");
+                default -> {
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    private static final java.util.concurrent.Semaphore execSemaphore = new java.util.concurrent.Semaphore(2);
+
+    private void handleExecCommand(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+        // Only allow GET and POST
+        if (!io.netty.handler.codec.http.HttpMethod.GET.equals(request.method())
+                && !io.netty.handler.codec.http.HttpMethod.POST.equals(request.method())) {
+            HttpResponseHelper.sendBadRequest(ctx, request, "Method not allowed. Use GET or POST.");
+            return;
+        }
+        // Rate limit: max 2 concurrent commands
+        if (!execSemaphore.tryAcquire()) {
+            HttpResponseHelper.sendBadRequest(ctx, request, "Too many concurrent commands. Try again.");
+            return;
+        }
+        var params = parseQueryParams(uri);
+        String cmd = params.get("cmd");
+        if (cmd == null || cmd.isBlank()) {
+            HttpResponseHelper.sendBadRequest(ctx, request, "Missing 'cmd' parameter");
+            return;
+        }
+        try {
+            String output = ServerCommandExecutor.execute(cmd.trim());
+            String json = "{\"command\":\"" + escapeJson(cmd) + "\",\"output\":\"" + escapeJson(output) + "\"}";
+            HttpResponseHelper.sendJson(ctx, request, json);
+        } catch (Exception e) {
+            String json = "{\"command\":\"" + escapeJson(cmd) + "\",\"error\":\"" + escapeJson(e.getMessage()) + "\"}";
+            HttpResponseHelper.sendJson(ctx, request, json);
+        } finally {
+            execSemaphore.release();
+        }
+    }
+
+    private void handleCommandsList(ChannelHandlerContext ctx, FullHttpRequest request) {
+        var commands = ServerCommandExecutor.getAvailableCommands();
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"commands\":[");
+        boolean first = true;
+        for (var entry : commands.entrySet()) {
+            if (!first) sb.append(",");
+            sb.append("{\"id\":\"").append(entry.getKey())
+              .append("\",\"name\":\"").append(escapeJson(entry.getValue().name()))
+              .append("\",\"group\":\"").append(escapeJson(entry.getValue().group()))
+              .append("\",\"description\":\"").append(escapeJson(entry.getValue().description()))
+              .append("\"}");
+            first = false;
+        }
+        sb.append("]}");
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
     }
 
     @Override

@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus Console</title>
+    <link rel="stylesheet" href="/css/console.css">
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <a href="/" class="back-link">&larr;</a>
+            <img src="/img/argus_logo.png" alt="Argus" class="logo-img">
+            <h1>Argus Console</h1>
+        </div>
+        <div class="header-actions">
+            <a href="/" class="btn">Dashboard</a>
+            <a href="https://github.com/rlaope/Argus" target="_blank" class="btn btn-icon" title="GitHub">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            </a>
+        </div>
+    </header>
+
+    <main>
+        <!-- Terminal (TOP) -->
+        <section class="terminal-section">
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span class="terminal-title" id="terminal-title">argus — loading...</span>
+                    <button id="clear-terminal" class="terminal-clear" title="Clear">Clear</button>
+                </div>
+                <div class="terminal-body" id="terminal-body">
+                    <div class="terminal-line">
+                        <span class="prompt">argus&gt;</span>
+                        <span class="output-text"> Welcome to Argus Interactive Console. Click a command below to run it.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Command Buttons (BOTTOM) -->
+        <section class="commands-panel" id="commands-panel">
+            <!-- Groups rendered dynamically from /api/commands -->
+        </section>
+    </main>
+
+    <script>
+        const GROUP_LABELS = {
+            system: 'System',
+            memory: 'Memory & GC',
+            threads: 'Threads',
+            runtime: 'Class & Runtime',
+            diagnostic: 'Diagnostics'
+        };
+
+        const terminalBody = document.getElementById('terminal-body');
+        const terminalTitle = document.getElementById('terminal-title');
+        let isRunning = false;
+
+        async function init() {
+            // Fetch process info for terminal title
+            try {
+                const pres = await fetch('/api/process');
+                const pdata = await pres.json();
+                terminalTitle.textContent = 'argus — ' + pdata.processInfo;
+            } catch (e) {
+                terminalTitle.textContent = 'argus@jvm';
+            }
+
+            // Fetch commands and render grouped buttons
+            try {
+                const res = await fetch('/api/commands');
+                const data = await res.json();
+
+                const grouped = {};
+                data.commands.forEach(c => {
+                    const g = c.group || 'other';
+                    if (!grouped[g]) grouped[g] = [];
+                    grouped[g].push(c);
+                });
+
+                const panel = document.getElementById('commands-panel');
+                panel.innerHTML = '';
+
+                for (const [groupId, label] of Object.entries(GROUP_LABELS)) {
+                    const cmds = grouped[groupId];
+                    if (!cmds || cmds.length === 0) continue;
+
+                    const group = document.createElement('div');
+                    group.className = 'commands-group';
+
+                    const h3 = document.createElement('h3');
+                    h3.textContent = label;
+                    group.appendChild(h3);
+
+                    const row = document.createElement('div');
+                    row.className = 'commands-row';
+
+                    cmds.forEach(cmd => {
+                        const btn = document.createElement('button');
+                        btn.className = 'cmd-btn';
+                        btn.textContent = cmd.id;
+                        btn.title = cmd.description;
+                        btn.addEventListener('click', () => executeCommand(cmd.id));
+                        row.appendChild(btn);
+                    });
+
+                    group.appendChild(row);
+                    panel.appendChild(group);
+                }
+            } catch (e) {
+                appendOutput('Failed to load commands: ' + e.message, 'error');
+            }
+        }
+
+        async function executeCommand(cmd) {
+            if (isRunning) return;
+            isRunning = true;
+
+            document.querySelectorAll('.cmd-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = [...document.querySelectorAll('.cmd-btn')].find(b => b.textContent === cmd);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            // Type command animation
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            const prompt = document.createElement('span');
+            prompt.className = 'prompt';
+            prompt.textContent = 'argus>';
+            const cmdText = document.createElement('span');
+            cmdText.className = 'command-text';
+            line.appendChild(prompt);
+            line.appendChild(cmdText);
+            terminalBody.appendChild(line);
+
+            const fullCmd = ' ' + cmd;
+            for (let i = 0; i < fullCmd.length; i++) {
+                cmdText.textContent += fullCmd[i];
+                await sleep(25 + Math.random() * 35);
+            }
+
+            // Loading
+            const loading = document.createElement('div');
+            loading.className = 'terminal-line loading-line';
+            const dots = document.createElement('span');
+            dots.className = 'loading-dots';
+            dots.textContent = '...';
+            loading.appendChild(dots);
+            terminalBody.appendChild(loading);
+            scrollToBottom();
+
+            try {
+                const res = await fetch('/api/exec?cmd=' + encodeURIComponent(cmd));
+                const data = await res.json();
+                loading.remove();
+
+                if (data.error) {
+                    appendOutput(data.error, 'error');
+                } else {
+                    appendOutput(data.output, 'success');
+                }
+            } catch (e) {
+                loading.remove();
+                appendOutput('Error: ' + e.message, 'error');
+            }
+
+            if (activeBtn) activeBtn.classList.remove('active');
+            isRunning = false;
+            scrollToBottom();
+        }
+
+        function appendOutput(text, type) {
+            const line = document.createElement('div');
+            line.className = 'terminal-line output-line';
+            const pre = document.createElement('pre');
+            pre.className = 'output ' + (type || '');
+            pre.textContent = text;
+            line.appendChild(pre);
+            terminalBody.appendChild(line);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            terminalBody.scrollTop = terminalBody.scrollHeight;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        document.getElementById('clear-terminal').addEventListener('click', () => {
+            terminalBody.replaceChildren();
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            const prompt = document.createElement('span');
+            prompt.className = 'prompt';
+            prompt.textContent = 'argus>';
+            const text = document.createElement('span');
+            text.className = 'output-text';
+            text.textContent = ' Terminal cleared.';
+            line.appendChild(prompt);
+            line.appendChild(text);
+            terminalBody.appendChild(line);
+        });
+
+        init();
+    </script>
+</body>
+</html>
