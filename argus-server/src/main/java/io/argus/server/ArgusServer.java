@@ -366,6 +366,60 @@ public final class ArgusServer {
     }
 
     /**
+     * Returns the carrier thread analyzer.
+     *
+     * @return carrier thread analyzer
+     */
+    public CarrierThreadAnalyzer getCarrierAnalyzer() {
+        return carrierAnalyzer;
+    }
+
+    /**
+     * Returns the allocation analyzer.
+     *
+     * @return allocation analyzer
+     */
+    public AllocationAnalyzer getAllocationAnalyzer() {
+        return allocationAnalyzer;
+    }
+
+    /**
+     * Returns the metaspace analyzer.
+     *
+     * @return metaspace analyzer
+     */
+    public MetaspaceAnalyzer getMetaspaceAnalyzer() {
+        return metaspaceAnalyzer;
+    }
+
+    /**
+     * Returns the method profiling analyzer.
+     *
+     * @return method profiling analyzer
+     */
+    public MethodProfilingAnalyzer getMethodProfilingAnalyzer() {
+        return methodProfilingAnalyzer;
+    }
+
+    /**
+     * Returns the contention analyzer.
+     *
+     * @return contention analyzer
+     */
+    public ContentionAnalyzer getContentionAnalyzer() {
+        return contentionAnalyzer;
+    }
+
+    /**
+     * Returns the agent configuration.
+     *
+     * @return agent config
+     */
+    public AgentConfig getConfig() {
+        return config;
+    }
+
+    /**
      * Main entry point for standalone server.
      *
      * @param args command line arguments
