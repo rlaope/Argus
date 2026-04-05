@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus — JVM Observability Platform</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --ink: #1a1a1a;
+            --ink-2: #333;
+            --ink-3: #666;
+            --ink-4: #999;
+            --bg: #fff;
+            --bg-code: #f6f8fa;
+            --border: #e1e4e8;
+            --green: #2E7D32;
+            --red: #C62828;
+            --blue: #1565C0;
+            --amber: #F9A825;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+            color: var(--ink);
+            background: var(--bg);
+            line-height: 1.75;
+            font-size: 17px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255,255,255,0.95);
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid var(--border);
+            z-index: 100;
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        nav .logo {
+            font-weight: 700;
+            font-size: 1.125rem;
+            color: var(--ink);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        nav .logo img { height: 24px; }
+
+        nav .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        nav .nav-links a {
+            color: var(--ink-3);
+            text-decoration: none;
+        }
+
+        nav .nav-links a:hover { color: var(--ink); }
+
+        /* Main content */
+        main {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 5rem 1.5rem 4rem;
+        }
+
+        /* Hero */
+        .hero {
+            text-align: center;
+            padding: 3rem 0 4rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+
+        .hero img { height: 80px; margin-bottom: 1.5rem; }
+
+        .hero h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+            letter-spacing: -0.02em;
+        }
+
+        .hero .tagline {
+            font-size: 1.25rem;
+            color: var(--ink-3);
+            max-width: 600px;
+            margin: 0 auto 2rem;
+        }
+
+        .hero .badges {
+            display: flex;
+            justify-content: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.3rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            border: 1px solid var(--border);
+            color: var(--ink-3);
+        }
+
+        .badge.green { color: var(--green); border-color: var(--green); }
+
+        /* Sections */
+        section {
+            margin-bottom: 3.5rem;
+            padding-bottom: 3.5rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        section:last-of-type { border-bottom: none; }
+
+        h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            letter-spacing: -0.01em;
+        }
+
+        h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 2rem 0 0.75rem;
+            color: var(--ink-2);
+        }
+
+        p { margin-bottom: 1rem; color: var(--ink-2); }
+
+        /* Highlight box */
+        .callout {
+            background: var(--bg-code);
+            border-left: 3px solid var(--green);
+            padding: 1rem 1.25rem;
+            border-radius: 0 6px 6px 0;
+            margin: 1.5rem 0;
+        }
+
+        .callout p { margin: 0; }
+
+        .callout.warning { border-left-color: var(--amber); }
+        .callout.danger { border-left-color: var(--red); }
+
+        /* Code */
+        code {
+            font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+            background: var(--bg-code);
+            padding: 0.15rem 0.4rem;
+            border-radius: 3px;
+            font-size: 0.9em;
+        }
+
+        pre {
+            background: var(--bg-code);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1.25rem;
+            overflow-x: auto;
+            margin: 1rem 0 1.5rem;
+            font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        /* Video */
+        .video-container {
+            margin: 1.5rem 0;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .video-container video {
+            width: 100%;
+            display: block;
+        }
+
+        .video-caption {
+            text-align: center;
+            font-size: 0.8125rem;
+            color: var(--ink-4);
+            margin-top: 0.5rem;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0 1.5rem;
+            font-size: 0.9375rem;
+        }
+
+        th, td {
+            text-align: left;
+            padding: 0.625rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            font-weight: 600;
+            font-size: 0.8125rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--ink-3);
+        }
+
+        td code { font-size: 0.85em; }
+
+        /* Feature grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.25rem;
+            margin: 1.5rem 0;
+        }
+
+        .feature-card {
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .feature-card h4 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            font-size: 0.875rem;
+            color: var(--ink-3);
+            margin: 0;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--ink-4);
+            font-size: 0.8125rem;
+            border-top: 1px solid var(--border);
+        }
+
+        footer a { color: var(--ink-3); }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            body { font-size: 16px; }
+            .hero h1 { font-size: 1.75rem; }
+            h2 { font-size: 1.375rem; }
+            nav .nav-links { gap: 1rem; font-size: 0.8rem; }
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <a href="#" class="logo">
+        <img src="assets/argus_logo.png" alt="Argus">
+        Argus
+    </a>
+    <div class="nav-links">
+        <a href="#why">Why Argus</a>
+        <a href="#cli">CLI</a>
+        <a href="#dashboard">Dashboard</a>
+        <a href="#spring">Spring Boot</a>
+        <a href="#compatibility">Compatibility</a>
+        <a href="https://github.com/rlaope/Argus">GitHub</a>
+    </div>
+</nav>
+
+<main>
+
+    <!-- Hero -->
+    <div class="hero">
+        <img src="assets/argus_logo.png" alt="Argus Logo">
+        <h1>Argus</h1>
+        <p class="tagline">A lightweight JVM observability platform that helps you understand what your Java application is doing — right now, in production.</p>
+        <div class="badges">
+            <span class="badge green">Java 11+ CLI</span>
+            <span class="badge green">Java 17+ Dashboard</span>
+            <span class="badge green">Java 21+ Full Features</span>
+            <span class="badge">33 Commands</span>
+            <span class="badge">Zero Dependencies</span>
+        </div>
+    </div>
+
+    <!-- Why Argus -->
+    <section id="why">
+        <h2>Why Argus?</h2>
+
+        <p>Every Java developer has been there. Your application is running in production, and something is wrong. Response times are climbing. Memory usage is creeping up. The GC is pausing more often than it should. You know <em>something</em> is happening inside the JVM, but you can't see it.</p>
+
+        <p>Traditional monitoring tools tell you that your app is slow, but they don't tell you <em>why</em>. APM solutions are expensive and heavy. JMX is clunky. JFR dumps require post-processing. By the time you've gathered the data, the incident is over.</p>
+
+        <p>Argus was built to solve this problem. It gives you two things:</p>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>Instant CLI Diagnostics</h4>
+                <p>33 commands that work on any running JVM. No agent, no restart, no configuration. Just point at a PID and get answers in seconds.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Real-time Dashboard</h4>
+                <p>Attach as a Java agent and get a live web dashboard with GC timelines, CPU graphs, heap usage, flame graphs, and thread analysis — all streaming in real time.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Virtual Thread Aware</h4>
+                <p>First-class support for Java 21 virtual threads. Detect pinning, analyze carrier thread distribution, and monitor thread lifecycle events as they happen.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Zero Overhead Design</h4>
+                <p>Built on JFR (Java Flight Recorder) and JMX MXBeans — the same low-overhead infrastructure that the JVM uses internally. No bytecode modification, no sampling bias.</p>
+            </div>
+        </div>
+
+        <div class="callout">
+            <p><strong>Philosophy:</strong> Argus is not an APM. It's a diagnostic tool. It's designed for the moments when you need to look inside a JVM and understand what's happening — quickly, without setup overhead, without external dependencies.</p>
+        </div>
+    </section>
+
+    <!-- CLI -->
+    <section id="cli">
+        <h2>Argus CLI</h2>
+
+        <p>The CLI is a standalone tool that works on any running JVM process. You don't need to have started the application with any special flags. You don't need to install an agent. If you can see the process in <code>jps</code>, Argus can diagnose it.</p>
+
+        <h3>Installation</h3>
+
+        <p>One command. Takes about 10 seconds.</p>
+
+        <pre>curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash</pre>
+
+        <p>This downloads the Argus CLI to <code>~/.argus/</code> and adds it to your PATH. After installation, just type <code>argus</code> to see all available commands.</p>
+
+        <h3>Your First Diagnosis</h3>
+
+        <p>Let's say you have a Java application that's behaving strangely. Here's how you'd investigate:</p>
+
+        <pre># Step 1: Find your application's PID
+argus ps
+
+# Step 2: Get an overview of the JVM
+argus info 12345
+
+# Step 3: Check GC behavior — is the GC working too hard?
+argus gc 12345
+
+# Step 4: Look at memory — is something leaking?
+argus heap 12345
+
+# Step 5: Check threads — are there too many? Any deadlocked?
+argus threads 12345
+argus deadlock 12345
+
+# Step 6: If memory is the issue, find what's consuming it
+argus histo 12345</pre>
+
+        <div class="video-container">
+            <video src="assets/argus-cli-demo.mov" autoplay loop muted playsinline></video>
+        </div>
+        <p class="video-caption">Argus CLI in action — diagnosing a running JVM process</p>
+
+        <h3>All 33 Commands</h3>
+
+        <p>Every command follows the same pattern: <code>argus &lt;command&gt; &lt;pid&gt;</code>. All commands support <code>--format=json</code> for scripting.</p>
+
+        <table>
+            <tr><th>Category</th><th>Commands</th><th>What they tell you</th></tr>
+            <tr><td>Process</td><td><code>ps</code>, <code>info</code>, <code>init</code></td><td>Find and identify JVM processes</td></tr>
+            <tr><td>Memory</td><td><code>heap</code>, <code>histo</code>, <code>heapdump</code>, <code>diff</code>, <code>nmt</code></td><td>Heap usage, object distribution, native memory</td></tr>
+            <tr><td>GC</td><td><code>gc</code>, <code>gcutil</code>, <code>gccause</code>, <code>gcnew</code></td><td>GC frequency, pause times, causes, generation stats</td></tr>
+            <tr><td>Threads</td><td><code>threads</code>, <code>deadlock</code>, <code>pool</code></td><td>Thread states, deadlocks, pool analysis</td></tr>
+            <tr><td>CPU</td><td><code>profile</code>, <code>jfr</code></td><td>CPU profiling, flight recording</td></tr>
+            <tr><td>Classes</td><td><code>classloader</code>, <code>classstat</code>, <code>stringtable</code>, <code>symboltable</code></td><td>Class loading, interned strings, symbols</td></tr>
+            <tr><td>Runtime</td><td><code>sysprops</code>, <code>vmflag</code>, <code>vmset</code>, <code>vmlog</code>, <code>env</code>, <code>dynlibs</code></td><td>Configuration, flags, environment</td></tr>
+            <tr><td>Advanced</td><td><code>metaspace</code>, <code>compiler</code>, <code>finalizer</code>, <code>jmx</code>, <code>report</code>, <code>top</code></td><td>Metaspace, JIT, finalizers, diagnostics</td></tr>
+        </table>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dashboard">
+        <h2>Dashboard</h2>
+
+        <p>While the CLI is great for quick checks, sometimes you need to watch what's happening over time. That's where the Argus Agent comes in. Attach it to your JVM, and you get a real-time web dashboard that shows you everything.</p>
+
+        <h3>Starting the Dashboard</h3>
+
+        <p>Add the <code>-javaagent</code> flag when starting your application:</p>
+
+        <pre>java -javaagent:argus-agent.jar \
+  -Dargus.gc.enabled=true \
+  -Dargus.cpu.enabled=true \
+  -Dargus.allocation.enabled=true \
+  -jar your-application.jar</pre>
+
+        <p>That's it. Open <code>http://localhost:9202/</code> in your browser and you'll see the dashboard immediately. No configuration files, no external services, no database.</p>
+
+        <div class="video-container">
+            <video src="assets/argus-dashboard-real.mov" autoplay loop muted playsinline></video>
+        </div>
+        <p class="video-caption">Argus Dashboard — real-time JVM monitoring with GC, CPU, memory, and thread analysis</p>
+
+        <h3>What the Dashboard Shows</h3>
+
+        <p>The dashboard is organized in a JVM-health-first layout. When you're responding to an incident, you look at the most critical metrics first:</p>
+
+        <div class="feature-grid">
+            <div class="feature-card">
+                <h4>Memory &amp; GC</h4>
+                <p>Heap usage over time, GC pause timeline, GC cause distribution, overhead percentage. See immediately if GC is your bottleneck.</p>
+            </div>
+            <div class="feature-card">
+                <h4>CPU Utilization</h4>
+                <p>JVM and system CPU load plotted over the last 60 seconds. Spot CPU spikes and correlate them with GC pauses.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Allocation &amp; Metaspace</h4>
+                <p>Object allocation rate, peak rate, top allocating classes, metaspace growth rate. Detect memory pressure before it becomes an OOM.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Profiling &amp; Contention</h4>
+                <p>CPU hot methods, lock contention hotspots, interactive flame graph. Find exactly which code paths are consuming resources.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Virtual Threads</h4>
+                <p>Thread creation rate, active count, pinning detection with stack traces, carrier thread distribution. Java 21+ only.</p>
+            </div>
+            <div class="feature-card">
+                <h4>Recommendations</h4>
+                <p>Auto-generated insights from cross-correlating GC, CPU, memory, and thread metrics. The dashboard tells you what to investigate.</p>
+            </div>
+        </div>
+
+        <h3>Interactive Console</h3>
+
+        <p>The dashboard includes an interactive console at <code>/console.html</code> where you can run diagnostic commands directly in the browser. Click a command button, watch the typing animation, and see the results — all without leaving the dashboard.</p>
+
+        <h3>Configuration Options</h3>
+
+        <table>
+            <tr><th>Property</th><th>Default</th><th>Description</th></tr>
+            <tr><td><code>argus.server.port</code></td><td>9202</td><td>Dashboard HTTP port</td></tr>
+            <tr><td><code>argus.gc.enabled</code></td><td>true</td><td>GC event collection</td></tr>
+            <tr><td><code>argus.cpu.enabled</code></td><td>true</td><td>CPU load sampling</td></tr>
+            <tr><td><code>argus.allocation.enabled</code></td><td>false</td><td>Object allocation tracking (higher overhead)</td></tr>
+            <tr><td><code>argus.profiling.enabled</code></td><td>false</td><td>CPU method profiling (higher overhead)</td></tr>
+            <tr><td><code>argus.contention.enabled</code></td><td>false</td><td>Lock contention monitoring</td></tr>
+            <tr><td><code>argus.metaspace.enabled</code></td><td>true</td><td>Metaspace usage tracking</td></tr>
+            <tr><td><code>argus.metrics.prometheus.enabled</code></td><td>true</td><td>Prometheus metrics endpoint at /prometheus</td></tr>
+        </table>
+
+        <div class="callout warning">
+            <p><strong>Production tip:</strong> Start with just <code>gc</code> and <code>cpu</code> enabled. These have negligible overhead. Enable <code>allocation</code>, <code>profiling</code>, and <code>contention</code> only when actively investigating — they generate more JFR events and use more memory.</p>
+        </div>
+    </section>
+
+    <!-- Spring Boot -->
+    <section id="spring">
+        <h2>Spring Boot Integration</h2>
+
+        <p>If you're building a Spring Boot application (3.2+), you don't need to use the <code>-javaagent</code> flag at all. Just add a single dependency and Argus starts automatically with your application.</p>
+
+        <h3>Setup</h3>
+
+        <pre>// build.gradle.kts
+implementation("io.argus:argus-spring-boot-starter:0.8.0")</pre>
+
+        <p>That's all. When your Spring Boot application starts, Argus will:</p>
+        <ul style="margin: 1rem 0 1rem 1.5rem; color: var(--ink-2);">
+            <li>Start the JFR streaming engine automatically</li>
+            <li>Launch the dashboard on port 9202</li>
+            <li>Register with Spring Boot Actuator at <code>/actuator/health/argus</code></li>
+            <li>Export ~25 Micrometer metrics to your configured backend (Prometheus, Datadog, etc.)</li>
+        </ul>
+
+        <h3>Configuration via application.yml</h3>
+
+        <pre>argus:
+  buffer-size: 131072
+  server:
+    port: 9202
+  gc:
+    enabled: true
+  cpu:
+    enabled: true
+    interval-ms: 500
+  allocation:
+    enabled: true
+    threshold: 524288</pre>
+
+        <p>All properties have IDE autocomplete support. The defaults match the standard agent configuration.</p>
+
+        <h3>Micrometer Metrics</h3>
+
+        <p>When Micrometer is on the classpath (it is in most Spring Boot apps), Argus automatically registers ~25 JVM diagnostic metrics:</p>
+
+        <pre># Example Prometheus queries
+argus_heap_used_bytes                    # Current heap usage
+argus_gc_pause_time_max_seconds          # Worst GC pause
+argus_cpu_jvm_user_ratio * 100           # JVM CPU %
+argus_virtual_threads_active             # Active virtual threads
+argus_allocation_rate_bytes_per_second   # Allocation pressure</pre>
+
+        <div class="callout">
+            <p><strong>Framework-agnostic:</strong> The <code>argus-micrometer</code> module works without Spring. If you're using Quarkus, Micronaut, or standalone Micrometer, add <code>argus-micrometer</code> directly and register the <code>ArgusMeterBinder</code> with your <code>MeterRegistry</code>.</p>
+        </div>
+    </section>
+
+    <!-- Compatibility -->
+    <section id="compatibility">
+        <h2>Java Version Compatibility</h2>
+
+        <p>Argus adapts its capabilities based on the Java version at runtime. You don't need to configure anything — it detects the version automatically and enables what's available.</p>
+
+        <table>
+            <tr><th>Feature</th><th>Java 11+</th><th>Java 17+</th><th>Java 21+</th></tr>
+            <tr><td>CLI (33 commands)</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Dashboard &amp; Web UI</td><td>—</td><td>Yes (MXBean)</td><td>Yes (JFR)</td></tr>
+            <tr><td>GC / CPU / Memory</td><td>CLI only</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Allocation Tracking</td><td>—</td><td>—</td><td>Yes</td></tr>
+            <tr><td>Virtual Threads</td><td>—</td><td>—</td><td>Yes</td></tr>
+            <tr><td>Flame Graph</td><td>—</td><td>—</td><td>Yes</td></tr>
+            <tr><td>Lock Contention</td><td>—</td><td>—</td><td>Yes</td></tr>
+            <tr><td>Spring Boot Starter</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Micrometer Metrics</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+        </table>
+
+        <div class="callout">
+            <p><strong>How it works:</strong> On Java 17-20, the agent uses an MXBean polling engine that queries <code>ManagementFactory</code> MXBeans for GC, CPU, and memory data at regular intervals. On Java 21+, it uses JFR streaming for lower overhead and richer event data. The dashboard automatically hides features that aren't available on your Java version.</p>
+        </div>
+    </section>
+
+    <!-- Architecture -->
+    <section id="architecture">
+        <h2>Architecture</h2>
+
+        <p>Argus is organized into seven modules, each with a clear responsibility:</p>
+
+        <table>
+            <tr><th>Module</th><th>Purpose</th></tr>
+            <tr><td><code>argus-core</code></td><td>Shared event types, configuration, ring buffer transport</td></tr>
+            <tr><td><code>argus-agent</code></td><td>Java agent entry point, JFR streaming engine, MXBean polling engine</td></tr>
+            <tr><td><code>argus-server</code></td><td>Netty HTTP/WebSocket server, 10 analyzers, metrics export</td></tr>
+            <tr><td><code>argus-frontend</code></td><td>Dashboard web UI (vanilla JS, Chart.js, D3 flame graph)</td></tr>
+            <tr><td><code>argus-cli</code></td><td>33 diagnostic commands using jcmd/jstat</td></tr>
+            <tr><td><code>argus-micrometer</code></td><td>Framework-agnostic Micrometer MeterBinder</td></tr>
+            <tr><td><code>argus-spring-boot-starter</code></td><td>Spring Boot auto-configuration</td></tr>
+        </table>
+
+        <p>The agent and server communicate through lock-free ring buffers in shared memory — there is no network protocol between them. This means zero serialization overhead and minimal latency from event capture to dashboard display.</p>
+    </section>
+
+</main>
+
+<footer>
+    <p>Argus JVM Observability Platform &mdash; <a href="https://github.com/rlaope/Argus">GitHub</a></p>
+</footer>
+
+</body>
+</html>

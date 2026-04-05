@@ -1,0 +1,41 @@
+name: Deploy Documentation Site
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'site/**'
+      - 'assets/**'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare site
+        run: |
+          mkdir -p _site
+          cp site/index.html _site/
+          cp -r assets _site/assets
+
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '_site'
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
