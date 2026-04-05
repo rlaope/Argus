@@ -219,20 +219,56 @@ public final class CorrelationAnalyzer {
         }
     }
 
-    // Internal timestamp tracking records
-    private record GCTimestamp(Instant timestamp, String gcName, double pauseTimeMs) {}
-    private record CPUSpikeTimestamp(Instant timestamp, double cpuLoad) {}
-    private record PinningTimestamp(Instant timestamp, String threadName) {}
+    // Internal timestamp tracking classes
+    private static final class GCTimestamp {
+        final Instant timestamp;
+        final String gcName;
+        final double pauseTimeMs;
+        GCTimestamp(Instant timestamp, String gcName, double pauseTimeMs) {
+            this.timestamp = timestamp;
+            this.gcName = gcName;
+            this.pauseTimeMs = pauseTimeMs;
+        }
+    }
+
+    private static final class CPUSpikeTimestamp {
+        final Instant timestamp;
+        final double cpuLoad;
+        CPUSpikeTimestamp(Instant timestamp, double cpuLoad) {
+            this.timestamp = timestamp;
+            this.cpuLoad = cpuLoad;
+        }
+    }
+
+    private static final class PinningTimestamp {
+        final Instant timestamp;
+        final String threadName;
+        PinningTimestamp(Instant timestamp, String threadName) {
+            this.timestamp = timestamp;
+            this.threadName = threadName;
+        }
+    }
 
     /**
      * A correlated event between two event types.
      */
-    public record CorrelatedEvent(
-            Instant timestamp,
-            String primaryEvent,
-            String correlatedEvent,
-            String description
-    ) {
+    public static final class CorrelatedEvent {
+        private final Instant timestamp;
+        private final String primaryEvent;
+        private final String correlatedEvent;
+        private final String description;
+
+        public CorrelatedEvent(Instant timestamp, String primaryEvent, String correlatedEvent, String description) {
+            this.timestamp = timestamp;
+            this.primaryEvent = primaryEvent;
+            this.correlatedEvent = correlatedEvent;
+            this.description = description;
+        }
+
+        public Instant timestamp() { return timestamp; }
+        public String primaryEvent() { return primaryEvent; }
+        public String correlatedEvent() { return correlatedEvent; }
+        public String description() { return description; }
     }
 
     /**
@@ -258,21 +294,43 @@ public final class CorrelationAnalyzer {
     /**
      * A recommendation based on detected patterns.
      */
-    public record Recommendation(
-            RecommendationType type,
-            String title,
-            String description,
-            Severity severity
-    ) {
+    public static final class Recommendation {
+        private final RecommendationType type;
+        private final String title;
+        private final String description;
+        private final Severity severity;
+
+        public Recommendation(RecommendationType type, String title, String description, Severity severity) {
+            this.type = type;
+            this.title = title;
+            this.description = description;
+            this.severity = severity;
+        }
+
+        public RecommendationType type() { return type; }
+        public String title() { return title; }
+        public String description() { return description; }
+        public Severity severity() { return severity; }
     }
 
     /**
      * Result of correlation analysis.
      */
-    public record CorrelationResult(
-            List<CorrelatedEvent> gcCpuCorrelations,
-            List<CorrelatedEvent> gcPinningCorrelations,
-            List<Recommendation> recommendations
-    ) {
+    public static final class CorrelationResult {
+        private final List<CorrelatedEvent> gcCpuCorrelations;
+        private final List<CorrelatedEvent> gcPinningCorrelations;
+        private final List<Recommendation> recommendations;
+
+        public CorrelationResult(List<CorrelatedEvent> gcCpuCorrelations,
+                                 List<CorrelatedEvent> gcPinningCorrelations,
+                                 List<Recommendation> recommendations) {
+            this.gcCpuCorrelations = gcCpuCorrelations;
+            this.gcPinningCorrelations = gcPinningCorrelations;
+            this.recommendations = recommendations;
+        }
+
+        public List<CorrelatedEvent> gcCpuCorrelations() { return gcCpuCorrelations; }
+        public List<CorrelatedEvent> gcPinningCorrelations() { return gcPinningCorrelations; }
+        public List<Recommendation> recommendations() { return recommendations; }
     }
 }

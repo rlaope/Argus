@@ -1006,10 +1006,41 @@ async function fetchConfig() {
         if (response.ok) {
             const data = await response.json();
             renderFeatureFlags(data.features);
+            if (data.runtime) {
+                adaptToJavaVersion(data.runtime);
+            }
         }
     } catch (e) {
         console.error('[Argus] Failed to fetch config:', e);
     }
+}
+
+function adaptToJavaVersion(runtime) {
+    const vtTab = document.getElementById('vt-tab');
+    if (!runtime.virtualThreadsSupported && vtTab) {
+        // Show notice instead of hiding entirely
+        const heading = vtTab.querySelector('.page-section-heading');
+        if (heading) {
+            heading.innerHTML = '<h2>Virtual Threads</h2>' +
+                '<p class="section-desc" style="color:var(--amber,#F9A825);">' +
+                'Virtual thread monitoring requires Java 21+. Running on Java ' + runtime.javaVersion +
+                '. GC, CPU, and memory monitoring are fully available above.</p>';
+        }
+        // Hide VT-specific sections (pinned, hotspots, thread activity, threads, events)
+        vtTab.querySelectorAll('.content-section, .pinned-section').forEach(function(section) {
+            var header = section.querySelector('h3');
+            if (header) {
+                var text = header.textContent;
+                if (text.includes('Pinning') || text.includes('Thread Activity') ||
+                    text.includes('Active Threads') || text.includes('Virtual Thread Events')) {
+                    section.style.display = 'none';
+                }
+            }
+        });
+    }
+    console.log('[Argus] Java ' + runtime.javaVersion +
+        ' | VT: ' + runtime.virtualThreadsSupported +
+        ' | JFR: ' + runtime.jfrStreamingSupported);
 }
 
 function renderFeatureFlags(features) {

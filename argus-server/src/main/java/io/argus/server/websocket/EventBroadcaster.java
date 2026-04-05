@@ -154,10 +154,10 @@ public final class EventBroadcaster {
         this.threadStateManager = threadStateManager;
         this.serializer = serializer;
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
-                r -> Thread.ofPlatform().name("argus-event-broadcaster").daemon(true).unstarted(r)
+                r -> { Thread t = new Thread(r, "argus-event-broadcaster"); t.setDaemon(true); return t; }
         );
         this.stateScheduler = Executors.newSingleThreadScheduledExecutor(
-                r -> Thread.ofPlatform().name("argus-state-broadcaster").daemon(true).unstarted(r)
+                r -> { Thread t = new Thread(r, "argus-state-broadcaster"); t.setDaemon(true); return t; }
         );
     }
 

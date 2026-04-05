@@ -115,12 +115,24 @@ public final class MethodProfilingAnalyzer {
     /**
      * A hot method identified by CPU profiling.
      */
-    public record HotMethod(
-            String className,
-            String methodName,
-            long sampleCount,
-            double percentage
-    ) {
+    public static final class HotMethod {
+        private final String className;
+        private final String methodName;
+        private final long sampleCount;
+        private final double percentage;
+
+        public HotMethod(String className, String methodName, long sampleCount, double percentage) {
+            this.className = className;
+            this.methodName = methodName;
+            this.sampleCount = sampleCount;
+            this.percentage = percentage;
+        }
+
+        public String className() { return className; }
+        public String methodName() { return methodName; }
+        public long sampleCount() { return sampleCount; }
+        public double percentage() { return percentage; }
+
         /**
          * Returns the fully qualified method name.
          */
@@ -132,10 +144,20 @@ public final class MethodProfilingAnalyzer {
     /**
      * Result of method profiling analysis.
      */
-    public record MethodProfilingResult(
-            long totalSamples,
-            List<HotMethod> topMethods,
-            Map<String, Long> packageDistribution
-    ) {
+    public static final class MethodProfilingResult {
+        private final long totalSamples;
+        private final List<HotMethod> topMethods;
+        private final Map<String, Long> packageDistribution;
+
+        public MethodProfilingResult(long totalSamples, List<HotMethod> topMethods,
+                                     Map<String, Long> packageDistribution) {
+            this.totalSamples = totalSamples;
+            this.topMethods = topMethods;
+            this.packageDistribution = packageDistribution;
+        }
+
+        public long totalSamples() { return totalSamples; }
+        public List<HotMethod> topMethods() { return topMethods; }
+        public Map<String, Long> packageDistribution() { return packageDistribution; }
     }
 }

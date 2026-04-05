@@ -18,14 +18,31 @@ import java.time.Instant;
  * @param durationNanos the duration of the contention in nanoseconds
  * @param type          the type of contention (ENTER or WAIT)
  */
-public record ContentionEvent(
-        Instant timestamp,
-        long threadId,
-        String threadName,
-        String monitorClass,
-        long durationNanos,
-        ContentionType type
-) {
+public final class ContentionEvent {
+    private final Instant timestamp;
+    private final long threadId;
+    private final String threadName;
+    private final String monitorClass;
+    private final long durationNanos;
+    private final ContentionType type;
+
+    public ContentionEvent(Instant timestamp, long threadId, String threadName,
+                           String monitorClass, long durationNanos, ContentionType type) {
+        this.timestamp = timestamp;
+        this.threadId = threadId;
+        this.threadName = threadName;
+        this.monitorClass = monitorClass;
+        this.durationNanos = durationNanos;
+        this.type = type;
+    }
+
+    public Instant timestamp() { return timestamp; }
+    public long threadId() { return threadId; }
+    public String threadName() { return threadName; }
+    public String monitorClass() { return monitorClass; }
+    public long durationNanos() { return durationNanos; }
+    public ContentionType type() { return type; }
+
     /**
      * Types of contention events.
      */

@@ -2,6 +2,7 @@ package io.argus.agent;
 
 import io.argus.core.config.AgentConfig;
 import io.argus.agent.jfr.JfrStreamingEngine;
+import io.argus.agent.mxbean.MxBeanPollingEngine;
 import io.argus.core.buffer.RingBuffer;
 import io.argus.core.event.AllocationEvent;
 import io.argus.core.event.ContentionEvent;
@@ -50,6 +51,8 @@ public final class ArgusAgent {
         """;
 
     private static volatile JfrStreamingEngine engine;
+    private static volatile MxBeanPollingEngine pollingEngine;
+    private static final int JAVA_VERSION = Runtime.version().feature();
     private static volatile RingBuffer<VirtualThreadEvent> eventBuffer;
     private static volatile RingBuffer<GCEvent> gcEventBuffer;
     private static volatile RingBuffer<CPUEvent> cpuEventBuffer;
@@ -124,28 +127,42 @@ public final class ArgusAgent {
             contentionEventBuffer = new RingBuffer<>(config.getBufferSize());
         }
 
-        // Start JFR streaming engine
-        System.out.println("[Argus] Initializing JFR streaming engine...");
-        engine = new JfrStreamingEngine(
-                eventBuffer,
-                gcEventBuffer,
-                cpuEventBuffer,
-                allocationEventBuffer,
-                metaspaceEventBuffer,
-                executionSampleEventBuffer,
-                contentionEventBuffer,
-                config.isGcEnabled(),
-                config.isCpuEnabled(),
-                config.getCpuIntervalMs(),
-                config.isAllocationEnabled(),
-                config.getAllocationThreshold(),
-                config.isMetaspaceEnabled(),
-                config.isProfilingEnabled(),
-                config.getProfilingIntervalMs(),
-                config.isContentionEnabled(),
-                config.getContentionThresholdMs()
-        );
-        engine.start();
+        // Start event collection engine (version-adaptive)
+        if (JAVA_VERSION >= 21) {
+            System.out.println("[Argus] Initializing JFR streaming engine (Java " + JAVA_VERSION + ")...");
+            engine = new JfrStreamingEngine(
+                    eventBuffer,
+                    gcEventBuffer,
+                    cpuEventBuffer,
+                    allocationEventBuffer,
+                    metaspaceEventBuffer,
+                    executionSampleEventBuffer,
+                    contentionEventBuffer,
+                    config.isGcEnabled(),
+                    config.isCpuEnabled(),
+                    config.getCpuIntervalMs(),
+                    config.isAllocationEnabled(),
+                    config.getAllocationThreshold(),
+                    config.isMetaspaceEnabled(),
+                    config.isProfilingEnabled(),
+                    config.getProfilingIntervalMs(),
+                    config.isContentionEnabled(),
+                    config.getContentionThresholdMs()
+            );
+            engine.start();
+        } else {
+            System.out.println("[Argus] Initializing MXBean polling engine (Java " + JAVA_VERSION + " compatibility mode)...");
+            System.out.println("[Argus] Note: Virtual thread monitoring requires Java 21+. GC/CPU/Memory available.");
+            pollingEngine = new MxBeanPollingEngine(
+                    eventBuffer,
+                    gcEventBuffer,
+                    cpuEventBuffer,
+                    config.isGcEnabled(),
+                    config.isCpuEnabled(),
+                    config.getCpuIntervalMs()
+            );
+            pollingEngine.start();
+        }
 
         // Start server if enabled
         if (config.isServerEnabled()) {
@@ -172,10 +189,7 @@ public final class ArgusAgent {
                 config.isCorrelationEnabled(),
                 config
         );
-        Thread.ofPlatform()
-                .name("argus-server")
-                .daemon(true)
-                .start(() -> {
+        Thread serverThread = new Thread(() -> {
                     try {
                         server.start();
                     } catch (InterruptedException e) {
@@ -183,7 +197,9 @@ public final class ArgusAgent {
                     } catch (Exception e) {
                         System.err.println("[Argus] Server error: " + e.getMessage());
                     }
-                });
+                }, "argus-server");
+        serverThread.setDaemon(true);
+        serverThread.start();
         System.out.printf("[Argus] WebSocket server starting on port %d%n", config.getServerPort());
         System.out.printf("[Argus] Connect to ws://localhost:%d/events%n", config.getServerPort());
     }
@@ -196,6 +212,9 @@ public final class ArgusAgent {
             }
             if (engine != null) {
                 engine.stop();
+            }
+            if (pollingEngine != null) {
+                pollingEngine.stop();
             }
         }, "argus-shutdown"));
     }

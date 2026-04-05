@@ -155,22 +155,44 @@ public final class AllocationAnalyzer {
     /**
      * Allocation by class.
      */
-    public record ClassAllocation(
-            String className,
-            long allocationCount,
-            long totalBytes
-    ) {
+    public static final class ClassAllocation {
+        private final String className;
+        private final long allocationCount;
+        private final long totalBytes;
+
+        public ClassAllocation(String className, long allocationCount, long totalBytes) {
+            this.className = className;
+            this.allocationCount = allocationCount;
+            this.totalBytes = totalBytes;
+        }
+
+        public String className() { return className; }
+        public long allocationCount() { return allocationCount; }
+        public long totalBytes() { return totalBytes; }
     }
 
     /**
      * Snapshot of allocation state at a point in time.
      */
-    public record AllocationSnapshot(
-            Instant timestamp,
-            long totalAllocations,
-            long totalBytes,
-            double allocationRateBytesPerSec
-    ) {
+    public static final class AllocationSnapshot {
+        private final Instant timestamp;
+        private final long totalAllocations;
+        private final long totalBytes;
+        private final double allocationRateBytesPerSec;
+
+        public AllocationSnapshot(Instant timestamp, long totalAllocations, long totalBytes,
+                                  double allocationRateBytesPerSec) {
+            this.timestamp = timestamp;
+            this.totalAllocations = totalAllocations;
+            this.totalBytes = totalBytes;
+            this.allocationRateBytesPerSec = allocationRateBytesPerSec;
+        }
+
+        public Instant timestamp() { return timestamp; }
+        public long totalAllocations() { return totalAllocations; }
+        public long totalBytes() { return totalBytes; }
+        public double allocationRateBytesPerSec() { return allocationRateBytesPerSec; }
+
         /**
          * Returns the allocation rate in MB/s.
          */
@@ -182,14 +204,33 @@ public final class AllocationAnalyzer {
     /**
      * Result of allocation analysis.
      */
-    public record AllocationAnalysisResult(
-            long totalAllocations,
-            long totalBytesAllocated,
-            double allocationRateBytesPerSec,
-            double peakAllocationRate,
-            List<ClassAllocation> topAllocatingClasses,
-            List<AllocationSnapshot> history
-    ) {
+    public static final class AllocationAnalysisResult {
+        private final long totalAllocations;
+        private final long totalBytesAllocated;
+        private final double allocationRateBytesPerSec;
+        private final double peakAllocationRate;
+        private final List<ClassAllocation> topAllocatingClasses;
+        private final List<AllocationSnapshot> history;
+
+        public AllocationAnalysisResult(long totalAllocations, long totalBytesAllocated,
+                                        double allocationRateBytesPerSec, double peakAllocationRate,
+                                        List<ClassAllocation> topAllocatingClasses,
+                                        List<AllocationSnapshot> history) {
+            this.totalAllocations = totalAllocations;
+            this.totalBytesAllocated = totalBytesAllocated;
+            this.allocationRateBytesPerSec = allocationRateBytesPerSec;
+            this.peakAllocationRate = peakAllocationRate;
+            this.topAllocatingClasses = topAllocatingClasses;
+            this.history = history;
+        }
+
+        public long totalAllocations() { return totalAllocations; }
+        public long totalBytesAllocated() { return totalBytesAllocated; }
+        public double allocationRateBytesPerSec() { return allocationRateBytesPerSec; }
+        public double peakAllocationRate() { return peakAllocationRate; }
+        public List<ClassAllocation> topAllocatingClasses() { return topAllocatingClasses; }
+        public List<AllocationSnapshot> history() { return history; }
+
         /**
          * Returns the total allocated in MB.
          */

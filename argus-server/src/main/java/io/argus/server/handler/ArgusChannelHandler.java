@@ -372,6 +372,12 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         sb.append("\"server\":{");
         sb.append("\"port\":").append(config.getServerPort()).append(",");
         sb.append("\"bufferSize\":").append(config.getBufferSize());
+        sb.append("},");
+        sb.append("\"runtime\":{");
+        sb.append("\"javaVersion\":").append(Runtime.version().feature()).append(",");
+        sb.append("\"virtualThreadsSupported\":").append(Runtime.version().feature() >= 21).append(",");
+        sb.append("\"jfrStreamingSupported\":").append(Runtime.version().feature() >= 14).append(",");
+        sb.append("\"vmName\":\"").append(escapeJson(System.getProperty("java.vm.name", ""))).append("\"");
         sb.append("}");
         sb.append("}");
 

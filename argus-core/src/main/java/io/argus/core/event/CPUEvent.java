@@ -10,12 +10,24 @@ import java.time.Instant;
  * @param jvmSystem    JVM system CPU usage (0.0-1.0)
  * @param machineTotal total machine CPU usage (0.0-1.0)
  */
-public record CPUEvent(
-        Instant timestamp,
-        double jvmUser,
-        double jvmSystem,
-        double machineTotal
-) {
+public final class CPUEvent {
+    private final Instant timestamp;
+    private final double jvmUser;
+    private final double jvmSystem;
+    private final double machineTotal;
+
+    public CPUEvent(Instant timestamp, double jvmUser, double jvmSystem, double machineTotal) {
+        this.timestamp = timestamp;
+        this.jvmUser = jvmUser;
+        this.jvmSystem = jvmSystem;
+        this.machineTotal = machineTotal;
+    }
+
+    public Instant timestamp() { return timestamp; }
+    public double jvmUser() { return jvmUser; }
+    public double jvmSystem() { return jvmSystem; }
+    public double machineTotal() { return machineTotal; }
+
     /**
      * Creates a CPU load event.
      */

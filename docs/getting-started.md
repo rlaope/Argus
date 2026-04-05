@@ -6,7 +6,9 @@ This guide will help you get up and running with Project Argus in minutes.
 
 Before you begin, ensure you have the following installed:
 
-- **Java 21 or higher** - Argus Agent requires Java 21+ for JFR streaming and Virtual Thread monitoring. The CLI works on Java 11+.
+- **Java 11+** for CLI commands (JDK required)
+- **Java 17+** for Agent + Dashboard (MXBean polling mode — GC, CPU, Memory)
+- **Java 21+** for full features (JFR streaming, Virtual Threads, Flame Graph, Allocation Tracking)
 - **Gradle 8.4+** (optional) - Only needed if building from source
 
 ### Verify Java Version

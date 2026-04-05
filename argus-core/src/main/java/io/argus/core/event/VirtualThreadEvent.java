@@ -13,15 +13,35 @@ import java.time.Instant;
  * @param duration      the duration in nanoseconds (for applicable events)
  * @param stackTrace    the stack trace (for pinned events)
  */
-public record VirtualThreadEvent(
-        EventType eventType,
-        long threadId,
-        String threadName,
-        long carrierThread,
-        Instant timestamp,
-        long duration,
-        String stackTrace
-) {
+public final class VirtualThreadEvent {
+    private final EventType eventType;
+    private final long threadId;
+    private final String threadName;
+    private final long carrierThread;
+    private final Instant timestamp;
+    private final long duration;
+    private final String stackTrace;
+
+    public VirtualThreadEvent(EventType eventType, long threadId, String threadName,
+                              long carrierThread, Instant timestamp, long duration,
+                              String stackTrace) {
+        this.eventType = eventType;
+        this.threadId = threadId;
+        this.threadName = threadName;
+        this.carrierThread = carrierThread;
+        this.timestamp = timestamp;
+        this.duration = duration;
+        this.stackTrace = stackTrace;
+    }
+
+    public EventType eventType() { return eventType; }
+    public long threadId() { return threadId; }
+    public String threadName() { return threadName; }
+    public long carrierThread() { return carrierThread; }
+    public Instant timestamp() { return timestamp; }
+    public long duration() { return duration; }
+    public String stackTrace() { return stackTrace; }
+
     /**
      * Creates a thread start event.
      */

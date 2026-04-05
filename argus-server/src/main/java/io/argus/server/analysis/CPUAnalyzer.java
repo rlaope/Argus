@@ -150,12 +150,24 @@ public final class CPUAnalyzer {
     /**
      * Snapshot of CPU state at a point in time.
      */
-    public record CPUSnapshot(
-            Instant timestamp,
-            double jvmUser,
-            double jvmSystem,
-            double machineTotal
-    ) {
+    public static final class CPUSnapshot {
+        private final Instant timestamp;
+        private final double jvmUser;
+        private final double jvmSystem;
+        private final double machineTotal;
+
+        public CPUSnapshot(Instant timestamp, double jvmUser, double jvmSystem, double machineTotal) {
+            this.timestamp = timestamp;
+            this.jvmUser = jvmUser;
+            this.jvmSystem = jvmSystem;
+            this.machineTotal = machineTotal;
+        }
+
+        public Instant timestamp() { return timestamp; }
+        public double jvmUser() { return jvmUser; }
+        public double jvmSystem() { return jvmSystem; }
+        public double machineTotal() { return machineTotal; }
+
         /**
          * Returns the total JVM CPU usage.
          */
@@ -181,19 +193,49 @@ public final class CPUAnalyzer {
     /**
      * Result of CPU analysis.
      */
-    public record CPUAnalysisResult(
-            long totalSamples,
-            double currentJvmUser,
-            double currentJvmSystem,
-            double currentJvmTotal,
-            double currentMachineTotal,
-            double avgJvmTotal,
-            double avgMachineTotal,
-            double peakJvmTotal,
-            double peakMachineTotal,
-            List<CPUSnapshot> history,
-            Instant lastUpdateTime
-    ) {
+    public static final class CPUAnalysisResult {
+        private final long totalSamples;
+        private final double currentJvmUser;
+        private final double currentJvmSystem;
+        private final double currentJvmTotal;
+        private final double currentMachineTotal;
+        private final double avgJvmTotal;
+        private final double avgMachineTotal;
+        private final double peakJvmTotal;
+        private final double peakMachineTotal;
+        private final List<CPUSnapshot> history;
+        private final Instant lastUpdateTime;
+
+        public CPUAnalysisResult(long totalSamples, double currentJvmUser, double currentJvmSystem,
+                                 double currentJvmTotal, double currentMachineTotal,
+                                 double avgJvmTotal, double avgMachineTotal,
+                                 double peakJvmTotal, double peakMachineTotal,
+                                 List<CPUSnapshot> history, Instant lastUpdateTime) {
+            this.totalSamples = totalSamples;
+            this.currentJvmUser = currentJvmUser;
+            this.currentJvmSystem = currentJvmSystem;
+            this.currentJvmTotal = currentJvmTotal;
+            this.currentMachineTotal = currentMachineTotal;
+            this.avgJvmTotal = avgJvmTotal;
+            this.avgMachineTotal = avgMachineTotal;
+            this.peakJvmTotal = peakJvmTotal;
+            this.peakMachineTotal = peakMachineTotal;
+            this.history = history;
+            this.lastUpdateTime = lastUpdateTime;
+        }
+
+        public long totalSamples() { return totalSamples; }
+        public double currentJvmUser() { return currentJvmUser; }
+        public double currentJvmSystem() { return currentJvmSystem; }
+        public double currentJvmTotal() { return currentJvmTotal; }
+        public double currentMachineTotal() { return currentMachineTotal; }
+        public double avgJvmTotal() { return avgJvmTotal; }
+        public double avgMachineTotal() { return avgMachineTotal; }
+        public double peakJvmTotal() { return peakJvmTotal; }
+        public double peakMachineTotal() { return peakMachineTotal; }
+        public List<CPUSnapshot> history() { return history; }
+        public Instant lastUpdateTime() { return lastUpdateTime; }
+
         /**
          * Returns the current JVM CPU percentage.
          */

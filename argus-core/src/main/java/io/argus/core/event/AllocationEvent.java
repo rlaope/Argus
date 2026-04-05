@@ -13,12 +13,24 @@ import java.time.Instant;
  * @param allocationSize the size of the allocation in bytes
  * @param tlabSize       the size of the TLAB in bytes
  */
-public record AllocationEvent(
-        Instant timestamp,
-        String className,
-        long allocationSize,
-        long tlabSize
-) {
+public final class AllocationEvent {
+    private final Instant timestamp;
+    private final String className;
+    private final long allocationSize;
+    private final long tlabSize;
+
+    public AllocationEvent(Instant timestamp, String className, long allocationSize, long tlabSize) {
+        this.timestamp = timestamp;
+        this.className = className;
+        this.allocationSize = allocationSize;
+        this.tlabSize = tlabSize;
+    }
+
+    public Instant timestamp() { return timestamp; }
+    public String className() { return className; }
+    public long allocationSize() { return allocationSize; }
+    public long tlabSize() { return tlabSize; }
+
     /**
      * Creates an allocation event.
      *
