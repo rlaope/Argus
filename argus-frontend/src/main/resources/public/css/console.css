@@ -1,0 +1,317 @@
+/* ================================================================
+   ARGUS CONSOLE — Interactive command terminal
+================================================================ */
+
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg: #ffffff;
+    --ink: #1a1a1a;
+    --ink-2: #444;
+    --ink-3: #888;
+    --border: #e4e4e4;
+    --green: #2E7D32;
+    --red: #C62828;
+    --amber: #F9A825;
+    --blue: #1565C0;
+    --terminal-bg: #1a1a1a;
+    --terminal-text: #d4d4d4;
+    --terminal-prompt: #2E7D32;
+    --terminal-cmd: #ffffff;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 2rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.logo-img {
+    height: 28px;
+    width: auto;
+}
+
+.logo h1 {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.back-link {
+    font-size: 1.25rem;
+    color: var(--ink-3);
+    text-decoration: none;
+    margin-right: 0.5rem;
+}
+
+.back-link:hover {
+    color: var(--ink);
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--ink-2);
+    padding: 0.375rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.btn:hover {
+    border-color: var(--ink-3);
+    color: var(--ink);
+}
+
+.btn-icon {
+    padding: 0.375rem 0.5rem;
+}
+
+/* Main */
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 1.5rem 2rem;
+    gap: 1.5rem;
+}
+
+/* Command Buttons */
+.commands-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.commands-group h3 {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.commands-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+}
+
+.cmd-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--ink);
+    padding: 0.4rem 0.875rem;
+    border-radius: 4px;
+    font-size: 0.8125rem;
+    font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+}
+
+.cmd-btn:hover {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(46, 125, 50, 0.04);
+}
+
+.cmd-btn.active {
+    border-color: var(--green);
+    background: var(--green);
+    color: white;
+}
+
+.cmd-btn[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: white;
+    padding: 0.375rem 0.625rem;
+    border-radius: 4px;
+    font-size: 0.6875rem;
+    font-family: -apple-system, sans-serif;
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Terminal */
+.terminal-section {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+}
+
+.terminal {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--terminal-bg);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #333;
+}
+
+.terminal-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1rem;
+    background: #2d2d2d;
+    border-bottom: 1px solid #444;
+}
+
+.terminal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.terminal-dot.red { background: #ff5f57; }
+.terminal-dot.yellow { background: #febc2e; }
+.terminal-dot.green { background: #28c840; }
+
+.terminal-title {
+    flex: 1;
+    text-align: center;
+    color: #888;
+    font-size: 0.75rem;
+    font-family: 'SF Mono', ui-monospace, Consolas, monospace;
+}
+
+.terminal-clear {
+    background: transparent;
+    border: 1px solid #555;
+    color: #888;
+    padding: 0.125rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.6875rem;
+    cursor: pointer;
+}
+
+.terminal-clear:hover {
+    color: #ccc;
+    border-color: #888;
+}
+
+.terminal-body {
+    flex: 1;
+    padding: 1rem;
+    overflow-y: auto;
+    min-height: 500px;
+    max-height: 70vh;
+    font-family: 'SF Mono', ui-monospace, Consolas, 'Courier New', monospace;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+}
+
+.terminal-line {
+    margin-bottom: 0.25rem;
+}
+
+.prompt {
+    color: var(--terminal-prompt);
+    font-weight: 600;
+}
+
+.command-text {
+    color: var(--terminal-cmd);
+    font-weight: 500;
+}
+
+.output-text {
+    color: #888;
+}
+
+.output {
+    color: var(--terminal-text);
+    white-space: pre;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.5;
+}
+
+.output.error {
+    color: var(--red);
+}
+
+.output.success {
+    color: var(--terminal-text);
+}
+
+.loading-dots {
+    color: var(--amber);
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Scrollbar */
+.terminal-body::-webkit-scrollbar {
+    width: 6px;
+}
+
+.terminal-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.terminal-body::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 3px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    main {
+        padding: 1rem;
+    }
+
+    .cmd-btn {
+        padding: 0.3rem 0.625rem;
+        font-size: 0.75rem;
+    }
+
+    .terminal-body {
+        min-height: 400px;
+        font-size: 0.75rem;
+    }
+}

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus Console</title>
+    <link rel="stylesheet" href="/css/console.css">
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <a href="/" class="back-link">&larr;</a>
+            <img src="/img/argus_logo.png" alt="Argus" class="logo-img">
+            <h1>Argus Console</h1>
+        </div>
+        <div class="header-actions">
+            <a href="/" class="btn">Dashboard</a>
+            <a href="https://github.com/rlaope/Argus" target="_blank" class="btn btn-icon" title="GitHub">GH</a>
+        </div>
+    </header>
+
+    <main>
+        <!-- Command Buttons -->
+        <section class="commands-panel" id="commands-panel">
+            <div class="commands-group">
+                <h3>System</h3>
+                <div class="commands-row" id="group-system"></div>
+            </div>
+            <div class="commands-group">
+                <h3>Memory &amp; GC</h3>
+                <div class="commands-row" id="group-memory"></div>
+            </div>
+            <div class="commands-group">
+                <h3>Threads</h3>
+                <div class="commands-row" id="group-threads"></div>
+            </div>
+            <div class="commands-group">
+                <h3>Profiling</h3>
+                <div class="commands-row" id="group-profiling"></div>
+            </div>
+        </section>
+
+        <!-- Terminal -->
+        <section class="terminal-section">
+            <div class="terminal">
+                <div class="terminal-header">
+                    <span class="terminal-dot red"></span>
+                    <span class="terminal-dot yellow"></span>
+                    <span class="terminal-dot green"></span>
+                    <span class="terminal-title">argus@jvm</span>
+                    <button id="clear-terminal" class="terminal-clear" title="Clear">Clear</button>
+                </div>
+                <div class="terminal-body" id="terminal-body">
+                    <div class="terminal-line">
+                        <span class="prompt">argus&gt;</span>
+                        <span class="output-text">Welcome to Argus Interactive Console. Click a command above to run it.</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Command grouping
+        const COMMAND_GROUPS = {
+            system: ['info', 'sysprops', 'env', 'vmflag'],
+            memory: ['heap', 'gc', 'gcutil', 'metaspace', 'pool', 'histo', 'nmt', 'finalizer'],
+            threads: ['threads', 'deadlock'],
+            profiling: ['compiler', 'classloader']
+        };
+
+        const terminalBody = document.getElementById('terminal-body');
+        let isRunning = false;
+
+        // Fetch commands from server and render buttons
+        async function init() {
+            try {
+                const res = await fetch('/api/commands');
+                const data = await res.json();
+                const cmdMap = {};
+                data.commands.forEach(c => cmdMap[c.id] = c);
+
+                for (const [group, cmds] of Object.entries(COMMAND_GROUPS)) {
+                    const container = document.getElementById('group-' + group);
+                    if (!container) continue;
+                    cmds.forEach(cmdId => {
+                        const cmd = cmdMap[cmdId];
+                        if (!cmd) return;
+                        const btn = document.createElement('button');
+                        btn.className = 'cmd-btn';
+                        btn.textContent = cmdId;
+                        btn.title = cmd.description;
+                        btn.addEventListener('click', () => executeCommand(cmdId));
+                        container.appendChild(btn);
+                    });
+                }
+            } catch (e) {
+                appendOutput('Failed to load commands: ' + e.message, 'error');
+            }
+        }
+
+        async function executeCommand(cmd) {
+            if (isRunning) return;
+            isRunning = true;
+
+            // Highlight active button
+            document.querySelectorAll('.cmd-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = [...document.querySelectorAll('.cmd-btn')].find(b => b.textContent === cmd);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            // Type command animation
+            const line = document.createElement('div');
+            line.className = 'terminal-line';
+            const prompt = document.createElement('span');
+            prompt.className = 'prompt';
+            prompt.textContent = 'argus>';
+            const cmdText = document.createElement('span');
+            cmdText.className = 'command-text';
+            line.appendChild(prompt);
+            line.appendChild(cmdText);
+            terminalBody.appendChild(line);
+
+            // Typing animation
+            const fullCmd = ' ' + cmd;
+            for (let i = 0; i < fullCmd.length; i++) {
+                cmdText.textContent += fullCmd[i];
+                await sleep(30 + Math.random() * 40);
+            }
+
+            // Loading indicator
+            const loading = document.createElement('div');
+            loading.className = 'terminal-line loading-line';
+            loading.innerHTML = '<span class="loading-dots">...</span>';
+            terminalBody.appendChild(loading);
+            scrollToBottom();
+
+            try {
+                const res = await fetch('/api/exec?cmd=' + encodeURIComponent(cmd));
+                const data = await res.json();
+                loading.remove();
+
+                if (data.error) {
+                    appendOutput(data.error, 'error');
+                } else {
+                    appendOutput(data.output, 'success');
+                }
+            } catch (e) {
+                loading.remove();
+                appendOutput('Error: ' + e.message, 'error');
+            }
+
+            if (activeBtn) activeBtn.classList.remove('active');
+            isRunning = false;
+            scrollToBottom();
+        }
+
+        function appendOutput(text, type) {
+            const line = document.createElement('div');
+            line.className = 'terminal-line output-line';
+            const pre = document.createElement('pre');
+            pre.className = 'output ' + (type || '');
+            pre.textContent = text;
+            line.appendChild(pre);
+            terminalBody.appendChild(line);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            terminalBody.scrollTop = terminalBody.scrollHeight;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        document.getElementById('clear-terminal').addEventListener('click', () => {
+            terminalBody.innerHTML = '<div class="terminal-line"><span class="prompt">argus&gt;</span> <span class="output-text">Terminal cleared.</span></div>';
+        });
+
+        init();
+    </script>
+</body>
+</html>
