@@ -166,10 +166,19 @@ public final class PinningAnalyzer {
     /**
      * Result of pinning analysis.
      */
-    public record PinningAnalysisResult(
-            long totalPinnedEvents,
-            int uniqueStackTraces,
-            List<PinningHotspot> hotspots
-    ) {
+    public static final class PinningAnalysisResult {
+        private final long totalPinnedEvents;
+        private final int uniqueStackTraces;
+        private final List<PinningHotspot> hotspots;
+
+        public PinningAnalysisResult(long totalPinnedEvents, int uniqueStackTraces, List<PinningHotspot> hotspots) {
+            this.totalPinnedEvents = totalPinnedEvents;
+            this.uniqueStackTraces = uniqueStackTraces;
+            this.hotspots = hotspots;
+        }
+
+        public long totalPinnedEvents() { return totalPinnedEvents; }
+        public int uniqueStackTraces() { return uniqueStackTraces; }
+        public List<PinningHotspot> hotspots() { return hotspots; }
     }
 }

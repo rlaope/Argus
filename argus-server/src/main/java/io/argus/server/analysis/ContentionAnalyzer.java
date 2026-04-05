@@ -144,14 +144,31 @@ public final class ContentionAnalyzer {
     /**
      * A contention hotspot identified by analysis.
      */
-    public record ContentionHotspot(
-            String monitorClass,
-            long eventCount,
-            long totalTimeMs,
-            long enterCount,
-            long waitCount,
-            double percentage
-    ) {
+    public static final class ContentionHotspot {
+        private final String monitorClass;
+        private final long eventCount;
+        private final long totalTimeMs;
+        private final long enterCount;
+        private final long waitCount;
+        private final double percentage;
+
+        public ContentionHotspot(String monitorClass, long eventCount, long totalTimeMs,
+                                 long enterCount, long waitCount, double percentage) {
+            this.monitorClass = monitorClass;
+            this.eventCount = eventCount;
+            this.totalTimeMs = totalTimeMs;
+            this.enterCount = enterCount;
+            this.waitCount = waitCount;
+            this.percentage = percentage;
+        }
+
+        public String monitorClass() { return monitorClass; }
+        public long eventCount() { return eventCount; }
+        public long totalTimeMs() { return totalTimeMs; }
+        public long enterCount() { return enterCount; }
+        public long waitCount() { return waitCount; }
+        public double percentage() { return percentage; }
+
         /**
          * Returns the average contention time in ms.
          */
@@ -163,11 +180,24 @@ public final class ContentionAnalyzer {
     /**
      * Result of contention analysis.
      */
-    public record ContentionAnalysisResult(
-            long totalContentionEvents,
-            long totalContentionTimeMs,
-            List<ContentionHotspot> hotspots,
-            Map<String, Long> threadContentionTime
-    ) {
+    public static final class ContentionAnalysisResult {
+        private final long totalContentionEvents;
+        private final long totalContentionTimeMs;
+        private final List<ContentionHotspot> hotspots;
+        private final Map<String, Long> threadContentionTime;
+
+        public ContentionAnalysisResult(long totalContentionEvents, long totalContentionTimeMs,
+                                        List<ContentionHotspot> hotspots,
+                                        Map<String, Long> threadContentionTime) {
+            this.totalContentionEvents = totalContentionEvents;
+            this.totalContentionTimeMs = totalContentionTimeMs;
+            this.hotspots = hotspots;
+            this.threadContentionTime = threadContentionTime;
+        }
+
+        public long totalContentionEvents() { return totalContentionEvents; }
+        public long totalContentionTimeMs() { return totalContentionTimeMs; }
+        public List<ContentionHotspot> hotspots() { return hotspots; }
+        public Map<String, Long> threadContentionTime() { return threadContentionTime; }
     }
 }

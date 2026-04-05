@@ -18,24 +18,54 @@ public final class CarrierThreadAnalyzer {
     /**
      * Statistics for a single carrier thread.
      */
-    public record CarrierStats(
-            long carrierId,
-            long totalVirtualThreads,
-            long currentVirtualThreads,
-            long pinnedEvents,
-            double utilizationPercent,
-            Instant lastActivity
-    ) {}
+    public static final class CarrierStats {
+        private final long carrierId;
+        private final long totalVirtualThreads;
+        private final long currentVirtualThreads;
+        private final long pinnedEvents;
+        private final double utilizationPercent;
+        private final Instant lastActivity;
+
+        public CarrierStats(long carrierId, long totalVirtualThreads, long currentVirtualThreads,
+                            long pinnedEvents, double utilizationPercent, Instant lastActivity) {
+            this.carrierId = carrierId;
+            this.totalVirtualThreads = totalVirtualThreads;
+            this.currentVirtualThreads = currentVirtualThreads;
+            this.pinnedEvents = pinnedEvents;
+            this.utilizationPercent = utilizationPercent;
+            this.lastActivity = lastActivity;
+        }
+
+        public long carrierId() { return carrierId; }
+        public long totalVirtualThreads() { return totalVirtualThreads; }
+        public long currentVirtualThreads() { return currentVirtualThreads; }
+        public long pinnedEvents() { return pinnedEvents; }
+        public double utilizationPercent() { return utilizationPercent; }
+        public Instant lastActivity() { return lastActivity; }
+    }
 
     /**
      * Analysis result containing all carrier thread statistics.
      */
-    public record CarrierAnalysisResult(
-            int totalCarriers,
-            long totalVirtualThreadsHandled,
-            double avgVirtualThreadsPerCarrier,
-            List<CarrierStats> carriers
-    ) {}
+    public static final class CarrierAnalysisResult {
+        private final int totalCarriers;
+        private final long totalVirtualThreadsHandled;
+        private final double avgVirtualThreadsPerCarrier;
+        private final List<CarrierStats> carriers;
+
+        public CarrierAnalysisResult(int totalCarriers, long totalVirtualThreadsHandled,
+                                     double avgVirtualThreadsPerCarrier, List<CarrierStats> carriers) {
+            this.totalCarriers = totalCarriers;
+            this.totalVirtualThreadsHandled = totalVirtualThreadsHandled;
+            this.avgVirtualThreadsPerCarrier = avgVirtualThreadsPerCarrier;
+            this.carriers = carriers;
+        }
+
+        public int totalCarriers() { return totalCarriers; }
+        public long totalVirtualThreadsHandled() { return totalVirtualThreadsHandled; }
+        public double avgVirtualThreadsPerCarrier() { return avgVirtualThreadsPerCarrier; }
+        public List<CarrierStats> carriers() { return carriers; }
+    }
 
     private final Map<Long, CarrierData> carrierMap = new ConcurrentHashMap<>();
     private final AtomicLong totalVirtualThreadsHandled = new AtomicLong(0);

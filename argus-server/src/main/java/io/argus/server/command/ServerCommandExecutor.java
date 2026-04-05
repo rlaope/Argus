@@ -472,5 +472,19 @@ public final class ServerCommandExecutor {
         return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
     }
 
-    public record CommandInfo(String name, String group, String description) {}
+    public static final class CommandInfo {
+        private final String name;
+        private final String group;
+        private final String description;
+
+        public CommandInfo(String name, String group, String description) {
+            this.name = name;
+            this.group = group;
+            this.description = description;
+        }
+
+        public String name() { return name; }
+        public String group() { return group; }
+        public String description() { return description; }
+    }
 }

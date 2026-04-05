@@ -14,13 +14,28 @@ import java.time.Instant;
  * @param metaspaceReserved  metaspace reserved memory in bytes
  * @param classCount         number of loaded classes
  */
-public record MetaspaceEvent(
-        Instant timestamp,
-        long metaspaceUsed,
-        long metaspaceCommitted,
-        long metaspaceReserved,
-        long classCount
-) {
+public final class MetaspaceEvent {
+    private final Instant timestamp;
+    private final long metaspaceUsed;
+    private final long metaspaceCommitted;
+    private final long metaspaceReserved;
+    private final long classCount;
+
+    public MetaspaceEvent(Instant timestamp, long metaspaceUsed, long metaspaceCommitted,
+                          long metaspaceReserved, long classCount) {
+        this.timestamp = timestamp;
+        this.metaspaceUsed = metaspaceUsed;
+        this.metaspaceCommitted = metaspaceCommitted;
+        this.metaspaceReserved = metaspaceReserved;
+        this.classCount = classCount;
+    }
+
+    public Instant timestamp() { return timestamp; }
+    public long metaspaceUsed() { return metaspaceUsed; }
+    public long metaspaceCommitted() { return metaspaceCommitted; }
+    public long metaspaceReserved() { return metaspaceReserved; }
+    public long classCount() { return classCount; }
+
     /**
      * Creates a metaspace event.
      *

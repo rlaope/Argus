@@ -212,32 +212,79 @@ public final class GCAnalyzer {
     /**
      * Summary of a single GC event.
      */
-    public record GCSummary(
-            Instant timestamp,
-            String gcName,
-            String gcCause,
-            double pauseTimeMs,
-            long heapUsedBefore,
-            long heapUsedAfter,
-            long memoryReclaimed
-    ) {
+    public static final class GCSummary {
+        private final Instant timestamp;
+        private final String gcName;
+        private final String gcCause;
+        private final double pauseTimeMs;
+        private final long heapUsedBefore;
+        private final long heapUsedAfter;
+        private final long memoryReclaimed;
+
+        public GCSummary(Instant timestamp, String gcName, String gcCause, double pauseTimeMs,
+                         long heapUsedBefore, long heapUsedAfter, long memoryReclaimed) {
+            this.timestamp = timestamp;
+            this.gcName = gcName;
+            this.gcCause = gcCause;
+            this.pauseTimeMs = pauseTimeMs;
+            this.heapUsedBefore = heapUsedBefore;
+            this.heapUsedAfter = heapUsedAfter;
+            this.memoryReclaimed = memoryReclaimed;
+        }
+
+        public Instant timestamp() { return timestamp; }
+        public String gcName() { return gcName; }
+        public String gcCause() { return gcCause; }
+        public double pauseTimeMs() { return pauseTimeMs; }
+        public long heapUsedBefore() { return heapUsedBefore; }
+        public long heapUsedAfter() { return heapUsedAfter; }
+        public long memoryReclaimed() { return memoryReclaimed; }
     }
 
     /**
      * Result of GC analysis.
      */
-    public record GCAnalysisResult(
-            long totalGCEvents,
-            long totalPauseTimeMs,
-            double avgPauseTimeMs,
-            long maxPauseTimeMs,
-            List<GCSummary> recentGCs,
-            Map<String, Long> causeDistribution,
-            long currentHeapUsed,
-            long currentHeapCommitted,
-            Instant lastGCTime,
-            double gcOverheadPercent,
-            boolean isOverheadWarning
-    ) {
+    public static final class GCAnalysisResult {
+        private final long totalGCEvents;
+        private final long totalPauseTimeMs;
+        private final double avgPauseTimeMs;
+        private final long maxPauseTimeMs;
+        private final List<GCSummary> recentGCs;
+        private final Map<String, Long> causeDistribution;
+        private final long currentHeapUsed;
+        private final long currentHeapCommitted;
+        private final Instant lastGCTime;
+        private final double gcOverheadPercent;
+        private final boolean isOverheadWarning;
+
+        public GCAnalysisResult(long totalGCEvents, long totalPauseTimeMs, double avgPauseTimeMs,
+                                long maxPauseTimeMs, List<GCSummary> recentGCs,
+                                Map<String, Long> causeDistribution, long currentHeapUsed,
+                                long currentHeapCommitted, Instant lastGCTime,
+                                double gcOverheadPercent, boolean isOverheadWarning) {
+            this.totalGCEvents = totalGCEvents;
+            this.totalPauseTimeMs = totalPauseTimeMs;
+            this.avgPauseTimeMs = avgPauseTimeMs;
+            this.maxPauseTimeMs = maxPauseTimeMs;
+            this.recentGCs = recentGCs;
+            this.causeDistribution = causeDistribution;
+            this.currentHeapUsed = currentHeapUsed;
+            this.currentHeapCommitted = currentHeapCommitted;
+            this.lastGCTime = lastGCTime;
+            this.gcOverheadPercent = gcOverheadPercent;
+            this.isOverheadWarning = isOverheadWarning;
+        }
+
+        public long totalGCEvents() { return totalGCEvents; }
+        public long totalPauseTimeMs() { return totalPauseTimeMs; }
+        public double avgPauseTimeMs() { return avgPauseTimeMs; }
+        public long maxPauseTimeMs() { return maxPauseTimeMs; }
+        public List<GCSummary> recentGCs() { return recentGCs; }
+        public Map<String, Long> causeDistribution() { return causeDistribution; }
+        public long currentHeapUsed() { return currentHeapUsed; }
+        public long currentHeapCommitted() { return currentHeapCommitted; }
+        public Instant lastGCTime() { return lastGCTime; }
+        public double gcOverheadPercent() { return gcOverheadPercent; }
+        public boolean isOverheadWarning() { return isOverheadWarning; }
     }
 }

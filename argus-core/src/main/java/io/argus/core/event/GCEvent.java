@@ -14,16 +14,37 @@ import java.time.Instant;
  * @param heapUsedAfter  heap used after GC in bytes
  * @param heapCommitted  heap committed memory in bytes
  */
-public record GCEvent(
-        EventType eventType,
-        Instant timestamp,
-        long duration,
-        String gcName,
-        String gcCause,
-        long heapUsedBefore,
-        long heapUsedAfter,
-        long heapCommitted
-) {
+public final class GCEvent {
+    private final EventType eventType;
+    private final Instant timestamp;
+    private final long duration;
+    private final String gcName;
+    private final String gcCause;
+    private final long heapUsedBefore;
+    private final long heapUsedAfter;
+    private final long heapCommitted;
+
+    public GCEvent(EventType eventType, Instant timestamp, long duration, String gcName,
+                   String gcCause, long heapUsedBefore, long heapUsedAfter, long heapCommitted) {
+        this.eventType = eventType;
+        this.timestamp = timestamp;
+        this.duration = duration;
+        this.gcName = gcName;
+        this.gcCause = gcCause;
+        this.heapUsedBefore = heapUsedBefore;
+        this.heapUsedAfter = heapUsedAfter;
+        this.heapCommitted = heapCommitted;
+    }
+
+    public EventType eventType() { return eventType; }
+    public Instant timestamp() { return timestamp; }
+    public long duration() { return duration; }
+    public String gcName() { return gcName; }
+    public String gcCause() { return gcCause; }
+    public long heapUsedBefore() { return heapUsedBefore; }
+    public long heapUsedAfter() { return heapUsedAfter; }
+    public long heapCommitted() { return heapCommitted; }
+
     /**
      * Creates a GC pause event.
      */

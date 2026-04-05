@@ -149,13 +149,27 @@ public final class MetaspaceAnalyzer {
     /**
      * Snapshot of metaspace state at a point in time.
      */
-    public record MetaspaceSnapshot(
-            Instant timestamp,
-            long used,
-            long committed,
-            long reserved,
-            long classCount
-    ) {
+    public static final class MetaspaceSnapshot {
+        private final Instant timestamp;
+        private final long used;
+        private final long committed;
+        private final long reserved;
+        private final long classCount;
+
+        public MetaspaceSnapshot(Instant timestamp, long used, long committed, long reserved, long classCount) {
+            this.timestamp = timestamp;
+            this.used = used;
+            this.committed = committed;
+            this.reserved = reserved;
+            this.classCount = classCount;
+        }
+
+        public Instant timestamp() { return timestamp; }
+        public long used() { return used; }
+        public long committed() { return committed; }
+        public long reserved() { return reserved; }
+        public long classCount() { return classCount; }
+
         /**
          * Returns the metaspace used in MB.
          */
@@ -174,16 +188,38 @@ public final class MetaspaceAnalyzer {
     /**
      * Result of metaspace analysis.
      */
-    public record MetaspaceAnalysisResult(
-            long currentUsed,
-            long currentCommitted,
-            long currentReserved,
-            long currentClassCount,
-            long peakUsed,
-            double growthRatePerMin,
-            List<MetaspaceSnapshot> history,
-            Instant lastUpdateTime
-    ) {
+    public static final class MetaspaceAnalysisResult {
+        private final long currentUsed;
+        private final long currentCommitted;
+        private final long currentReserved;
+        private final long currentClassCount;
+        private final long peakUsed;
+        private final double growthRatePerMin;
+        private final List<MetaspaceSnapshot> history;
+        private final Instant lastUpdateTime;
+
+        public MetaspaceAnalysisResult(long currentUsed, long currentCommitted, long currentReserved,
+                                       long currentClassCount, long peakUsed, double growthRatePerMin,
+                                       List<MetaspaceSnapshot> history, Instant lastUpdateTime) {
+            this.currentUsed = currentUsed;
+            this.currentCommitted = currentCommitted;
+            this.currentReserved = currentReserved;
+            this.currentClassCount = currentClassCount;
+            this.peakUsed = peakUsed;
+            this.growthRatePerMin = growthRatePerMin;
+            this.history = history;
+            this.lastUpdateTime = lastUpdateTime;
+        }
+
+        public long currentUsed() { return currentUsed; }
+        public long currentCommitted() { return currentCommitted; }
+        public long currentReserved() { return currentReserved; }
+        public long currentClassCount() { return currentClassCount; }
+        public long peakUsed() { return peakUsed; }
+        public double growthRatePerMin() { return growthRatePerMin; }
+        public List<MetaspaceSnapshot> history() { return history; }
+        public Instant lastUpdateTime() { return lastUpdateTime; }
+
         /**
          * Returns the current used in MB.
          */

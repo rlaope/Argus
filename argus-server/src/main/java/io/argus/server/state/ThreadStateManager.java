@@ -27,17 +27,36 @@ public final class ThreadStateManager {
     }
 
     /**
-     * Thread state record for serialization.
+     * Thread state class for serialization.
      */
-    public record ThreadState(
-            long threadId,
-            String threadName,
-            Long carrierThread,
-            State state,
-            Instant startTime,
-            Instant endTime,
-            boolean isPinned
-    ) {}
+    public static final class ThreadState {
+        private final long threadId;
+        private final String threadName;
+        private final Long carrierThread;
+        private final State state;
+        private final Instant startTime;
+        private final Instant endTime;
+        private final boolean isPinned;
+
+        public ThreadState(long threadId, String threadName, Long carrierThread, State state,
+                           Instant startTime, Instant endTime, boolean isPinned) {
+            this.threadId = threadId;
+            this.threadName = threadName;
+            this.carrierThread = carrierThread;
+            this.state = state;
+            this.startTime = startTime;
+            this.endTime = endTime;
+            this.isPinned = isPinned;
+        }
+
+        public long threadId() { return threadId; }
+        public String threadName() { return threadName; }
+        public Long carrierThread() { return carrierThread; }
+        public State state() { return state; }
+        public Instant startTime() { return startTime; }
+        public Instant endTime() { return endTime; }
+        public boolean isPinned() { return isPinned; }
+    }
 
     private static final long ENDED_RETENTION_MS = 5000; // Keep ended threads for 5 seconds
 

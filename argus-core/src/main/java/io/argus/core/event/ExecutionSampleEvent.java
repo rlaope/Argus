@@ -16,15 +16,35 @@ import java.time.Instant;
  * @param lineNumber  the line number in the source file
  * @param stackTrace  the full stack trace
  */
-public record ExecutionSampleEvent(
-        Instant timestamp,
-        long threadId,
-        String threadName,
-        String methodName,
-        String className,
-        int lineNumber,
-        String stackTrace
-) {
+public final class ExecutionSampleEvent {
+    private final Instant timestamp;
+    private final long threadId;
+    private final String threadName;
+    private final String methodName;
+    private final String className;
+    private final int lineNumber;
+    private final String stackTrace;
+
+    public ExecutionSampleEvent(Instant timestamp, long threadId, String threadName,
+                                String methodName, String className, int lineNumber,
+                                String stackTrace) {
+        this.timestamp = timestamp;
+        this.threadId = threadId;
+        this.threadName = threadName;
+        this.methodName = methodName;
+        this.className = className;
+        this.lineNumber = lineNumber;
+        this.stackTrace = stackTrace;
+    }
+
+    public Instant timestamp() { return timestamp; }
+    public long threadId() { return threadId; }
+    public String threadName() { return threadName; }
+    public String methodName() { return methodName; }
+    public String className() { return className; }
+    public int lineNumber() { return lineNumber; }
+    public String stackTrace() { return stackTrace; }
+
     /**
      * Creates an execution sample event.
      *
