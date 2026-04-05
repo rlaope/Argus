@@ -8,7 +8,7 @@
 
 Two independent tools in one package:
 
-- **`argus` CLI** — 32 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
+- **`argus` CLI** — 33 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
 - **Argus Agent** — Real-time web dashboard with JFR streaming, flame graphs, and metric export
 
 ```bash
@@ -211,7 +211,7 @@ $ argus --lang=ko report 39113
 --version, -v             Show version
 ```
 
-> See [CLI Command Reference](docs/cli-commands.md) for all 17 commands with full output examples.
+> See [CLI Command Reference](docs/cli-commands.md) for all 33 commands with full output examples.
 
 ---
 
@@ -231,7 +231,7 @@ When the agent starts, you'll see the Argus banner:
     \____|__  /__|  \___  /|____//____  >
             \/     /_____/            \/
 
-    Virtual Thread Profiler v0.5.0
+    JVM Observability Platform v0.4.0
 [Argus] Initializing JFR streaming engine...
 [Argus] Agent initialized successfully
 [Argus] Ring buffer size: 65536
@@ -372,6 +372,12 @@ rm -rf ~/.argus
        │                   │        │         WebSocket +
        └───────────────────┘   HTTP Polling   Flame Graph
          Direct JDK Access    (Agent Mode)
+
+┌──────────────────────────┐    ┌──────────────────────────────────┐
+│    argus-micrometer      │    │   argus-spring-boot-starter      │
+│  (MeterBinder, ~25       │    │  (Spring Boot 3.2+ auto-config)  │
+│   metrics bridge)        │    │                                  │
+└──────────────────────────┘    └──────────────────────────────────┘
 ```
 
 | Module | Description |
@@ -380,7 +386,59 @@ rm -rf ~/.argus
 | **argus-agent** | Java agent with JFR streaming engine |
 | **argus-server** | Netty HTTP/WS server, 10 analyzers, Prometheus + OTLP |
 | **argus-frontend** | Static dashboard with Chart.js and d3-flamegraph |
-| **argus-cli** | 32 diagnostic commands, auto source detection, i18n |
+| **argus-cli** | 33 diagnostic commands, auto source detection, i18n |
+| **argus-micrometer** | Micrometer MeterBinder exposing ~25 JVM metrics |
+| **argus-spring-boot-starter** | Spring Boot 3.2+ auto-configuration for Argus agent |
+
+## Spring Boot Integration
+
+The `argus-spring-boot-starter` provides zero-configuration auto-setup for Spring Boot 3.2+ applications.
+
+Add the dependency:
+
+```xml
+<dependency>
+  <groupId>io.argus</groupId>
+  <artifactId>argus-spring-boot-starter</artifactId>
+  <version>0.4.0</version>
+</dependency>
+```
+
+Or with Gradle:
+
+```groovy
+implementation 'io.argus:argus-spring-boot-starter:0.4.0'
+```
+
+The starter auto-configures the Argus agent on application startup. All `argus.*` properties can be set in `application.properties` / `application.yml`:
+
+```properties
+argus.server.port=9202
+argus.profiling.enabled=true
+argus.contention.enabled=true
+argus.otlp.enabled=false
+```
+
+---
+
+<br>
+
+## Micrometer Metrics
+
+The `argus-micrometer` module provides a `MeterBinder` implementation that bridges ~25 JVM metrics into any Micrometer-compatible registry (Prometheus, Datadog, InfluxDB, etc.).
+
+Metrics exposed include GC pause time, heap usage, thread counts (virtual and platform), allocation rate, metaspace usage, CPU load, lock contention, and method profiling data.
+
+When used with the Spring Boot starter and a Micrometer registry on the classpath, metrics are registered automatically. For standalone use:
+
+```java
+ArgusMetrics argusMetrics = new ArgusMetrics();
+argusMetrics.bindTo(meterRegistry);
+```
+
+---
+
+<br>
 
 ## Contributing
 

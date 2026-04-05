@@ -6,7 +6,7 @@ This guide will help you get up and running with Project Argus in minutes.
 
 Before you begin, ensure you have the following installed:
 
-- **Java 21 or higher** - Argus requires Java 21+ for Virtual Thread support
+- **Java 21 or higher** - Argus Agent requires Java 21+ for JFR streaming and Virtual Thread monitoring. The CLI works on Java 11+.
 - **Gradle 8.4+** (optional) - Only needed if building from source
 
 ### Verify Java Version
@@ -143,7 +143,7 @@ You'll see output like this:
 \____|__  /__|  \___  /|____//____  >
         \/     /_____/            \/
 
-Virtual Thread Profiler vdev
+JVM Observability Platform vdev
 [Argus] Initializing JFR streaming engine...
 [Argus] Agent initialized successfully
 [Argus] Ring buffer size: 65536

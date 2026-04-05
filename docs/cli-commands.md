@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 32 Argus CLI commands with usage examples and actual output.
+Complete reference for all 33 Argus CLI commands with usage examples and actual output.
 
 ## Global Options
 
@@ -885,6 +885,27 @@ $ argus symboltable 39113
 │ Avg literal size: 76.0 bytes                                                 │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
+
+---
+
+## argus init
+
+First-time setup wizard. Prompts you to select the default output language (en/ko/ja/zh) and saves the preference to `~/.argus/config.properties`.
+
+```bash
+$ argus init
+```
+
+```
+ argus init
+ First-time setup: select your preferred output language.
+
+? Select language [en/ko/ja/zh]: ko
+✔ Language set to: ko
+  Config saved to: /Users/you/.argus/config.properties
+```
+
+After running `argus init`, all subsequent commands use the chosen language by default. Override any time with `--lang=<code>`.
 
 ---
 

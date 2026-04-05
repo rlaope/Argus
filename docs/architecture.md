@@ -4,7 +4,7 @@ This document describes the internal architecture of Project Argus.
 
 ## Overview
 
-Project Argus consists of five modules that work together to capture, analyze, and visualize JVM metrics.
+Project Argus consists of seven modules that work together to capture, analyze, and visualize JVM metrics.
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -23,12 +23,22 @@ Project Argus consists of five modules that work together to capture, analyze, a
          Direct JDK Access    (Agent Mode)
 ```
 
+```
+┌──────────────────────────┐    ┌──────────────────────────────────┐
+│    argus-micrometer      │    │   argus-spring-boot-starter      │
+│  (MeterBinder, ~25       │    │  (Spring Boot 3.2+ auto-config)  │
+│   metrics bridge)        │    │                                  │
+└──────────────────────────┘    └──────────────────────────────────┘
+```
+
 ### Module Dependency Direction (NEVER violate)
 
 ```
 argus-agent → argus-server → argus-core
                            → argus-frontend
 argus-cli → argus-core (standalone, no server dependency)
+argus-micrometer → argus-core (MeterBinder, no server dependency)
+argus-spring-boot-starter → argus-agent, argus-micrometer
 ```
 
 ## Module Details
@@ -243,6 +253,35 @@ Legacy (still used by TopCommand):
 └── MetricsSnapshot.java - Immutable data record for one poll cycle
 ```
 
+### argus-micrometer
+
+Provides a `MeterBinder` implementation that bridges Argus JVM metrics into any Micrometer-compatible registry.
+
+```
+ArgusMetrics.java (MeterBinder)
+├── Registers ~25 gauges and counters:
+│   ├── GC: pause count, pause time, heap used/committed
+│   ├── Threads: virtual count, platform count, blocked count
+│   ├── Allocation: allocation rate, top classes
+│   ├── Metaspace: used, committed, reserved
+│   ├── CPU: JVM load, system load
+│   └── Contention: lock wait count, wait time
+└── Reads live data from ArgusServer analyzers
+```
+
+### argus-spring-boot-starter
+
+Provides Spring Boot 3.2+ auto-configuration for the Argus agent and Micrometer bridge.
+
+```
+ArgusAutoConfiguration.java
+├── Condition: @ConditionalOnClass(ArgusAgent.class)
+├── Auto-starts ArgusAgent on application context refresh
+├── Binds argus.* properties from application.properties/yml
+├── Registers ArgusMetrics MeterBinder when Micrometer is present
+└── Exposes ArgusServer as a Spring-managed bean
+```
+
 ## Data Flow
 
 ### 1. Event Capture
@@ -439,9 +478,9 @@ Event Broadcaster Thread
 
 ## Design Decisions
 
-- **Zero external dependencies** (except Netty for HTTP): No Jackson, no Gson, no OpenTelemetry SDK
+- **Zero external dependencies in core** (except Netty for HTTP): No Jackson, no Gson, no OpenTelemetry SDK
 - **JSON**: Hand-built with StringBuilder
-- **Prometheus**: Manual text format (no Micrometer)
+- **Prometheus**: Manual text format in argus-server; Micrometer bridge available via argus-micrometer
 - **OTLP**: Hand-coded JSON Protobuf encoding
 - **Flame graph**: 60-second auto-reset window for fresh data
 - **CLI**: Separate module polling via HTTP (not embedded in agent)
