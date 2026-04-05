@@ -1234,6 +1234,48 @@ main {
 }
 
 /* ----------------------------------------------------------------
+   DATA TABLES — simple table style for GC causes, alloc classes, carriers
+---------------------------------------------------------------- */
+.data-table {
+    overflow-x: auto;
+}
+
+.simple-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-sm, 0.8125rem);
+}
+
+.simple-table thead th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--ink-2, #444);
+    padding: 0.5rem 1rem;
+    border-bottom: 2px solid var(--border, #e4e4e4);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.simple-table tbody td {
+    padding: 0.4rem 1rem;
+    border-bottom: 1px solid var(--border-light, #f0f0f0);
+    color: var(--ink, #1a1a1a);
+}
+
+.simple-table tbody tr:hover {
+    background-color: var(--off-white, #fafafa);
+}
+
+.simple-table .mono {
+    font-family: var(--font-mono, 'SF Mono', ui-monospace, Consolas, monospace);
+}
+
+.simple-table .right {
+    text-align: right;
+}
+
+/* ----------------------------------------------------------------
    FOOTER
 ---------------------------------------------------------------- */
 footer {

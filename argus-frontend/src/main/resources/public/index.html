@@ -141,6 +141,16 @@
                 </div>
             </section>
 
+            <!-- GC Cause Distribution -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>GC Cause Distribution</h3>
+                </div>
+                <div id="gc-cause-list" class="data-table">
+                    <div class="empty-state">Waiting for GC events...</div>
+                </div>
+            </section>
+
             <!-- CPU -->
             <section class="content-section">
                 <div class="section-header">
@@ -170,8 +180,10 @@
                     <h3>Allocation &amp; Metaspace</h3>
                     <div class="section-header-right stats-row">
                         <span class="stat-inline">Rate: <strong id="alloc-rate">— MB/s</strong></span>
+                        <span class="stat-inline">Peak: <strong id="alloc-peak-rate">— MB/s</strong></span>
                         <span class="stat-inline">Total: <strong id="alloc-total">— MB</strong></span>
                         <span class="stat-inline">Metaspace: <strong id="metaspace-used">— MB</strong></span>
+                        <span class="stat-inline">Growth: <strong id="metaspace-growth-rate">— MB/min</strong></span>
                         <span class="stat-inline">Classes: <strong id="class-count">0</strong></span>
                     </div>
                 </div>
@@ -194,6 +206,31 @@
                             <canvas id="metaspace-chart"></canvas>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <!-- Top Allocating Classes -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Top Allocating Classes</h3>
+                </div>
+                <div id="top-alloc-classes" class="data-table">
+                    <div class="empty-state">Enable allocation tracking (-Dargus.allocation.enabled=true)</div>
+                </div>
+            </section>
+
+            <!-- Carrier Thread Distribution -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Carrier Thread Distribution</h3>
+                    <div class="section-header-right stats-row">
+                        <span class="stat-inline">Carriers: <strong id="carrier-total">0</strong></span>
+                        <span class="stat-inline">VT Handled: <strong id="carrier-vt-handled">0</strong></span>
+                        <span class="stat-inline">Avg VT/Carrier: <strong id="carrier-avg">0</strong></span>
+                    </div>
+                </div>
+                <div id="carrier-thread-list" class="data-table">
+                    <div class="empty-state">Waiting for virtual thread events...</div>
                 </div>
             </section>
 
