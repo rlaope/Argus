@@ -269,6 +269,13 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
+        // Console process info endpoint
+        if ("/api/process".equals(uri)) {
+            String info = ServerCommandExecutor.getProcessInfo();
+            HttpResponseHelper.sendJson(ctx, request, "{\"processInfo\":\"" + escapeJson(info) + "\"}");
+            return;
+        }
+
         // Console commands list endpoint
         if ("/api/commands".equals(uri)) {
             handleCommandsList(ctx, request);
@@ -1137,12 +1144,27 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         if (value == null) {
             return "";
         }
-        return value
-                .replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
+        StringBuilder sb = new StringBuilder(value.length() + 64);
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\' -> sb.append("\\\\");
+                case '"' -> sb.append("\\\"");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                case '\b' -> sb.append("\\b");
+                case '\f' -> sb.append("\\f");
+                default -> {
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+            }
+        }
+        return sb.toString();
     }
 
     private void handleExecCommand(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
@@ -1171,6 +1193,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             if (!first) sb.append(",");
             sb.append("{\"id\":\"").append(entry.getKey())
               .append("\",\"name\":\"").append(escapeJson(entry.getValue().name()))
+              .append("\",\"group\":\"").append(escapeJson(entry.getValue().group()))
               .append("\",\"description\":\"").append(escapeJson(entry.getValue().description()))
               .append("\"}");
             first = false;

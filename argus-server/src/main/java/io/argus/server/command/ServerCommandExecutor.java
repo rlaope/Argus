@@ -26,23 +26,39 @@ public final class ServerCommandExecutor {
 
     private static final Map<String, CommandInfo> COMMANDS = new LinkedHashMap<>();
 
+    private static final java.util.Set<String> SENSITIVE_KEYS = java.util.Set.of(
+            "PASSWORD", "SECRET", "KEY", "TOKEN", "CREDENTIAL", "AUTH", "PRIVATE");
+
     static {
-        COMMANDS.put("info", new CommandInfo("JVM Information", "Show JVM version, vendor, uptime, and runtime details"));
-        COMMANDS.put("sysprops", new CommandInfo("System Properties", "Display all JVM system properties"));
-        COMMANDS.put("env", new CommandInfo("Environment Variables", "Show JVM launch environment variables"));
-        COMMANDS.put("heap", new CommandInfo("Heap Memory", "Current heap memory usage breakdown"));
-        COMMANDS.put("gc", new CommandInfo("GC Statistics", "Garbage collector names, counts, and total pause times"));
-        COMMANDS.put("gcutil", new CommandInfo("GC Utilization", "Memory pool utilization by generation"));
-        COMMANDS.put("threads", new CommandInfo("Thread Summary", "Thread counts by state and daemon status"));
-        COMMANDS.put("deadlock", new CommandInfo("Deadlock Detection", "Detect Java-level deadlocked threads"));
-        COMMANDS.put("vmflag", new CommandInfo("VM Flags", "Show active HotSpot VM flags"));
-        COMMANDS.put("classloader", new CommandInfo("Class Loading", "Class loading statistics and counts"));
-        COMMANDS.put("metaspace", new CommandInfo("Metaspace", "Metaspace and compressed class space usage"));
-        COMMANDS.put("pool", new CommandInfo("Memory Pools", "Detailed memory pool usage by region"));
-        COMMANDS.put("compiler", new CommandInfo("JIT Compiler", "JIT compilation statistics"));
-        COMMANDS.put("finalizer", new CommandInfo("Finalizer Queue", "Pending finalization object count"));
-        COMMANDS.put("histo", new CommandInfo("Heap Histogram", "Top heap-consuming classes (via jcmd)"));
-        COMMANDS.put("nmt", new CommandInfo("Native Memory", "Native memory tracking summary (via jcmd)"));
+        // System
+        COMMANDS.put("info", new CommandInfo("JVM Information", "system", "JVM version, vendor, uptime, PID, and runtime details"));
+        COMMANDS.put("sysprops", new CommandInfo("System Properties", "system", "All JVM system properties (secrets masked)"));
+        COMMANDS.put("env", new CommandInfo("Environment", "system", "JVM environment variables (secrets masked)"));
+        COMMANDS.put("vmflag", new CommandInfo("VM Flags", "system", "Active HotSpot VM input arguments"));
+        // Memory & GC
+        COMMANDS.put("heap", new CommandInfo("Heap Memory", "memory", "Heap and non-heap memory usage breakdown"));
+        COMMANDS.put("gc", new CommandInfo("GC Statistics", "memory", "Garbage collector names, counts, and pause times"));
+        COMMANDS.put("gcutil", new CommandInfo("GC Utilization", "memory", "Memory pool utilization by generation"));
+        COMMANDS.put("gccause", new CommandInfo("GC Cause", "memory", "GC cause distribution analysis"));
+        COMMANDS.put("gcnew", new CommandInfo("GC New Gen", "memory", "Young generation memory pool details"));
+        COMMANDS.put("metaspace", new CommandInfo("Metaspace", "memory", "Metaspace and compressed class space usage"));
+        COMMANDS.put("pool", new CommandInfo("Memory Pools", "memory", "All memory pool usage details"));
+        COMMANDS.put("histo", new CommandInfo("Heap Histogram", "memory", "Top heap-consuming classes (triggers GC, via jcmd)"));
+        COMMANDS.put("nmt", new CommandInfo("Native Memory", "memory", "Native memory tracking summary (via jcmd)"));
+        COMMANDS.put("finalizer", new CommandInfo("Finalizer", "memory", "Pending finalization object count"));
+        // Threads
+        COMMANDS.put("threads", new CommandInfo("Thread Summary", "threads", "Thread counts by state and daemon status"));
+        COMMANDS.put("deadlock", new CommandInfo("Deadlock", "threads", "Detect Java-level deadlocked threads"));
+        // Class & Runtime
+        COMMANDS.put("classloader", new CommandInfo("Class Loading", "runtime", "Class loading statistics and counts"));
+        COMMANDS.put("classstat", new CommandInfo("Class Stats", "runtime", "Loaded class count by classloader"));
+        COMMANDS.put("compiler", new CommandInfo("JIT Compiler", "runtime", "JIT compilation statistics"));
+        COMMANDS.put("dynlibs", new CommandInfo("Native Libraries", "runtime", "List loaded native/shared libraries"));
+        COMMANDS.put("stringtable", new CommandInfo("String Table", "runtime", "Interned string table statistics"));
+        COMMANDS.put("symboltable", new CommandInfo("Symbol Table", "runtime", "JVM symbol table statistics"));
+        // Diagnostics
+        COMMANDS.put("jfr", new CommandInfo("Flight Recorder", "diagnostic", "JFR status and recording info (via jcmd)"));
+        COMMANDS.put("vmlog", new CommandInfo("VM Logging", "diagnostic", "JVM unified logging configuration (via jcmd)"));
     }
 
     public static Map<String, CommandInfo> getAvailableCommands() {
@@ -50,6 +66,9 @@ public final class ServerCommandExecutor {
     }
 
     public static String execute(String command) {
+        if (!COMMANDS.containsKey(command)) {
+            return "Unknown command: " + command + "\nType 'help' to see available commands.";
+        }
         return switch (command) {
             case "info" -> executeInfo();
             case "sysprops" -> executeSysProps();
@@ -57,18 +76,35 @@ public final class ServerCommandExecutor {
             case "heap" -> executeHeap();
             case "gc" -> executeGC();
             case "gcutil" -> executeGCUtil();
+            case "gccause" -> executeGCCause();
+            case "gcnew" -> executeGCNew();
             case "threads" -> executeThreads();
             case "deadlock" -> executeDeadlock();
             case "vmflag" -> executeVmFlag();
             case "classloader" -> executeClassLoader();
+            case "classstat" -> executeClassStat();
             case "metaspace" -> executeMetaspace();
             case "pool" -> executePool();
             case "compiler" -> executeCompiler();
             case "finalizer" -> executeFinalizer();
+            case "dynlibs" -> executeDynLibs();
+            case "stringtable" -> executeJcmd("VM.stringtable", "");
+            case "symboltable" -> executeJcmd("VM.symboltable", "");
             case "histo" -> executeJcmd("GC.class_histogram", "-all");
             case "nmt" -> executeJcmd("VM.native_memory", "summary");
-            default -> "Unknown command: " + command + "\nType 'help' to see available commands.";
+            case "jfr" -> executeJcmd("JFR.check", "");
+            case "vmlog" -> executeJcmd("VM.log", "list");
+            default -> "Unknown command: " + command;
         };
+    }
+
+    public static String getProcessInfo() {
+        RuntimeMXBean rt = ManagementFactory.getRuntimeMXBean();
+        String name = rt.getName();
+        long pid = rt.getPid();
+        String mainClass = System.getProperty("sun.java.command", "unknown");
+        if (mainClass.contains(" ")) mainClass = mainClass.substring(0, mainClass.indexOf(' '));
+        return pid + " " + mainClass;
     }
 
     private static String executeInfo() {
@@ -102,7 +138,7 @@ public final class ServerCommandExecutor {
         sb.append("  System Properties\n");
         sb.append("═══════════════════════════════════════════════════\n\n");
         props.stringPropertyNames().stream().sorted().forEach(key ->
-                sb.append(String.format("  %-40s = %s\n", key, props.getProperty(key)))
+                sb.append(String.format("  %-40s = %s\n", key, maskIfSensitive(key, props.getProperty(key))))
         );
         return sb.toString();
     }
@@ -114,8 +150,20 @@ public final class ServerCommandExecutor {
         sb.append("═══════════════════════════════════════════════════\n\n");
         System.getenv().entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
-                .forEach(e -> sb.append(String.format("  %-32s = %s\n", e.getKey(), e.getValue())));
+                .forEach(e -> sb.append(String.format("  %-32s = %s\n", e.getKey(), maskIfSensitive(e.getKey(), e.getValue()))));
         return sb.toString();
+    }
+
+    private static String maskIfSensitive(String key, String value) {
+        String upper = key.toUpperCase();
+        for (String sensitive : SENSITIVE_KEYS) {
+            if (upper.contains(sensitive)) {
+                return value != null && value.length() > 4
+                        ? value.substring(0, 2) + "****" + value.substring(value.length() - 2)
+                        : "****";
+            }
+        }
+        return value;
     }
 
     private static String executeHeap() {
@@ -323,15 +371,89 @@ public final class ServerCommandExecutor {
         return sb.toString();
     }
 
+    private static String executeGCCause() {
+        List<GarbageCollectorMXBean> gcs = ManagementFactory.getGarbageCollectorMXBeans();
+        StringBuilder sb = new StringBuilder();
+        sb.append("═══════════════════════════════════════════════════\n");
+        sb.append("  GC Cause Analysis\n");
+        sb.append("═══════════════════════════════════════════════════\n\n");
+        for (GarbageCollectorMXBean gc : gcs) {
+            sb.append(String.format("  %-30s Collections: %,d  Time: %,d ms\n",
+                    gc.getName(), gc.getCollectionCount(), gc.getCollectionTime()));
+        }
+        sb.append("\n  Note: Detailed cause distribution available on the dashboard GC Cause section.\n");
+        return sb.toString();
+    }
+
+    private static String executeGCNew() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("═══════════════════════════════════════════════════\n");
+        sb.append("  Young Generation Memory Pools\n");
+        sb.append("═══════════════════════════════════════════════════\n\n");
+        sb.append(String.format("  %-30s %10s %10s %10s\n", "Pool", "Used", "Committed", "Max"));
+        sb.append("  " + "─".repeat(60) + "\n");
+        for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans()) {
+            String name = pool.getName().toLowerCase();
+            if (name.contains("eden") || name.contains("survivor") || name.contains("young") || name.contains("nursery")) {
+                MemoryUsage u = pool.getUsage();
+                if (u != null) {
+                    sb.append(String.format("  %-30s %10s %10s %10s\n",
+                            pool.getName(), formatBytes(u.getUsed()), formatBytes(u.getCommitted()), formatBytes(u.getMax())));
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String executeClassStat() {
+        ClassLoadingMXBean cl = ManagementFactory.getClassLoadingMXBean();
+        StringBuilder sb = new StringBuilder();
+        sb.append("═══════════════════════════════════════════════════\n");
+        sb.append("  Class Statistics\n");
+        sb.append("═══════════════════════════════════════════════════\n\n");
+        sb.append(String.format("  %-24s %,d\n", "Currently Loaded:", cl.getLoadedClassCount()));
+        sb.append(String.format("  %-24s %,d\n", "Total Loaded:", cl.getTotalLoadedClassCount()));
+        sb.append(String.format("  %-24s %,d\n", "Total Unloaded:", cl.getUnloadedClassCount()));
+        for (MemoryPoolMXBean pool : ManagementFactory.getMemoryPoolMXBeans()) {
+            if (pool.getName().toLowerCase().contains("metaspace")) {
+                MemoryUsage u = pool.getUsage();
+                if (u != null) {
+                    sb.append(String.format("\n  %-24s %s\n", "Metaspace Used:", formatBytes(u.getUsed())));
+                    sb.append(String.format("  %-24s %s\n", "Metaspace Committed:", formatBytes(u.getCommitted())));
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String executeDynLibs() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("═══════════════════════════════════════════════════\n");
+        sb.append("  Loaded Native Libraries\n");
+        sb.append("═══════════════════════════════════════════════════\n\n");
+        try {
+            return sb.toString() + executeJcmd("VM.dynlibs", "");
+        } catch (Exception e) {
+            sb.append("  (Requires jcmd access)\n");
+            return sb.toString();
+        }
+    }
+
     private static String executeJcmd(String command, String arg) {
         try {
             long pid = ProcessHandle.current().pid();
             String jcmd = System.getProperty("java.home") + "/bin/jcmd";
-            ProcessBuilder pb = new ProcessBuilder(jcmd, String.valueOf(pid), command, arg);
+            var cmdList = new java.util.ArrayList<>(java.util.List.of(jcmd, String.valueOf(pid), command));
+            if (arg != null && !arg.isBlank()) cmdList.add(arg);
+            ProcessBuilder pb = new ProcessBuilder(cmdList);
             pb.redirectErrorStream(true);
             Process proc = pb.start();
             String output = new String(proc.getInputStream().readAllBytes());
-            proc.waitFor();
+            boolean finished = proc.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
+            if (!finished) {
+                proc.destroyForcibly();
+                return "Command timed out after 10 seconds: jcmd " + command;
+            }
             return output;
         } catch (Exception e) {
             return "Failed to execute jcmd " + command + ": " + e.getMessage();
@@ -346,5 +468,5 @@ public final class ServerCommandExecutor {
         return String.format("%.1f GB", bytes / (1024.0 * 1024 * 1024));
     }
 
-    public record CommandInfo(String name, String description) {}
+    public record CommandInfo(String name, String group, String description) {}
 }
