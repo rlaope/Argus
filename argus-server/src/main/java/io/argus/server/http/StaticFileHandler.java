@@ -72,6 +72,9 @@ public final class StaticFileHandler {
         if ("/".equals(uri) || "/index.html".equals(uri)) {
             return "public/index.html";
         }
+        if (uri.endsWith(".html") && !uri.contains("..")) {
+            return "public" + uri;
+        }
         if (uri.startsWith("/css/") && uri.endsWith(".css")) {
             return "public" + uri;
         }

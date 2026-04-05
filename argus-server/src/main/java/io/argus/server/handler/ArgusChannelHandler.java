@@ -3,6 +3,7 @@ package io.argus.server.handler;
 import java.util.Map;
 
 import io.argus.core.config.AgentConfig;
+import io.argus.server.command.ServerCommandExecutor;
 import io.argus.server.analysis.AllocationAnalyzer;
 import io.argus.server.analysis.ContentionAnalyzer;
 import io.argus.server.analysis.CorrelationAnalyzer;
@@ -259,6 +260,18 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         // Export endpoint: /export?format=csv|json|jsonl&types=START,END,PINNED&from=ISO&to=ISO
         if (uri.startsWith("/export")) {
             handleExport(ctx, request, uri);
+            return;
+        }
+
+        // Console command execution endpoint
+        if (uri.startsWith("/api/exec")) {
+            handleExecCommand(ctx, request, uri);
+            return;
+        }
+
+        // Console commands list endpoint
+        if ("/api/commands".equals(uri)) {
+            handleCommandsList(ctx, request);
             return;
         }
 
@@ -1130,6 +1143,40 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
                 .replace("\n", "\\n")
                 .replace("\r", "\\r")
                 .replace("\t", "\\t");
+    }
+
+    private void handleExecCommand(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+        var params = parseQueryParams(uri);
+        String cmd = params.get("cmd");
+        if (cmd == null || cmd.isBlank()) {
+            HttpResponseHelper.sendBadRequest(ctx, request, "Missing 'cmd' parameter");
+            return;
+        }
+        try {
+            String output = ServerCommandExecutor.execute(cmd.trim());
+            String json = "{\"command\":\"" + escapeJson(cmd) + "\",\"output\":\"" + escapeJson(output) + "\"}";
+            HttpResponseHelper.sendJson(ctx, request, json);
+        } catch (Exception e) {
+            String json = "{\"command\":\"" + escapeJson(cmd) + "\",\"error\":\"" + escapeJson(e.getMessage()) + "\"}";
+            HttpResponseHelper.sendJson(ctx, request, json);
+        }
+    }
+
+    private void handleCommandsList(ChannelHandlerContext ctx, FullHttpRequest request) {
+        var commands = ServerCommandExecutor.getAvailableCommands();
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"commands\":[");
+        boolean first = true;
+        for (var entry : commands.entrySet()) {
+            if (!first) sb.append(",");
+            sb.append("{\"id\":\"").append(entry.getKey())
+              .append("\",\"name\":\"").append(escapeJson(entry.getValue().name()))
+              .append("\",\"description\":\"").append(escapeJson(entry.getValue().description()))
+              .append("\"}");
+            first = false;
+        }
+        sb.append("]}");
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
     }
 
     @Override
