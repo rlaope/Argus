@@ -11,6 +11,10 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/d3-flame-graph@4/dist/d3-flamegraph.css">
 </head>
 <body>
+
+    <!-- ================================================================
+         HEADER
+    ================================================================ -->
     <header>
         <div class="logo">
             <img src="/img/argus_logo.png" alt="Argus" class="logo-img">
@@ -28,47 +32,58 @@
     </header>
 
     <main>
-        <!-- Metrics Section -->
-        <section class="metrics">
-            <div class="metric-card" data-tooltip="Total number of JFR virtual thread events received (START + END + PINNED)">
-                <h3>Total Events</h3>
-                <div class="metric-value" id="total-events">0</div>
-            </div>
-            <div class="metric-card" data-tooltip="Virtual threads that have been created and started running">
-                <h3>Started</h3>
-                <div class="metric-value" id="start-events">0</div>
-            </div>
-            <div class="metric-card" data-tooltip="Virtual threads that have completed execution">
-                <h3>Ended</h3>
-                <div class="metric-value" id="end-events">0</div>
-            </div>
-            <div class="metric-card" data-tooltip="Currently running virtual threads (Started - Ended)">
-                <h3>Active</h3>
-                <div class="metric-value" id="active-threads">0</div>
-            </div>
-            <div class="metric-card alert" data-tooltip="CRITICAL: Threads blocked by synchronized/native code. High count indicates performance issues!">
-                <h3>Pinned</h3>
-                <div class="metric-value" id="pinned-events">0</div>
-            </div>
-            <div class="metric-card gc" data-tooltip="Total GC pause events captured">
-                <h3>GC Pauses</h3>
-                <div class="metric-value" id="gc-events">0</div>
-            </div>
-            <div class="metric-card memory" data-tooltip="Current heap memory usage">
-                <h3>Heap Used</h3>
-                <div class="metric-value" id="heap-used">-</div>
-            </div>
-            <div class="metric-card cpu" data-tooltip="Current JVM CPU usage percentage">
-                <h3>CPU (JVM)</h3>
-                <div class="metric-value" id="jvm-cpu">-%</div>
-            </div>
-            <div class="metric-card gc-overhead" data-tooltip="GC overhead percentage (GC time / total time)">
-                <h3>GC Overhead</h3>
-                <div class="metric-value" id="gc-overhead">-%</div>
-            </div>
-        </section>
 
-        <!-- Feature Flags Status -->
+        <!-- ================================================================
+             SUMMARY STRIP — key numbers, newspaper data bar style
+        ================================================================ -->
+        <div class="summary-strip">
+            <div class="metric-card summary-item" data-tooltip="Current heap memory usage">
+                <span class="summary-label">Heap Used</span>
+                <span class="summary-value" id="heap-used">—</span>
+            </div>
+            <div class="summary-sep"></div>
+            <div class="metric-card summary-item" data-tooltip="Current JVM CPU usage percentage">
+                <span class="summary-label">CPU (JVM)</span>
+                <span class="summary-value" id="jvm-cpu">—%</span>
+            </div>
+            <div class="summary-sep"></div>
+            <div class="metric-card summary-item" data-tooltip="GC overhead percentage (GC time / total time)">
+                <span class="summary-label">GC Overhead</span>
+                <span class="summary-value" id="gc-overhead">—%</span>
+            </div>
+            <div class="summary-sep"></div>
+            <div class="metric-card summary-item gc-item" data-tooltip="Total GC pause events captured">
+                <span class="summary-label">GC Pauses</span>
+                <span class="summary-value" id="gc-events">0</span>
+            </div>
+            <div class="summary-sep"></div>
+            <div class="metric-card summary-item" data-tooltip="Total number of JFR events received">
+                <span class="summary-label">Total Events</span>
+                <span class="summary-value" id="total-events">0</span>
+            </div>
+            <div class="summary-sep"></div>
+            <div class="metric-card summary-item" data-tooltip="Currently running virtual threads (Started - Ended)">
+                <span class="summary-label">Active VT</span>
+                <span class="summary-value" id="active-threads">0</span>
+            </div>
+            <div class="summary-sep"></div>
+            <div class="metric-card summary-item" data-tooltip="Virtual threads started">
+                <span class="summary-label">Started</span>
+                <span class="summary-value" id="start-events">0</span>
+            </div>
+            <div class="summary-sep"></div>
+            <div class="metric-card summary-item" data-tooltip="Virtual threads ended">
+                <span class="summary-label">Ended</span>
+                <span class="summary-value" id="end-events">0</span>
+            </div>
+            <div class="summary-sep"></div>
+            <div class="metric-card summary-item alert-item" data-tooltip="CRITICAL: Virtual threads blocked by synchronized/native code.">
+                <span class="summary-label">Pinned</span>
+                <span class="summary-value" id="pinned-events">0</span>
+            </div>
+        </div>
+
+        <!-- Feature Flags -->
         <div id="feature-flags" class="feature-flags">
             <span class="feature-flags-label">Features:</span>
             <div class="feature-flags-list" id="feature-flags-list">
@@ -76,45 +91,216 @@
             </div>
         </div>
 
-        <!-- Top-level Tab Navigation -->
+        <!-- ================================================================
+             TAB INFRASTRUCTURE — kept for JS compatibility, hidden visually
+        ================================================================ -->
         <div class="main-tab-nav">
             <button class="main-tab-btn active" data-main-tab="vt">Virtual Threads</button>
             <button class="main-tab-btn" data-main-tab="jvm">JVM Overview</button>
         </div>
 
-        <!-- Virtual Threads Tab -->
+        <!-- ================================================================
+             SECTION: JVM HEALTH (shown first — incident-first layout)
+        ================================================================ -->
+        <div id="jvm-tab" class="main-tab-content">
+
+            <div class="page-section-heading">
+                <h2>JVM Health</h2>
+            </div>
+
+            <!-- Memory & GC -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Memory &amp; Garbage Collection</h3>
+                    <div class="section-header-right stats-row">
+                        <span class="stat-inline">GC Events: <strong id="gc-total-events">0</strong></span>
+                        <span class="stat-inline">Total Pause: <strong id="gc-total-pause">0ms</strong></span>
+                        <span class="stat-inline">Avg: <strong id="gc-avg-pause">0ms</strong></span>
+                        <span class="stat-inline">Max: <strong id="gc-max-pause">0ms</strong></span>
+                    </div>
+                </div>
+                <div class="charts-grid-2">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">GC Pause Timeline</span>
+                            <span class="chart-subtitle">pause duration over time</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="gc-timeline-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">Heap Usage</span>
+                            <span class="chart-subtitle">memory usage over time</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="heap-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CPU -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>CPU Utilization</h3>
+                    <div class="section-header-right stats-row">
+                        <span class="stat-inline">JVM: <strong id="cpu-jvm-current">—%</strong></span>
+                        <span class="stat-inline">System: <strong id="cpu-system-current">—%</strong></span>
+                        <span class="stat-inline">Peak JVM: <strong id="cpu-peak-jvm">—%</strong></span>
+                    </div>
+                </div>
+                <div class="charts-grid-1">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">CPU Load</span>
+                            <span class="chart-subtitle">JVM and system CPU over last 60s</span>
+                        </div>
+                        <div class="chart-container chart-container-tall">
+                            <canvas id="cpu-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Allocation & Metaspace -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Allocation &amp; Metaspace</h3>
+                    <div class="section-header-right stats-row">
+                        <span class="stat-inline">Rate: <strong id="alloc-rate">— MB/s</strong></span>
+                        <span class="stat-inline">Total: <strong id="alloc-total">— MB</strong></span>
+                        <span class="stat-inline">Metaspace: <strong id="metaspace-used">— MB</strong></span>
+                        <span class="stat-inline">Classes: <strong id="class-count">0</strong></span>
+                    </div>
+                </div>
+                <div class="charts-grid-2">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">Allocation Rate</span>
+                            <span class="chart-subtitle">memory allocation over time</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="allocation-rate-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">Metaspace Usage</span>
+                            <span class="chart-subtitle">metaspace memory over time</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="metaspace-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Profiling & Contention -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Profiling &amp; Lock Contention</h3>
+                    <div class="section-header-right stats-row">
+                        <span class="stat-inline">CPU Samples: <strong id="cpu-samples">0</strong></span>
+                        <span class="stat-inline">Contention Events: <strong id="contention-events">0</strong></span>
+                        <span class="stat-inline">Contention Time: <strong id="contention-time">0ms</strong></span>
+                    </div>
+                </div>
+                <div class="charts-grid-2">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">Hot Methods</span>
+                            <span class="chart-subtitle">top CPU consuming methods</span>
+                        </div>
+                        <div class="chart-container chart-container-tall">
+                            <canvas id="hot-methods-chart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">Lock Contention</span>
+                            <span class="chart-subtitle">top contention hotspots</span>
+                        </div>
+                        <div class="chart-container chart-container-tall">
+                            <canvas id="contention-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Flame Graph -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Flame Graph</h3>
+                    <div class="section-header-right">
+                        <span class="stat-inline">Samples: <strong id="flamegraph-samples">0</strong></span>
+                        <span class="flamegraph-ts" id="flamegraph-timestamp"></span>
+                        <button id="flamegraph-pause" class="btn btn-small">Pause</button>
+                        <button id="flamegraph-reset" class="btn btn-small">Reset</button>
+                        <a id="flamegraph-download" class="btn btn-small" title="Download collapsed stacks">Download</a>
+                    </div>
+                </div>
+                <div id="flamegraph-container" class="flamegraph-container">
+                    <div class="flamegraph-placeholder">Enable profiling (-Dargus.profiling.enabled=true) to see flame graph</div>
+                </div>
+            </section>
+
+            <!-- Recommendations (correlates GC+CPU+VT — bridges JVM and VT sections) -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Recommendations</h3>
+                    <button id="refresh-recommendations" class="btn btn-small">Refresh</button>
+                </div>
+                <div id="recommendations-list" class="recommendations-list">
+                    <div class="empty-state">No recommendations at this time</div>
+                </div>
+            </section>
+
+        </div><!-- end #jvm-tab -->
+
+        <!-- ================================================================
+             SECTION: VIRTUAL THREADS
+        ================================================================ -->
         <div id="vt-tab" class="main-tab-content active">
 
-            <!-- Pinned Alerts Section -->
+            <div class="page-section-heading">
+                <h2>Virtual Threads</h2>
+            </div>
+
+            <!-- Pinned Alerts -->
             <section id="pinned-section" class="pinned-section hidden">
                 <div class="section-header">
-                    <h2>Pinned Thread Alerts</h2>
+                    <h3>Pinned Thread Alerts</h3>
                     <span class="badge" id="pinned-badge">0</span>
                 </div>
                 <div id="pinned-list" class="pinned-list"></div>
             </section>
 
-            <!-- Pinning Hotspots Section -->
-            <section id="hotspots-section" class="hotspots-section">
+            <!-- Pinning Hotspots -->
+            <section class="content-section">
                 <div class="section-header">
-                    <h2>Pinning Hotspots</h2>
-                    <button id="refresh-hotspots" class="btn btn-small">Refresh</button>
-                </div>
-                <div class="hotspots-summary">
-                    <span>Total Pinned: <strong id="hotspots-total">0</strong></span>
-                    <span>Unique Locations: <strong id="hotspots-unique">0</strong></span>
+                    <h3>Pinning Hotspots</h3>
+                    <div class="section-header-right">
+                        <span class="stat-inline">Total: <strong id="hotspots-total">0</strong></span>
+                        <span class="stat-inline">Unique: <strong id="hotspots-unique">0</strong></span>
+                        <button id="refresh-hotspots" class="btn btn-small">Refresh</button>
+                    </div>
                 </div>
                 <div id="hotspots-list" class="hotspots-list">
                     <div class="empty-state">No pinning events detected yet</div>
                 </div>
             </section>
 
-            <!-- Charts Section -->
-            <section class="charts-section">
-                <div class="charts-grid">
+            <!-- Charts: Events Rate + Active Threads + Duration -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>Thread Activity</h3>
+                </div>
+                <div class="charts-grid-2">
                     <div class="chart-card">
                         <div class="chart-header">
-                            <h3>Events Rate</h3>
+                            <span class="chart-title">Events Rate</span>
                             <span class="chart-subtitle">events/sec over last 60s</span>
                         </div>
                         <div class="chart-container">
@@ -123,16 +309,18 @@
                     </div>
                     <div class="chart-card">
                         <div class="chart-header">
-                            <h3>Active Threads</h3>
+                            <span class="chart-title">Active Threads</span>
                             <span class="chart-subtitle">concurrent threads over last 60s</span>
                         </div>
                         <div class="chart-container">
                             <canvas id="active-threads-chart"></canvas>
                         </div>
                     </div>
+                </div>
+                <div class="charts-grid-1" style="margin-top: 1rem;">
                     <div class="chart-card">
                         <div class="chart-header">
-                            <h3>Thread Duration Distribution</h3>
+                            <span class="chart-title">Thread Duration Distribution</span>
                             <span class="chart-subtitle">lifetime of completed threads</span>
                         </div>
                         <div class="chart-container">
@@ -142,40 +330,29 @@
                 </div>
             </section>
 
-            <!-- Recommendations Section -->
-            <section id="recommendations-section" class="recommendations-section">
-                <div class="section-header">
-                    <h2>Recommendations</h2>
-                    <button id="refresh-recommendations" class="btn btn-small">Refresh</button>
-                </div>
-                <div id="recommendations-list" class="recommendations-list">
-                    <div class="empty-state">No recommendations at this time</div>
-                </div>
-            </section>
-
-            <!-- Sub-tab Navigation -->
+            <!-- Sub-tab nav — kept for JS, hidden visually -->
             <div class="tab-nav">
                 <button class="tab-btn active" data-tab="threads">Thread View</button>
                 <button class="tab-btn" data-tab="events">Event History</button>
             </div>
 
-            <!-- Thread View Section -->
-            <section id="threads-tab" class="tab-content active">
-                <div class="threads-header">
-                    <h2>Active Threads</h2>
-                    <span class="thread-count" id="thread-count">0 threads</span>
+            <!-- Active Threads -->
+            <section id="threads-tab" class="tab-content active content-section">
+                <div class="section-header">
+                    <h3>Active Threads</h3>
+                    <span class="stat-inline" id="thread-count">0 threads</span>
                 </div>
                 <div id="threads-container" class="threads-container">
                     <div class="empty-state">No active threads</div>
                 </div>
             </section>
 
-            <!-- Events Log Section -->
-            <section id="events-tab" class="tab-content">
-                <div class="events-header">
-                    <h2>Virtual Thread Events</h2>
-                    <div class="events-controls">
-                        <button id="clear-events" class="btn">Clear</button>
+            <!-- Event History -->
+            <section id="events-tab" class="tab-content content-section">
+                <div class="section-header">
+                    <h3>Virtual Thread Events</h3>
+                    <div class="section-header-right">
+                        <button id="clear-events" class="btn btn-small">Clear</button>
                         <label class="checkbox-label">
                             <input type="checkbox" id="auto-scroll" checked>
                             Auto-scroll
@@ -183,10 +360,8 @@
                     </div>
                 </div>
 
-                <!-- Filter Panel -->
                 <div class="filter-panel">
                     <div class="filter-row">
-                        <!-- Thread Name Search -->
                         <div class="filter-group search-group">
                             <label for="thread-search">Thread Name</label>
                             <div class="search-input-wrapper">
@@ -198,8 +373,6 @@
                                 </select>
                             </div>
                         </div>
-
-                        <!-- Time Range Selector -->
                         <div class="filter-group time-group">
                             <label>Time Range</label>
                             <div class="time-range-wrapper">
@@ -212,7 +385,6 @@
                     </div>
 
                     <div class="filter-row">
-                        <!-- Event Type Filters -->
                         <div class="filter-group type-group">
                             <label>Event Types</label>
                             <div class="event-type-filters">
@@ -234,13 +406,11 @@
                                 </label>
                             </div>
                         </div>
-
-                        <!-- Filter Actions -->
                         <div class="filter-group actions-group">
                             <button id="apply-filters" class="btn btn-primary">Apply</button>
                             <button id="reset-filters" class="btn">Reset</button>
                             <button id="share-filters" class="btn btn-icon" title="Copy filter URL">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
                                     <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
                                 </svg>
@@ -248,7 +418,6 @@
                         </div>
                     </div>
 
-                    <!-- Filter Status -->
                     <div id="filter-status" class="filter-status hidden">
                         <span id="filter-count">0</span> events matching filters
                         <span id="filter-info"></span>
@@ -260,153 +429,17 @@
                 </div>
             </section>
 
-        </div>
+        </div><!-- end #vt-tab -->
 
-        <!-- JVM Overview Tab -->
-        <div id="jvm-tab" class="main-tab-content">
-
-            <!-- Memory & GC Section -->
-            <section class="gc-section">
-                <div class="section-header">
-                    <h2>Memory & GC</h2>
-                    <div class="gc-summary">
-                        <span>Total GC: <strong id="gc-total-events">0</strong></span>
-                        <span>Total Pause: <strong id="gc-total-pause">0ms</strong></span>
-                        <span>Avg Pause: <strong id="gc-avg-pause">0ms</strong></span>
-                        <span>Max Pause: <strong id="gc-max-pause">0ms</strong></span>
-                    </div>
-                </div>
-                <div class="charts-grid">
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3>GC Pause Timeline</h3>
-                            <span class="chart-subtitle">pause duration over time</span>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="gc-timeline-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3>Heap Usage</h3>
-                            <span class="chart-subtitle">memory usage over time</span>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="heap-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- CPU Section -->
-            <section class="cpu-section">
-                <div class="section-header">
-                    <h2>CPU Utilization</h2>
-                    <div class="cpu-summary">
-                        <span>JVM: <strong id="cpu-jvm-current">-%</strong></span>
-                        <span>System: <strong id="cpu-system-current">-%</strong></span>
-                        <span>Peak JVM: <strong id="cpu-peak-jvm">-%</strong></span>
-                    </div>
-                </div>
-                <div class="charts-grid single">
-                    <div class="chart-card wide">
-                        <div class="chart-header">
-                            <h3>CPU Load</h3>
-                            <span class="chart-subtitle">JVM and system CPU over last 60s</span>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="cpu-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Allocation & Metaspace Section -->
-            <section class="allocation-section">
-                <div class="section-header">
-                    <h2>Allocation & Metaspace</h2>
-                    <div class="allocation-summary">
-                        <span>Alloc Rate: <strong id="alloc-rate">- MB/s</strong></span>
-                        <span>Total Allocated: <strong id="alloc-total">- MB</strong></span>
-                        <span>Metaspace: <strong id="metaspace-used">- MB</strong></span>
-                        <span>Classes: <strong id="class-count">0</strong></span>
-                    </div>
-                </div>
-                <div class="charts-grid">
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3>Allocation Rate</h3>
-                            <span class="chart-subtitle">memory allocation over time</span>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="allocation-rate-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3>Metaspace Usage</h3>
-                            <span class="chart-subtitle">metaspace memory over time</span>
-                        </div>
-                        <div class="chart-container">
-                            <canvas id="metaspace-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Flame Graph Section -->
-            <section class="flamegraph-section">
-                <div class="section-header">
-                    <h2>Flame Graph</h2>
-                    <div class="flamegraph-actions">
-                        <span>Samples: <strong id="flamegraph-samples">0</strong></span>
-                        <span id="flamegraph-timestamp" style="color: var(--text-dim); font-size: 0.85em;"></span>
-                        <button id="flamegraph-pause" class="btn btn-small">Pause</button>
-                        <button id="flamegraph-reset" class="btn btn-small">Reset</button>
-                        <a id="flamegraph-download" class="btn btn-small" title="Download collapsed stacks">Download</a>
-                    </div>
-                </div>
-                <div id="flamegraph-container" class="flamegraph-container">
-                    <div class="flamegraph-placeholder">Enable profiling (-Dargus.profiling.enabled=true) to see flame graph</div>
-                </div>
-            </section>
-
-            <!-- Profiling & Contention Section -->
-            <section class="profiling-section">
-                <div class="section-header">
-                    <h2>Profiling & Contention</h2>
-                    <div class="profiling-summary">
-                        <span>CPU Samples: <strong id="cpu-samples">0</strong></span>
-                        <span>Contention Events: <strong id="contention-events">0</strong></span>
-                        <span>Contention Time: <strong id="contention-time">0ms</strong></span>
-                    </div>
-                </div>
-                <div class="charts-grid">
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3>Hot Methods</h3>
-                            <span class="chart-subtitle">top CPU consuming methods</span>
-                        </div>
-                        <div class="chart-container tall">
-                            <canvas id="hot-methods-chart"></canvas>
-                        </div>
-                    </div>
-                    <div class="chart-card">
-                        <div class="chart-header">
-                            <h3>Lock Contention</h3>
-                            <span class="chart-subtitle">top contention hotspots</span>
-                        </div>
-                        <div class="chart-container tall">
-                            <canvas id="contention-chart"></canvas>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-        </div>
     </main>
 
-    <!-- Thread Detail Modal -->
+    <footer>
+        <p>Argus JVM Observability &mdash; Real-time JFR Monitoring</p>
+    </footer>
+
+    <!-- ================================================================
+         THREAD DETAIL MODAL
+    ================================================================ -->
     <div id="thread-modal" class="modal hidden">
         <div class="modal-backdrop"></div>
         <div class="modal-content thread-detail-modal">
@@ -446,7 +479,9 @@
         </div>
     </div>
 
-    <!-- Dump View Modal -->
+    <!-- ================================================================
+         DUMP VIEW MODAL
+    ================================================================ -->
     <div id="dump-modal" class="modal hidden">
         <div class="modal-backdrop"></div>
         <div class="modal-content dump-view-modal">
@@ -469,7 +504,9 @@
         </div>
     </div>
 
-    <!-- Export Modal -->
+    <!-- ================================================================
+         EXPORT MODAL
+    ================================================================ -->
     <div id="export-modal" class="modal hidden">
         <div class="modal-backdrop"></div>
         <div class="modal-content export-modal">
@@ -498,7 +535,6 @@
                         </label>
                     </div>
                 </div>
-
                 <div class="export-section">
                     <h3>Event Types</h3>
                     <div class="export-type-filters">
@@ -520,7 +556,6 @@
                         </label>
                     </div>
                 </div>
-
                 <div class="export-section">
                     <h3>Time Range (Optional)</h3>
                     <div class="export-time-range">
@@ -534,7 +569,6 @@
                         </div>
                     </div>
                 </div>
-
                 <div class="export-actions">
                     <button id="export-download-btn" class="btn btn-primary">Download</button>
                     <button id="export-cancel-btn" class="btn">Cancel</button>
@@ -543,7 +577,9 @@
         </div>
     </div>
 
-    <!-- Help Modal -->
+    <!-- ================================================================
+         HELP MODAL
+    ================================================================ -->
     <div id="help-modal" class="modal hidden">
         <div class="modal-backdrop"></div>
         <div class="modal-content">
@@ -559,16 +595,12 @@
                 <dl>
                     <dt>Total Events</dt>
                     <dd>The cumulative count of all JFR virtual thread events received since the dashboard was opened.</dd>
-
                     <dt>Started</dt>
-                    <dd>Number of <code>jdk.VirtualThreadStart</code> events. Each event represents a new virtual thread beginning execution.</dd>
-
+                    <dd>Number of <code>jdk.VirtualThreadStart</code> events.</dd>
                     <dt>Ended</dt>
-                    <dd>Number of <code>jdk.VirtualThreadEnd</code> events. Each event represents a virtual thread completing its execution.</dd>
-
+                    <dd>Number of <code>jdk.VirtualThreadEnd</code> events.</dd>
                     <dt>Active</dt>
-                    <dd>Estimated number of currently running virtual threads (Started - Ended). Note: This is an approximation based on events received.</dd>
-
+                    <dd>Estimated number of currently running virtual threads (Started - Ended).</dd>
                     <dt>Pinned</dt>
                     <dd>Number of <code>jdk.VirtualThreadPinned</code> events. <strong class="warning">Critical metric!</strong> Pinning occurs when a virtual thread cannot be unmounted from its carrier thread, typically due to:
                         <ul>
@@ -580,22 +612,13 @@
                 </dl>
 
                 <h3>Thread View</h3>
-                <p>Visual representation of active threads as cards. Each card shows:</p>
-                <ul>
-                    <li><strong>Thread Name</strong> - The virtual thread identifier</li>
-                    <li><strong>Duration</strong> - How long the thread has been running</li>
-                    <li><strong>Carrier</strong> - The platform thread ID carrying this virtual thread</li>
-                </ul>
+                <p>Visual representation of active threads as cards. Each card shows thread name, duration, and carrier thread ID.</p>
 
                 <h3>Pinned Alerts</h3>
-                <p>When a thread is pinned, it appears in the red alert section with its stack trace. Use this to identify and fix blocking code.</p>
+                <p>When a thread is pinned, it appears in the alert section with its stack trace. Use this to identify and fix blocking code.</p>
             </div>
         </div>
     </div>
-
-    <footer>
-        <p>Argus JVM Observability Platform - Real-time JFR Monitoring</p>
-    </footer>
 
     <script type="module" src="/js/app.js"></script>
 </body>
