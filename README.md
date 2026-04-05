@@ -23,6 +23,8 @@ curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | ba
 
 Diagnose any running JVM process directly from the terminal. No agent, no instrumentation, no restart needed.
 
+https://github.com/rlaope/Argus/raw/master/assets/argus-cli-demo.mov
+
 ### Commands
 
 | Command | Description |
@@ -220,6 +222,8 @@ $ argus --lang=ko report 39113
 ## Argus Agent (Dashboard)
 
 Attach to your JVM for real-time monitoring with a web dashboard, flame graphs, and metric export.
+
+https://github.com/rlaope/Argus/raw/master/assets/argus-dashboard-demo.mov
 
 When the agent starts, you'll see the Argus banner:
 
