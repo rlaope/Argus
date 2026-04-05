@@ -157,7 +157,18 @@ const elements = {
     flamegraphTimestamp: document.getElementById('flamegraph-timestamp'),
     flamegraphPause: document.getElementById('flamegraph-pause'),
     flamegraphReset: document.getElementById('flamegraph-reset'),
-    flamegraphDownload: document.getElementById('flamegraph-download')
+    flamegraphDownload: document.getElementById('flamegraph-download'),
+
+    // New metric elements
+    gcType: document.getElementById('gc-type'),
+    gcCauseList: document.getElementById('gc-cause-list'),
+    allocPeakRate: document.getElementById('alloc-peak-rate'),
+    metaspaceGrowthRate: document.getElementById('metaspace-growth-rate'),
+    topAllocClasses: document.getElementById('top-alloc-classes'),
+    carrierTotal: document.getElementById('carrier-total'),
+    carrierVtHandled: document.getElementById('carrier-vt-handled'),
+    carrierAvg: document.getElementById('carrier-avg'),
+    carrierThreadList: document.getElementById('carrier-thread-list')
 };
 
 const maxEvents = 500;
@@ -211,6 +222,7 @@ function init() {
     fetchMetaspaceMetrics();
     fetchMethodProfiling();
     fetchContentionAnalysis();
+    fetchCarrierThreads();
     fetchCorrelation();
     fetchFlameGraph();
 
@@ -224,6 +236,7 @@ function init() {
     setInterval(fetchMetaspaceMetrics, 5000);
     setInterval(fetchMethodProfiling, 5000);
     setInterval(fetchContentionAnalysis, 5000);
+    setInterval(fetchCarrierThreads, 5000);
     setInterval(fetchCorrelation, 10000);
     setInterval(fetchFlameGraph, 5000);
     setInterval(() => {
@@ -499,6 +512,26 @@ function updateGCDisplay(data) {
             }
         }
     }
+    if (elements.gcType && data.recentGCs && data.recentGCs.length > 0) {
+        const names = [...new Set(data.recentGCs.filter(gc => gc.gcName).map(gc => gc.gcName))];
+        elements.gcType.textContent = names.length > 0 ? names.join(', ') : '—';
+    }
+    renderGCCauses(data);
+}
+
+function renderGCCauses(data) {
+    if (!elements.gcCauseList || !data.causeDistribution) return;
+    const causes = data.causeDistribution;
+    const entries = Object.entries(causes).sort((a, b) => b[1] - a[1]);
+    if (entries.length === 0) {
+        elements.gcCauseList.innerHTML = '<div class="empty-state">No GC events yet</div>';
+        return;
+    }
+    const total = entries.reduce((sum, [, v]) => sum + v, 0);
+    elements.gcCauseList.innerHTML = '<table class="simple-table"><thead><tr><th>Cause</th><th>Count</th><th>%</th></tr></thead><tbody>' +
+        entries.map(([cause, count]) =>
+            `<tr><td class="mono">${escapeHtml(cause)}</td><td class="mono right">${formatNumber(count)}</td><td class="mono right">${(count / total * 100).toFixed(1)}%</td></tr>`
+        ).join('') + '</tbody></table>';
 }
 
 function updateCPUDisplay(data) {
@@ -860,6 +893,23 @@ function updateAllocationDisplay(data) {
     if (elements.allocTotal) {
         elements.allocTotal.textContent = (parseFloat(data.totalAllocatedMB) || 0).toFixed(1) + ' MB';
     }
+    if (elements.allocPeakRate) {
+        elements.allocPeakRate.textContent = (parseFloat(data.peakAllocationRateMBPerSec) || 0).toFixed(1) + ' MB/s';
+    }
+    renderTopAllocClasses(data);
+}
+
+function renderTopAllocClasses(data) {
+    if (!elements.topAllocClasses || !data.topAllocatingClasses) return;
+    const classes = data.topAllocatingClasses;
+    if (classes.length === 0) {
+        elements.topAllocClasses.innerHTML = '<div class="empty-state">No allocation data</div>';
+        return;
+    }
+    elements.topAllocClasses.innerHTML = '<table class="simple-table"><thead><tr><th>Class</th><th>Allocations</th><th>Bytes</th></tr></thead><tbody>' +
+        classes.slice(0, 10).map(c =>
+            `<tr><td class="mono">${escapeHtml(c.className)}</td><td class="mono right">${formatNumber(c.count)}</td><td class="mono right">${formatBytes(c.totalBytes)}</td></tr>`
+        ).join('') + '</tbody></table>';
 }
 
 function updateMetaspaceDisplay(data) {
@@ -868,6 +918,15 @@ function updateMetaspaceDisplay(data) {
     }
     if (elements.classCount) {
         elements.classCount.textContent = formatNumber(data.currentClassCount || 0);
+    }
+    if (elements.metaspaceGrowthRate) {
+        const rate = parseFloat(data.growthRateMBPerMin) || 0;
+        elements.metaspaceGrowthRate.textContent = rate.toFixed(3) + ' MB/min';
+        if (rate > 1.0) {
+            elements.metaspaceGrowthRate.style.color = 'var(--red, #C62828)';
+        } else {
+            elements.metaspaceGrowthRate.style.color = '';
+        }
     }
 }
 
@@ -909,6 +968,36 @@ function updateRecommendations(data) {
             </div>
         `;
     }).join('');
+}
+
+async function fetchCarrierThreads() {
+    try {
+        const response = await fetch('/carrier-threads');
+        if (response.ok) {
+            const data = await response.json();
+            updateCarrierDisplay(data);
+        }
+    } catch (e) {
+        // Carrier thread analysis may not have data yet
+    }
+}
+
+function updateCarrierDisplay(data) {
+    if (elements.carrierTotal) {
+        elements.carrierTotal.textContent = formatNumber(data.totalCarriers || 0);
+    }
+    if (elements.carrierVtHandled) {
+        elements.carrierVtHandled.textContent = formatNumber(data.totalVirtualThreadsHandled || 0);
+    }
+    if (elements.carrierAvg) {
+        elements.carrierAvg.textContent = (parseFloat(data.avgVirtualThreadsPerCarrier) || 0).toFixed(1);
+    }
+    if (elements.carrierThreadList && data.carriers && data.carriers.length > 0) {
+        elements.carrierThreadList.innerHTML = '<table class="simple-table"><thead><tr><th>Carrier Thread</th><th>VT Handled</th><th>Utilization</th></tr></thead><tbody>' +
+            data.carriers.slice(0, 15).map(c =>
+                `<tr><td class="mono">${escapeHtml(c.name)}</td><td class="mono right">${formatNumber(c.totalVirtualThreadsHandled)}</td><td class="mono right">${(parseFloat(c.utilizationPercent) || 0).toFixed(1)}%</td></tr>`
+            ).join('') + '</tbody></table>';
+    }
 }
 
 async function fetchConfig() {
