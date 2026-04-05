@@ -33,7 +33,7 @@ public final class OtlpMetricsExporter {
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
         this.scheduler = Executors.newSingleThreadScheduledExecutor(
-                r -> Thread.ofPlatform().name("argus-otlp-exporter").daemon(true).unstarted(r)
+                r -> { Thread t = new Thread(r, "argus-otlp-exporter"); t.setDaemon(true); return t; }
         );
     }
 
