@@ -184,8 +184,12 @@ public final class ServerCommandExecutor {
                 formatBytes(nonHeap.getInit()), formatBytes(nonHeap.getUsed()),
                 formatBytes(nonHeap.getCommitted()), formatBytes(nonHeap.getMax())));
         sb.append("\n");
-        double usedPercent = (double) heap.getUsed() / heap.getMax() * 100;
-        sb.append(String.format("  Heap Utilization: %.1f%%\n", usedPercent));
+        if (heap.getMax() > 0) {
+            double usedPercent = (double) heap.getUsed() / heap.getMax() * 100;
+            sb.append(String.format("  Heap Utilization: %.1f%%\n", usedPercent));
+        } else {
+            sb.append("  Heap Utilization: N/A (no max heap set)\n");
+        }
         return sb.toString();
     }
 

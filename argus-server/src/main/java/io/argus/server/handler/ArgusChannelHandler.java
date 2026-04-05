@@ -1167,7 +1167,20 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         return sb.toString();
     }
 
+    private static final java.util.concurrent.Semaphore execSemaphore = new java.util.concurrent.Semaphore(2);
+
     private void handleExecCommand(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+        // Only allow GET and POST
+        if (!io.netty.handler.codec.http.HttpMethod.GET.equals(request.method())
+                && !io.netty.handler.codec.http.HttpMethod.POST.equals(request.method())) {
+            HttpResponseHelper.sendBadRequest(ctx, request, "Method not allowed. Use GET or POST.");
+            return;
+        }
+        // Rate limit: max 2 concurrent commands
+        if (!execSemaphore.tryAcquire()) {
+            HttpResponseHelper.sendBadRequest(ctx, request, "Too many concurrent commands. Try again.");
+            return;
+        }
         var params = parseQueryParams(uri);
         String cmd = params.get("cmd");
         if (cmd == null || cmd.isBlank()) {
@@ -1181,6 +1194,8 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         } catch (Exception e) {
             String json = "{\"command\":\"" + escapeJson(cmd) + "\",\"error\":\"" + escapeJson(e.getMessage()) + "\"}";
             HttpResponseHelper.sendJson(ctx, request, json);
+        } finally {
+            execSemaphore.release();
         }
     }
 
