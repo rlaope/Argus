@@ -21,6 +21,7 @@
             <h1>Argus</h1>
         </div>
         <div class="header-actions">
+            <a href="https://github.com/rlaope/Argus" target="_blank" class="btn btn-icon" title="GitHub" style="text-decoration:none;font-size:0.75rem;">GH</a>
             <button id="export-btn" class="btn" title="Export Events">Export</button>
             <button id="thread-dump-btn" class="btn" title="Capture Thread Dump">Thread Dump</button>
             <button id="help-btn" class="btn btn-icon" title="Help">?</button>
@@ -112,6 +113,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Memory &amp; Garbage Collection</h3>
+                    <p class="section-desc">Heap usage, GC pause timeline, and overhead. High GC overhead or long pauses indicate memory pressure.</p>
                     <div class="section-header-right stats-row">
                         <span class="stat-inline">Collector: <strong id="gc-type">—</strong></span>
                         <span class="stat-inline">GC Events: <strong id="gc-total-events">0</strong></span>
@@ -146,6 +148,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>GC Cause Distribution</h3>
+                    <p class="section-desc">Breakdown of why GC is triggered. Frequent "Allocation Failure" may indicate excessive object creation.</p>
                 </div>
                 <div id="gc-cause-list" class="data-table">
                     <div class="empty-state">Waiting for GC events...</div>
@@ -156,6 +159,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>CPU Utilization</h3>
+                    <p class="section-desc">JVM and system-level CPU load. Sustained high JVM CPU with low throughput may indicate inefficient code paths.</p>
                     <div class="section-header-right stats-row">
                         <span class="stat-inline">JVM: <strong id="cpu-jvm-current">—%</strong></span>
                         <span class="stat-inline">System: <strong id="cpu-system-current">—%</strong></span>
@@ -179,6 +183,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Allocation &amp; Metaspace</h3>
+                    <p class="section-desc">Object allocation rate and metaspace usage. Rising growth rate may indicate a classloader leak.</p>
                     <div class="section-header-right stats-row">
                         <span class="stat-inline">Rate: <strong id="alloc-rate">— MB/s</strong></span>
                         <span class="stat-inline">Peak: <strong id="alloc-peak-rate">— MB/s</strong></span>
@@ -214,6 +219,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Top Allocating Classes</h3>
+                    <p class="section-desc">Classes consuming the most heap. Focus here when allocation rate is abnormally high.</p>
                 </div>
                 <div id="top-alloc-classes" class="data-table">
                     <div class="empty-state">Enable allocation tracking (-Dargus.allocation.enabled=true)</div>
@@ -224,6 +230,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Carrier Thread Distribution</h3>
+                    <p class="section-desc">How virtual threads are distributed across platform carrier threads. Uneven load suggests scheduling bottlenecks.</p>
                     <div class="section-header-right stats-row">
                         <span class="stat-inline">Carriers: <strong id="carrier-total">0</strong></span>
                         <span class="stat-inline">VT Handled: <strong id="carrier-vt-handled">0</strong></span>
@@ -239,6 +246,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Profiling &amp; Lock Contention</h3>
+                    <p class="section-desc">CPU hot methods and lock contention hotspots. Identify the most expensive code paths and synchronization bottlenecks.</p>
                     <div class="section-header-right stats-row">
                         <span class="stat-inline">CPU Samples: <strong id="cpu-samples">0</strong></span>
                         <span class="stat-inline">Contention Events: <strong id="contention-events">0</strong></span>
@@ -271,6 +279,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Flame Graph</h3>
+                    <p class="section-desc">Interactive CPU flame graph from execution samples. Click to zoom into call stacks.</p>
                     <div class="section-header-right">
                         <span class="stat-inline">Samples: <strong id="flamegraph-samples">0</strong></span>
                         <span class="flamegraph-ts" id="flamegraph-timestamp"></span>
@@ -288,6 +297,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Recommendations</h3>
+                    <p class="section-desc">Auto-generated insights from cross-correlating GC, CPU, memory, and thread metrics.</p>
                     <button id="refresh-recommendations" class="btn btn-small">Refresh</button>
                 </div>
                 <div id="recommendations-list" class="recommendations-list">
@@ -319,6 +329,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Pinning Hotspots</h3>
+                    <p class="section-desc">Stack traces where virtual threads are pinned to carrier threads. Replace synchronized with ReentrantLock to fix.</p>
                     <div class="section-header-right">
                         <span class="stat-inline">Total: <strong id="hotspots-total">0</strong></span>
                         <span class="stat-inline">Unique: <strong id="hotspots-unique">0</strong></span>
@@ -334,6 +345,7 @@
             <section class="content-section">
                 <div class="section-header">
                     <h3>Thread Activity</h3>
+                    <p class="section-desc">Virtual thread creation rate and concurrency over time. Spikes may correlate with request bursts.</p>
                 </div>
                 <div class="charts-grid-2">
                     <div class="chart-card">
@@ -472,7 +484,7 @@
     </main>
 
     <footer>
-        <p>Argus JVM Observability &mdash; Real-time JFR Monitoring</p>
+        <p>Argus JVM Observability &mdash; Real-time JFR Monitoring &middot; <a href="https://github.com/rlaope/Argus" target="_blank" style="color:var(--ink-3,#888);text-decoration:none;">GitHub</a></p>
     </footer>
 
     <!-- ================================================================

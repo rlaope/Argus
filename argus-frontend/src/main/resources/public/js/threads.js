@@ -64,10 +64,9 @@ export function initThreadView(elements) {
 export function renderThreadStateView(container, countEl) {
     const running = [...threadStates.running.values()];
     const pinned = [...threadStates.pinned.values()];
-    const ended = [...threadStates.ended.values()];
-    const total = running.length + pinned.length + ended.length;
+    const total = running.length + pinned.length;
 
-    countEl.textContent = `${stateCounts.running} running, ${stateCounts.pinned} pinned, ${stateCounts.ended} recent`;
+    countEl.textContent = `${stateCounts.running} running, ${stateCounts.pinned} pinned`;
 
     if (total === 0) {
         container.innerHTML = '<div class="empty-state">No active threads</div>';
@@ -75,22 +74,20 @@ export function renderThreadStateView(container, countEl) {
     }
 
     const fragment = document.createDocumentFragment();
+    const MAX_DISPLAY = 20;
 
     // Pinned threads section (critical - show first)
     if (pinned.length > 0) {
-        const section = createStateSection('Pinned', 'pinned', pinned);
+        const section = createStateSection('Pinned', 'pinned', pinned.slice(0, MAX_DISPLAY));
         fragment.appendChild(section);
     }
 
-    // Running threads section
+    // Running threads section (limit to avoid UI flood)
     if (running.length > 0) {
-        const section = createStateSection('Running', 'running', running);
-        fragment.appendChild(section);
-    }
-
-    // Recently ended threads section
-    if (ended.length > 0) {
-        const section = createStateSection('Recently Ended', 'ended', ended);
+        const display = running.slice(0, MAX_DISPLAY);
+        const section = createStateSection(
+            running.length > MAX_DISPLAY ? `Running (showing ${MAX_DISPLAY} of ${running.length})` : 'Running',
+            'running', display);
         fragment.appendChild(section);
     }
 
