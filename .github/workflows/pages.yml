@@ -6,6 +6,7 @@ on:
     paths:
       - 'site/**'
       - 'assets/**'
+      - '.github/workflows/pages.yml'
 
 permissions:
   contents: read
@@ -32,8 +33,6 @@ jobs:
           cp -r assets _site/assets
 
       - uses: actions/configure-pages@v4
-        with:
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
