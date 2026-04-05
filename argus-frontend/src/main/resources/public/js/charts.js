@@ -49,7 +49,8 @@ export function initCharts(canvases) {
                     borderColor: '#2E7D32',
                     backgroundColor: 'rgba(46, 125, 50, 0.1)',
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.45,
+                    borderWidth: 2,
                     pointRadius: 0
                 },
                 {
@@ -58,7 +59,8 @@ export function initCharts(canvases) {
                     borderColor: '#1565C0',
                     backgroundColor: 'rgba(21, 101, 192, 0.1)',
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.45,
+                    borderWidth: 2,
                     pointRadius: 0
                 },
                 {
@@ -67,7 +69,8 @@ export function initCharts(canvases) {
                     borderColor: '#C62828',
                     backgroundColor: 'rgba(198, 40, 40, 0.1)',
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.45,
+                    borderWidth: 2,
                     pointRadius: 0
                 }
             ]
@@ -76,6 +79,7 @@ export function initCharts(canvases) {
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
                     position: 'top',
@@ -104,7 +108,8 @@ export function initCharts(canvases) {
                 borderColor: '#2E7D32',
                 backgroundColor: 'rgba(46, 125, 50, 0.2)',
                 fill: true,
-                tension: 0.3,
+                tension: 0.45,
+                    borderWidth: 2,
                 pointRadius: 0
             }]
         },
@@ -112,6 +117,7 @@ export function initCharts(canvases) {
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false } },
             scales: {
                 x: { display: false },
@@ -148,6 +154,7 @@ export function initCharts(canvases) {
             responsive: true,
             maintainAspectRatio: false,
             animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
             plugins: { legend: { display: false } },
             scales: {
                 x: {
@@ -181,6 +188,7 @@ export function initCharts(canvases) {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
                 plugins: { legend: { display: false } },
                 scales: {
                     x: { display: false },
@@ -207,7 +215,8 @@ export function initCharts(canvases) {
                         borderColor: '#8D6E63',
                         backgroundColor: 'rgba(141, 110, 99, 0.2)',
                         fill: true,
-                        tension: 0.3,
+                        tension: 0.45,
+                    borderWidth: 2,
                         pointRadius: 0
                     },
                     {
@@ -216,7 +225,8 @@ export function initCharts(canvases) {
                         borderColor: '#9e9e9e',
                         backgroundColor: 'rgba(158, 158, 158, 0.1)',
                         fill: true,
-                        tension: 0.3,
+                        tension: 0.45,
+                    borderWidth: 2,
                         pointRadius: 0,
                         borderDash: [5, 5]
                     }
@@ -226,6 +236,7 @@ export function initCharts(canvases) {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
                     legend: {
                         position: 'top',
@@ -263,7 +274,8 @@ export function initCharts(canvases) {
                         borderColor: '#1565C0',
                         backgroundColor: 'rgba(21, 101, 192, 0.2)',
                         fill: true,
-                        tension: 0.3,
+                        tension: 0.45,
+                    borderWidth: 2,
                         pointRadius: 0
                     },
                     {
@@ -272,7 +284,8 @@ export function initCharts(canvases) {
                         borderColor: '#C62828',
                         backgroundColor: 'rgba(198, 40, 40, 0.1)',
                         fill: true,
-                        tension: 0.3,
+                        tension: 0.45,
+                    borderWidth: 2,
                         pointRadius: 0
                     }
                 ]
@@ -281,6 +294,7 @@ export function initCharts(canvases) {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
                     legend: {
                         position: 'top',
@@ -318,7 +332,8 @@ export function initCharts(canvases) {
                     borderColor: '#F9A825',
                     backgroundColor: 'rgba(249, 168, 37, 0.2)',
                     fill: true,
-                    tension: 0.3,
+                    tension: 0.45,
+                    borderWidth: 2,
                     pointRadius: 0
                 }]
             },
@@ -326,6 +341,7 @@ export function initCharts(canvases) {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
                 plugins: { legend: { display: false } },
                 scales: {
                     x: { display: false },
@@ -358,7 +374,8 @@ export function initCharts(canvases) {
                         borderColor: '#8D6E63',
                         backgroundColor: 'rgba(141, 110, 99, 0.2)',
                         fill: true,
-                        tension: 0.3,
+                        tension: 0.45,
+                    borderWidth: 2,
                         pointRadius: 0
                     },
                     {
@@ -367,7 +384,8 @@ export function initCharts(canvases) {
                         borderColor: '#9e9e9e',
                         backgroundColor: 'rgba(158, 158, 158, 0.1)',
                         fill: true,
-                        tension: 0.3,
+                        tension: 0.45,
+                    borderWidth: 2,
                         pointRadius: 0,
                         borderDash: [5, 5]
                     }
@@ -377,6 +395,7 @@ export function initCharts(canvases) {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
                 plugins: {
                     legend: {
                         position: 'top',
@@ -420,6 +439,7 @@ export function initCharts(canvases) {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
                 plugins: { legend: { display: false } },
                 scales: {
                     x: {
@@ -455,6 +475,7 @@ export function initCharts(canvases) {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: { duration: 0 },
+                interaction: { mode: 'index', intersect: false },
                 plugins: { legend: { display: false } },
                 scales: {
                     x: {

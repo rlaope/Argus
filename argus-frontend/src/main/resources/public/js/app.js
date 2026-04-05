@@ -160,6 +160,7 @@ const elements = {
     flamegraphDownload: document.getElementById('flamegraph-download'),
 
     // New metric elements
+    gcType: document.getElementById('gc-type'),
     gcCauseList: document.getElementById('gc-cause-list'),
     allocPeakRate: document.getElementById('alloc-peak-rate'),
     metaspaceGrowthRate: document.getElementById('metaspace-growth-rate'),
@@ -510,6 +511,10 @@ function updateGCDisplay(data) {
                 card.classList.remove('warning');
             }
         }
+    }
+    if (elements.gcType && data.recentGCs && data.recentGCs.length > 0) {
+        const names = [...new Set(data.recentGCs.filter(gc => gc.gcName).map(gc => gc.gcName))];
+        elements.gcType.textContent = names.length > 0 ? names.join(', ') : '—';
     }
     renderGCCauses(data);
 }
