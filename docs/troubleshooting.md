@@ -19,13 +19,7 @@ This guide covers common issues and their solutions.
    java -javaagent:/absolute/path/to/argus-agent.jar ...
    ```
 
-2. **Missing `--enable-preview` flag**
-   ```bash
-   # Required for Java 21 preview features
-   java -javaagent:argus-agent.jar --enable-preview -jar app.jar
-   ```
-
-3. **Java version too old**
+2. **Java version too old**
    ```bash
    # Verify Java version (must be 21+)
    java -version
@@ -64,7 +58,6 @@ This guide covers common issues and their solutions.
    ```bash
    java -javaagent:argus-agent.jar \
         -Dargus.buffer.size=16384 \
-        --enable-preview \
         -jar app.jar
    ```
 
@@ -159,12 +152,14 @@ export JAVA_HOME=/path/to/jdk-21
 
 ### Compilation Errors
 
-**Symptom**: Preview feature errors.
+**Symptom**: Compilation errors when building from source.
 
-**Solution**: Ensure `--enable-preview` is set in build.gradle.kts:
+**Solution**: Ensure Java 21 toolchain is configured in build.gradle.kts:
 ```kotlin
-tasks.withType<JavaCompile> {
-    options.compilerArgs.addAll(listOf("--enable-preview"))
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(21))
+    }
 }
 ```
 
@@ -329,7 +324,6 @@ Enable verbose logging for debugging:
 ```bash
 java -javaagent:argus-agent.jar \
      -Djava.util.logging.config.file=logging.properties \
-     --enable-preview \
      -jar app.jar
 ```
 
