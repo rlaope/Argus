@@ -67,6 +67,19 @@ public final class PsCommand implements Command {
             String cls = RichRenderer.padRight(RichRenderer.truncate(p.mainClass(), classWidth), classWidth);
             String args2 = RichRenderer.truncate(p.arguments(), argsWidth);
             System.out.println(RichRenderer.boxLine(pidStr + "  " + cls + "  " + args2, WIDTH));
+
+            // Show Java version and uptime if available
+            if (!p.javaVersion().isEmpty() || p.uptimeMs() > 0) {
+                StringBuilder detail = new StringBuilder("          ");
+                if (!p.javaVersion().isEmpty()) {
+                    detail.append(RichRenderer.truncate(p.javaVersion(), 40));
+                }
+                if (p.uptimeMs() > 0) {
+                    if (!p.javaVersion().isEmpty()) detail.append("  ");
+                    detail.append("uptime: ").append(RichRenderer.formatDuration(p.uptimeMs()));
+                }
+                System.out.println(RichRenderer.boxLine(detail.toString(), WIDTH));
+            }
         }
 
         System.out.println(RichRenderer.emptyLine(WIDTH));

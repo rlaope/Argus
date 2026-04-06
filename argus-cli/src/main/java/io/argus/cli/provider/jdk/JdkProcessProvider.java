@@ -55,7 +55,33 @@ public final class JdkProcessProvider implements ProcessProvider {
             String mainClass = tokens.length >= 2 ? tokens[1] : "";
             String arguments = tokens.length >= 3 ? tokens[2] : "";
 
-            result.add(new ProcessInfo(pid, mainClass, arguments));
+            // Try to get Java version and uptime for each process
+            String javaVersion = "";
+            long uptimeMs = 0;
+            try {
+                String versionOutput = JcmdExecutor.execute(pid, "VM.version");
+                for (String vLine : versionOutput.split("\n")) {
+                    String v = vLine.trim();
+                    if (v.contains("JDK") || v.contains("jdk") || v.matches(".*\\d+\\.\\d+\\.\\d+.*")) {
+                        javaVersion = v;
+                        break;
+                    }
+                }
+            } catch (RuntimeException ignored) {}
+            try {
+                String uptimeOutput = JcmdExecutor.execute(pid, "VM.uptime");
+                for (String uLine : uptimeOutput.split("\n")) {
+                    String u = uLine.trim();
+                    if (u.isEmpty()) continue;
+                    String[] uParts = u.split("\\s+");
+                    try {
+                        uptimeMs = (long) (Double.parseDouble(uParts[0]) * 1000.0);
+                        break;
+                    } catch (NumberFormatException ignored2) {}
+                }
+            } catch (RuntimeException ignored) {}
+
+            result.add(new ProcessInfo(pid, mainClass, arguments, javaVersion, uptimeMs));
         }
         return List.copyOf(result);
     }
