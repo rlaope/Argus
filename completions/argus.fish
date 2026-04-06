@@ -1,6 +1,6 @@
 # Fish completions for argus
 
-set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr diff report info heapdump deadlock env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top
+set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr diff report info heapdump deadlock events compilerqueue env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top
 
 # Disable file completions for argus
 complete -c argus -f
@@ -24,6 +24,8 @@ complete -c argus -n "not __fish_seen_subcommand_from $commands" -a report -d 'C
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a info -d 'JVM information'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a heapdump -d 'Generate heap dump'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a deadlock -d 'Detect Java-level deadlocks'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a events -d 'VM internal event log'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a compilerqueue -d 'JIT compilation queue'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a env -d 'JVM launch environment'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a compiler -d 'JIT compiler and code cache stats'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a finalizer -d 'Finalizer queue status'

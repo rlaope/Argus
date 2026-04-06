@@ -21,6 +21,8 @@ _argus() {
         'info:JVM information'
         'heapdump:Generate heap dump'
         'deadlock:Detect Java-level deadlocks'
+        'events:VM internal event log'
+        'compilerqueue:JIT compilation queue'
         'env:JVM launch environment'
         'compiler:JIT compiler and code cache stats'
         'finalizer:Finalizer queue status'
