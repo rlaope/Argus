@@ -13,6 +13,20 @@ allprojects {
 
 subprojects {
     apply(plugin = "java")
+    apply(plugin = "maven-publish")
+
+    afterEvaluate {
+        extensions.findByType<PublishingExtension>()?.apply {
+            publications {
+                create<MavenPublication>("maven") {
+                    from(components["java"])
+                    groupId = project.group.toString()
+                    artifactId = project.name
+                    version = project.version.toString()
+                }
+            }
+        }
+    }
 
     java {
         toolchain {

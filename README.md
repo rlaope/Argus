@@ -235,7 +235,7 @@ When the agent starts, you'll see the Argus banner:
     \____|__  /__|  \___  /|____//____  >
             \/     /_____/            \/
 
-    JVM Observability Platform v0.4.0
+    JVM Observability Platform v0.8.0
 [Argus] Initializing JFR streaming engine...
 [Argus] Agent initialized successfully
 [Argus] Ring buffer size: 65536
@@ -426,14 +426,14 @@ Add the dependency:
 <dependency>
   <groupId>io.argus</groupId>
   <artifactId>argus-spring-boot-starter</artifactId>
-  <version>0.4.0</version>
+  <version>0.8.0</version>
 </dependency>
 ```
 
 Or with Gradle:
 
 ```groovy
-implementation 'io.argus:argus-spring-boot-starter:0.4.0'
+implementation 'io.argus:argus-spring-boot-starter:0.8.0'
 ```
 
 The starter auto-configures the Argus agent on application startup. All `argus.*` properties can be set in `application.properties` / `application.yml`:

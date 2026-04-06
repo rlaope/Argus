@@ -43,15 +43,15 @@ argus report 12345
 
 ```bash
 # Install a specific version
-curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.5.0
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash -s -- v0.8.0
 ```
 
 ### Option 2: Manual Download
 
 ```bash
 # Download JARs from GitHub Releases
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.4.0.jar
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.4.0-all.jar
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-0.8.0.jar
+curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-0.8.0-all.jar
 ```
 
 ### Option 3: Build from Source
@@ -63,8 +63,8 @@ cd argus
 ./gradlew :argus-cli:fatJar
 
 # JARs:
-# argus-agent/build/libs/argus-agent-0.4.0.jar
-# argus-cli/build/libs/argus-cli-0.4.0-all.jar
+# argus-agent/build/libs/argus-agent-0.8.0.jar
+# argus-cli/build/libs/argus-cli-0.8.0-all.jar
 ```
 
 ## Quick Start with Sample Project
@@ -119,7 +119,7 @@ argus info <pid>               # JVM information
 argus top
 
 # Or run directly
-java --enable-preview -jar argus-cli/build/libs/argus-cli-0.4.0-all.jar --help
+java -jar argus-cli/build/libs/argus-cli-0.8.0-all.jar --help
 ```
 
 The CLI auto-detects the best data source: Argus agent (HTTP) when available, JDK tools (`jcmd`) as fallback. Use `--source=agent|jdk` to override.

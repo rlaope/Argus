@@ -1,11 +1,24 @@
 # Argus Project Guidelines
 
+## Version Management
+- **Single source of truth**: `gradle.properties` → `argusVersion=X.Y.Z`
+- After ANY version bump, run: `grep -rn '0\.\d\+\.\d\+' --include='*.md' .` to find stale references
+- **Version reference locations** (ALL must be updated on release):
+  - `gradle.properties` — canonical version
+  - `README.md` — banner text, Maven/Gradle dependency snippets
+  - `docs/getting-started.md` — download URLs, JAR paths, CLI examples
+  - `docs/usage.md` — Spring Boot starter version
+  - `site/index.html` — if version is shown on docs site
+  - `.github/ISSUE_TEMPLATE/*.md` — example version placeholders
+- **Release checklist**: bump `gradle.properties` → `./gradlew publishToMavenLocal` → grep for old version → update all docs → tag
+
 ## Build & Test
-- Java 21 with preview features enabled
+- Java 21 (no --enable-preview needed since v0.8.0)
 - Build: `./gradlew :argus-cli:build`
 - Fat JAR: `./gradlew :argus-cli:fatJar`
-- Run: `java --enable-preview -jar argus-cli/build/libs/argus-cli-*-all.jar <command>`
+- Run: `java -jar argus-cli/build/libs/argus-cli-*-all.jar <command>`
 - Test with real JVM: use `argus ps` to find a PID, then run commands against it
+- Spring Boot starter test: `./gradlew publishToMavenLocal` → separate project with `mavenLocal()` dependency
 
 ## Adding a New CLI Command (Checklist)
 Every new command MUST include ALL of the following:
