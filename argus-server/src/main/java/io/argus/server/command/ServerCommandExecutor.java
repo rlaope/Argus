@@ -1,5 +1,8 @@
 package io.argus.server.command;
 
+import io.argus.core.command.CommandRegistry;
+import io.argus.core.command.DiagnosticCommand;
+
 import java.lang.management.ClassLoadingMXBean;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
@@ -25,6 +28,8 @@ import java.util.Properties;
 public final class ServerCommandExecutor {
 
     private static final Map<String, CommandInfo> COMMANDS = new LinkedHashMap<>();
+    private static final CommandRegistry SPI_REGISTRY = CommandRegistry.load();
+    private static final ServerContext SPI_CONTEXT = new ServerContext();
 
     private static final java.util.Set<String> SENSITIVE_KEYS = java.util.Set.of(
             "PASSWORD", "SECRET", "KEY", "TOKEN", "CREDENTIAL", "AUTH", "PRIVATE");
@@ -62,10 +67,22 @@ public final class ServerCommandExecutor {
     }
 
     public static Map<String, CommandInfo> getAvailableCommands() {
-        return COMMANDS;
+        Map<String, CommandInfo> all = new LinkedHashMap<>(COMMANDS);
+        for (DiagnosticCommand cmd : SPI_REGISTRY.all()) {
+            if (!all.containsKey(cmd.id())) {
+                all.put(cmd.id(), new CommandInfo(
+                        cmd.id(), cmd.group().displayName().toLowerCase(), cmd.description()));
+            }
+        }
+        return all;
     }
 
     public static String execute(String command) {
+        // Try SPI commands first (new pluggable commands)
+        DiagnosticCommand spiCmd = SPI_REGISTRY.find(command);
+        if (spiCmd != null) {
+            return spiCmd.execute(SPI_CONTEXT);
+        }
         if (!COMMANDS.containsKey(command)) {
             return "Unknown command: " + command + "\nType 'help' to see available commands.";
         }

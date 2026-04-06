@@ -1,0 +1,6 @@
+io.argus.server.command.impl.BuffersDiagnosticCommand
+io.argus.server.command.impl.GcRunDiagnosticCommand
+io.argus.server.command.impl.ThreadDumpDiagnosticCommand
+io.argus.server.command.impl.LoggerDiagnosticCommand
+io.argus.server.command.impl.EventsDiagnosticCommand
+io.argus.server.command.impl.CompilerQueueDiagnosticCommand
