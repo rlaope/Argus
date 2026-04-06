@@ -1,6 +1,6 @@
 # Fish completions for argus
 
-set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr diff report info heapdump deadlock threaddump env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top
+set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top
 
 # Disable file completions for argus
 complete -c argus -f
@@ -25,6 +25,13 @@ complete -c argus -n "not __fish_seen_subcommand_from $commands" -a info -d 'JVM
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a heapdump -d 'Generate heap dump'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a deadlock -d 'Detect Java-level deadlocks'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a threaddump -d 'Full thread dump with stack traces'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a buffers -d 'NIO buffer pool statistics'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gcrun -d 'Trigger System.gc() on target JVM'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a logger -d 'View and change log levels at runtime'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a events -d 'VM internal event log'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a compilerqueue -d 'JIT compilation queue'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a sc -d 'Search loaded classes by pattern'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a jfranalyze -d 'Analyze a JFR recording file'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a env -d 'JVM launch environment'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a compiler -d 'JIT compiler and code cache stats'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a finalizer -d 'Finalizer queue status'
