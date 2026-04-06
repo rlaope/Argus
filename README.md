@@ -8,7 +8,7 @@
 
 Two independent tools in one package:
 
-- **`argus` CLI** — 33 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
+- **`argus` CLI** — 42 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
 - **Argus Agent** — Real-time web dashboard with JFR streaming, flame graphs, and metric export
 
 ```bash
@@ -29,37 +29,51 @@ Diagnose any running JVM process directly from the terminal. No agent, no instru
 
 | Command | Description |
 |---------|-------------|
-| `argus ps` | List running JVM processes |
-| `argus histo <pid>` | Heap object histogram |
-| `argus threads <pid>` | Thread dump summary |
-| `argus gc <pid>` | GC statistics |
-| `argus gcutil <pid>` | GC generation utilization (jstat-style) |
-| `argus heap <pid>` | Heap memory with detailed metrics |
+| **Process & System** | |
+| `argus ps` | List running JVM processes (with Java version, uptime) |
+| `argus info <pid>` | JVM information, flags, and CPU utilization |
+| `argus env <pid>` | JVM launch environment |
 | `argus sysprops <pid>` | System properties (`--filter` supported) |
 | `argus vmflag <pid>` | VM flags (`--filter`, `--set` supported) |
-| `argus nmt <pid>` | Native memory tracking |
-| `argus classloader <pid>` | Class loader hierarchy |
-| `argus jfr <pid> start\|stop\|check\|dump` | Flight Recorder control |
-| `argus profile <pid>` | CPU/allocation/lock profiling (async-profiler) |
-| `argus diff <pid> [interval]` | Heap snapshot diff (leak detection) |
-| `argus report <pid>` | Comprehensive diagnostic report |
-| `argus info <pid>` | JVM information and flags |
-| `argus heapdump <pid>` | Generate heap dump (with STW warning) |
-| `argus deadlock <pid>` | Detect Java-level deadlocks |
-| `argus env <pid>` | JVM launch environment |
-| `argus compiler <pid>` | JIT compiler and code cache stats |
-| `argus finalizer <pid>` | Finalizer queue status |
-| `argus stringtable <pid>` | Interned string table statistics |
-| `argus pool <pid>` | Thread pool analysis |
-| `argus gccause <pid>` | GC cause with utilization stats |
-| `argus metaspace <pid>` | Detailed metaspace breakdown |
-| `argus dynlibs <pid>` | Loaded native libraries |
 | `argus vmset <pid> Flag=val` | Set VM flag at runtime |
 | `argus vmlog <pid>` | JVM unified logging control |
 | `argus jmx <pid> [cmd]` | JMX agent control |
-| `argus classstat <pid>` | Class loading statistics |
+| **Memory & GC** | |
+| `argus heap <pid>` | Heap memory with detailed pool breakdown |
+| `argus histo <pid>` | Heap object histogram |
+| `argus gc <pid>` | GC statistics (collectors, pauses, overhead) |
+| `argus gcutil <pid>` | GC generation utilization (jstat-style) |
+| `argus gccause <pid>` | GC cause with utilization stats |
 | `argus gcnew <pid>` | Young generation GC detail |
+| `argus gcrun <pid>` | Trigger System.gc() remotely |
+| `argus metaspace <pid>` | Detailed metaspace breakdown |
+| `argus nmt <pid>` | Native memory tracking |
+| `argus buffers <pid>` | NIO buffer pool statistics (direct, mapped) |
+| `argus finalizer <pid>` | Finalizer queue status |
+| `argus diff <pid> [interval]` | Heap snapshot diff (leak detection) |
+| `argus heapdump <pid>` | Generate heap dump (with STW warning) |
+| **Threads** | |
+| `argus threads <pid>` | Thread dump summary (daemon, peak counts) |
+| `argus threaddump <pid>` | Full thread dump with stack traces |
+| `argus deadlock <pid>` | Detect Java-level deadlocks |
+| `argus pool <pid>` | Thread pool analysis |
+| **Runtime & Class Loading** | |
+| `argus classloader <pid>` | Class loader hierarchy |
+| `argus classstat <pid>` | Class loading statistics |
+| `argus sc <pid> <pattern>` | Search loaded classes by glob pattern |
+| `argus compiler <pid>` | JIT compiler and code cache stats |
+| `argus compilerqueue <pid>` | JIT compilation queue |
+| `argus stringtable <pid>` | Interned string table statistics |
 | `argus symboltable <pid>` | Symbol table statistics |
+| `argus dynlibs <pid>` | Loaded native libraries |
+| **Profiling & Diagnostics** | |
+| `argus profile <pid>` | CPU/allocation/lock profiling (async-profiler) |
+| `argus jfr <pid> start\|stop\|check\|dump` | Flight Recorder control |
+| `argus jfranalyze <file.jfr>` | Analyze JFR recording (GC, CPU, hot methods, I/O) |
+| `argus logger <pid>` | View and change log levels at runtime |
+| `argus events <pid>` | VM internal event log (safepoints, deopt, GC) |
+| `argus report <pid>` | Comprehensive diagnostic report |
+| **Monitoring** | |
 | `argus top` | Real-time monitoring (agent required) |
 | `argus init` | First-time setup (language selection) |
 
@@ -213,7 +227,7 @@ $ argus --lang=ko report 39113
 --version, -v             Show version
 ```
 
-> See [CLI Command Reference](docs/cli-commands.md) for all 33 commands with full output examples.
+> See [CLI Command Reference](docs/cli-commands.md) for all 42 commands with full output examples.
 
 ---
 
@@ -354,7 +368,7 @@ Argus adapts its capabilities based on the target JVM version at runtime:
 
 | Feature | Java 11+ | Java 17+ | Java 21+ |
 |---------|:--------:|:--------:|:--------:|
-| CLI (33 commands) | ✅ | ✅ | ✅ |
+| CLI (42 commands) | ✅ | ✅ | ✅ |
 | Dashboard & Web UI | — | ✅ | ✅ |
 | GC Analysis | CLI only | ✅ MXBean | ✅ JFR |
 | CPU Monitoring | CLI only | ✅ MXBean | ✅ JFR |
@@ -412,7 +426,7 @@ rm -rf ~/.argus
 | **argus-agent** | Java agent with JFR streaming engine |
 | **argus-server** | Netty HTTP/WS server, 10 analyzers, Prometheus + OTLP |
 | **argus-frontend** | Static dashboard with Chart.js and d3-flamegraph |
-| **argus-cli** | 33 diagnostic commands, auto source detection, i18n |
+| **argus-cli** | 42 diagnostic commands, auto source detection, i18n |
 | **argus-micrometer** | Micrometer MeterBinder exposing ~25 JVM metrics |
 | **argus-spring-boot-starter** | Spring Boot 3.2+ auto-configuration for Argus agent |
 
