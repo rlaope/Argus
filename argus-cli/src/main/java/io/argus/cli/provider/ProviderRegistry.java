@@ -27,6 +27,7 @@ import io.argus.cli.provider.jdk.JdkPoolProvider;
 import io.argus.cli.provider.jdk.JdkProcessProvider;
 import io.argus.cli.provider.jdk.JdkStringTableProvider;
 import io.argus.cli.provider.jdk.JdkSymbolTableProvider;
+import io.argus.cli.provider.jdk.JdkThreadDumpProvider;
 import io.argus.cli.provider.jdk.JdkSysPropsProvider;
 import io.argus.cli.provider.jdk.JdkThreadProvider;
 import io.argus.cli.provider.jdk.JdkVmFlagProvider;
@@ -75,6 +76,7 @@ public final class ProviderRegistry {
     private final List<ClassStatProvider> classStatProviders = new ArrayList<>();
     private final List<GcNewProvider> gcNewProviders = new ArrayList<>();
     private final List<SymbolTableProvider> symbolTableProviders = new ArrayList<>();
+    private final List<ThreadDumpProvider> threadDumpProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -126,6 +128,7 @@ public final class ProviderRegistry {
         classStatProviders.add(new JdkClassStatProvider());
         gcNewProviders.add(new JdkGcNewProvider());
         symbolTableProviders.add(new JdkSymbolTableProvider());
+        threadDumpProviders.add(new JdkThreadDumpProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -323,6 +326,13 @@ public final class ProviderRegistry {
      */
     public SymbolTableProvider findSymbolTableProvider(long pid, String sourceOverride) {
         return findBest(symbolTableProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best ThreadDumpProvider for the given PID.
+     */
+    public ThreadDumpProvider findThreadDumpProvider(long pid, String sourceOverride) {
+        return findBest(threadDumpProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------
