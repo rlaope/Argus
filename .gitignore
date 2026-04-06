@@ -2,6 +2,9 @@
 .gradle/
 build/
 
+# Bestwork
+.bestwork/
+
 # IDE
 .idea/
 *.iml
