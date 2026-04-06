@@ -29,6 +29,7 @@ import io.argus.cli.command.ReportCommand;
 import io.argus.cli.command.StringTableCommand;
 import io.argus.cli.command.SymbolTableCommand;
 import io.argus.cli.command.SysPropsCommand;
+import io.argus.cli.command.ThreadDumpCommand;
 import io.argus.cli.command.ThreadsCommand;
 import io.argus.cli.command.TopCommand;
 import io.argus.cli.command.VmFlagCommand;
@@ -128,6 +129,7 @@ public final class ArgusCli {
         register(commands, new InfoCommand());
         register(commands, new HeapDumpCommand());
         register(commands, new DeadlockCommand());
+        register(commands, new ThreadDumpCommand());
         register(commands, new EnvCommand());
         register(commands, new CompilerCommand());
         register(commands, new FinalizerCommand());
