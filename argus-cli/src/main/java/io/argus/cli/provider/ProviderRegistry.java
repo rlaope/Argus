@@ -4,7 +4,10 @@ import io.argus.cli.provider.agent.AgentClient;
 import io.argus.cli.provider.agent.AgentGcProvider;
 import io.argus.cli.provider.agent.AgentHeapProvider;
 import io.argus.cli.provider.agent.AgentThreadProvider;
+import io.argus.cli.provider.jdk.JdkBuffersProvider;
 import io.argus.cli.provider.jdk.JdkClassStatProvider;
+import io.argus.cli.provider.jdk.JdkLoggerProvider;
+import io.argus.cli.provider.jdk.JdkSearchClassProvider;
 import io.argus.cli.provider.jdk.JdkCompilerProvider;
 import io.argus.cli.provider.jdk.JdkDeadlockProvider;
 import io.argus.cli.provider.jdk.JdkDynLibsProvider;
@@ -77,6 +80,9 @@ public final class ProviderRegistry {
     private final List<GcNewProvider> gcNewProviders = new ArrayList<>();
     private final List<SymbolTableProvider> symbolTableProviders = new ArrayList<>();
     private final List<ThreadDumpProvider> threadDumpProviders = new ArrayList<>();
+    private final List<BuffersProvider> buffersProviders = new ArrayList<>();
+    private final List<LoggerProvider> loggerProviders = new ArrayList<>();
+    private final List<SearchClassProvider> searchClassProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -129,6 +135,9 @@ public final class ProviderRegistry {
         gcNewProviders.add(new JdkGcNewProvider());
         symbolTableProviders.add(new JdkSymbolTableProvider());
         threadDumpProviders.add(new JdkThreadDumpProvider());
+        buffersProviders.add(new JdkBuffersProvider());
+        loggerProviders.add(new JdkLoggerProvider());
+        searchClassProviders.add(new JdkSearchClassProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -333,6 +342,18 @@ public final class ProviderRegistry {
      */
     public ThreadDumpProvider findThreadDumpProvider(long pid, String sourceOverride) {
         return findBest(threadDumpProviders, pid, sourceOverride);
+    }
+
+    public BuffersProvider findBuffersProvider(long pid, String sourceOverride) {
+        return findBest(buffersProviders, pid, sourceOverride);
+    }
+
+    public LoggerProvider findLoggerProvider(long pid, String sourceOverride) {
+        return findBest(loggerProviders, pid, sourceOverride);
+    }
+
+    public SearchClassProvider findSearchClassProvider(long pid, String sourceOverride) {
+        return findBest(searchClassProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------

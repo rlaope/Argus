@@ -20,6 +20,13 @@ $ArgusCommands = @(
     @{ Name = 'heapdump';    Desc = 'Generate heap dump' }
     @{ Name = 'deadlock';    Desc = 'Detect Java-level deadlocks' }
     @{ Name = 'threaddump'; Desc = 'Full thread dump with stack traces' }
+    @{ Name = 'buffers';    Desc = 'NIO buffer pool statistics' }
+    @{ Name = 'gcrun';      Desc = 'Trigger System.gc() on target JVM' }
+    @{ Name = 'logger';     Desc = 'View and change log levels at runtime' }
+    @{ Name = 'events';     Desc = 'VM internal event log' }
+    @{ Name = 'compilerqueue'; Desc = 'JIT compilation queue' }
+    @{ Name = 'sc';          Desc = 'Search loaded classes by pattern' }
+    @{ Name = 'jfranalyze'; Desc = 'Analyze a JFR recording file' }
     @{ Name = 'env';         Desc = 'JVM launch environment' }
     @{ Name = 'compiler';    Desc = 'JIT compiler and code cache stats' }
     @{ Name = 'finalizer';   Desc = 'Finalizer queue status' }
