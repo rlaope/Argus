@@ -5,6 +5,7 @@ import io.argus.cli.provider.agent.AgentGcProvider;
 import io.argus.cli.provider.agent.AgentHeapProvider;
 import io.argus.cli.provider.agent.AgentThreadProvider;
 import io.argus.cli.provider.jdk.JdkClassStatProvider;
+import io.argus.cli.provider.jdk.JdkLoggerProvider;
 import io.argus.cli.provider.jdk.JdkCompilerProvider;
 import io.argus.cli.provider.jdk.JdkDeadlockProvider;
 import io.argus.cli.provider.jdk.JdkDynLibsProvider;
@@ -75,6 +76,7 @@ public final class ProviderRegistry {
     private final List<ClassStatProvider> classStatProviders = new ArrayList<>();
     private final List<GcNewProvider> gcNewProviders = new ArrayList<>();
     private final List<SymbolTableProvider> symbolTableProviders = new ArrayList<>();
+    private final List<LoggerProvider> loggerProviders = new ArrayList<>();
 
     /**
      * Creates a registry with all built-in JDK providers.
@@ -126,6 +128,7 @@ public final class ProviderRegistry {
         classStatProviders.add(new JdkClassStatProvider());
         gcNewProviders.add(new JdkGcNewProvider());
         symbolTableProviders.add(new JdkSymbolTableProvider());
+        loggerProviders.add(new JdkLoggerProvider());
     }
 
     private void registerAgentProviders(String host, int port) {
@@ -323,6 +326,13 @@ public final class ProviderRegistry {
      */
     public SymbolTableProvider findSymbolTableProvider(long pid, String sourceOverride) {
         return findBest(symbolTableProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best LoggerProvider for the given PID.
+     */
+    public LoggerProvider findLoggerProvider(long pid, String sourceOverride) {
+        return findBest(loggerProviders, pid, sourceOverride);
     }
 
     // -------------------------------------------------------------------------
