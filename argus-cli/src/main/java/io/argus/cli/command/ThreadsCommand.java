@@ -76,10 +76,17 @@ public final class ThreadsCommand implements Command {
                 WIDTH, "pid:" + pid, "source:" + source));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
-        String totals = "Total: " + result.totalThreads()
-                + "    Virtual: " + result.virtualThreads()
-                + "    Platform: " + result.platformThreads();
-        System.out.println(RichRenderer.boxLine(totals, WIDTH));
+        StringBuilder totals = new StringBuilder();
+        totals.append("Total: ").append(result.totalThreads())
+              .append("    Virtual: ").append(result.virtualThreads())
+              .append("    Platform: ").append(result.platformThreads());
+        if (result.daemonThreads() > 0) {
+            totals.append("    Daemon: ").append(result.daemonThreads());
+        }
+        if (result.peakThreads() > 0) {
+            totals.append("    Peak: ").append(result.peakThreads());
+        }
+        System.out.println(RichRenderer.boxLine(totals.toString(), WIDTH));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
         // State distribution bars
