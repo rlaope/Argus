@@ -132,6 +132,58 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         this.broadcaster = broadcaster;
         this.prometheusCollector = prometheusCollector;
         this.staticFileHandler = new StaticFileHandler();
+        this.routes = buildRouteTable();
+    }
+
+    private final RouteTable routes;
+
+    private RouteTable buildRouteTable() {
+        return RouteTable.builder()
+                // Health & Metrics
+                .exact("/health", (ctx, req, uri) -> {
+                    String json = String.format("{\"status\":\"healthy\",\"clients\":%d}", clients.size());
+                    HttpResponseHelper.sendJson(ctx, req, json);
+                })
+                .exact("/metrics", (ctx, req, uri) ->
+                        HttpResponseHelper.sendJson(ctx, req, metrics.toJson(activeThreads.size(), clients.size())))
+                .exact("/prometheus", (ctx, req, uri) -> handlePrometheusMetrics(ctx, req))
+                .exact("/config", (ctx, req, uri) -> handleConfig(ctx, req))
+                // Thread endpoints
+                .exact("/active-threads", (ctx, req, uri) ->
+                        HttpResponseHelper.sendJson(ctx, req, serializeActiveThreads()))
+                .exact("/thread-dump", (ctx, req, uri) -> handleAllThreadsDump(ctx, req))
+                .exact("/pinning-analysis", (ctx, req, uri) -> handlePinningAnalysis(ctx, req))
+                .exact("/carrier-threads", (ctx, req, uri) -> handleCarrierThreads(ctx, req))
+                // Analysis endpoints
+                .exact("/gc-analysis", (ctx, req, uri) -> handleGCAnalysis(ctx, req))
+                .exact("/cpu-metrics", (ctx, req, uri) -> handleCPUMetrics(ctx, req))
+                .exact("/allocation-analysis", (ctx, req, uri) -> handleAllocationAnalysis(ctx, req))
+                .exact("/metaspace-metrics", (ctx, req, uri) -> handleMetaspaceMetrics(ctx, req))
+                .exact("/method-profiling", (ctx, req, uri) -> handleMethodProfiling(ctx, req))
+                .exact("/contention-analysis", (ctx, req, uri) -> handleContentionAnalysis(ctx, req))
+                .exact("/correlation", (ctx, req, uri) -> handleCorrelation(ctx, req))
+                // API endpoints
+                .exact("/api/process", (ctx, req, uri) -> {
+                    String info = ServerCommandExecutor.getProcessInfo();
+                    HttpResponseHelper.sendJson(ctx, req, "{\"processInfo\":\"" + escapeJson(info) + "\"}");
+                })
+                .exact("/api/commands", (ctx, req, uri) -> handleCommandsList(ctx, req))
+                // Prefix routes
+                .prefix("/threads/", this::handleThreadRoute)
+                .prefix("/flame-graph", (ctx, req, uri) -> handleFlameGraph(ctx, req, uri))
+                .prefix("/export", (ctx, req, uri) -> handleExport(ctx, req, uri))
+                .prefix("/api/exec", (ctx, req, uri) -> handleExecCommand(ctx, req, uri))
+                .build();
+    }
+
+    private void handleThreadRoute(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+        if (uri.endsWith("/events")) {
+            handleThreadEventsRequest(ctx, request, uri);
+        } else if (uri.endsWith("/dump")) {
+            handleSingleThreadDump(ctx, request, uri);
+        } else {
+            HttpResponseHelper.sendNotFound(ctx, request);
+        }
     }
 
     @Override
@@ -146,139 +198,8 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
     private void handleHttpRequest(ChannelHandlerContext ctx, FullHttpRequest request) {
         String uri = request.uri();
 
-        // Health endpoint
-        if ("/health".equals(uri)) {
-            String json = String.format("{\"status\":\"healthy\",\"clients\":%d}", clients.size());
-            HttpResponseHelper.sendJson(ctx, request, json);
-            return;
-        }
-
-        // Metrics endpoint
-        if ("/metrics".equals(uri)) {
-            String json = metrics.toJson(activeThreads.size(), clients.size());
-            HttpResponseHelper.sendJson(ctx, request, json);
-            return;
-        }
-
-        // Prometheus metrics endpoint
-        if ("/prometheus".equals(uri)) {
-            handlePrometheusMetrics(ctx, request);
-            return;
-        }
-
-        // Config endpoint (feature flags)
-        if ("/config".equals(uri)) {
-            handleConfig(ctx, request);
-            return;
-        }
-
-        // Active threads endpoint
-        if ("/active-threads".equals(uri)) {
-            String json = serializeActiveThreads();
-            HttpResponseHelper.sendJson(ctx, request, json);
-            return;
-        }
-
-        // Thread events endpoint: /threads/{threadId}/events
-        if (uri.startsWith("/threads/") && uri.endsWith("/events")) {
-            handleThreadEventsRequest(ctx, request, uri);
-            return;
-        }
-
-        // Single thread dump endpoint: /threads/{threadId}/dump
-        if (uri.startsWith("/threads/") && uri.endsWith("/dump")) {
-            handleSingleThreadDump(ctx, request, uri);
-            return;
-        }
-
-        // All threads dump endpoint
-        if ("/thread-dump".equals(uri)) {
-            handleAllThreadsDump(ctx, request);
-            return;
-        }
-
-        // Pinning analysis endpoint
-        if ("/pinning-analysis".equals(uri)) {
-            handlePinningAnalysis(ctx, request);
-            return;
-        }
-
-        // Carrier threads analysis endpoint
-        if ("/carrier-threads".equals(uri)) {
-            handleCarrierThreads(ctx, request);
-            return;
-        }
-
-        // GC analysis endpoint
-        if ("/gc-analysis".equals(uri)) {
-            handleGCAnalysis(ctx, request);
-            return;
-        }
-
-        // CPU metrics endpoint
-        if ("/cpu-metrics".equals(uri)) {
-            handleCPUMetrics(ctx, request);
-            return;
-        }
-
-        // Allocation analysis endpoint
-        if ("/allocation-analysis".equals(uri)) {
-            handleAllocationAnalysis(ctx, request);
-            return;
-        }
-
-        // Metaspace metrics endpoint
-        if ("/metaspace-metrics".equals(uri)) {
-            handleMetaspaceMetrics(ctx, request);
-            return;
-        }
-
-        // Method profiling endpoint
-        if ("/method-profiling".equals(uri)) {
-            handleMethodProfiling(ctx, request);
-            return;
-        }
-
-        // Flame graph endpoint
-        if (uri.startsWith("/flame-graph")) {
-            handleFlameGraph(ctx, request, uri);
-            return;
-        }
-
-        // Contention analysis endpoint
-        if ("/contention-analysis".equals(uri)) {
-            handleContentionAnalysis(ctx, request);
-            return;
-        }
-
-        // Correlation analysis endpoint
-        if ("/correlation".equals(uri)) {
-            handleCorrelation(ctx, request);
-            return;
-        }
-
-        // Export endpoint: /export?format=csv|json|jsonl&types=START,END,PINNED&from=ISO&to=ISO
-        if (uri.startsWith("/export")) {
-            handleExport(ctx, request, uri);
-            return;
-        }
-
-        // Console command execution endpoint
-        if (uri.startsWith("/api/exec")) {
-            handleExecCommand(ctx, request, uri);
-            return;
-        }
-
-        // Console process info endpoint
-        if ("/api/process".equals(uri)) {
-            String info = ServerCommandExecutor.getProcessInfo();
-            HttpResponseHelper.sendJson(ctx, request, "{\"processInfo\":\"" + escapeJson(info) + "\"}");
-            return;
-        }
-
-        // Console commands list endpoint
-        if ("/api/commands".equals(uri)) {
-            handleCommandsList(ctx, request);
+        // Route table handles all API and analysis endpoints
+        if (routes.dispatch(ctx, request, uri)) {
             return;
         }
 
