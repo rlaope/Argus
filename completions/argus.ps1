@@ -19,6 +19,7 @@ $ArgusCommands = @(
     @{ Name = 'info';        Desc = 'JVM information' }
     @{ Name = 'heapdump';    Desc = 'Generate heap dump' }
     @{ Name = 'deadlock';    Desc = 'Detect Java-level deadlocks' }
+    @{ Name = 'gcrun';      Desc = 'Trigger System.gc() on target JVM' }
     @{ Name = 'env';         Desc = 'JVM launch environment' }
     @{ Name = 'compiler';    Desc = 'JIT compiler and code cache stats' }
     @{ Name = 'finalizer';   Desc = 'Finalizer queue status' }

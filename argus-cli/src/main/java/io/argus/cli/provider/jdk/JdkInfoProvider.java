@@ -135,6 +135,36 @@ public final class JdkInfoProvider implements InfoProvider {
             vmVendor = systemProperties.get("java.vendor");
         }
 
+        // CPU info via OperatingSystemMXBean (from VM.info or jcmd)
+        double processCpuLoad = -1;
+        double systemCpuLoad = -1;
+        int availableProcessors = 0;
+        double systemLoadAverage = -1;
+        try {
+            String vmInfo = JcmdExecutor.execute(pid, "VM.info");
+            for (String line : vmInfo.split("\n")) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("available_processors")) {
+                    String[] parts = trimmed.split("=");
+                    if (parts.length >= 2) {
+                        availableProcessors = Integer.parseInt(parts[1].trim());
+                    }
+                }
+            }
+        } catch (RuntimeException ignored) {}
+
+        // Try to get CPU load from PerfCounter data
+        try {
+            java.lang.management.OperatingSystemMXBean os =
+                    java.lang.management.ManagementFactory.getOperatingSystemMXBean();
+            availableProcessors = availableProcessors > 0 ? availableProcessors : os.getAvailableProcessors();
+            systemLoadAverage = os.getSystemLoadAverage();
+            if (os instanceof com.sun.management.OperatingSystemMXBean sunOs) {
+                processCpuLoad = sunOs.getProcessCpuLoad();
+                systemCpuLoad = sunOs.getCpuLoad();
+            }
+        } catch (Exception ignored) {}
+
         return new InfoResult(
                 vmName,
                 vmVersion,
@@ -142,7 +172,11 @@ public final class JdkInfoProvider implements InfoProvider {
                 uptimeMs,
                 pid,
                 List.copyOf(vmFlags),
-                Map.copyOf(systemProperties)
+                Map.copyOf(systemProperties),
+                processCpuLoad,
+                systemCpuLoad,
+                availableProcessors,
+                systemLoadAverage
         );
     }
 }
