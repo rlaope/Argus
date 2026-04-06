@@ -629,14 +629,14 @@
                         <span class="badge green">Java 11+ CLI</span>
                         <span class="badge green">Java 17+ Dashboard</span>
                         <span class="badge green">Java 21+ Full Features</span>
-                        <span class="badge">33 Commands</span>
+                        <span class="badge">42 Commands</span>
                         <span class="badge">Zero Dependencies</span>
                     </div>
                 </div>
 
                 <p>Argus gives you two tools for JVM diagnostics:</p>
                 <ul>
-                    <li><strong>Argus CLI</strong> — 33 diagnostic commands that work on any running JVM. No agent, no restart, no configuration. Point at a PID and get answers in seconds.</li>
+                    <li><strong>Argus CLI</strong> — 42 diagnostic commands that work on any running JVM. No agent, no restart, no configuration. Point at a PID and get answers in seconds.</li>
                     <li><strong>Argus Agent</strong> — Attach as a Java agent and get a live web dashboard with GC timelines, CPU graphs, heap usage, flame graphs, and thread analysis, all streaming in real time.</li>
                 </ul>
 
@@ -659,7 +659,7 @@
                 <div class="feature-grid">
                     <div class="feature-card">
                         <h4>Instant CLI Diagnostics</h4>
-                        <p>33 commands that work on any running JVM. No agent, no restart, no configuration. Just point at a PID and get answers in seconds.</p>
+                        <p>42 commands that work on any running JVM. No agent, no restart, no configuration. Just point at a PID and get answers in seconds.</p>
                     </div>
                     <div class="feature-card">
                         <h4>Real-time Dashboard</h4>
@@ -725,7 +725,7 @@ argus histo 12345</code></pre>
                 <p class="video-caption">Argus CLI in action — diagnosing a running JVM process</p>
 
                 <span class="section-anchor" id="command-reference"></span>
-                <h3>All 33 Commands</h3>
+                <h3>All 42 Commands</h3>
 
                 <p>Every command follows the same pattern: <code>argus &lt;command&gt; &lt;pid&gt;</code>. All commands support <code>--format=json</code> for scripting and <code>--source=auto|agent|jdk</code> to control the data source.</p>
 
@@ -912,7 +912,7 @@ argus_allocation_rate_bytes_per_second   # Allocation pressure</code></pre>
                             <tr><th>Feature</th><th>Java 11+</th><th>Java 17+</th><th>Java 21+</th></tr>
                         </thead>
                         <tbody>
-                            <tr><td>CLI (33 commands)</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+                            <tr><td>CLI (42 commands)</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
                             <tr><td>Dashboard &amp; Web UI</td><td>—</td><td>Yes (MXBean)</td><td>Yes (JFR)</td></tr>
                             <tr><td>GC / CPU / Memory</td><td>CLI only</td><td>Yes</td><td>Yes</td></tr>
                             <tr><td>Allocation Tracking</td><td>—</td><td>—</td><td>Yes</td></tr>
@@ -947,7 +947,7 @@ argus_allocation_rate_bytes_per_second   # Allocation pressure</code></pre>
                             <tr><td><code>argus-agent</code></td><td>Java agent entry point, JFR streaming engine, MXBean polling engine</td></tr>
                             <tr><td><code>argus-server</code></td><td>Netty HTTP/WebSocket server, 10 analyzers, metrics export</td></tr>
                             <tr><td><code>argus-frontend</code></td><td>Dashboard web UI (vanilla JS, Chart.js, D3 flame graph)</td></tr>
-                            <tr><td><code>argus-cli</code></td><td>33 diagnostic commands using jcmd/jstat</td></tr>
+                            <tr><td><code>argus-cli</code></td><td>42 diagnostic commands using jcmd/jstat</td></tr>
                             <tr><td><code>argus-micrometer</code></td><td>Framework-agnostic Micrometer MeterBinder</td></tr>
                             <tr><td><code>argus-spring-boot-starter</code></td><td>Spring Boot auto-configuration</td></tr>
                         </tbody>

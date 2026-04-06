@@ -31,14 +31,22 @@ argus heap <pid>
 
 | Command | What it shows | When to use |
 |---------|---------------|-------------|
-| `argus ps` | Running JVM processes | Find the PID of your target app |
-| `argus info` | JVM version, uptime, PID | Verify target JVM details |
+| `argus ps` | Running JVM processes (version, uptime) | Find the PID of your target app |
+| `argus info` | JVM version, uptime, CPU%, flags | Verify target JVM details |
 | `argus gc` | GC collector stats, pause times | Investigate GC pressure |
 | `argus gcutil` | Memory pool utilization % | Check generation fill levels |
+| `argus gcrun` | Trigger System.gc() remotely | Force GC before heap dump |
 | `argus heap` | Heap used/committed/max | Spot memory leaks |
 | `argus histo` | Top heap-consuming classes | Find what's eating memory |
-| `argus threads` | Thread count by state | Detect thread leaks or deadlocks |
+| `argus buffers` | NIO direct/mapped buffer pools | Diagnose direct buffer leaks |
+| `argus threads` | Thread count by state, daemon, peak | Detect thread leaks or deadlocks |
+| `argus threaddump` | Full thread dump with stack traces | jstack replacement |
 | `argus deadlock` | Deadlocked threads | Production hang diagnosis |
+| `argus sc` | Search loaded classes by pattern | Classpath conflicts |
+| `argus logger` | View/change log levels at runtime | Production debugging |
+| `argus events` | VM internal event log | Safepoint/deopt analysis |
+| `argus compilerqueue` | JIT compilation queue | Slow startup diagnosis |
+| `argus jfranalyze` | Analyze JFR recording files | Post-mortem analysis |
 | `argus metaspace` | Metaspace usage | ClassLoader leak detection |
 | `argus nmt` | Native memory breakdown | Off-heap memory investigation |
 | `argus profile` | CPU profiling (async-profiler) | Find hot code paths |

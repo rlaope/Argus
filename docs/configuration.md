@@ -54,7 +54,7 @@ The Argus agent is configured via Java system properties.
 java -javaagent:argus-agent.jar \
      -Dargus.server.port=9090 \
      -Dargus.buffer.size=131072 \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -81,7 +81,7 @@ The ring buffer size affects memory usage and event handling capacity.
 # High-throughput configuration
 java -javaagent:argus-agent.jar \
      -Dargus.buffer.size=262144 \
-     --enable-preview \
+
      -jar high-traffic-app.jar
 ```
 
@@ -93,7 +93,7 @@ GC monitoring captures garbage collection events and heap usage.
 # Enable/disable GC monitoring
 java -javaagent:argus-agent.jar \
      -Dargus.gc.enabled=true \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -121,7 +121,7 @@ CPU monitoring tracks JVM and system CPU utilization.
 java -javaagent:argus-agent.jar \
      -Dargus.cpu.enabled=true \
      -Dargus.cpu.interval=1000 \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -151,7 +151,7 @@ Allocation tracking monitors object allocation rate and identifies top allocatin
 java -javaagent:argus-agent.jar \
      -Dargus.allocation.enabled=true \
      -Dargus.allocation.threshold=1024 \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -181,7 +181,7 @@ Metaspace monitoring tracks class metadata memory usage.
 # Enable/disable metaspace monitoring
 java -javaagent:argus-agent.jar \
      -Dargus.metaspace.enabled=true \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -203,7 +203,7 @@ Method profiling identifies CPU-intensive methods using execution sampling.
 java -javaagent:argus-agent.jar \
      -Dargus.profiling.enabled=true \
      -Dargus.profiling.interval=20 \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -232,7 +232,7 @@ Lock contention tracking monitors thread synchronization bottlenecks.
 java -javaagent:argus-agent.jar \
      -Dargus.contention.enabled=true \
      -Dargus.contention.threshold=10 \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -261,7 +261,7 @@ Correlation analysis detects relationships between different metrics.
 # Enable/disable correlation analysis
 java -javaagent:argus-agent.jar \
      -Dargus.correlation.enabled=true \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -366,7 +366,7 @@ export ARGUS_BUFFER_SIZE=131072
 java -javaagent:argus-agent.jar \
      -Dargus.server.port=${ARGUS_SERVER_PORT} \
      -Dargus.buffer.size=${ARGUS_BUFFER_SIZE} \
-     --enable-preview \
+
      -jar your-application.jar
 ```
 
@@ -389,7 +389,6 @@ ENTRYPOINT ["java", \
     "-javaagent:/opt/argus/argus-agent.jar", \
     "-Dargus.server.port=${ARGUS_PORT}", \
     "-Dargus.buffer.size=${ARGUS_BUFFER_SIZE}", \
-    "--enable-preview", \
     "-jar", "/app/your-application.jar"]
 ```
 
@@ -425,7 +424,7 @@ spec:
           image: your-app:latest
           env:
             - name: JAVA_TOOL_OPTIONS
-              value: "-javaagent:/opt/argus/argus-agent.jar --enable-preview"
+              value: "-javaagent:/opt/argus/argus-agent.jar"
             - name: ARGUS_SERVER_PORT
               value: "9202"
             - name: ARGUS_BUFFER_SIZE
@@ -450,7 +449,7 @@ java -javaagent:argus-agent.jar \
      -Dargus.buffer.size=32768 \
      -XX:+UseZGC \
      -XX:+ZGenerational \
-     --enable-preview \
+
      -jar latency-sensitive-app.jar
 ```
 
@@ -460,7 +459,7 @@ java -javaagent:argus-agent.jar \
 java -javaagent:argus-agent.jar \
      -Dargus.buffer.size=262144 \
      -XX:+UseParallelGC \
-     --enable-preview \
+
      -jar high-throughput-app.jar
 ```
 
