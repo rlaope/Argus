@@ -1,6 +1,7 @@
 package io.argus.cli;
 
 import io.argus.cli.command.Command;
+import io.argus.cli.command.BuffersCommand;
 import io.argus.cli.command.ClassStatCommand;
 import io.argus.cli.command.CompilerCommand;
 import io.argus.cli.command.DeadlockCommand;
@@ -129,6 +130,7 @@ public final class ArgusCli {
         register(commands, new HeapDumpCommand());
         register(commands, new DeadlockCommand());
         register(commands, new EnvCommand());
+        register(commands, new BuffersCommand());
         register(commands, new CompilerCommand());
         register(commands, new FinalizerCommand());
         register(commands, new StringTableCommand());
