@@ -31,6 +31,7 @@ $ArgusCommands = @(
     @{ Name = 'gclog';      Desc = 'Analyze GC log file with tuning recommendations' }
     @{ Name = 'flame';      Desc = 'One-shot flame graph with browser open' }
     @{ Name = 'watch';      Desc = 'Real-time terminal dashboard' }
+    @{ Name = 'suggest';    Desc = 'JVM flag optimization' }
     @{ Name = 'env';         Desc = 'JVM launch environment' }
     @{ Name = 'compiler';    Desc = 'JIT compiler and code cache stats' }
     @{ Name = 'finalizer';   Desc = 'Finalizer queue status' }
