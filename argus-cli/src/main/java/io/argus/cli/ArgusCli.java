@@ -8,6 +8,7 @@ import io.argus.cli.command.CompilerQueueCommand;
 import io.argus.cli.command.EventsCommand;
 import io.argus.cli.command.DeadlockCommand;
 import io.argus.cli.command.DiffCommand;
+import io.argus.cli.command.DoctorCommand;
 import io.argus.cli.command.DynLibsCommand;
 import io.argus.cli.command.EnvCommand;
 import io.argus.cli.command.FinalizerCommand;
@@ -133,6 +134,7 @@ public final class ArgusCli {
         register(commands, new JfrCommand());
         register(commands, new DiffCommand());
         register(commands, new ReportCommand());
+        register(commands, new DoctorCommand());
         register(commands, new InfoCommand());
         register(commands, new HeapDumpCommand());
         register(commands, new DeadlockCommand());
