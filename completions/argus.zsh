@@ -31,6 +31,7 @@ _argus() {
         'jfranalyze:Analyze a JFR recording file'
         'doctor:One-click JVM health diagnosis'
         'gclog:Analyze GC log file with tuning recommendations'
+        'flame:One-shot flame graph with browser open'
         'env:JVM launch environment'
         'compiler:JIT compiler and code cache stats'
         'finalizer:Finalizer queue status'
