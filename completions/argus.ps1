@@ -27,6 +27,7 @@ $ArgusCommands = @(
     @{ Name = 'compilerqueue'; Desc = 'JIT compilation queue' }
     @{ Name = 'sc';          Desc = 'Search loaded classes by pattern' }
     @{ Name = 'jfranalyze'; Desc = 'Analyze a JFR recording file' }
+    @{ Name = 'doctor';     Desc = 'One-click JVM health diagnosis' }
     @{ Name = 'env';         Desc = 'JVM launch environment' }
     @{ Name = 'compiler';    Desc = 'JIT compiler and code cache stats' }
     @{ Name = 'finalizer';   Desc = 'Finalizer queue status' }

@@ -29,6 +29,7 @@ _argus() {
         'compilerqueue:JIT compilation queue'
         'sc:Search loaded classes by pattern'
         'jfranalyze:Analyze a JFR recording file'
+        'doctor:One-click JVM health diagnosis'
         'env:JVM launch environment'
         'compiler:JIT compiler and code cache stats'
         'finalizer:Finalizer queue status'

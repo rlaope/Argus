@@ -26,3 +26,4 @@ io.argus.server.command.impl.JfrDiagnosticCommand
 io.argus.server.command.impl.VmLogDiagnosticCommand
 io.argus.server.command.impl.LoggerDiagnosticCommand
 io.argus.server.command.impl.EventsDiagnosticCommand
+io.argus.server.command.impl.DoctorDiagnosticCommand
