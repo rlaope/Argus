@@ -8,6 +8,7 @@ import io.argus.cli.provider.LoggerProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * View and change log levels at runtime.
@@ -26,6 +27,8 @@ public final class LoggerCommand implements Command {
     public String name() {
         return "logger";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.PROFILING; }
 
     @Override
     public String description(Messages messages) {

@@ -7,6 +7,7 @@ import io.argus.cli.provider.MetaspaceProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows detailed metaspace statistics.
@@ -18,6 +19,8 @@ public final class MetaspaceCommand implements Command {
 
     @Override
     public String name() { return "metaspace"; }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

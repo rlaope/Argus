@@ -7,6 +7,7 @@ import io.argus.cli.provider.DeadlockProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Detects and displays Java-level deadlocks for a given PID.
@@ -19,6 +20,8 @@ public final class DeadlockCommand implements Command {
     public String name() {
         return "deadlock";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.THREADS; }
 
     @Override
     public String description(Messages messages) {

@@ -7,6 +7,7 @@ import io.argus.cli.provider.GcNewProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows young generation GC detail: survivor spaces, tenuring threshold, eden.
@@ -18,6 +19,8 @@ public final class GcNewCommand implements Command {
 
     @Override
     public String name() { return "gcnew"; }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

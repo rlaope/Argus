@@ -7,6 +7,7 @@ import io.argus.cli.provider.NmtProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.List;
 
@@ -22,6 +23,8 @@ public final class NmtCommand implements Command {
     public String name() {
         return "nmt";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

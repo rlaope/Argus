@@ -6,6 +6,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Controls JVM unified logging via jcmd VM.log.
@@ -16,6 +17,8 @@ public final class VmLogCommand implements Command {
 
     @Override
     public String name() { return "vmlog"; }
+
+    @Override public CommandGroup group() { return CommandGroup.PROCESS; }
 
     @Override
     public String description(Messages messages) {

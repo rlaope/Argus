@@ -10,6 +10,7 @@ import io.argus.cli.model.JfrAnalyzeResult.HotMethod;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,6 +29,8 @@ public final class JfrAnalyzeCommand implements Command {
     public String name() {
         return "jfranalyze";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.PROFILING; }
 
     @Override
     public String description(Messages messages) {

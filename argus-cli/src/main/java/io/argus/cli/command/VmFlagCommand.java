@@ -7,6 +7,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.VmFlagProvider;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.List;
 
@@ -25,6 +26,8 @@ public final class VmFlagCommand implements Command {
     public String name() {
         return "vmflag";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.PROCESS; }
 
     @Override
     public String description(Messages messages) {

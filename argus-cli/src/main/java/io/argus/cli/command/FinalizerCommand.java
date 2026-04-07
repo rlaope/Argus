@@ -7,6 +7,7 @@ import io.argus.cli.provider.FinalizerProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows finalizer queue status.
@@ -17,6 +18,8 @@ public final class FinalizerCommand implements Command {
 
     @Override
     public String name() { return "finalizer"; }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

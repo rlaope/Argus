@@ -8,6 +8,7 @@ import io.argus.cli.provider.ClassLoaderProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows the classloader hierarchy and total loaded class count.
@@ -20,6 +21,8 @@ public final class ClassLoaderCommand implements Command {
     public String name() {
         return "classloader";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.RUNTIME; }
 
     @Override
     public String description(Messages messages) {

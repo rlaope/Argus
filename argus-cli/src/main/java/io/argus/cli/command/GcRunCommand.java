@@ -6,6 +6,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Triggers System.gc() on the target JVM via jcmd GC.run.
@@ -19,6 +20,8 @@ public final class GcRunCommand implements Command {
     public String name() {
         return "gcrun";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

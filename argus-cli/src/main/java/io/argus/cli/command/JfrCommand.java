@@ -7,6 +7,7 @@ import io.argus.cli.provider.JfrProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Controls JFR Flight Recorder on a target JVM process.
@@ -20,6 +21,8 @@ public final class JfrCommand implements Command {
     public String name() {
         return "jfr";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.PROFILING; }
 
     @Override
     public String description(Messages messages) {

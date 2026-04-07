@@ -6,6 +6,7 @@ import io.argus.cli.model.HistoResult;
 import io.argus.cli.provider.HistoProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows heap object histogram for a given PID.
@@ -19,6 +20,8 @@ public final class HistoCommand implements Command {
     public String name() {
         return "histo";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

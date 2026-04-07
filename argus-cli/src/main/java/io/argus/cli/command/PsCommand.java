@@ -6,6 +6,7 @@ import io.argus.cli.model.ProcessInfo;
 import io.argus.cli.provider.ProcessProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.List;
 
@@ -20,6 +21,8 @@ public final class PsCommand implements Command {
     public String name() {
         return "ps";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.PROCESS; }
 
     @Override
     public String description(Messages messages) {

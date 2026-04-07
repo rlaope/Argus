@@ -3,9 +3,13 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Base interface for all Argus CLI commands.
+ *
+ * <p>Each command declares its {@link CommandGroup} for categorized help output
+ * and shared metadata with the server's SPI-based command system.
  */
 public interface Command {
 
@@ -15,17 +19,18 @@ public interface Command {
     String name();
 
     /**
+     * Logical group for categorized help output. Shared with server SPI via
+     * {@link io.argus.core.command.CommandGroup}.
+     */
+    default CommandGroup group() { return CommandGroup.MONITORING; }
+
+    /**
      * Short description shown in the help/usage output.
      */
     String description(Messages messages);
 
     /**
      * Executes the command with the provided args, config, registry, and messages.
-     *
-     * @param args     command-specific arguments (everything after the command name)
-     * @param config   resolved CLI configuration (may include flag overrides)
-     * @param registry provider registry for obtaining data providers
-     * @param messages i18n message bundle
      */
     void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages);
 }

@@ -9,6 +9,7 @@ import io.argus.cli.provider.HeapProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.Map;
 
@@ -24,6 +25,8 @@ public final class HeapCommand implements Command {
     public String name() {
         return "heap";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

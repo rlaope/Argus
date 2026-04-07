@@ -6,6 +6,7 @@ import io.argus.cli.model.GcResult;
 import io.argus.cli.provider.GcProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows GC statistics for a given PID.
@@ -19,6 +20,8 @@ public final class GcCommand implements Command {
     public String name() {
         return "gc";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

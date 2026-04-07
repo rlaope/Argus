@@ -8,6 +8,7 @@ import io.argus.cli.provider.BuffersProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Displays NIO buffer pool statistics (direct, mapped) for a given PID.
@@ -21,6 +22,8 @@ public final class BuffersCommand implements Command {
     public String name() {
         return "buffers";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

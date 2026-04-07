@@ -7,6 +7,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.SymbolTableProvider;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows symbol table statistics.
@@ -17,6 +18,8 @@ public final class SymbolTableCommand implements Command {
 
     @Override
     public String name() { return "symboltable"; }
+
+    @Override public CommandGroup group() { return CommandGroup.RUNTIME; }
 
     @Override
     public String description(Messages messages) {

@@ -8,6 +8,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.ThreadDumpProvider;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -25,6 +26,8 @@ public final class ThreadDumpCommand implements Command {
     public String name() {
         return "threaddump";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.THREADS; }
 
     @Override
     public String description(Messages messages) {

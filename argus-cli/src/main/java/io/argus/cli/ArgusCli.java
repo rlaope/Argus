@@ -194,45 +194,32 @@ public final class ArgusCli {
 
     private static void printUsage(Map<String, Command> commands, Messages messages) {
         System.out.println();
-        System.out.println("  \033[1m\033[36margus\033[0m - JVM Diagnostic Tool  \033[2mv" + VERSION + "\033[0m");
+        System.out.println("  \033[1m\033[36margus\033[0m - JVM Diagnostic Toolkit  \033[2mv" + VERSION + "\033[0m");
+        System.out.println("  " + commands.size() + " commands | Java 11+ CLI | Java 17+ Dashboard | Java 21+ Full");
         System.out.println();
         System.out.println("  \033[1mUsage:\033[0m argus <command> [<pid>] [options]");
         System.out.println();
-        System.out.println("  \033[1mCommands:\033[0m");
-        System.out.println("    init             Initialize CLI configuration");
-        System.out.println("    ps               List running JVM processes");
-        System.out.println("    histo  \033[2m<pid>\033[0m     Heap object histogram");
-        System.out.println("    threads \033[2m<pid>\033[0m    Thread dump summary");
-        System.out.println("    gc     \033[2m<pid>\033[0m     GC statistics");
-        System.out.println("    gcutil \033[2m<pid>\033[0m     GC generation utilization (like jstat)");
-        System.out.println("    heap     \033[2m<pid>\033[0m   Heap memory usage");
-        System.out.println("    sysprops \033[2m<pid>\033[0m   JVM system properties");
-        System.out.println("    vmflag   \033[2m<pid>\033[0m   Show or set VM flags");
-        System.out.println("    nmt      \033[2m<pid>\033[0m   Native memory tracking");
-        System.out.println("    classloader \033[2m<pid>\033[0m Class loader hierarchy");
-        System.out.println("    profile  \033[2m<pid>\033[0m   CPU/allocation/lock profiling");
-    System.out.println("    jfr      \033[2m<pid>\033[0m   Flight Recorder control");
-        System.out.println("    diff \033[2m<pid>\033[0m     Heap snapshot diff (leak detection)");
-        System.out.println("    report \033[2m<pid>\033[0m   Comprehensive diagnostic report");
-        System.out.println("    info     \033[2m<pid>\033[0m   JVM information");
-        System.out.println("    heapdump \033[2m<pid>\033[0m   Generate heap dump (with STW warning)");
-        System.out.println("    deadlock \033[2m<pid>\033[0m   Detect Java-level deadlocks");
-        System.out.println("    env      \033[2m<pid>\033[0m   JVM launch environment");
-        System.out.println("    compiler \033[2m<pid>\033[0m   JIT compiler and code cache stats");
-        System.out.println("    finalizer \033[2m<pid>\033[0m  Finalizer queue status");
-        System.out.println("    stringtable \033[2m<pid>\033[0m String table statistics");
-        System.out.println("    pool     \033[2m<pid>\033[0m   Thread pool analysis");
-        System.out.println("    gccause  \033[2m<pid>\033[0m   GC cause with utilization stats");
-        System.out.println("    metaspace \033[2m<pid>\033[0m  Detailed metaspace breakdown");
-        System.out.println("    dynlibs  \033[2m<pid>\033[0m   Loaded native libraries");
-        System.out.println("    vmset  \033[2m<pid> Flag=val\033[0m  Set VM flag at runtime");
-        System.out.println("    vmlog    \033[2m<pid>\033[0m   JVM unified logging control");
-        System.out.println("    jmx    \033[2m<pid> [cmd]\033[0m  JMX agent control");
-        System.out.println("    classstat \033[2m<pid>\033[0m  Class loading statistics");
-        System.out.println("    gcnew    \033[2m<pid>\033[0m   Young generation GC detail");
-        System.out.println("    symboltable \033[2m<pid>\033[0m Symbol table statistics");
-        System.out.println("    top              Real-time monitoring (agent required)");
-        System.out.println();
+
+        // Group commands by CommandGroup
+        var grouped = new java.util.LinkedHashMap<io.argus.core.command.CommandGroup,
+                java.util.List<Command>>();
+        for (io.argus.core.command.CommandGroup g : io.argus.core.command.CommandGroup.values()) {
+            grouped.put(g, new java.util.ArrayList<>());
+        }
+        for (Command cmd : commands.values()) {
+            grouped.computeIfAbsent(cmd.group(), k -> new java.util.ArrayList<>()).add(cmd);
+        }
+
+        for (var entry : grouped.entrySet()) {
+            if (entry.getValue().isEmpty()) continue;
+            System.out.println("  \033[1m" + entry.getKey().displayName() + ":\033[0m");
+            for (Command cmd : entry.getValue()) {
+                String desc = cmd.description(messages);
+                System.out.printf("    \033[36m%-18s\033[0m %s%n", cmd.name(), desc);
+            }
+            System.out.println();
+        }
+
         System.out.println("  \033[1mGlobal Options:\033[0m");
         System.out.println("    --source=auto|agent|jdk   Data source (default: auto)");
         System.out.println("    --no-color                Disable colors");
@@ -244,12 +231,12 @@ public final class ArgusCli {
         System.out.println("    --version, -v             Show version");
         System.out.println();
         System.out.println("  \033[1mExamples:\033[0m");
-        System.out.println("    \033[36margus ps\033[0m");
-        System.out.println("    \033[36margus histo 12345\033[0m");
-        System.out.println("    \033[36margus histo 12345 --top 50\033[0m");
-        System.out.println("    \033[36margus threads 12345 --source=agent\033[0m");
-        System.out.println("    \033[36margus gc 12345 --format=json\033[0m");
-        System.out.println("    \033[36margus top --port 9202\033[0m");
+        System.out.println("    \033[36margus ps\033[0m                          List JVM processes");
+        System.out.println("    \033[36margus info 12345\033[0m                  JVM info with CPU%");
+        System.out.println("    \033[36margus threaddump 12345\033[0m            Full thread dump");
+        System.out.println("    \033[36margus sc 12345 \"*.UserService\"\033[0m    Search loaded classes");
+        System.out.println("    \033[36margus jfranalyze recording.jfr\033[0m    Analyze JFR file");
+        System.out.println("    \033[36margus gc 12345 --format=json\033[0m      JSON output");
         System.out.println();
     }
 }

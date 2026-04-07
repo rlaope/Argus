@@ -7,6 +7,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.SysPropsProvider;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.Map;
 
@@ -22,6 +23,8 @@ public final class SysPropsCommand implements Command {
     public String name() {
         return "sysprops";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.PROCESS; }
 
     @Override
     public String description(Messages messages) {

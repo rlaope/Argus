@@ -7,6 +7,7 @@ import io.argus.cli.provider.HistoProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -32,6 +33,8 @@ public final class DiffCommand implements Command {
     public String name() {
         return "diff";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

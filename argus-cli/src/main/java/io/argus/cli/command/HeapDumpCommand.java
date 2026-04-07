@@ -7,6 +7,7 @@ import io.argus.cli.provider.HeapDumpProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -25,6 +26,8 @@ public final class HeapDumpCommand implements Command {
     public String name() {
         return "heapdump";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {
