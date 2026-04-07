@@ -13,6 +13,7 @@ import io.argus.cli.command.DynLibsCommand;
 import io.argus.cli.command.EnvCommand;
 import io.argus.cli.command.FinalizerCommand;
 import io.argus.cli.command.GcCauseCommand;
+import io.argus.cli.command.GcLogCommand;
 import io.argus.cli.command.GcRunCommand;
 import io.argus.cli.command.GcCommand;
 import io.argus.cli.command.GcNewCommand;
@@ -135,6 +136,7 @@ public final class ArgusCli {
         register(commands, new DiffCommand());
         register(commands, new ReportCommand());
         register(commands, new DoctorCommand());
+        register(commands, new GcLogCommand());
         register(commands, new InfoCommand());
         register(commands, new HeapDumpCommand());
         register(commands, new DeadlockCommand());

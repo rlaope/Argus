@@ -1,6 +1,6 @@
 # Fish completions for argus
 
-set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top
+set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top
 
 # Disable file completions for argus
 complete -c argus -f
@@ -33,6 +33,7 @@ complete -c argus -n "not __fish_seen_subcommand_from $commands" -a compilerqueu
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a sc -d 'Search loaded classes by pattern'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a jfranalyze -d 'Analyze a JFR recording file'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a doctor -d 'One-click JVM health diagnosis'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gclog -d 'Analyze GC log file'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a env -d 'JVM launch environment'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a compiler -d 'JIT compiler and code cache stats'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a finalizer -d 'Finalizer queue status'
