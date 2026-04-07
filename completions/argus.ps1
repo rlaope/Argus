@@ -29,6 +29,7 @@ $ArgusCommands = @(
     @{ Name = 'jfranalyze'; Desc = 'Analyze a JFR recording file' }
     @{ Name = 'doctor';     Desc = 'One-click JVM health diagnosis' }
     @{ Name = 'gclog';      Desc = 'Analyze GC log file with tuning recommendations' }
+    @{ Name = 'flame';      Desc = 'One-shot flame graph with browser open' }
     @{ Name = 'env';         Desc = 'JVM launch environment' }
     @{ Name = 'compiler';    Desc = 'JIT compiler and code cache stats' }
     @{ Name = 'finalizer';   Desc = 'Finalizer queue status' }
