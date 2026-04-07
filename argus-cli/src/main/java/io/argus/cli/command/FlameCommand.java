@@ -130,7 +130,9 @@ public final class FlameCommand implements Command {
                 } else {
                     pb = new ProcessBuilder("xdg-open", outputPath);
                 }
-                pb.start();
+                pb.redirectErrorStream(true);
+                Process proc = pb.start();
+                proc.getInputStream().close(); // prevent resource leak
                 System.out.println("  " + AnsiStyle.style(useColor, AnsiStyle.CYAN)
                         + "\u2192 Opened in browser"
                         + AnsiStyle.style(useColor, AnsiStyle.RESET));
