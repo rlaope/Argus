@@ -6,6 +6,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Displays VM internal event log (safepoints, deoptimizations, GC phases).
@@ -19,6 +20,8 @@ public final class EventsCommand implements Command {
     public String name() {
         return "events";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.PROFILING; }
 
     @Override
     public String description(Messages messages) {

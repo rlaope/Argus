@@ -6,6 +6,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Controls JMX Management Agent via jcmd ManagementAgent commands.
@@ -17,6 +18,8 @@ public final class JmxCommand implements Command {
 
     @Override
     public String name() { return "jmx"; }
+
+    @Override public CommandGroup group() { return CommandGroup.PROCESS; }
 
     @Override
     public String description(Messages messages) {

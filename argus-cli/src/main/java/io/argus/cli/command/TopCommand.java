@@ -7,6 +7,7 @@ import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;
 
+import io.argus.core.command.CommandGroup;
 import java.io.IOException;
 
 /**
@@ -22,6 +23,8 @@ public final class TopCommand implements Command {
     public String name() {
         return "top";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MONITORING; }
 
     @Override
     public String description(Messages messages) {

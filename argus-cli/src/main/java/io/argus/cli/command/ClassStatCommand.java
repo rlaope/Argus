@@ -7,6 +7,7 @@ import io.argus.cli.provider.ClassStatProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows class loading statistics: loaded/unloaded counts, bytes, and time.
@@ -17,6 +18,8 @@ public final class ClassStatCommand implements Command {
 
     @Override
     public String name() { return "classstat"; }
+
+    @Override public CommandGroup group() { return CommandGroup.RUNTIME; }
 
     @Override
     public String description(Messages messages) {

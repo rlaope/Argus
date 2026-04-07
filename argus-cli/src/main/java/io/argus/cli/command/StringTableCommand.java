@@ -7,6 +7,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.StringTableProvider;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows interned string table statistics.
@@ -17,6 +18,8 @@ public final class StringTableCommand implements Command {
 
     @Override
     public String name() { return "stringtable"; }
+
+    @Override public CommandGroup group() { return CommandGroup.RUNTIME; }
 
     @Override
     public String description(Messages messages) {

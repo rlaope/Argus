@@ -6,6 +6,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.io.Console;
 
@@ -18,6 +19,8 @@ public final class VmSetCommand implements Command {
 
     @Override
     public String name() { return "vmset"; }
+
+    @Override public CommandGroup group() { return CommandGroup.PROCESS; }
 
     @Override
     public String description(Messages messages) {

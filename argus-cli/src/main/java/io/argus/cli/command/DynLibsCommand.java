@@ -7,6 +7,7 @@ import io.argus.cli.provider.DynLibsProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Shows native libraries loaded in the JVM.
@@ -17,6 +18,8 @@ public final class DynLibsCommand implements Command {
 
     @Override
     public String name() { return "dynlibs"; }
+
+    @Override public CommandGroup group() { return CommandGroup.RUNTIME; }
 
     @Override
     public String description(Messages messages) {

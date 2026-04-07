@@ -7,6 +7,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.ThreadProvider;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -23,6 +24,8 @@ public final class ThreadsCommand implements Command {
     public String name() {
         return "threads";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.THREADS; }
 
     @Override
     public String description(Messages messages) {

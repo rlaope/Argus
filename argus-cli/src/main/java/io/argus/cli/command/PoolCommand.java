@@ -7,6 +7,7 @@ import io.argus.cli.provider.PoolProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.Map;
 
@@ -20,6 +21,8 @@ public final class PoolCommand implements Command {
 
     @Override
     public String name() { return "pool"; }
+
+    @Override public CommandGroup group() { return CommandGroup.THREADS; }
 
     @Override
     public String description(Messages messages) {

@@ -8,6 +8,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.SearchClassProvider;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 /**
  * Search loaded classes by pattern. Useful for diagnosing classpath conflicts
@@ -27,6 +28,8 @@ public final class SearchClassCommand implements Command {
     public String name() {
         return "sc";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.RUNTIME; }
 
     @Override
     public String description(Messages messages) {

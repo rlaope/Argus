@@ -17,6 +17,7 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.ThreadProvider;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +36,8 @@ public final class ReportCommand implements Command {
     public String name() {
         return "report";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.PROFILING; }
 
     @Override
     public String description(Messages messages) {

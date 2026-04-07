@@ -7,6 +7,7 @@ import io.argus.cli.provider.GcUtilProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.command.CommandGroup;
 
 import java.io.IOException;
 
@@ -22,6 +23,8 @@ public final class GcUtilCommand implements Command {
     public String name() {
         return "gcutil";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MEMORY; }
 
     @Override
     public String description(Messages messages) {

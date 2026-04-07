@@ -3,6 +3,7 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;
+import io.argus.core.command.CommandGroup;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -20,6 +21,8 @@ public final class InitCommand implements Command {
     public String name() {
         return "init";
     }
+
+    @Override public CommandGroup group() { return CommandGroup.MONITORING; }
 
     @Override
     public String description(Messages messages) {
