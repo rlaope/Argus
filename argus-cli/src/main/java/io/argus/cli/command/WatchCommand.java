@@ -246,11 +246,11 @@ public final class WatchCommand implements Command {
 
     private static void setRawMode(boolean raw) {
         try {
-            if (raw) {
-                Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", "stty raw -echo < /dev/tty"}).waitFor();
-            } else {
-                Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", "stty cooked echo < /dev/tty"}).waitFor();
-            }
+            String sttyCmd = raw ? "stty raw -echo < /dev/tty" : "stty cooked echo < /dev/tty";
+            new ProcessBuilder("/bin/sh", "-c", sttyCmd)
+                    .inheritIO()
+                    .start()
+                    .waitFor();
         } catch (Exception ignored) {}
     }
 }
