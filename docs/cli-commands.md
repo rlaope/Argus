@@ -932,3 +932,141 @@ $ argus --lang=ko histo 39113 --top 3
 ```
 
 Supported languages: English (`en`), Korean (`ko`), Japanese (`ja`), Chinese (`zh`)
+
+---
+
+## argus doctor
+
+One-click JVM health diagnosis with actionable recommendations and JVM flag suggestions.
+
+```bash
+$ argus doctor
+```
+
+Cross-correlates GC, memory, CPU, threads, and buffer metrics to produce severity-rated findings.
+
+**Health checks (8 rules):**
+
+| Rule | What it detects | Thresholds |
+|------|----------------|------------|
+| GC Overhead | Excessive GC time | warn > 5%, critical > 15% |
+| Heap Pressure | Heap/old gen saturation | warn > 75%, critical > 92% |
+| Thread Contention | Deadlocks, blocked threads | deadlock = critical, blocked > 5 = warn |
+| Metaspace | ClassLoader leaks | warn > 80%, critical > 95% |
+| Direct Buffers | NIO buffer leaks | warn > 200MB, critical > 800MB |
+| CPU Usage | Process CPU saturation | warn > 70%, critical > 90% |
+| Finalizer Queue | Backed-up finalization | warn > 100, critical > 1000 |
+| GC Algorithm | Suboptimal GC choice | Serial on large heap, Full GC frequency |
+
+**Exit codes** for CI/CD: `0` = healthy, `1` = warnings, `2` = critical.
+
+```bash
+# CI/CD integration
+argus doctor --format=json || alert "JVM unhealthy"
+```
+
+---
+
+## argus gclog
+
+Analyze GC log files with pause distribution, cause breakdown, and tuning recommendations. Free alternative to GCEasy.io.
+
+```bash
+$ argus gclog /var/log/gc.log
+$ argus gclog gc.log --suggest-flags    # output only JVM flags
+$ argus gclog gc.log --format=json      # CI/CD integration
+```
+
+**Supported formats:** JDK 9+ unified logging (`-Xlog:gc*`) and JDK 8 legacy (`-XX:+PrintGCDetails`). Auto-detected.
+
+**Output sections:**
+1. **Summary** — duration, event count, throughput %
+2. **Pause Distribution** — p50, p95, p99, max with ASCII histogram
+3. **Heap** — peak usage, avg after GC
+4. **Cause Breakdown** — per-cause count/avg/max table
+5. **Tuning Recommendations** — severity-rated with specific JVM flags
+
+**Tuning rules (7):**
+
+| Pattern | Recommendation |
+|---------|---------------|
+| Full GC detected | Increase `-Xmx` |
+| Throughput < 95% | Increase heap or switch GC |
+| p99 > 200ms | `-XX:MaxGCPauseMillis=200` or ZGC |
+| Humongous allocations | `-XX:G1HeapRegionSize=16m` |
+| Metaspace GC | `-XX:MaxMetaspaceSize=512m` |
+| Allocation failures | `-XX:NewRatio=2` |
+| Max pause > 1s | `-XX:+UseZGC` |
+
+---
+
+## argus flame
+
+One-shot flame graph generation. Profiles for N seconds, generates interactive HTML, and opens in browser.
+
+```bash
+$ argus flame 12345                      # 10s CPU, open browser
+$ argus flame 12345 --duration 30        # 30 seconds
+$ argus flame 12345 --type alloc         # allocation flame graph
+$ argus flame 12345 --type lock          # lock contention flame graph
+$ argus flame 12345 --output flame.html  # save to specific file
+$ argus flame 12345 --no-open            # don't open browser
+```
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--duration N` | 10 | Profiling duration in seconds |
+| `--type` | cpu | Profile type: `cpu`, `alloc`, `lock`, `wall` |
+| `--output` | `/tmp/argus-flame-<pid>.html` | Output file path |
+| `--no-open` | false | Skip browser auto-open |
+
+Uses async-profiler under the hood. Auto-downloads if not present.
+
+---
+
+## argus watch
+
+Real-time terminal dashboard — htop for JVM. Updates in-place using ANSI escape codes.
+
+```bash
+$ argus watch                    # monitor local JVM, 2s refresh
+$ argus watch --interval=5       # 5 second refresh
+```
+
+**Display:**
+- Heap/Old/Metaspace with color progress bars and sparkline history
+- CPU usage with processor count
+- GC stats with overhead % (green/yellow/red)
+- Thread summary: total/runnable/waiting/blocked/deadlocked
+- NIO direct buffer usage
+- Class loading stats
+
+**Controls:** `q` = quit, `r` = force refresh.
+
+---
+
+## argus suggest
+
+JVM flag optimization based on workload analysis. Auto-detects workload type or accepts `--profile` override.
+
+```bash
+$ argus suggest                        # auto-detect workload
+$ argus suggest --profile=web          # optimize for web server
+$ argus suggest --profile=batch        # optimize for batch processing
+$ argus suggest --profile=microservice # optimize for microservice
+$ argus suggest --profile=streaming    # optimize for streaming
+$ argus suggest --format=json          # JSON output
+```
+
+**Workload profiles:**
+
+| Profile | Optimizes for | Key suggestions |
+|---------|--------------|----------------|
+| `web` | Low latency, consistent response times | G1GC/ZGC, MaxGCPauseMillis |
+| `batch` | Maximum throughput | ParallelGC, GC thread tuning |
+| `microservice` | Fast startup, low memory | SerialGC for small heaps, CDS |
+| `streaming` | Steady allocation rate | G1GC, TLAB sizing |
+
+Includes a copy-paste ready flag summary at the bottom of output.

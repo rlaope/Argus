@@ -50,6 +50,11 @@ argus heap <pid>
 | `argus metaspace` | Metaspace usage | ClassLoader leak detection |
 | `argus nmt` | Native memory breakdown | Off-heap memory investigation |
 | `argus profile` | CPU profiling (async-profiler) | Find hot code paths |
+| `argus doctor` | Health diagnosis with tuning recs | "Why is my app slow?" |
+| `argus gclog` | GC log analysis (GCEasy alternative) | GC tuning |
+| `argus flame` | One-shot flame graph + browser open | CPU hotspot analysis |
+| `argus watch` | Real-time terminal dashboard | Continuous monitoring |
+| `argus suggest` | JVM flag optimization by workload | Configuration tuning |
 
 All commands support `--format=json` for scripting and `--source=auto|agent|jdk` to choose the data source.
 
