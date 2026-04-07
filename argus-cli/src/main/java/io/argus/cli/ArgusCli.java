@@ -13,6 +13,7 @@ import io.argus.cli.command.DynLibsCommand;
 import io.argus.cli.command.EnvCommand;
 import io.argus.cli.command.FinalizerCommand;
 import io.argus.cli.command.FlameCommand;
+import io.argus.cli.command.WatchCommand;
 import io.argus.cli.command.GcCauseCommand;
 import io.argus.cli.command.GcLogCommand;
 import io.argus.cli.command.GcRunCommand;
@@ -165,6 +166,7 @@ public final class ArgusCli {
         register(commands, new GcNewCommand());
         register(commands, new SymbolTableCommand());
         register(commands, new TopCommand());
+        register(commands, new WatchCommand());
 
         if (version) {
             printVersion();
