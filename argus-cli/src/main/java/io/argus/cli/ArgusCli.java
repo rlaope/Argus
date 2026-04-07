@@ -38,6 +38,7 @@ import io.argus.cli.command.PsCommand;
 import io.argus.cli.command.ReportCommand;
 import io.argus.cli.command.SearchClassCommand;
 import io.argus.cli.command.StringTableCommand;
+import io.argus.cli.command.SuggestCommand;
 import io.argus.cli.command.SymbolTableCommand;
 import io.argus.cli.command.SysPropsCommand;
 import io.argus.cli.command.ThreadDumpCommand;
@@ -140,6 +141,7 @@ public final class ArgusCli {
         register(commands, new DoctorCommand());
         register(commands, new GcLogCommand());
         register(commands, new FlameCommand());
+        register(commands, new SuggestCommand());
         register(commands, new InfoCommand());
         register(commands, new HeapDumpCommand());
         register(commands, new DeadlockCommand());

@@ -33,6 +33,7 @@ _argus() {
         'gclog:Analyze GC log file with tuning recommendations'
         'flame:One-shot flame graph with browser open'
         'watch:Real-time terminal dashboard'
+        'suggest:JVM flag optimization'
         'env:JVM launch environment'
         'compiler:JIT compiler and code cache stats'
         'finalizer:Finalizer queue status'
