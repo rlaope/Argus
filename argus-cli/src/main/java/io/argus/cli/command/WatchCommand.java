@@ -60,16 +60,17 @@ public final class WatchCommand implements Command {
             while (true) {
                 JvmSnapshot s = JvmSnapshotCollector.collectLocal();
 
-                // Update history
-                heapHistory[historyIdx % 30] = s.heapUsagePercent();
-                cpuHistory[historyIdx % 30] = s.processCpuLoad() >= 0 ? s.processCpuLoad() * 100 : 0;
+                // Update history (circular buffer)
+                int writePos = historyIdx % 30;
+                heapHistory[writePos] = s.heapUsagePercent();
+                cpuHistory[writePos] = s.processCpuLoad() >= 0 ? s.processCpuLoad() * 100 : 0;
                 historyIdx++;
 
                 // Render
                 StringBuilder out = new StringBuilder();
                 out.append(CLEAR_SCREEN);
                 renderDashboard(out, s, heapHistory, cpuHistory, Math.min(historyIdx, 30),
-                        interval, useColor);
+                        historyIdx, interval, useColor);
                 System.out.print(out);
                 System.out.flush();
 
@@ -97,7 +98,7 @@ public final class WatchCommand implements Command {
 
     private void renderDashboard(StringBuilder sb, JvmSnapshot s,
                                  double[] heapHist, double[] cpuHist, int histLen,
-                                 int interval, boolean c) {
+                                 int writePos, int interval, boolean c) {
         String B = AnsiStyle.style(c, AnsiStyle.BOLD);
         String R = AnsiStyle.style(c, AnsiStyle.RESET);
         String D = AnsiStyle.style(c, AnsiStyle.DIM);
@@ -120,7 +121,7 @@ public final class WatchCommand implements Command {
                 .append(progressBar(heapPct, 20, c))
                 .append(String.format("  %s/%s  ", formatBytes(s.heapUsed()), formatBytes(s.heapMax())))
                 .append(colorPct(heapPct, c)).append(String.format("%.0f%%", heapPct)).append(R)
-                .append("  ").append(sparkline(heapHist, histLen)).append("\n");
+                .append("  ").append(sparkline(heapHist, histLen, writePos)).append("\n");
 
         // Memory pools (Old gen if available)
         for (var pool : s.memoryPools().values()) {
@@ -152,9 +153,8 @@ public final class WatchCommand implements Command {
         sb.append(B).append(" CPU   ").append(R)
                 .append(progressBar(cpuPct, 20, c))
                 .append(String.format("  %.0f%%", cpuPct))
-                .append(String.format("  usr:%.0f%% sys:%.0f%%",
-                        cpuPct * 0.7, cpuPct * 0.3)) // approximate split
-                .append("  ").append(sparkline(cpuHist, histLen)).append("\n");
+                .append("  procs:").append(s.availableProcessors())
+                .append("  ").append(sparkline(cpuHist, histLen, writePos)).append("\n");
 
         // GC
         double gcOh = s.gcOverheadPercent();
@@ -215,16 +215,18 @@ public final class WatchCommand implements Command {
                 : AnsiStyle.style(c, AnsiStyle.RED);
     }
 
-    private static String sparkline(double[] data, int len) {
+    private static String sparkline(double[] data, int len, int writePos) {
         if (len == 0) return "";
         String[] blocks = {"▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"};
         double max = 0;
         for (int i = 0; i < len; i++) max = Math.max(max, data[i]);
         if (max == 0) max = 1;
         StringBuilder sb = new StringBuilder();
-        int start = Math.max(0, len - 15);
-        for (int i = start; i < len; i++) {
-            int idx = (int) (data[i % 30] / max * 7);
+        int show = Math.min(len, 15);
+        // Circular buffer: oldest readable entry is (writePos - show)
+        int oldest = (writePos - show + 30) % 30;
+        for (int i = 0; i < show; i++) {
+            int idx = (int) (data[(oldest + i) % 30] / max * 7);
             sb.append(blocks[Math.max(0, Math.min(idx, 7))]);
         }
         return sb.toString();

@@ -93,6 +93,7 @@ public final class JvmSnapshotCollector {
         // For remote, we use the same MXBeans since jcmd doesn't give us structured data easily.
         // In practice, doctor targets the same JVM or uses agent connection.
         // Fallback: collect what we can from jcmd and fill gaps with defaults.
-        return collectLocal(); // TODO: enhance with jcmd-based remote collection
+        System.err.println("[Argus] Warning: remote JVM snapshot not yet implemented. Collecting local JVM metrics.");
+        return collectLocal();
     }
 }

@@ -35,7 +35,9 @@ public final class GcLogAnalyzer {
         long p99 = percentile(sortedPauses, 99);
 
         // Throughput
-        double throughput = durationSec > 0 ? (1.0 - totalPauseMs / (durationSec * 1000)) * 100 : 100;
+        double throughput = durationSec > 0
+                ? Math.max(0, Math.min(100, (1.0 - totalPauseMs / (durationSec * 1000)) * 100))
+                : 100;
 
         // Heap stats
         long peakHeap = events.stream().mapToLong(GcEvent::heapBeforeKB).max().orElse(0);
