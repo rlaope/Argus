@@ -8,7 +8,7 @@
 
 Two independent tools in one package:
 
-- **`argus` CLI** — 42 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
+- **`argus` CLI** — 47 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
 - **Argus Agent** — Real-time web dashboard with JFR streaming, flame graphs, and metric export
 
 ```bash
@@ -73,8 +73,13 @@ Diagnose any running JVM process directly from the terminal. No agent, no instru
 | `argus logger <pid>` | View and change log levels at runtime |
 | `argus events <pid>` | VM internal event log (safepoints, deopt, GC) |
 | `argus report <pid>` | Comprehensive diagnostic report |
+| `argus doctor` | One-click JVM health diagnosis with tuning recommendations |
+| `argus gclog <file>` | GC log analysis with pause distribution and tuning (GCEasy alternative) |
+| `argus flame <pid>` | One-shot flame graph — profiles, generates HTML, opens browser |
+| `argus suggest` | JVM flag optimization based on workload analysis |
 | **Monitoring** | |
 | `argus top` | Real-time monitoring (agent required) |
+| `argus watch` | Real-time terminal dashboard (htop for JVM) |
 | `argus init` | First-time setup (language selection) |
 
 ### `argus report` — Comprehensive Diagnostic
@@ -227,7 +232,7 @@ $ argus --lang=ko report 39113
 --version, -v             Show version
 ```
 
-> See [CLI Command Reference](docs/cli-commands.md) for all 42 commands with full output examples.
+> See [CLI Command Reference](docs/cli-commands.md) for all 47 commands with full output examples.
 
 ---
 
@@ -368,7 +373,7 @@ Argus adapts its capabilities based on the target JVM version at runtime:
 
 | Feature | Java 11+ | Java 17+ | Java 21+ |
 |---------|:--------:|:--------:|:--------:|
-| CLI (42 commands) | ✅ | ✅ | ✅ |
+| CLI (47 commands) | ✅ | ✅ | ✅ |
 | Dashboard & Web UI | — | ✅ | ✅ |
 | GC Analysis | CLI only | ✅ MXBean | ✅ JFR |
 | CPU Monitoring | CLI only | ✅ MXBean | ✅ JFR |
@@ -426,7 +431,7 @@ rm -rf ~/.argus
 | **argus-agent** | Java agent with JFR streaming engine |
 | **argus-server** | Netty HTTP/WS server, 10 analyzers, Prometheus + OTLP |
 | **argus-frontend** | Static dashboard with Chart.js and d3-flamegraph |
-| **argus-cli** | 42 diagnostic commands, auto source detection, i18n |
+| **argus-cli** | 47 diagnostic commands, auto source detection, i18n |
 | **argus-micrometer** | Micrometer MeterBinder exposing ~25 JVM metrics |
 | **argus-spring-boot-starter** | Spring Boot 3.2+ auto-configuration for Argus agent |
 

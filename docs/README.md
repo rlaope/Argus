@@ -6,7 +6,7 @@ Welcome to the Project Argus documentation.
 
 1. [Getting Started](getting-started.md) - Installation and quick start guide
 2. [Usage Guide](usage.md) - CLI and Agent dashboard usage
-3. [CLI Command Reference](cli-commands.md) - All 42 commands with usage and output examples
+3. [CLI Command Reference](cli-commands.md) - All 47 commands with usage and output examples
 4. [Configuration](configuration.md) - Configuration options and tuning
 5. [Architecture](architecture.md) - System architecture and design
 6. [Troubleshooting](troubleshooting.md) - Common issues and solutions
