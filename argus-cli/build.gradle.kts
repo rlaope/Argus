@@ -16,6 +16,7 @@ dependencies {
 tasks.jar {
     manifest {
         attributes["Main-Class"] = "io.argus.cli.ArgusCli"
+        attributes["Implementation-Version"] = project.version.toString()
     }
 }
 

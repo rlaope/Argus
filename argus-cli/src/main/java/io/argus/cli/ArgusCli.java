@@ -67,7 +67,15 @@ import java.util.Map;
  */
 public final class ArgusCli {
 
-    private static final String VERSION = "0.6.0";
+    private static final String VERSION = resolveVersion();
+
+    private static String resolveVersion() {
+        Package pkg = ArgusCli.class.getPackage();
+        if (pkg != null && pkg.getImplementationVersion() != null) {
+            return pkg.getImplementationVersion();
+        }
+        return "dev";
+    }
     private static final String DEFAULT_HOST = "localhost";
     private static final int DEFAULT_PORT = 9202;
 
