@@ -14,396 +14,345 @@ import org.jline.utils.NonBlockingReader;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.io.PrintWriter;
 import java.util.*;
 
-/**
- * k9s-style full-screen interactive terminal UI for Argus.
- * Uses alternative screen buffer to prevent scroll corruption.
- */
 public final class TuiApp {
 
-    private static final String[] LOGO_LINES = {
-            "       _____                          ",
-            "      /  _  \\_______  ____  __ __  ______",
-            "     /  /_\\  \\_  __ \\/ ___\\|  |  \\/  ___/",
-            "    /    |    \\  | \\/ /_/  >  |  /\\___ \\",
-            "    \\____|__  /__|  \\___  /|____//____  >",
-            "            \\/     /_____/            \\/"
+    private static final String[] LOGO = {
+        "    _____",
+        "   /  _  \\_______  ____  __ __  ______",
+        "  /  /_\\  \\_  __ \\/ ___\\|  |  \\/  ___/",
+        " /    |    \\  | \\/ /_/  >  |  /\\___ \\",
+        " \\____|__  /__|  \\___  /|____//____  >",
+        "         \\/     /_____/            \\/"
     };
-
-    private static final String TAGLINE = "Lightweight JVM Diagnostic Toolkit — 50 commands, zero config";
-    private static final String ALT_SCREEN_ON = "\033[?1049h";
-    private static final String ALT_SCREEN_OFF = "\033[?1049l";
-    private static final String HIDE_CURSOR = "\033[?25l";
-    private static final String SHOW_CURSOR = "\033[?25h";
-
     private static final String[] LANGS = {"en", "ko", "ja", "zh"};
+    private static final String[] THEME_NAMES = {"skyblue", "green", "gray"};
+    // fg color per theme
+    private static final String[] THEME_FG = {"\033[36m", "\033[32m", "\033[37m"};
+    private static final String[] THEME_HL = {"\033[30;46m", "\033[30;42m", "\033[30;47m"};
+    private static final String[] THEME_ACC = {"\033[35m", "\033[33m", "\033[97m"};
+    private static final String R = "\033[0m";
+    private static final String DIM = "\033[2m";
 
     private final Map<String, Command> commands;
     private final CliConfig config;
     private final ProviderRegistry registry;
     private Messages messages;
-    private int langIdx = 0;
+    private int langIdx = 0, themeIdx = 0;
 
-    private enum Phase { PROCESS_SELECT, COMMAND_LIST, OUTPUT_VIEW }
-    private Phase phase = Phase.PROCESS_SELECT;
-
-    private List<ProcessInfo> processes = List.of();
-    private long selectedPid = 0;
-    private String selectedProcessName = "";
-
-    // Command list — flat list with headers for navigation
-    private final List<CmdEntry> cmdEntries = new ArrayList<>();
-    private int cmdIdx = 0;
-    private int cmdScroll = 0;
-    private String searchQuery = "";
-    private boolean searching = false;
-    private List<CmdEntry> filteredCmds = new ArrayList<>();
-
-    // Process selection
+    private enum Phase { PS, CMD, OUT }
+    private Phase phase = Phase.PS;
+    private List<ProcessInfo> procs = List.of();
+    private long pid = 0; private String pidName = "";
     private int psIdx = 0;
 
-    // Output
-    private String lastOutput = "";
-    private String lastCmdName = "";
-    private int outputScroll = 0;
+    private final List<CE> allCmds = new ArrayList<>();
+    private List<CE> fCmds = new ArrayList<>();
+    private int cIdx = 0, cScr = 0;
+    private String sq = ""; private boolean searching = false;
 
+    private String output = "", outName = "";
+    private int oScr = 0;
     private boolean running = true;
+
+    // Language select overlay
+    private boolean langSelect = false;
+    private int langSelIdx = 0;
 
     public TuiApp(Map<String, Command> commands, CliConfig config,
                   ProviderRegistry registry, Messages messages) {
-        this.commands = commands;
-        this.config = config;
-        this.registry = registry;
-        this.messages = messages;
-        for (int i = 0; i < LANGS.length; i++) {
-            if (LANGS[i].equals(config.lang())) { langIdx = i; break; }
-        }
-        buildCmdEntries();
+        this.commands = commands; this.config = config;
+        this.registry = registry; this.messages = messages;
+        for (int i = 0; i < LANGS.length; i++) if (LANGS[i].equals(config.lang())) langIdx = i;
+        langSelIdx = langIdx;
+        buildCmds();
     }
 
-    private void buildCmdEntries() {
-        cmdEntries.clear();
-        Map<CommandGroup, List<Command>> grouped = new LinkedHashMap<>();
-        for (CommandGroup g : CommandGroup.values()) grouped.put(g, new ArrayList<>());
-        for (Command cmd : commands.values()) {
-            if (!cmd.name().equals("tui") && !cmd.name().equals("init"))
-                grouped.get(cmd.group()).add(cmd);
-        }
-        for (var entry : grouped.entrySet()) {
-            if (entry.getValue().isEmpty()) continue;
-            cmdEntries.add(new CmdEntry(null, entry.getKey().displayName(), true));
-            for (Command cmd : entry.getValue()) {
-                cmdEntries.add(new CmdEntry(cmd, cmd.name(), false));
-            }
-        }
-        applyFilter();
-    }
+    private String fg() { return THEME_FG[themeIdx]; }
+    private String hl() { return THEME_HL[themeIdx]; }
+    private String acc() { return THEME_ACC[themeIdx]; }
 
-    private void applyFilter() {
-        filteredCmds = new ArrayList<>();
-        if (searchQuery.isEmpty()) {
-            filteredCmds.addAll(cmdEntries);
-        } else {
-            String q = searchQuery.toLowerCase();
-            CmdEntry lastHdr = null;
-            boolean hdrUsed = false;
-            for (CmdEntry e : cmdEntries) {
-                if (e.header) { lastHdr = e; hdrUsed = false; continue; }
-                if (e.name.contains(q) || (e.cmd != null && e.cmd.description(messages).toLowerCase().contains(q))) {
-                    if (lastHdr != null && !hdrUsed) { filteredCmds.add(lastHdr); hdrUsed = true; }
-                    filteredCmds.add(e);
-                }
+    private void buildCmds() {
+        allCmds.clear();
+        var g = new LinkedHashMap<CommandGroup, List<Command>>();
+        for (CommandGroup cg : CommandGroup.values()) g.put(cg, new ArrayList<>());
+        for (Command c : commands.values())
+            if (!c.name().equals("tui") && !c.name().equals("init")) g.get(c.group()).add(c);
+        for (var e : g.entrySet()) {
+            if (e.getValue().isEmpty()) continue;
+            allCmds.add(new CE(null, e.getKey().displayName(), true));
+            for (Command c : e.getValue()) allCmds.add(new CE(c, c.name(), false));
+        }
+        filter();
+    }
+    private void filter() {
+        fCmds = new ArrayList<>();
+        if (sq.isEmpty()) { fCmds.addAll(allCmds); return; }
+        String q = sq.toLowerCase(); CE hdr = null; boolean u = false;
+        for (CE e : allCmds) {
+            if (e.h) { hdr = e; u = false; continue; }
+            if (e.n.contains(q) || (e.c != null && e.c.description(messages).toLowerCase().contains(q))) {
+                if (hdr != null && !u) { fCmds.add(hdr); u = true; } fCmds.add(e);
             }
         }
-        cmdIdx = Math.min(cmdIdx, Math.max(0, filteredCmds.size() - 1));
-        while (cmdIdx < filteredCmds.size() && filteredCmds.get(cmdIdx).header) cmdIdx++;
+        cIdx = Math.min(cIdx, Math.max(0, fCmds.size()-1));
+        while (cIdx < fCmds.size() && fCmds.get(cIdx).h) cIdx++;
     }
 
     public void run() {
-        try (Terminal term = TerminalBuilder.builder().system(true).jansi(true).build()) {
-            term.enterRawMode();
-            NonBlockingReader reader = term.reader();
-            System.out.print(ALT_SCREEN_ON + HIDE_CURSOR);
+        System.out.print("\033[?1049h\033[?25l\033[H\033[2J");
+        for (String l : LOGO) System.out.println("\033[36m  " + l + R);
+        System.out.print("\n  " + DIM + "Initializing..." + R);
+        System.out.flush();
 
-            refreshProcesses();
-
+        try (Terminal t = TerminalBuilder.builder().system(true).jansi(true).build()) {
+            t.enterRawMode(); NonBlockingReader rd = t.reader(); PrintWriter w = t.writer();
+            refreshPs();
             while (running) {
-                int h = term.getHeight() > 0 ? term.getHeight() : 30;
-                int w = term.getWidth() > 0 ? term.getWidth() : 80;
-                StringBuilder sb = new StringBuilder();
-                sb.append("\033[H"); // cursor home (no clear — we overwrite every line)
-
+                int H = Math.max(t.getHeight(), 20);
+                int TW = Math.max(t.getWidth(), 40);
+                int W = Math.min(TW, 120); // box max 120 chars
+                int margin = (TW - W) / 2;
+                String ml = margin > 0 ? " ".repeat(margin) : "";
+                StringBuilder sb = new StringBuilder("\033[H\033[2J"); // home + clear entire screen
                 switch (phase) {
-                    case PROCESS_SELECT -> drawProcessScreen(sb, w, h);
-                    case COMMAND_LIST -> drawCommandScreen(sb, w, h);
-                    case OUTPUT_VIEW -> drawOutputScreen(sb, w, h);
+                    case PS -> drawPS(sb, W, H, ml);
+                    case CMD -> drawCMD(sb, W, H, ml);
+                    case OUT -> drawOUT(sb, W, H, ml);
                 }
-
-                term.writer().print(sb);
-                term.writer().flush();
-
-                int key = reader.read(100);
-                if (key == -2) continue;
-                if (key == -1) break;
-                handleKey(key, reader);
+                w.print(sb); w.flush();
+                int key = rd.read(80);
+                if (key == -2) continue; if (key == -1) break;
+                onKey(key, rd);
             }
-
-            System.out.print(SHOW_CURSOR + ALT_SCREEN_OFF);
-        } catch (Exception e) {
-            System.out.print(SHOW_CURSOR + ALT_SCREEN_OFF);
-            System.err.println("TUI error: " + e.getMessage());
-        }
+            w.print("\033[?25h\033[?1049l"); w.flush();
+        } catch (Exception e) { System.out.print("\033[?25h\033[?1049l"); }
     }
 
-    // ── Key handling ──
-
-    private void handleKey(int key, NonBlockingReader reader) throws Exception {
-        if (key == 27) { // ESC or arrow
-            int n = reader.read(50);
+    private void onKey(int key, NonBlockingReader rd) throws Exception {
+        if (key == 27) {
+            int n = rd.read(30);
             if (n == '[') {
-                int a = reader.read(50);
-                if (a == 'A') { moveUp(); return; }
-                if (a == 'B') { moveDown(); return; }
+                int a = rd.read(30);
+                if (langSelect) {
+                    if (a == 'A' && langSelIdx > 0) langSelIdx--;
+                    else if (a == 'B' && langSelIdx < LANGS.length-1) langSelIdx++;
+                    return;
+                }
+                if (a == 'A') up(); else if (a == 'B') dn();
+                return;
             }
-            goBack();
+            if (langSelect) { langSelect = false; return; }
+            back(); return;
+        }
+        if (langSelect) {
+            switch (key) {
+                case 'j' -> { if (langSelIdx < LANGS.length-1) langSelIdx++; }
+                case 'k' -> { if (langSelIdx > 0) langSelIdx--; }
+                case 10, 13 -> { langIdx = langSelIdx; messages = new Messages(LANGS[langIdx]); langSelect = false; }
+                case 'q', 'Q' -> langSelect = false;
+            }
             return;
         }
         if (searching) {
             if (key == 10 || key == 13) searching = false;
-            else if (key == 127 || key == 8) {
-                if (!searchQuery.isEmpty()) { searchQuery = searchQuery.substring(0, searchQuery.length() - 1); applyFilter(); }
-            } else if (key >= 32 && key < 127) { searchQuery += (char) key; applyFilter(); }
+            else if (key == 127 || key == 8) { if (!sq.isEmpty()) { sq = sq.substring(0, sq.length()-1); filter(); } }
+            else if (key >= 32 && key < 127) { sq += (char)key; filter(); }
             return;
         }
         switch (key) {
-            case 'q', 'Q' -> goBack();
-            case 'j' -> moveDown();
-            case 'k' -> moveUp();
-            case '/' -> { if (phase == Phase.COMMAND_LIST) { searching = true; searchQuery = ""; } }
-            case 'r', 'R' -> { if (phase == Phase.PROCESS_SELECT) refreshProcesses(); }
-            case 'l', 'L' -> cycleLang();
-            case 10, 13 -> handleEnter();
+            case 'q','Q' -> back();
+            case 'j' -> dn(); case 'k' -> up();
+            case '/' -> { if (phase == Phase.CMD) { searching = true; sq = ""; } }
+            case 'r','R' -> { if (phase == Phase.PS) refreshPs(); }
+            case 'l','L' -> { langSelect = true; langSelIdx = langIdx; }
+            case 't','T' -> themeIdx = (themeIdx+1) % THEME_NAMES.length;
+            case 10, 13 -> enter();
             default -> {}
         }
     }
 
-    private void goBack() {
-        switch (phase) {
-            case OUTPUT_VIEW -> { phase = Phase.COMMAND_LIST; outputScroll = 0; }
-            case COMMAND_LIST -> {
-                if (!searchQuery.isEmpty()) { searchQuery = ""; applyFilter(); }
-                else { phase = Phase.PROCESS_SELECT; psIdx = 0; }
-            }
-            case PROCESS_SELECT -> running = false;
-        }
+    private void back() { switch(phase){ case OUT->{phase=Phase.CMD;oScr=0;} case CMD->{if(!sq.isEmpty()){sq="";filter();}else{phase=Phase.PS;psIdx=0;}} case PS->running=false; }}
+    private void dn() { switch(phase){ case PS->{if(psIdx<procs.size()-1)psIdx++;} case CMD->{int n=cIdx+1;while(n<fCmds.size()&&fCmds.get(n).h)n++;if(n<fCmds.size())cIdx=n;} case OUT->oScr++; }}
+    private void up() { switch(phase){ case PS->{if(psIdx>0)psIdx--;} case CMD->{int p=cIdx-1;while(p>=0&&fCmds.get(p).h)p--;if(p>=0)cIdx=p;} case OUT->{if(oScr>0)oScr--;} }}
+    private void enter() { switch(phase){
+        case PS->{if(psIdx<procs.size()){pid=procs.get(psIdx).pid();pidName=procs.get(psIdx).mainClass();phase=Phase.CMD;cIdx=0;cScr=0;sq="";filter();while(cIdx<fCmds.size()&&fCmds.get(cIdx).h)cIdx++;}}
+        case CMD->{if(cIdx<fCmds.size()&&!fCmds.get(cIdx).h)exec(fCmds.get(cIdx));}
+        case OUT->phase=Phase.CMD;
+    }}
+    private void exec(CE e) {
+        if(e.c==null)return; outName=e.n;
+        // Capture both stdout and stderr to prevent TUI corruption
+        PrintStream origOut=System.out, origErr=System.err;
+        var cap=new ByteArrayOutputStream();
+        var ps=new PrintStream(cap);
+        System.setOut(ps); System.setErr(ps);
+        try{e.c.execute(pid>0?new String[]{String.valueOf(pid)}:new String[0],config,registry,messages);}
+        catch(Exception ex){System.out.println("Error: "+ex.getMessage());}
+        finally{System.setOut(origOut);System.setErr(origErr);}
+        output=cap.toString();oScr=0;phase=Phase.OUT;
     }
+    private void refreshPs() { ProcessProvider pp=registry.findProcessProvider(); if(pp!=null) procs=pp.listProcesses(); }
 
-    private void cycleLang() {
-        langIdx = (langIdx + 1) % LANGS.length;
-        messages = new Messages(LANGS[langIdx]);
+    // ═══ SAFE ROW BUILDER — all padding uses plain-text length ═══
+
+    /** Build a full-width row: │ content... │ with exact padding */
+    private String boxRow(String plain, int W) {
+        String t = plain.length() > W-4 ? plain.substring(0, W-4) + "…" : plain;
+        return fg() + "│" + R + " " + t + " ".repeat(Math.max(0, W-3-t.length())) + fg() + "│" + R;
     }
-
-    private void handleEnter() {
-        switch (phase) {
-            case PROCESS_SELECT -> {
-                if (psIdx >= 0 && psIdx < processes.size()) {
-                    selectedPid = processes.get(psIdx).pid();
-                    selectedProcessName = processes.get(psIdx).mainClass();
-                    phase = Phase.COMMAND_LIST;
-                    cmdIdx = 0; cmdScroll = 0; searchQuery = "";
-                    applyFilter();
-                    while (cmdIdx < filteredCmds.size() && filteredCmds.get(cmdIdx).header) cmdIdx++;
-                }
-            }
-            case COMMAND_LIST -> {
-                if (cmdIdx < filteredCmds.size() && !filteredCmds.get(cmdIdx).header) {
-                    execCmd(filteredCmds.get(cmdIdx));
-                }
-            }
-            case OUTPUT_VIEW -> phase = Phase.COMMAND_LIST;
-        }
+    /** Highlighted row */
+    private String hlRow(String plain, int W) {
+        String t = plain.length() > W-4 ? plain.substring(0, W-4) + "…" : plain;
+        return fg() + "│" + hl() + " " + t + " ".repeat(Math.max(0, W-3-t.length())) + R + fg() + "│" + R;
     }
-
-    private void moveDown() {
-        switch (phase) {
-            case PROCESS_SELECT -> { if (psIdx < processes.size() - 1) psIdx++; }
-            case COMMAND_LIST -> {
-                int n = cmdIdx + 1;
-                while (n < filteredCmds.size() && filteredCmds.get(n).header) n++;
-                if (n < filteredCmds.size()) cmdIdx = n;
-            }
-            case OUTPUT_VIEW -> outputScroll++;
-        }
+    /** Colored text row — color applied to content, padding is plain */
+    private String colorRow(String color, String plain, int W) {
+        String t = plain.length() > W-4 ? plain.substring(0, W-4) + "…" : plain;
+        return fg() + "│" + R + " " + color + t + R + " ".repeat(Math.max(0, W-3-t.length())) + fg() + "│" + R;
     }
-
-    private void moveUp() {
-        switch (phase) {
-            case PROCESS_SELECT -> { if (psIdx > 0) psIdx--; }
-            case COMMAND_LIST -> {
-                int p = cmdIdx - 1;
-                while (p >= 0 && filteredCmds.get(p).header) p--;
-                if (p >= 0) cmdIdx = p;
-            }
-            case OUTPUT_VIEW -> { if (outputScroll > 0) outputScroll--; }
-        }
+    /** Centered row */
+    private String centerRow(String plain, int W) {
+        String t = plain.length() > W-4 ? plain.substring(0, W-4) : plain;
+        int pad = (W-2-t.length()) / 2;
+        return fg() + "│" + R + " ".repeat(pad) + t + " ".repeat(W-2-pad-t.length()) + fg() + "│" + R;
     }
-
-    private void execCmd(CmdEntry entry) {
-        if (entry.cmd == null) return;
-        lastCmdName = entry.name;
-        PrintStream orig = System.out;
-        ByteArrayOutputStream cap = new ByteArrayOutputStream();
-        System.setOut(new PrintStream(cap));
-        try {
-            String[] args = selectedPid > 0 ? new String[]{String.valueOf(selectedPid)} : new String[0];
-            entry.cmd.execute(args, config, registry, messages);
-        } catch (Exception e) { System.out.println("Error: " + e.getMessage()); }
-        finally { System.setOut(orig); }
-        lastOutput = cap.toString();
-        outputScroll = 0;
-        phase = Phase.OUTPUT_VIEW;
+    private String centerColorRow(String color, String plain, int W) {
+        String t = plain.length() > W-4 ? plain.substring(0, W-4) : plain;
+        int pad = (W-2-t.length()) / 2;
+        return fg() + "│" + R + " ".repeat(pad) + color + t + R + " ".repeat(W-2-pad-t.length()) + fg() + "│" + R;
     }
+    private String emptyRow(int W) { return fg() + "│" + R + " ".repeat(W-2) + fg() + "│" + R; }
+    private String topLine(int W) { return fg() + "╭" + "─".repeat(W-2) + "╮" + R; }
+    private String botLine(int W) { return fg() + "╰" + "─".repeat(W-2) + "╯" + R; }
+    private String midLine(int W) { return fg() + "├" + "─".repeat(W-2) + "┤" + R; }
 
-    private void refreshProcesses() {
-        ProcessProvider pp = registry.findProcessProvider();
-        if (pp != null) processes = pp.listProcesses();
-    }
+    // ═══ Draw screens ═══
 
-    // ── Drawing ──
+    private void drawPS(StringBuilder s, int W, int H, String ml) {
+        List<String> rows = new ArrayList<>();
+        rows.add(topLine(W));
+        rows.add(emptyRow(W));
+        for (String l : LOGO) rows.add(centerColorRow(fg(), l, W));
+        rows.add(emptyRow(W));
+        rows.add(centerRow("Lightweight JVM Diagnostic Toolkit — v1.0.0", W));
+        rows.add(centerColorRow(DIM, commands.size()+" commands  |  "+LANGS[langIdx].toUpperCase()+"  |  "+THEME_NAMES[themeIdx]+"  |  "+procs.size()+" JVMs", W));
+        rows.add(emptyRow(W));
+        rows.add(midLine(W));
+        rows.add(colorRow(acc(), "  JVM Processes", W));
+        rows.add(colorRow(DIM, "  " + pad("PID",10) + pad("Main Class", Math.max(15, W-42)) + "Version", W));
 
-    private void drawProcessScreen(StringBuilder sb, int w, int h) {
-        int line = 0;
-        // Logo
-        sb.append(cl(w)).append("\n"); line++;
-        for (String l : LOGO_LINES) {
-            sb.append(cl(w)).append("  \033[36m").append(l).append("\033[0m\n"); line++;
-        }
-        sb.append(cl(w)).append("\n"); line++;
-        sb.append(cl(w)).append("  \033[1;35mv1.0.0\033[0m  \033[2m").append(TAGLINE).append("\033[0m\n"); line++;
-        sb.append(cl(w)).append("  \033[2mLanguage: ").append(LANGS[langIdx].toUpperCase())
-                .append("  (press L to change)\033[0m\n"); line++;
-        sb.append(cl(w)).append(bar(w)).append("\n"); line++;
-        sb.append(cl(w)).append("  \033[1mJVM Processes:\033[0m  \033[2m")
-                .append(processes.size()).append(" found\033[0m\n"); line++;
-        sb.append(cl(w)).append("\n"); line++;
-
-        // Process grid
-        int listH = h - line - 3;
-        for (int i = 0; i < Math.min(processes.size(), listH); i++) {
-            ProcessInfo p = processes.get(i);
-            boolean sel = (i == psIdx);
-            sb.append(cl(w));
-            if (sel) {
-                sb.append("  \033[7;36m ▶ ").append(fmt(p.pid(), 8))
-                        .append(pad(trunc(p.mainClass(), 30), 32))
-                        .append(pad(trunc(p.javaVersion(), 25), 26))
-                        .append(" \033[0m");
-            } else {
-                sb.append("    \033[36m").append(fmt(p.pid(), 8)).append("\033[0m")
-                        .append("\033[0m").append(pad(trunc(p.mainClass(), 30), 32))
-                        .append("\033[2m").append(pad(trunc(p.javaVersion(), 25), 26)).append("\033[0m");
-            }
-            sb.append("\n");
-        }
-        for (int i = Math.min(processes.size(), listH); i < listH; i++) sb.append(cl(w)).append("\n");
-
-        // Footer
-        sb.append(cl(w)).append(bar(w)).append("\n");
-        sb.append(cl(w)).append("  \033[2m↑↓/jk:select  Enter:connect  r:refresh  l:language  q:quit\033[0m");
-    }
-
-    private void drawCommandScreen(StringBuilder sb, int w, int h) {
-        // Header
-        sb.append(cl(w)).append("  \033[1;36m⚡ Argus\033[0m")
-                .append("  \033[35m").append(selectedProcessName).append("\033[0m")
-                .append("  \033[2mpid:").append(selectedPid).append("\033[0m\n");
-        sb.append(cl(w)).append(bar(w)).append("\n");
-
-        int bodyH = h - 4; // header(2) + footer(2)
-        // Scroll management
-        if (cmdIdx >= cmdScroll + bodyH) cmdScroll = cmdIdx - bodyH + 1;
-        if (cmdIdx < cmdScroll) cmdScroll = cmdIdx;
-        cmdScroll = Math.max(0, cmdScroll);
-
-        // 2-column layout
-        int colW = (w - 4) / 2;
-        List<String> lines = new ArrayList<>();
-        for (int i = cmdScroll; i < Math.min(filteredCmds.size(), cmdScroll + bodyH * 2); i++) {
-            CmdEntry e = filteredCmds.get(i);
-            if (e.header) {
-                lines.add("\033[1;35m▸ " + e.name + "\033[0m");
-            } else {
-                boolean sel = (i == cmdIdx);
-                String desc = e.cmd != null ? trunc(e.cmd.description(messages), colW - 18) : "";
-                if (sel) {
-                    lines.add("\033[7;36m▶ " + pad(e.name, 15) + desc + "\033[0m");
-                } else {
-                    lines.add(" \033[36m" + pad(e.name, 15) + "\033[0m\033[2m" + desc + "\033[0m");
-                }
-            }
-        }
-
-        // Render as 2 columns
-        int half = (lines.size() + 1) / 2;
-        for (int row = 0; row < bodyH; row++) {
-            sb.append(cl(w)).append("  ");
-            if (row < half && row < lines.size()) {
-                sb.append(padAnsi(lines.get(row), colW));
-            } else {
-                sb.append(" ".repeat(colW));
-            }
-            sb.append("  ");
-            int rightIdx = row + half;
-            if (rightIdx < lines.size()) {
-                sb.append(padAnsi(lines.get(rightIdx), colW));
-            }
-            sb.append("\n");
-        }
-
-        // Footer
-        sb.append(cl(w)).append(bar(w)).append("\n");
-        if (searching) {
-            sb.append(cl(w)).append("  \033[33m/\033[0m").append(searchQuery).append("\033[5m▏\033[0m");
-        } else {
-            sb.append(cl(w)).append("  \033[2m↑↓/jk:navigate  Enter:execute  /:search  Esc:back  l:language\033[0m");
-        }
-    }
-
-    private void drawOutputScreen(StringBuilder sb, int w, int h) {
-        sb.append(cl(w)).append("  \033[1;33m◀ ").append(lastCmdName)
-                .append("\033[0m  \033[35mpid:").append(selectedPid).append("\033[0m\n");
-        sb.append(cl(w)).append(bar(w)).append("\n");
-
-        int bodyH = h - 4;
-        String[] outLines = lastOutput.split("\n");
-        outputScroll = Math.max(0, Math.min(outputScroll, Math.max(0, outLines.length - bodyH)));
-
+        int bodyH = H - rows.size() - 3;
         for (int i = 0; i < bodyH; i++) {
-            int li = i + outputScroll;
-            sb.append(cl(w));
-            if (li < outLines.length) {
-                sb.append(" ").append(trunc(outLines[li], w - 2));
-            }
-            sb.append("\n");
+            if (i < procs.size()) {
+                ProcessInfo p = procs.get(i);
+                int cw = Math.max(15, W-42);
+                String line = "  " + pad(String.valueOf(p.pid()),10) + pad(trn(p.mainClass(),cw-1),cw) + trn(p.javaVersion(),20);
+                rows.add(i == psIdx ? hlRow(line, W) : boxRow(line, W));
+            } else { rows.add(emptyRow(W)); }
         }
+        rows.add(midLine(W));
+        rows.add(centerColorRow(DIM, "↑↓ select  ⏎ connect  r refresh  l lang  t theme  q quit", W));
+        rows.add(botLine(W));
 
-        sb.append(cl(w)).append(bar(w)).append("\n");
-        sb.append(cl(w)).append("  \033[2m↑↓:scroll  Esc/Enter/q:back  l:language\033[0m");
+        for (String r : rows) s.append(ml).append(r).append("\n");
+
+        if (langSelect) drawLangOverlay(s, W, H);
     }
 
-    // ── Helpers ──
+    private void drawCMD(StringBuilder s, int W, int H, String ml) {
+        List<String> rows = new ArrayList<>();
+        rows.add(topLine(W));
+        rows.add(colorRow(acc(), "  ⚡ ARGUS   " + trn(pidName,20) + "   pid:" + pid + "   " + LANGS[langIdx].toUpperCase(), W));
+        rows.add(midLine(W));
 
-    private static String cl(int w) { return "\033[2K"; } // clear line
-    private static String bar(int w) { return "\033[36m" + "─".repeat(Math.min(w, 80)) + "\033[0m"; }
-    private static String pad(String s, int w) { return s.length() >= w ? s.substring(0, w) : s + " ".repeat(w - s.length()); }
-    private static String trunc(String s, int m) { if (m <= 0) return ""; return s.length() <= m ? s : s.substring(0, m - 1) + "…"; }
-    private static String fmt(long v, int w) { String s = String.valueOf(v); return pad(s, w); }
-    private static String padAnsi(String s, int w) {
-        int plain = s.replaceAll("\033\\[[\\d;]*m", "").length();
-        if (plain >= w) return s;
-        return s + " ".repeat(w - plain);
+        int bodyH = H - rows.size() - 3;
+        if (cIdx >= cScr+bodyH) cScr = cIdx-bodyH+1;
+        if (cIdx < cScr) cScr = cIdx;
+
+        int drawn = 0;
+        for (int i = cScr; i < Math.min(fCmds.size(), cScr+bodyH) && drawn < bodyH; i++) {
+            CE e = fCmds.get(i);
+            if (e.h) {
+                rows.add(colorRow(acc(), "  ▸ " + e.n, W));
+            } else {
+                String desc = e.c != null ? trn(e.c.description(messages), W-26) : "";
+                if (i == cIdx) {
+                    rows.add(hlRow("    " + pad(e.n, 18) + desc, W));
+                } else {
+                    // Command name bold+color, description dim
+                    String plain = "    " + pad(e.n, 18) + desc;
+                    String colored = fg()+"│"+R+" " + "   \033[1m"+fg()+pad(e.n,18)+R+DIM+desc+R;
+                    int plen = plain.length();
+                    rows.add(colored+" ".repeat(Math.max(0,W-3-plen))+fg()+"│"+R);
+                }
+            }
+            drawn++;
+        }
+        for (int i = drawn; i < bodyH; i++) rows.add(emptyRow(W));
+
+        rows.add(midLine(W));
+        if (searching) rows.add(centerRow("/" + sq + "▏", W));
+        else rows.add(centerColorRow(DIM, "↑↓ navigate  ⏎ execute  / search  esc back  l lang  t theme", W));
+        rows.add(botLine(W));
+
+        for (String r : rows) s.append(ml).append(r).append("\n");
+
+        if (langSelect) drawLangOverlay(s, W, H);
     }
 
-    record CmdEntry(Command cmd, String name, boolean header) {}
+    private void drawOUT(StringBuilder s, int W, int H, String ml) {
+        List<String> rows = new ArrayList<>();
+        rows.add(topLine(W));
+        rows.add(colorRow(acc(), "  ◀ " + outName + "   pid:" + pid, W));
+        rows.add(midLine(W));
+
+        int bodyH = H - rows.size() - 3;
+        String[] lines = output.split("\n");
+        oScr = Math.max(0, Math.min(oScr, Math.max(0, lines.length-bodyH)));
+        for (int i = 0; i < bodyH; i++) {
+            int li = i + oScr;
+            if (li < lines.length) {
+                String plain = lines[li].replaceAll("\033\\[[\\d;]*m", "");
+                rows.add(boxRow(plain, W));
+            } else rows.add(emptyRow(W));
+        }
+        rows.add(midLine(W));
+        rows.add(centerColorRow(DIM, "↑↓ scroll  esc/⏎/q back", W));
+        rows.add(botLine(W));
+
+        for (String r : rows) s.append(ml).append(r).append("\n");
+    }
+
+    private void drawLangOverlay(StringBuilder s, int W, int H) {
+        // Position overlay in center
+        int ow = 30, oh = LANGS.length + 4;
+        int ox = (W - ow) / 2, oy = (H - oh) / 2;
+        s.append("\033[").append(oy).append(";").append(ox+1).append("H");
+        s.append(fg()).append("╭").append("─".repeat(ow-2)).append("╮").append(R);
+        s.append("\033[").append(oy+1).append(";").append(ox+1).append("H");
+        s.append(fg()).append("│").append(R).append(acc()).append(pad(" Select Language", ow-2)).append(R).append(fg()).append("│").append(R);
+        for (int i = 0; i < LANGS.length; i++) {
+            s.append("\033[").append(oy+2+i).append(";").append(ox+1).append("H");
+            String label = " " + (i == langSelIdx ? "▶ " : "  ") + LANGS[i].toUpperCase() + " (" + langLabel(i) + ")";
+            if (i == langSelIdx) {
+                s.append(fg()).append("│").append(hl()).append(pad(label, ow-2)).append(R).append(fg()).append("│").append(R);
+            } else {
+                s.append(fg()).append("│").append(R).append(pad(label, ow-2)).append(fg()).append("│").append(R);
+            }
+        }
+        s.append("\033[").append(oy+2+LANGS.length).append(";").append(ox+1).append("H");
+        s.append(fg()).append("╰").append("─".repeat(ow-2)).append("╯").append(R);
+    }
+
+    private static String langLabel(int i) {
+        return switch(i) { case 0->"English"; case 1->"한국어"; case 2->"日本語"; case 3->"中文"; default->""; };
+    }
+
+    private static String pad(String s, int w) { return s.length()>=w?s.substring(0,w):s+" ".repeat(w-s.length()); }
+    private static String trn(String s, int m) { return m<=0?"":s.length()<=m?s:s.substring(0,m-1)+"…"; }
+
+    record CE(Command c, String n, boolean h) {}
 }
