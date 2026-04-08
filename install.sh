@@ -172,7 +172,7 @@ find_java() {
     local best="" best_ver=0
     for c in "${candidates[@]}"; do
         local ver; ver=$("$c" -version 2>&1 | head -1 | awk -F'"' '{print $2}' | cut -d. -f1)
-        if [ "$ver" -ge 11 ] 2>/dev/null && [ "$ver" -gt "$best_ver" ] 2>/dev/null; then
+        if [ "$ver" -ge 21 ] 2>/dev/null && [ "$ver" -gt "$best_ver" ] 2>/dev/null; then
             best="$c"; best_ver="$ver"
         fi
     done
