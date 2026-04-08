@@ -8,7 +8,7 @@
 
 Two independent tools in one package:
 
-- **`argus` CLI** — 47 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
+- **`argus` CLI** — 50 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
 - **Argus Agent** — Real-time web dashboard with JFR streaming, flame graphs, and metric export
 
 ```bash
@@ -77,9 +77,13 @@ Diagnose any running JVM process directly from the terminal. No agent, no instru
 | `argus gclog <file>` | GC log analysis with pause distribution and tuning (GCEasy alternative) |
 | `argus flame <pid>` | One-shot flame graph — profiles, generates HTML, opens browser |
 | `argus suggest` | JVM flag optimization based on workload analysis |
+| `argus ci` | CI/CD health gate — exit codes + GitHub annotations |
+| `argus compare <pid1> <pid2>` | Side-by-side JVM comparison (live or baseline) |
+| `argus slowlog <pid>` | Real-time slow method detection via JFR streaming |
 | **Monitoring** | |
 | `argus top` | Real-time monitoring (agent required) |
-| `argus watch` | Real-time terminal dashboard (htop for JVM) |
+| `argus watch <pid>` | Real-time terminal dashboard (htop for JVM) |
+| `argus tui [pid]` | Interactive terminal UI — browse all commands (k9s-style) |
 | `argus init` | First-time setup (language selection) |
 
 ### `argus report` — Comprehensive Diagnostic
@@ -232,7 +236,7 @@ $ argus --lang=ko report 39113
 --version, -v             Show version
 ```
 
-> See [CLI Command Reference](docs/cli-commands.md) for all 47 commands with full output examples.
+> See [CLI Command Reference](docs/cli-commands.md) for all 50 commands with full output examples.
 
 ---
 
@@ -373,7 +377,7 @@ Argus adapts its capabilities based on the target JVM version at runtime:
 
 | Feature | Java 11+ | Java 17+ | Java 21+ |
 |---------|:--------:|:--------:|:--------:|
-| CLI (47 commands) | ✅ | ✅ | ✅ |
+| CLI (50 commands) | ✅ | ✅ | ✅ |
 | Dashboard & Web UI | — | ✅ | ✅ |
 | GC Analysis | CLI only | ✅ MXBean | ✅ JFR |
 | CPU Monitoring | CLI only | ✅ MXBean | ✅ JFR |
@@ -431,9 +435,37 @@ rm -rf ~/.argus
 | **argus-agent** | Java agent with JFR streaming engine |
 | **argus-server** | Netty HTTP/WS server, 10 analyzers, Prometheus + OTLP |
 | **argus-frontend** | Static dashboard with Chart.js and d3-flamegraph |
-| **argus-cli** | 47 diagnostic commands, auto source detection, i18n |
+| **argus-cli** | 50 diagnostic commands, auto source detection, i18n |
 | **argus-micrometer** | Micrometer MeterBinder exposing ~25 JVM metrics |
 | **argus-spring-boot-starter** | Spring Boot 3.2+ auto-configuration for Argus agent |
+
+## Docker
+
+```bash
+docker run --pid=host ghcr.io/rlaope/argus ps
+docker run --pid=host ghcr.io/rlaope/argus doctor
+docker run --pid=host ghcr.io/rlaope/argus watch
+```
+
+## CI/CD Integration
+
+Add JVM health checks to your GitHub Actions pipeline:
+
+```yaml
+- name: JVM Health Check
+  uses: rlaope/Argus/action@master
+  with:
+    command: ci
+    fail-on: critical
+    format: github-annotations
+```
+
+Or use `argus ci` directly:
+
+```bash
+argus ci --pid=auto --fail-on=critical --format=summary
+# Exit code: 0=pass, 1=warnings, 2=critical
+```
 
 ## Spring Boot Integration
 
