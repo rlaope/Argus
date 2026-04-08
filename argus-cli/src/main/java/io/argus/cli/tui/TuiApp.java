@@ -175,7 +175,8 @@ public final class TuiApp {
         }
     }
 
-    private void back() { switch(phase){ case OUT->{phase=Phase.CMD;oScr=0;} case CMD->{if(!sq.isEmpty()){sq="";filter();}else{phase=Phase.PS;psIdx=0;}} case PS->running=false; }}
+    private void back() { switch(phase){ case OUT->{stopExec();phase=Phase.CMD;oScr=0;} case CMD->{if(!sq.isEmpty()){sq="";filter();}else{phase=Phase.PS;psIdx=0;}} case PS->running=false; }}
+    private void stopExec() { if(execThread!=null&&execThread.isAlive()){execThread.interrupt();execRunning=false;} }
     private void dn() { switch(phase){ case PS->{if(psIdx<procs.size()-1)psIdx++;} case CMD->{int n=cIdx+1;while(n<fCmds.size()&&fCmds.get(n).h)n++;if(n<fCmds.size())cIdx=n;} case OUT->oScr++; }}
     private void up() { switch(phase){ case PS->{if(psIdx>0)psIdx--;} case CMD->{int p=cIdx-1;while(p>=0&&fCmds.get(p).h)p--;if(p>=0)cIdx=p;} case OUT->{if(oScr>0)oScr--;} }}
     private void enter() { switch(phase){
@@ -183,29 +184,29 @@ public final class TuiApp {
         case CMD->{if(cIdx<fCmds.size()&&!fCmds.get(cIdx).h)exec(fCmds.get(cIdx));}
         case OUT->phase=Phase.CMD;
     }}
+    private volatile Thread execThread;
+    private volatile ByteArrayOutputStream execCap;
+    private volatile boolean execRunning = false;
+
     private void exec(CE e) {
         if(e.c==null)return; outName=e.n;
-        PrintStream origOut=System.out, origErr=System.err;
-        var cap=new ByteArrayOutputStream();
-        var ps=new PrintStream(cap);
-        System.setOut(ps); System.setErr(ps);
+        execCap = new ByteArrayOutputStream();
+        var ps = new PrintStream(execCap, true); // auto-flush
+        execRunning = true;
+        output = "Running " + e.n + "...\n";
+        oScr = 0;
+        phase = Phase.OUT;
 
-        // Run with timeout — prevents hanging on long-running commands (profile, slowlog)
-        Thread cmdThread = new Thread(() -> {
-            try{e.c.execute(pid>0?new String[]{String.valueOf(pid)}:new String[0],config,registry,messages);}
-            catch(Exception ex){System.out.println("Error: "+ex.getMessage());}
+        // Run in background — output streams in real-time
+        PrintStream origOut = System.out, origErr = System.err;
+        execThread = new Thread(() -> {
+            System.setOut(ps); System.setErr(ps);
+            try { e.c.execute(pid>0?new String[]{String.valueOf(pid)}:new String[0],config,registry,messages); }
+            catch(Exception ex) { ps.println("Error: "+ex.getMessage()); }
+            finally { System.setOut(origOut); System.setErr(origErr); execRunning = false; }
         }, "argus-tui-exec");
-        cmdThread.setDaemon(true);
-        cmdThread.start();
-        try { cmdThread.join(30_000); } // 30s timeout
-        catch (InterruptedException ignored) {}
-        if (cmdThread.isAlive()) {
-            cmdThread.interrupt();
-            System.out.println("\n[Timed out after 30s — use CLI directly for long-running commands]");
-        }
-
-        System.setOut(origOut); System.setErr(origErr);
-        output=cap.toString();oScr=0;phase=Phase.OUT;
+        execThread.setDaemon(true);
+        execThread.start();
     }
     private void refreshPs() { ProcessProvider pp=registry.findProcessProvider(); if(pp!=null) procs=pp.listProcesses(); }
 
@@ -317,14 +318,22 @@ public final class TuiApp {
     }
 
     private void drawOUT(StringBuilder s, int W, int H, String ml) {
+        // Pull latest output from live capture if still running
+        if (execCap != null) output = execCap.toString();
+
+        String status = execRunning ? "  ◀ " + outName + "   pid:" + pid + "  ⟳ running..."
+                                    : "  ◀ " + outName + "   pid:" + pid + "  ✓ done";
+
         List<String> rows = new ArrayList<>();
         rows.add(topLine(W));
-        rows.add(colorRow(acc(), "  ◀ " + outName + "   pid:" + pid, W));
+        rows.add(colorRow(acc(), status, W));
         rows.add(midLine(W));
 
         int bodyH = H - rows.size() - 3;
         String[] lines = output.split("\n");
-        oScr = Math.max(0, Math.min(oScr, Math.max(0, lines.length-bodyH)));
+        // Auto-scroll to bottom while running
+        if (execRunning) oScr = Math.max(0, lines.length - bodyH);
+        oScr = Math.max(0, Math.min(oScr, Math.max(0, lines.length - bodyH)));
         for (int i = 0; i < bodyH; i++) {
             int li = i + oScr;
             if (li < lines.length) {
@@ -333,7 +342,8 @@ public final class TuiApp {
             } else rows.add(emptyRow(W));
         }
         rows.add(midLine(W));
-        rows.add(centerColorRow(DIM, "↑↓ scroll  esc/⏎/q back", W));
+        String hint = execRunning ? "esc stop+back  ↑↓ scroll" : "↑↓ scroll  esc/⏎/q back";
+        rows.add(centerColorRow(DIM, hint, W));
         rows.add(botLine(W));
 
         for (String r : rows) s.append(ml).append(r).append("\n");
