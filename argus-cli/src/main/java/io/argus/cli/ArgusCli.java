@@ -2,6 +2,7 @@ package io.argus.cli;
 
 import io.argus.cli.command.Command;
 import io.argus.cli.command.BuffersCommand;
+import io.argus.cli.command.CiCommand;
 import io.argus.cli.command.ClassStatCommand;
 import io.argus.cli.command.CompilerCommand;
 import io.argus.cli.command.CompilerQueueCommand;
@@ -140,6 +141,7 @@ public final class ArgusCli {
         register(commands, new DiffCommand());
         register(commands, new ReportCommand());
         register(commands, new DoctorCommand());
+        register(commands, new CiCommand());
         register(commands, new GcLogCommand());
         register(commands, new FlameCommand());
         register(commands, new SuggestCommand());
