@@ -127,29 +127,27 @@ public final class TuiApp {
             return;
         }
 
+        if (key == 27) {
+            // ESC — check for arrow key sequence first
+            int next = reader.read(50);
+            if (next == '[') {
+                int arrow = reader.read(50);
+                if (arrow == 'A') { moveUp(); return; }
+                if (arrow == 'B') { moveDown(); return; }
+            }
+            // Plain ESC — back from output or clear search
+            if (showOutput) showOutput = false;
+            else if (!searchQuery.isEmpty()) { searchQuery = ""; applyFilter(); }
+            return;
+        }
+
         switch (key) {
             case 'q', 'Q' -> running = false;
             case '/' -> { searching = true; searchQuery = ""; }
-            case 27 -> { // Escape — back from output
-                if (showOutput) showOutput = false;
-                else if (!searchQuery.isEmpty()) { searchQuery = ""; applyFilter(); }
-            }
-            case 'j', 66 -> moveDown(); // j or ↓ (66 = arrow down after ESC[)
-            case 'k', 65 -> moveUp();   // k or ↑
+            case 'j' -> moveDown();
+            case 'k' -> moveUp();
             case 10, 13 -> executeSelected(); // Enter
-            case 'p', 'P' -> {} // PID change — future
-            case '?' -> {} // Help — future
-            default -> {
-                // Handle arrow key sequences: ESC [ A/B
-                if (key == 27) {
-                    int next = reader.read(50);
-                    if (next == '[') {
-                        int arrow = reader.read(50);
-                        if (arrow == 'A') moveUp();
-                        else if (arrow == 'B') moveDown();
-                    }
-                }
-            }
+            default -> {}
         }
     }
 

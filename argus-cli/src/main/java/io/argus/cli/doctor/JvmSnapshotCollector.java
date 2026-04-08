@@ -13,19 +13,24 @@ import java.util.regex.Pattern;
  */
 public final class JvmSnapshotCollector {
 
+    private static final List<String> warnings = new ArrayList<>();
+
     /**
      * Collect snapshot — routes to local or remote based on PID.
      */
     public static JvmSnapshot collect(long pid) {
+        warnings.clear();
         if (pid <= 0 || pid == ProcessHandle.current().pid()) {
             return collectLocal();
         }
         return collectRemote(pid);
     }
 
-    /**
-     * Collect snapshot for the current JVM (in-process mode).
-     */
+    /** Get warnings from the last collection (e.g., jcmd failures). */
+    public static List<String> lastWarnings() {
+        return List.copyOf(warnings);
+    }
+
     @SuppressWarnings("deprecation")
     public static JvmSnapshot collectLocal() {
         MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
@@ -92,9 +97,11 @@ public final class JvmSnapshotCollector {
 
     /**
      * Collect snapshot for a remote JVM by PID using jcmd.
-     * Parses GC.heap_info, Thread.print, VM.version, VM.uptime, VM.flags.
+     * Errors are collected in warnings list instead of silently swallowed.
      */
     public static JvmSnapshot collectRemote(long pid) {
+        int failures = 0;
+
         // Heap via GC.heap_info
         long heapUsed = 0, heapMax = 0, heapCommitted = 0, nonHeapUsed = 0;
         Map<String, JvmSnapshot.PoolInfo> pools = new LinkedHashMap<>();
@@ -102,21 +109,39 @@ public final class JvmSnapshotCollector {
             String heapInfo = JcmdExecutor.execute(pid, "GC.heap_info");
             parseHeapInfo(heapInfo, pools);
             for (var p : pools.values()) {
-                if (p.type().equalsIgnoreCase("HEAP") || p.name().toLowerCase().contains("heap")) {
-                    heapUsed += p.used();
-                    if (p.max() > 0) heapMax = Math.max(heapMax, p.max());
-                }
+                heapUsed += p.used();
+                if (p.max() > 0) heapMax = Math.max(heapMax, p.max());
             }
-            // Fallback: sum all pool used values
-            if (heapUsed == 0) {
-                for (var p : pools.values()) heapUsed += p.used();
-            }
-        } catch (RuntimeException ignored) {}
+        } catch (RuntimeException e) {
+            warnings.add("GC.heap_info failed: " + e.getMessage());
+            failures++;
+        }
 
-        // GC via jcmd (parse from VM.flags to detect GC, count from GC.heap_info not available — use defaults)
+        // GC stats via jcmd — parse collector info
         List<JvmSnapshot.GcInfo> gcInfos = new ArrayList<>();
         long totalGcCount = 0, totalGcTime = 0;
         String gcAlgorithm = "unknown";
+        try {
+            // Use VM.info which contains GC collector stats
+            String vmInfo = JcmdExecutor.execute(pid, "VM.info");
+            for (String line : vmInfo.split("\n")) {
+                String t = line.trim();
+                // Parse: "garbage-first heap" or "PS Young Generation" etc.
+                if (t.contains("invocations") && t.contains("ms")) {
+                    // Try to parse GC invocation lines from VM.info
+                    var matcher = Pattern.compile("(\\d+)\\s+invocations.*?(\\d+)\\s*ms").matcher(t);
+                    if (matcher.find()) {
+                        long count = Long.parseLong(matcher.group(1));
+                        long time = Long.parseLong(matcher.group(2));
+                        totalGcCount += count;
+                        totalGcTime += time;
+                    }
+                }
+            }
+        } catch (RuntimeException e) {
+            warnings.add("VM.info failed (GC stats unavailable): " + e.getMessage());
+            failures++;
+        }
 
         // VM version
         String vmName = "", vmVersion = "";
@@ -127,7 +152,10 @@ public final class JvmSnapshotCollector {
                 if (vmName.isEmpty() && !t.isEmpty()) vmName = t;
                 else if (vmVersion.isEmpty() && t.contains("build")) vmVersion = t;
             }
-        } catch (RuntimeException ignored) {}
+        } catch (RuntimeException e) {
+            warnings.add("VM.version failed: " + e.getMessage());
+            failures++;
+        }
 
         // VM uptime
         long uptimeMs = 0;
@@ -141,7 +169,10 @@ public final class JvmSnapshotCollector {
                     break;
                 } catch (NumberFormatException ignored2) {}
             }
-        } catch (RuntimeException ignored) {}
+        } catch (RuntimeException e) {
+            warnings.add("VM.uptime failed: " + e.getMessage());
+            failures++;
+        }
 
         // VM flags — detect GC algorithm
         List<String> vmFlags = new ArrayList<>();
@@ -159,7 +190,10 @@ public final class JvmSnapshotCollector {
                     }
                 }
             }
-        } catch (RuntimeException ignored) {}
+        } catch (RuntimeException e) {
+            warnings.add("VM.flags failed: " + e.getMessage());
+            failures++;
+        }
 
         // Threads via Thread.print
         int threadCount = 0, daemonCount = 0;
@@ -177,45 +211,41 @@ public final class JvmSnapshotCollector {
                     String state = t.split(":\\s*")[1].split("\\s+")[0];
                     threadStates.merge(state, 1, Integer::sum);
                 }
-                if (t.contains("Found one Java-level deadlock") || t.contains("Found") && t.contains("deadlock")) {
+                if (t.contains("Found") && t.contains("deadlock")) {
                     deadlockCount++;
                 }
             }
-        } catch (RuntimeException ignored) {}
+        } catch (RuntimeException e) {
+            warnings.add("Thread.print failed: " + e.getMessage());
+            failures++;
+        }
 
-        // Class loading via jcmd VM.classloader_stats
-        int loadedClasses = 0;
-        long totalLoaded = 0, unloaded = 0;
-        try {
-            String classOut = JcmdExecutor.execute(pid, "VM.classloaders");
-            // Count lines with class counts
-            for (String line : classOut.split("\n")) {
-                if (line.trim().matches(".*\\d+.*classes.*")) loadedClasses++;
+        // Print warnings to stderr
+        if (failures > 0) {
+            System.err.println("[Argus] WARNING: " + failures + " jcmd call(s) failed for PID " + pid + ":");
+            for (String w : warnings) {
+                System.err.println("  → " + w);
             }
-        } catch (RuntimeException ignored) {}
+            if (failures >= 4) {
+                System.err.println("[Argus] Most data unavailable. Are you running as the same user as PID " + pid + "?");
+                System.err.println("[Argus] Try: sudo argus doctor " + pid);
+            }
+        }
 
         return new JvmSnapshot(
                 heapUsed, heapMax, heapCommitted, nonHeapUsed,
                 Map.copyOf(pools),
                 List.copyOf(gcInfos), totalGcCount, totalGcTime, uptimeMs,
                 -1, -1, Runtime.getRuntime().availableProcessors(),
-                threadCount, daemonCount, threadCount, // peak = current for remote
+                threadCount, daemonCount, threadCount,
                 Map.copyOf(threadStates), deadlockCount,
-                List.of(), // buffers not available via jcmd
-                loadedClasses, totalLoaded, unloaded,
-                0, // finalizer not available via jcmd
+                List.of(),
+                0, 0, 0, 0,
                 vmName, vmVersion, gcAlgorithm,
                 List.copyOf(vmFlags)
         );
     }
 
-    /**
-     * Parse GC.heap_info output into pool map.
-     * Format varies by GC but generally:
-     *  garbage-first heap   total 262144K, used 45678K [...]
-     *   region size 1024K, 10 young, 2 survivors
-     *  Metaspace       used 34567K, ...
-     */
     private static void parseHeapInfo(String output, Map<String, JvmSnapshot.PoolInfo> pools) {
         if (output == null) return;
         Pattern sizePattern = Pattern.compile("(\\w[\\w\\s-]*)\\s+(?:total\\s+)?(\\d+)K.*used\\s+(\\d+)K");
