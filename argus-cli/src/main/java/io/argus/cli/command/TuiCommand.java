@@ -10,9 +10,9 @@ import java.util.Map;
 
 /**
  * Launches the k9s-style interactive terminal UI.
- * Browse all commands by category, see descriptions, execute with Enter.
+ * Shows JVM process list first, then command list after selecting a process.
  *
- * Usage: argus tui [pid]
+ * Usage: argus tui
  */
 public final class TuiCommand implements Command {
 
@@ -32,14 +32,7 @@ public final class TuiCommand implements Command {
 
     @Override
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
-        long pid = 0;
-        for (String arg : args) {
-            if (!arg.startsWith("--")) {
-                try { pid = Long.parseLong(arg); } catch (NumberFormatException ignored) {}
-            }
-        }
-
-        TuiApp app = new TuiApp(allCommands, config, registry, messages, pid);
+        TuiApp app = new TuiApp(allCommands, config, registry, messages);
         app.run();
     }
 }
