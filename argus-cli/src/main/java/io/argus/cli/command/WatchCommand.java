@@ -46,16 +46,24 @@ public final class WatchCommand implements Command {
             }
         }
 
-        // Set terminal to non-canonical mode for key detection
+        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+
+        // Register shutdown hook to restore terminal on kill -9 / Ctrl+C
+        Thread shutdownHook = new Thread(() -> {
+            System.out.print(SHOW_CURSOR);
+            if (!isWindows) setRawMode(false);
+            System.out.println();
+        }, "argus-watch-cleanup");
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
         System.out.print(HIDE_CURSOR);
 
-        // Track history for sparklines
         double[] heapHistory = new double[30];
         double[] cpuHistory = new double[30];
         int historyIdx = 0;
 
         try {
-            setRawMode(true);
+            if (!isWindows) setRawMode(true);
 
             while (true) {
                 JvmSnapshot s = JvmSnapshotCollector.collectLocal();
@@ -91,8 +99,10 @@ public final class WatchCommand implements Command {
             // Normal exit
         } finally {
             System.out.print(SHOW_CURSOR);
-            setRawMode(false);
+            if (!isWindows) setRawMode(false);
             System.out.println();
+            try { Runtime.getRuntime().removeShutdownHook(shutdownHook); }
+            catch (IllegalStateException ignored) {} // JVM already shutting down
         }
     }
 
