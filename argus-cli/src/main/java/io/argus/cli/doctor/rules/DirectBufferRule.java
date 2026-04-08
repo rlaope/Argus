@@ -16,11 +16,13 @@ public final class DirectBufferRule implements HealthRule {
             if (!buf.name().toLowerCase().contains("direct")) continue;
             if (buf.capacity() <= 0) continue;
 
-            // Check absolute size (> 500MB is concerning)
+            // Check relative to heap (>50% of heap is concerning) and absolute (>200MB minimum)
             long mb = buf.used() / (1024 * 1024);
-            if (mb < 200) return List.of();
+            long heapMB = s.heapMax() > 0 ? s.heapMax() / (1024 * 1024) : 1;
+            double ratioToHeap = (double) mb / heapMB * 100;
+            if (mb < 200 && ratioToHeap < 50) return List.of();
 
-            Severity sev = mb >= 800 ? Severity.CRITICAL : Severity.WARNING;
+            Severity sev = (mb >= 800 || ratioToHeap >= 100) ? Severity.CRITICAL : Severity.WARNING;
             return List.of(Finding.builder(sev, "Memory",
                             String.format("Direct buffer pool: %dMB used (%d buffers)",
                                     mb, buf.count()))

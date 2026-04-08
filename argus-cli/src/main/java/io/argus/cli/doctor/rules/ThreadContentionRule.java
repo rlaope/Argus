@@ -25,12 +25,14 @@ public final class ThreadContentionRule implements HealthRule {
                     .build());
         }
 
-        // Blocked threads
+        // Blocked threads — use ratio to avoid false positives on large apps
         int blocked = s.blockedThreads();
-        if (blocked >= 5) {
-            Severity sev = blocked >= 20 ? Severity.CRITICAL : Severity.WARNING;
+        int total = s.threadCount();
+        double blockedRatio = total > 0 ? (double) blocked / total * 100 : 0;
+        if (blocked >= 3 && blockedRatio >= 5) {
+            Severity sev = blockedRatio >= 15 ? Severity.CRITICAL : Severity.WARNING;
             findings.add(Finding.builder(sev, "Threads",
-                            blocked + " threads in BLOCKED state")
+                            String.format("%d threads BLOCKED (%.0f%% of %d total)", blocked, blockedRatio, total))
                     .detail("Threads waiting to acquire object monitors. High contention reduces throughput "
                             + "and increases latency.")
                     .recommend("Run: argus threaddump <pid> to identify the contended monitor")

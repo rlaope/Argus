@@ -18,6 +18,9 @@ public final class GcOverheadRule implements HealthRule {
 
     @Override
     public List<Finding> evaluate(JvmSnapshot s) {
+        // Skip if uptime < 60s — GC overhead is unreliable during JVM warmup
+        if (s.uptimeMs() < 60_000) return List.of();
+
         double overhead = s.gcOverheadPercent();
 
         if (overhead < 5) return List.of();
