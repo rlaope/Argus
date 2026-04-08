@@ -24,15 +24,15 @@ public final class GcLogAnalyzer {
         double durationSec = Math.max(lastTs - firstTs, 0.001);
 
         // Pause stats
-        long totalPauseMs = pauseEvents.stream().mapToLong(GcEvent::pauseMs).sum();
-        long maxPauseMs = pauseEvents.stream().mapToLong(GcEvent::pauseMs).max().orElse(0);
+        long totalPauseMs = (long) pauseEvents.stream().mapToDouble(GcEvent::pauseMs).sum();
+        long maxPauseMs = (long) pauseEvents.stream().mapToDouble(GcEvent::pauseMs).max().orElse(0);
         long avgPauseMs = pauseEvents.isEmpty() ? 0 : totalPauseMs / pauseEvents.size();
 
         // Percentiles
-        long[] sortedPauses = pauseEvents.stream().mapToLong(GcEvent::pauseMs).sorted().toArray();
-        long p50 = percentile(sortedPauses, 50);
-        long p95 = percentile(sortedPauses, 95);
-        long p99 = percentile(sortedPauses, 99);
+        double[] sortedPauses = pauseEvents.stream().mapToDouble(GcEvent::pauseMs).sorted().toArray();
+        long p50 = (long) percentile(sortedPauses, 50);
+        long p95 = (long) percentile(sortedPauses, 95);
+        long p99 = (long) percentile(sortedPauses, 99);
 
         // Throughput
         double throughput = durationSec > 0
@@ -54,8 +54,8 @@ public final class GcLogAnalyzer {
                 .sorted((a, b) -> Integer.compare(b.getValue().size(), a.getValue().size()))
                 .forEach(entry -> {
                     List<GcEvent> ces = entry.getValue();
-                    long total = ces.stream().mapToLong(GcEvent::pauseMs).sum();
-                    long max = ces.stream().mapToLong(GcEvent::pauseMs).max().orElse(0);
+                    long total = (long) ces.stream().mapToDouble(GcEvent::pauseMs).sum();
+                    long max = (long) ces.stream().mapToDouble(GcEvent::pauseMs).max().orElse(0);
                     long avg = total / ces.size();
                     causeStats.put(entry.getKey(), new GcLogAnalysis.CauseStats(
                             entry.getKey(), ces.size(), total, max, avg));
@@ -80,7 +80,7 @@ public final class GcLogAnalyzer {
 
         // Full GC detected
         if (!fullGcs.isEmpty()) {
-            long avgFullMs = fullGcs.stream().mapToLong(GcEvent::pauseMs).sum() / fullGcs.size();
+            long avgFullMs = (long) (fullGcs.stream().mapToDouble(GcEvent::pauseMs).sum() / fullGcs.size());
             recs.add(new GcLogAnalysis.TuningRecommendation("CRITICAL",
                     String.format("%d Full GC events detected (avg %dms)", fullGcs.size(), avgFullMs),
                     "Full GC stops the entire application. Increase heap or tune promotion.",
@@ -139,7 +139,7 @@ public final class GcLogAnalyzer {
         return recs;
     }
 
-    private static long percentile(long[] sorted, int pct) {
+    private static double percentile(double[] sorted, int pct) {
         if (sorted.length == 0) return 0;
         int idx = (int) Math.ceil(pct / 100.0 * sorted.length) - 1;
         return sorted[Math.max(0, Math.min(idx, sorted.length - 1))];
