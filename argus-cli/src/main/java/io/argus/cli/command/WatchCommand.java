@@ -37,14 +37,19 @@ public final class WatchCommand implements Command {
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
         int interval = DEFAULT_INTERVAL;
         boolean useColor = config.color();
+        long pid = 0;
 
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("--interval=")) {
                 try { interval = Integer.parseInt(args[i].substring(11)); } catch (NumberFormatException ignored) {}
             } else if (args[i].equals("--interval") && i + 1 < args.length) {
                 try { interval = Integer.parseInt(args[++i]); } catch (NumberFormatException ignored) {}
+            } else if (!args[i].startsWith("--")) {
+                try { pid = Long.parseLong(args[i]); } catch (NumberFormatException ignored) {}
             }
         }
+
+        final long targetPid = pid;
 
         // Set terminal to non-canonical mode for key detection
         System.out.print(HIDE_CURSOR);
@@ -58,7 +63,7 @@ public final class WatchCommand implements Command {
             setRawMode(true);
 
             while (true) {
-                JvmSnapshot s = JvmSnapshotCollector.collectLocal();
+                JvmSnapshot s = JvmSnapshotCollector.collect(targetPid);
 
                 // Update history (circular buffer)
                 int writePos = historyIdx % 30;
