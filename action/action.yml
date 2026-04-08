@@ -1,0 +1,86 @@
+name: 'Argus JVM Health Check'
+description: 'Run Argus doctor/ci against your JVM in CI and fail on health issues'
+author: 'rlaope'
+
+branding:
+  icon: 'activity'
+  color: 'blue'
+
+inputs:
+  command:
+    description: 'Argus command to run (doctor, ci, gc, threads, etc.)'
+    required: false
+    default: 'ci'
+  pid:
+    description: 'Target JVM PID (auto = auto-detect first JVM process)'
+    required: false
+    default: 'auto'
+  fail-on:
+    description: 'Fail threshold: critical or warning'
+    required: false
+    default: 'critical'
+  format:
+    description: 'Output format: summary, github-annotations, json, junit'
+    required: false
+    default: 'github-annotations'
+  args:
+    description: 'Additional arguments to pass to the command'
+    required: false
+    default: ''
+  version:
+    description: 'Argus version to install'
+    required: false
+    default: 'latest'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Java 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Install Argus
+      shell: bash
+      run: |
+        curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
+        echo "$HOME/.argus/bin" >> $GITHUB_PATH
+
+    - name: Detect PID
+      id: pid
+      shell: bash
+      run: |
+        if [ "${{ inputs.pid }}" = "auto" ]; then
+          PID=$(jcmd -l | grep -v jcmd | grep -v Gradle | head -1 | awk '{print $1}')
+          if [ -z "$PID" ]; then
+            echo "::warning::No JVM process found to diagnose"
+            echo "pid=0" >> $GITHUB_OUTPUT
+          else
+            echo "pid=$PID" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "pid=${{ inputs.pid }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Run Argus
+      shell: bash
+      run: |
+        if [ "${{ steps.pid.outputs.pid }}" = "0" ]; then
+          echo "::notice::Skipping — no JVM process found"
+          exit 0
+        fi
+
+        CMD="${{ inputs.command }}"
+        PID="${{ steps.pid.outputs.pid }}"
+
+        if [ "$CMD" = "ci" ]; then
+          argus ci "$PID" \
+            --fail-on=${{ inputs.fail-on }} \
+            --format=${{ inputs.format }} \
+            ${{ inputs.args }}
+        elif [ "$CMD" = "doctor" ]; then
+          argus doctor "$PID" ${{ inputs.args }}
+        else
+          argus "$CMD" "$PID" ${{ inputs.args }}
+        fi
