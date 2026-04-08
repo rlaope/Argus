@@ -485,6 +485,82 @@ Event Broadcaster Thread
 - **Flame graph**: 60-second auto-reset window for fresh data
 - **CLI**: Separate module polling via HTTP (not embedded in agent)
 
+## v1.0.0 Architecture Additions
+
+### DiagnosticCommand SPI (argus-core)
+
+Pluggable command system shared between CLI and server:
+
+```
+argus-core/command/
+├── DiagnosticCommand.java    — interface: id(), group(), execute(ctx)
+├── CommandContext.java       — sealed: InProcess | External
+├── CommandGroup.java         — enum: PROCESS, MEMORY, THREADS, RUNTIME, PROFILING, MONITORING
+└── CommandRegistry.java      — ServiceLoader auto-discovery
+```
+
+Server commands register via `META-INF/services/io.argus.core.command.DiagnosticCommand`. Adding a new server command = 1 class + 1 line.
+
+### Doctor Engine (argus-cli)
+
+Health diagnosis with pluggable rules:
+
+```
+argus-cli/doctor/
+├── DoctorEngine.java         — runs all rules, sorts by severity
+├── JvmSnapshot.java          — immutable snapshot of all JVM metrics
+├── JvmSnapshotCollector.java — local (MXBean) or remote (jcmd) collection
+├── HealthRule.java           — functional interface
+├── Finding.java              — severity + title + recommendations + flags
+├── Severity.java             — CRITICAL, WARNING, INFO
+└── rules/
+    ├── GcOverheadRule.java        — skips uptime < 60s
+    ├── HeapPressureRule.java      — old gen cross-check
+    ├── ThreadContentionRule.java  — ratio-based (blocked/total %)
+    ├── DirectBufferRule.java      — heap-relative threshold
+    ├── CpuUsageRule.java
+    ├── MetaspaceRule.java
+    ├── FinalizerQueueRule.java
+    └── GcAlgorithmRule.java
+```
+
+### GC Log Analyzer (argus-cli)
+
+```
+argus-cli/gclog/
+├── GcLogParser.java    — streaming BufferedReader, G1/ZGC/Shenandoah/Legacy
+├── GcEvent.java        — double pauseMs (sub-ms precision)
+└── GcLogAnalyzer.java  — percentiles, throughput, 7 tuning rules
+```
+
+### TUI (argus-cli)
+
+JLine3-based full-screen interactive UI:
+
+```
+argus-cli/tui/
+└── TuiApp.java — 3-phase flow:
+    Phase 1: PS (process select + logo)
+    Phase 2: CMD (command list, grouped by CommandGroup)
+    Phase 3: OUT (command output with scroll)
+
+Features: alt screen buffer, max 120 width centered,
+          theme cycling (skyblue/green/gray),
+          language select overlay, stderr capture
+```
+
+### HTTP Route Table (argus-server)
+
+```
+argus-server/handler/
+└── RouteTable.java — declarative route registration
+    .exact("/health", handler)
+    .prefix("/api/", handler)
+    .build()
+```
+
+Replaced 150-line if/else chain in ArgusChannelHandler.
+
 ## Next Steps
 
 - [Getting Started](getting-started.md) - Installation guide

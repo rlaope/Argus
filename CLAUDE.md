@@ -1,54 +1,39 @@
 # Argus Project Guidelines
 
+## Quick Reference
+- **Version**: `gradle.properties` → `argusVersion` (single source of truth, read by JAR manifest)
+- **Java**: 21 required (bytecode target). Diagnoses any JVM 11+
+- **Build**: `./gradlew :argus-cli:fatJar`
+- **Test**: `./gradlew :argus-cli:test` (125+ tests)
+- **Install locally**: `cp argus-cli/build/libs/argus-cli-*-all.jar ~/.argus/argus-cli.jar`
+
 ## Version Management
-- **Single source of truth**: `gradle.properties` → `argusVersion=X.Y.Z`
-- After ANY version bump, run: `grep -rn '0\.\d\+\.\d\+' --include='*.md' .` to find stale references
-- **Version reference locations** (ALL must be updated on release):
-  - `gradle.properties` — canonical version
-  - `README.md` — banner text, Maven/Gradle dependency snippets
-  - `docs/getting-started.md` — download URLs, JAR paths, CLI examples
-  - `docs/usage.md` — Spring Boot starter version
-  - `site/index.html` — if version is shown on docs site
-  - `.github/ISSUE_TEMPLATE/*.md` — example version placeholders
-- **Release checklist**: bump `gradle.properties` → `./gradlew publishToMavenLocal` → grep for old version → update all docs → tag
+After ANY version bump: `grep -rn 'OLD_VERSION' --include='*.md' --include='*.html' .`
 
-## Build & Test
-- Java 21 (no --enable-preview needed since v0.8.0)
-- Build: `./gradlew :argus-cli:build`
-- Fat JAR: `./gradlew :argus-cli:fatJar`
-- Run: `java -jar argus-cli/build/libs/argus-cli-*-all.jar <command>`
-- Test with real JVM: use `argus ps` to find a PID, then run commands against it
-- Spring Boot starter test: `./gradlew publishToMavenLocal` → separate project with `mavenLocal()` dependency
+Update locations: `gradle.properties`, `README.md`, `docs/getting-started.md`, `docs/usage.md`, `site/index.html`, `install.sh`
 
-## Adding a New CLI Command (Checklist)
-Every new command MUST include ALL of the following:
-1. **Result model** — `argus-cli/src/main/java/io/argus/cli/model/<Name>Result.java`
-2. **Provider interface** — `argus-cli/src/main/java/io/argus/cli/provider/<Name>Provider.java`
-3. **JDK implementation** — `argus-cli/src/main/java/io/argus/cli/provider/jdk/Jdk<Name>Provider.java`
-4. **Command class** — `argus-cli/src/main/java/io/argus/cli/command/<Name>Command.java`
-5. **Register in ArgusCli.java** — import + `register(commands, new <Name>Command())`
-6. **Register in ProviderRegistry.java** — provider list + finder method + JDK registration
-7. **i18n messages** — ALL 4 property files: `messages_en.properties`, `messages_ko.properties`, `messages_ja.properties`, `messages_zh.properties`
-8. **Shell completions** — `completions/argus.bash` and `completions/argus.zsh`
-9. **Help text** — Add to `printUsage()` in ArgusCli.java
-10. **Unit tests** — Parser test in `argus-cli/src/test/java/io/argus/cli/provider/jdk/`
-11. **Documentation** — Update `README.md` (command table + count) and `docs/cli-commands.md`
-12. **Real JVM test** — Build fat JAR and test against a live JVM process
-13. **Sync verification** — After all changes, verify these 4 sources are in sync:
-    - CLI help output (`argus` with no args) — all commands listed
-    - `README.md` — command table and count updated
-    - `docs/cli-commands.md` — command reference and count updated
-    - `completions/argus.bash` + `argus.zsh` — command names included
-    - `install.sh` — if install logic references specific commands, update it too
+## Adding a New CLI Command
+1. Command class → `argus-cli/.../command/<Name>Command.java` (implements `Command`, override `group()`)
+2. Register in `ArgusCli.java` → `register(commands, new <Name>Command())`
+3. i18n → `cmd.<name>.desc=...` in all 4 `messages_*.properties`
+4. Completions → `completions/argus.bash`, `.zsh`, `.fish`, `.ps1`
+5. Test + docs update
+
+For commands with provider pattern (jcmd-based): add Result model, Provider interface, JdkProvider, register in ProviderRegistry.
+
+For SPI server commands: add `DiagnosticCommand` impl in `argus-server/.../impl/`, register in `META-INF/services`.
+
+See [Architecture Guide](docs/architecture.md) for full module structure and code patterns.
 
 ## Commit Convention
-- `feat:` for new features, `fix:` for bug fixes, `docs:` for documentation
+- `feat:` / `fix:` / `docs:` / `refactor:` / `test:`
 - Always use `-s` flag for DCO sign-off
 - Do NOT include `Co-Authored-By: Claude` line
 
-## Code Patterns
-- Commands implement `Command` interface with `name()`, `description()`, `execute()`
-- All commands support `--format=json` and `--source=auto|agent|jdk`
-- Use `RichRenderer` for box drawing, progress bars, formatting
-- Use `AnsiStyle` for colors (respect `useColor` flag)
-- Result models are immutable final classes with accessor methods
+## Key Architecture Decisions
+- **DiagnosticCommand SPI** — `argus-core` shared interface, ServiceLoader auto-discovery
+- **CommandGroup** — shared enum for CLI help categorization + server API grouping
+- **JvmSnapshotCollector** — local (MXBean) vs remote (jcmd parsing), routes by PID
+- **Doctor rules** — pluggable `HealthRule` interface, each rule independent
+- **TUI** — JLine3 + alt screen buffer, 3-phase flow (PS → CMD → OUT)
+- **VERSION** — read from JAR manifest `Implementation-Version` (never hardcode)
