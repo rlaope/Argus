@@ -7,12 +7,12 @@ public final class GcEvent {
     private final double timestampSec;
     private final String type;         // "Young", "Mixed", "Full", "Concurrent"
     private final String cause;        // "G1 Evacuation Pause", "Metadata GC Threshold", etc.
-    private final long pauseMs;        // STW pause duration in milliseconds
+    private final double pauseMs;      // STW pause duration in milliseconds (sub-ms precision)
     private final long heapBeforeKB;
     private final long heapAfterKB;
     private final long heapTotalKB;
 
-    public GcEvent(double timestampSec, String type, String cause, long pauseMs,
+    public GcEvent(double timestampSec, String type, String cause, double pauseMs,
                    long heapBeforeKB, long heapAfterKB, long heapTotalKB) {
         this.timestampSec = timestampSec;
         this.type = type;
@@ -26,7 +26,7 @@ public final class GcEvent {
     public double timestampSec() { return timestampSec; }
     public String type() { return type; }
     public String cause() { return cause; }
-    public long pauseMs() { return pauseMs; }
+    public double pauseMs() { return pauseMs; }
     public long heapBeforeKB() { return heapBeforeKB; }
     public long heapAfterKB() { return heapAfterKB; }
     public long heapTotalKB() { return heapTotalKB; }
