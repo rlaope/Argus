@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 47 Argus CLI commands with usage examples and actual output.
+Complete reference for all 50 Argus CLI commands with usage examples and actual output.
 
 ## Global Options
 
