@@ -102,14 +102,15 @@ public final class TuiApp {
     }
 
     public void run() {
+        // Pre-load processes before JLine init (saves ~1s)
+        refreshPs();
+
         System.out.print("\033[?1049h\033[?25l\033[H\033[2J");
         for (String l : LOGO) System.out.println("\033[36m  " + l + R);
-        System.out.print("\n  " + DIM + "Initializing..." + R);
         System.out.flush();
 
         try (Terminal t = TerminalBuilder.builder().system(true).jansi(true).build()) {
             t.enterRawMode(); NonBlockingReader rd = t.reader(); PrintWriter w = t.writer();
-            refreshPs();
             while (running) {
                 int H = Math.max(t.getHeight(), 20);
                 int TW = Math.max(t.getWidth(), 40);
@@ -184,14 +185,26 @@ public final class TuiApp {
     }}
     private void exec(CE e) {
         if(e.c==null)return; outName=e.n;
-        // Capture both stdout and stderr to prevent TUI corruption
         PrintStream origOut=System.out, origErr=System.err;
         var cap=new ByteArrayOutputStream();
         var ps=new PrintStream(cap);
         System.setOut(ps); System.setErr(ps);
-        try{e.c.execute(pid>0?new String[]{String.valueOf(pid)}:new String[0],config,registry,messages);}
-        catch(Exception ex){System.out.println("Error: "+ex.getMessage());}
-        finally{System.setOut(origOut);System.setErr(origErr);}
+
+        // Run with timeout — prevents hanging on long-running commands (profile, slowlog)
+        Thread cmdThread = new Thread(() -> {
+            try{e.c.execute(pid>0?new String[]{String.valueOf(pid)}:new String[0],config,registry,messages);}
+            catch(Exception ex){System.out.println("Error: "+ex.getMessage());}
+        }, "argus-tui-exec");
+        cmdThread.setDaemon(true);
+        cmdThread.start();
+        try { cmdThread.join(30_000); } // 30s timeout
+        catch (InterruptedException ignored) {}
+        if (cmdThread.isAlive()) {
+            cmdThread.interrupt();
+            System.out.println("\n[Timed out after 30s — use CLI directly for long-running commands]");
+        }
+
+        System.setOut(origOut); System.setErr(origErr);
         output=cap.toString();oScr=0;phase=Phase.OUT;
     }
     private void refreshPs() { ProcessProvider pp=registry.findProcessProvider(); if(pp!=null) procs=pp.listProcesses(); }
