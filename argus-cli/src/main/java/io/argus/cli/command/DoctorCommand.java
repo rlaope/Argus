@@ -3,9 +3,15 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.doctor.*;
+import io.argus.cli.export.HtmlExporter;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import io.argus.core.command.CommandGroup;
 
 import java.util.List;
@@ -38,17 +44,38 @@ public final class DoctorCommand implements Command {
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
+        String exportHtml = null;
 
-        // Collect snapshot (currently in-process; future: remote via PID)
+        for (String arg : args) {
+            if (arg.startsWith("--export=")) exportHtml = arg.substring(9);
+            if (arg.equals("--format=json")) json = true;
+        }
+
         JvmSnapshot snapshot = JvmSnapshotCollector.collectLocal();
-
-        // Run all health rules
         List<Finding> findings = DoctorEngine.diagnose(snapshot);
         List<String> suggestedFlags = DoctorEngine.collectSuggestedFlags(findings);
         int exitCode = DoctorEngine.exitCode(findings);
 
         if (json) {
             printJson(findings, suggestedFlags, snapshot, exitCode);
+            return;
+        }
+
+        if (exportHtml != null) {
+            // Capture output to string, convert to HTML
+            PrintStream original = System.out;
+            ByteArrayOutputStream capture = new ByteArrayOutputStream();
+            System.setOut(new PrintStream(capture));
+            printRich(findings, suggestedFlags, snapshot, true, exitCode);
+            System.setOut(original);
+            String html = HtmlExporter.toHtml(capture.toString(), "Argus Doctor Report");
+            try {
+                Path outPath = Path.of(exportHtml.equals("html") ? "argus-doctor.html" : exportHtml);
+                Files.writeString(outPath, html);
+                System.out.println("Exported to: " + outPath.toAbsolutePath());
+            } catch (Exception e) {
+                System.err.println("Export failed: " + e.getMessage());
+            }
             return;
         }
 

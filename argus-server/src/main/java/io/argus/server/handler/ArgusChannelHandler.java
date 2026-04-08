@@ -173,6 +173,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
                 .prefix("/flame-graph", (ctx, req, uri) -> handleFlameGraph(ctx, req, uri))
                 .prefix("/export", (ctx, req, uri) -> handleExport(ctx, req, uri))
                 .prefix("/api/exec", (ctx, req, uri) -> handleExecCommand(ctx, req, uri))
+                .prefix("/api/profile", (ctx, req, uri) -> handleProfileRequest(ctx, req, uri))
                 .build();
     }
 
@@ -184,6 +185,67 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         } else {
             HttpResponseHelper.sendNotFound(ctx, request);
         }
+    }
+
+    /**
+     * On-demand profiling endpoint for the dashboard.
+     * GET /api/profile?duration=10&type=cpu
+     * Returns JSON with status and flame graph path when complete.
+     */
+    private void handleProfileRequest(ChannelHandlerContext ctx, FullHttpRequest request, String uri) {
+        // Parse query params
+        int duration = 10;
+        String type = "cpu";
+        String query = uri.contains("?") ? uri.substring(uri.indexOf('?') + 1) : "";
+        for (String param : query.split("&")) {
+            String[] kv = param.split("=", 2);
+            if (kv.length == 2) {
+                if ("duration".equals(kv[0])) {
+                    try { duration = Integer.parseInt(kv[1]); } catch (NumberFormatException ignored) {}
+                } else if ("type".equals(kv[0])) {
+                    type = kv[1];
+                }
+            }
+        }
+        duration = Math.max(1, Math.min(duration, 120)); // clamp 1-120s
+
+        // Run profiling asynchronously
+        final int dur = duration;
+        final String pType = type;
+        Thread.ofPlatform().name("argus-profile").daemon(true).start(() -> {
+            try {
+                long pid = ProcessHandle.current().pid();
+                String tmpDir = System.getProperty("java.io.tmpdir");
+                String outFile = tmpDir + "/argus-profile-" + pid + ".html";
+
+                // Use jcmd JFR for basic profiling or delegate to async-profiler if available
+                String jcmd = System.getProperty("java.home") + "/bin/jcmd";
+                String jfrFile = tmpDir + "/argus-profile-" + pid + ".jfr";
+
+                // Start JFR recording
+                new ProcessBuilder(jcmd, String.valueOf(pid), "JFR.start",
+                        "name=argus-profile", "duration=" + dur + "s",
+                        "settings=profile", "filename=" + jfrFile)
+                        .redirectErrorStream(true).start().waitFor();
+
+                // Wait for duration + buffer
+                Thread.sleep((dur + 2) * 1000L);
+
+                String json = "{\"status\":\"complete\""
+                        + ",\"type\":\"" + pType + "\""
+                        + ",\"duration\":" + dur
+                        + ",\"jfrFile\":\"" + escapeJson(jfrFile) + "\""
+                        + "}";
+                HttpResponseHelper.sendJson(ctx, request, json);
+            } catch (Exception e) {
+                String errJson = "{\"status\":\"error\",\"message\":\"" + escapeJson(e.getMessage()) + "\"}";
+                HttpResponseHelper.sendJson(ctx, request, errJson);
+            }
+        });
+
+        // Immediate response that profiling has started
+        String startJson = "{\"status\":\"started\",\"type\":\"" + pType + "\",\"duration\":" + dur + "}";
+        HttpResponseHelper.sendJson(ctx, request, startJson);
     }
 
     @Override
