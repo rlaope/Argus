@@ -2,10 +2,14 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.export.HtmlExporter;
 import io.argus.cli.gclog.*;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import io.argus.core.command.CommandGroup;
 
 import java.io.IOException;
@@ -48,9 +52,11 @@ public final class GcLogCommand implements Command {
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
         boolean flagsOnly = false;
+        String exportHtml = null;
         for (int i = 1; i < args.length; i++) {
             if (args[i].equals("--format=json")) json = true;
             if (args[i].equals("--suggest-flags")) flagsOnly = true;
+            if (args[i].startsWith("--export=")) exportHtml = args[i].substring(9);
         }
 
         List<GcEvent> events;
@@ -77,6 +83,23 @@ public final class GcLogCommand implements Command {
 
         if (json) {
             printJson(analysis, logFile);
+            return;
+        }
+
+        if (exportHtml != null) {
+            PrintStream original = System.out;
+            ByteArrayOutputStream capture = new ByteArrayOutputStream();
+            System.setOut(new PrintStream(capture));
+            printRich(analysis, logFile, true);
+            System.setOut(original);
+            String html = HtmlExporter.toHtml(capture.toString(), "Argus GC Log Analysis — " + logFile.getFileName());
+            try {
+                Path outPath = Path.of(exportHtml.equals("html") ? "argus-gclog.html" : exportHtml);
+                Files.writeString(outPath, html);
+                System.out.println("Exported to: " + outPath.toAbsolutePath());
+            } catch (Exception e) {
+                System.err.println("Export failed: " + e.getMessage());
+            }
             return;
         }
 
