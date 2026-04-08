@@ -65,11 +65,33 @@ public final class SuggestCommand implements Command {
     }
 
     private String detectProfile(JvmSnapshot s) {
-        // Heuristics for workload detection
-        if (s.threadCount() > 200) return "web";
-        if (s.heapMax() > 4L * 1024 * 1024 * 1024) return "batch";
-        if (s.heapMax() < 512L * 1024 * 1024) return "microservice";
-        return "web"; // default
+        // Detect framework from VM flags (classpath/module info)
+        String flagsJoined = String.join(" ", s.vmFlags()).toLowerCase();
+
+        // Spring Boot / web server indicators
+        if (flagsJoined.contains("spring") || flagsJoined.contains("tomcat")
+                || flagsJoined.contains("jetty") || flagsJoined.contains("netty")
+                || flagsJoined.contains("undertow")) {
+            return "web";
+        }
+        // Kafka / streaming indicators
+        if (flagsJoined.contains("kafka") || flagsJoined.contains("flink")
+                || flagsJoined.contains("storm") || flagsJoined.contains("pulsar")) {
+            return "streaming";
+        }
+        // Spark / batch indicators
+        if (flagsJoined.contains("spark") || flagsJoined.contains("hadoop")
+                || flagsJoined.contains("mapreduce") || flagsJoined.contains("batch")) {
+            return "batch";
+        }
+
+        // Heuristic fallback based on resource profile
+        long heapMB = s.heapMax() / (1024 * 1024);
+        if (heapMB < 256) return "microservice";
+        if (heapMB > 8192) return "batch";
+
+        // Default: cannot determine reliably
+        return "general";
     }
 
     private List<Suggestion> generateSuggestions(JvmSnapshot s, String profile) {
@@ -114,19 +136,24 @@ public final class SuggestCommand implements Command {
                 }
                 suggestions.add(new Suggestion("Class Data Sharing",
                         "Enable CDS for faster startup",
-                        "-XX:+UseAppCDS", "Reduces startup time by 20-30%"));
-                suggestions.add(new Suggestion("Compact Strings",
-                        "Reduce memory footprint with compact strings",
-                        "-XX:+CompactStrings", "Default since Java 9"));
+                        "-XX:SharedArchiveFile=app-cds.jsa", "Use: java -Xshare:dump first"));
             }
             case "streaming" -> {
-                suggestions.add(new Suggestion("TLAB Sizing",
-                        "Optimize TLAB for steady allocation rate",
-                        "-XX:+ResizeTLAB", "Adapts to allocation patterns"));
                 if (!gc.contains("g1")) {
                     suggestions.add(new Suggestion("GC Algorithm",
                             "G1GC handles mixed workloads well for streaming",
                             "-XX:+UseG1GC", ""));
+                }
+                suggestions.add(new Suggestion("Heap Region Size",
+                        "Larger regions reduce fragmentation for steady allocation",
+                        "-XX:G1HeapRegionSize=8m", "Default is auto-sized"));
+            }
+            case "general" -> {
+                // Conservative suggestions when workload is unknown
+                if (!gc.contains("g1") && heapMB > 512) {
+                    suggestions.add(new Suggestion("GC Algorithm",
+                            "G1GC is the safest default for general workloads",
+                            "-XX:+UseG1GC", "Default since Java 9"));
                 }
             }
         }
