@@ -45,13 +45,17 @@ public final class DoctorCommand implements Command {
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
         String exportHtml = null;
+        long pid = 0; // 0 = local
 
         for (String arg : args) {
             if (arg.startsWith("--export=")) exportHtml = arg.substring(9);
-            if (arg.equals("--format=json")) json = true;
+            else if (arg.equals("--format=json")) json = true;
+            else if (!arg.startsWith("--")) {
+                try { pid = Long.parseLong(arg); } catch (NumberFormatException ignored) {}
+            }
         }
 
-        JvmSnapshot snapshot = JvmSnapshotCollector.collectLocal();
+        JvmSnapshot snapshot = JvmSnapshotCollector.collect(pid);
         List<Finding> findings = DoctorEngine.diagnose(snapshot);
         List<String> suggestedFlags = DoctorEngine.collectSuggestedFlags(findings);
         int exitCode = DoctorEngine.exitCode(findings);

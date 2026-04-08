@@ -41,13 +41,17 @@ public final class SuggestCommand implements Command {
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
         String profile = null;
+        long pid = 0;
 
         for (int i = 0; i < args.length; i++) {
             if (args[i].startsWith("--profile=")) profile = args[i].substring(10);
-            if (args[i].equals("--format=json")) json = true;
+            else if (args[i].equals("--format=json")) json = true;
+            else if (!args[i].startsWith("--")) {
+                try { pid = Long.parseLong(args[i]); } catch (NumberFormatException ignored) {}
+            }
         }
 
-        JvmSnapshot s = JvmSnapshotCollector.collectLocal();
+        JvmSnapshot s = JvmSnapshotCollector.collect(pid);
 
         // Auto-detect profile if not specified
         if (profile == null) {
