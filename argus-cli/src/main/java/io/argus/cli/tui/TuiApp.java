@@ -112,26 +112,30 @@ public final class TuiApp {
         System.out.flush();
 
         try (Terminal t = TerminalBuilder.builder().system(true).jansi(true).build()) {
-            t.enterRawMode(); NonBlockingReader rd = t.reader(); PrintWriter w = t.writer();
+            t.enterRawMode(); NonBlockingReader rd = t.reader();
+            java.io.OutputStream rawOut = t.output();
             while (running) {
                 int H = Math.max(t.getHeight(), 20);
                 int TW = Math.max(t.getWidth(), 40);
-                int W = Math.min(TW, 120); // box max 120 chars
+                int W = Math.min(TW, 120);
                 int margin = (TW - W) / 2;
                 String ml = margin > 0 ? " ".repeat(margin) : "";
-                StringBuilder sb = new StringBuilder("\033[1;" + H + "r\033[H\033[J"); // lock scroll region + home + clear
+                StringBuilder sb = new StringBuilder(H * (W + 40));
+                sb.append("\033[1;").append(H).append("r\033[H");
                 switch (phase) {
                     case PS -> drawPS(sb, W, H, ml);
                     case CMD -> drawCMD(sb, W, H, ml);
                     case OUT -> drawOUT(sb, W, H, ml);
                 }
-                w.print(sb); w.flush();
-                int key = rd.read(80);
+                byte[] frame = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                rawOut.write(frame);
+                rawOut.flush();
+                int key = rd.read(50);
                 if (key == -2) continue; if (key == -1) break;
                 onKey(key, rd);
             }
-            w.print("\033[r\033[?7h\033[?25h\033[?1049l"); w.flush(); // reset scroll region + autowrap on + show cursor + exit alt screen
-        } catch (Exception e) { System.out.print("\033[r\033[?7h\033[?25h\033[?1049l"); }
+            rawOut.write("\033[r\033[?7h\033[?25h\033[?1049l".getBytes()); rawOut.flush();
+        } catch (Exception e) { System.out.print("\033[r\033[?7h\033[?25h\033[?1049l"); System.out.flush(); }
     }
 
     private void onKey(int key, NonBlockingReader rd) throws Exception {
@@ -277,7 +281,7 @@ public final class TuiApp {
         rows.add(centerColorRow(DIM, "↑↓ select  ⏎ connect  r refresh  l lang  t theme  q quit", W));
         rows.add(botLine(W));
 
-        for (String r : rows) s.append(ml).append(r).append("\033[K\n");
+        for (int _i = 0; _i < rows.size(); _i++) { s.append(ml).append(rows.get(_i)).append("\033[K"); if (_i < rows.size()-1) s.append("\n"); }
 
         if (langSelect) drawLangOverlay(s, W, H);
     }
@@ -299,14 +303,13 @@ public final class TuiApp {
                 rows.add(colorRow(acc(), "  ▸ " + e.n, W));
             } else {
                 String desc = e.c != null ? trn(e.c.description(messages), W-26) : "";
+                String content = "   \033[1m" + fg() + pad(e.n, 18) + R + DIM + desc + R;
+                String plain = "   " + pad(e.n, 18) + desc;
                 if (i == cIdx) {
-                    rows.add(hlRow("    " + pad(e.n, 18) + desc, W));
+                    rows.add(hlRow("   " + pad(e.n, 18) + desc, W));
                 } else {
-                    // Command name bold+color, description dim
-                    String plain = "    " + pad(e.n, 18) + desc;
-                    String colored = fg()+"│"+R+" " + "   \033[1m"+fg()+pad(e.n,18)+R+DIM+desc+R;
-                    int plen = plain.length();
-                    rows.add(colored+" ".repeat(Math.max(0,W-3-plen))+fg()+"│"+R);
+                    int padLen = Math.max(0, W - 3 - plain.length());
+                    rows.add(fg() + "│" + R + " " + content + " ".repeat(padLen) + fg() + "│" + R);
                 }
             }
             drawn++;
@@ -318,7 +321,7 @@ public final class TuiApp {
         else rows.add(centerColorRow(DIM, "↑↓ navigate  ⏎ execute  / search  w write cmds  esc back  l lang  t theme", W));
         rows.add(botLine(W));
 
-        for (String r : rows) s.append(ml).append(r).append("\033[K\n");
+        for (int _i = 0; _i < rows.size(); _i++) { s.append(ml).append(rows.get(_i)).append("\033[K"); if (_i < rows.size()-1) s.append("\n"); }
 
         if (langSelect) drawLangOverlay(s, W, H);
         if (writePopup) drawWritePopup(s, W, H);
@@ -400,7 +403,7 @@ public final class TuiApp {
         rows.add(centerColorRow(DIM, hint, W));
         rows.add(botLine(W));
 
-        for (String r : rows) s.append(ml).append(r).append("\033[K\n");
+        for (int _i = 0; _i < rows.size(); _i++) { s.append(ml).append(rows.get(_i)).append("\033[K"); if (_i < rows.size()-1) s.append("\n"); }
     }
 
     private void drawLangOverlay(StringBuilder s, int W, int H) {
