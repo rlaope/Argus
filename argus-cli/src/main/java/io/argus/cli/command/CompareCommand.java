@@ -29,6 +29,8 @@ public final class CompareCommand implements Command {
 
     @Override public String name() { return "compare"; }
     @Override public CommandGroup group() { return CommandGroup.PROFILING; }
+    @Override public boolean supportsTui() { return false; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
 
     @Override
     public String description(Messages messages) {

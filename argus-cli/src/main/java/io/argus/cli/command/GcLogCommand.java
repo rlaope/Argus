@@ -30,6 +30,8 @@ public final class GcLogCommand implements Command {
 
     @Override public String name() { return "gclog"; }
     @Override public CommandGroup group() { return CommandGroup.MEMORY; }
+    @Override public boolean supportsTui() { return false; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
 
     @Override
     public String description(Messages messages) {

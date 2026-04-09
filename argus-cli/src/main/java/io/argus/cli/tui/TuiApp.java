@@ -52,7 +52,7 @@ public final class TuiApp {
     private List<CE> fCmds = new ArrayList<>();
     private int cIdx = 0, cScr = 0;
     private String sq = ""; private boolean searching = false;
-    private boolean showWriteCmds = false;
+    private boolean writePopup = false;
 
     private String output = "", outName = "";
     private int oScr = 0;
@@ -77,12 +77,11 @@ public final class TuiApp {
 
     private void buildCmds() {
         allCmds.clear();
-        Command.CommandMode targetMode = showWriteCmds ? Command.CommandMode.WRITE : Command.CommandMode.READ;
         var g = new LinkedHashMap<CommandGroup, List<Command>>();
         for (CommandGroup cg : CommandGroup.values()) g.put(cg, new ArrayList<>());
         for (Command c : commands.values())
             if (!c.name().equals("tui") && !c.name().equals("init") && c.supportsTui()
-                    && c.mode() == targetMode) g.get(c.group()).add(c);
+                    && c.mode() == Command.CommandMode.READ) g.get(c.group()).add(c);
         for (var e : g.entrySet()) {
             if (e.getValue().isEmpty()) continue;
             allCmds.add(new CE(null, e.getKey().displayName(), true));
@@ -108,7 +107,7 @@ public final class TuiApp {
         // Pre-load processes before JLine init (saves ~1s)
         refreshPs();
 
-        System.out.print("\033[?1049h\033[?25l\033[H\033[2J");
+        System.out.print("\033[?1049h\033[?25l\033[?7l\033[H\033[2J"); // alt screen + hide cursor + no autowrap + clear
         for (String l : LOGO) System.out.println("\033[36m  " + l + R);
         System.out.flush();
 
@@ -120,7 +119,7 @@ public final class TuiApp {
                 int W = Math.min(TW, 120); // box max 120 chars
                 int margin = (TW - W) / 2;
                 String ml = margin > 0 ? " ".repeat(margin) : "";
-                StringBuilder sb = new StringBuilder("\033[H\033[2J"); // home + clear entire screen
+                StringBuilder sb = new StringBuilder("\033[1;" + H + "r\033[H\033[J"); // lock scroll region + home + clear
                 switch (phase) {
                     case PS -> drawPS(sb, W, H, ml);
                     case CMD -> drawCMD(sb, W, H, ml);
@@ -131,8 +130,8 @@ public final class TuiApp {
                 if (key == -2) continue; if (key == -1) break;
                 onKey(key, rd);
             }
-            w.print("\033[?25h\033[?1049l"); w.flush();
-        } catch (Exception e) { System.out.print("\033[?25h\033[?1049l"); }
+            w.print("\033[r\033[?7h\033[?25h\033[?1049l"); w.flush(); // reset scroll region + autowrap on + show cursor + exit alt screen
+        } catch (Exception e) { System.out.print("\033[r\033[?7h\033[?25h\033[?1049l"); }
     }
 
     private void onKey(int key, NonBlockingReader rd) throws Exception {
@@ -149,6 +148,7 @@ public final class TuiApp {
                 return;
             }
             if (langSelect) { langSelect = false; return; }
+            if (writePopup) { writePopup = false; return; }
             back(); return;
         }
         if (langSelect) {
@@ -173,7 +173,7 @@ public final class TuiApp {
             case 'r','R' -> { if (phase == Phase.PS) refreshPs(); }
             case 'l','L' -> { langSelect = true; langSelIdx = langIdx; }
             case 't','T' -> themeIdx = (themeIdx+1) % THEME_NAMES.length;
-            case 'w','W' -> { if (phase == Phase.CMD) { showWriteCmds = !showWriteCmds; cIdx=0; cScr=0; buildCmds(); } }
+            case 'w','W' -> { if (phase == Phase.CMD) writePopup = !writePopup; }
             case 10, 13 -> enter();
             default -> {}
         }
@@ -277,7 +277,7 @@ public final class TuiApp {
         rows.add(centerColorRow(DIM, "↑↓ select  ⏎ connect  r refresh  l lang  t theme  q quit", W));
         rows.add(botLine(W));
 
-        for (String r : rows) s.append(ml).append(r).append("\n");
+        for (String r : rows) s.append(ml).append(r).append("\033[K\n");
 
         if (langSelect) drawLangOverlay(s, W, H);
     }
@@ -285,15 +285,8 @@ public final class TuiApp {
     private void drawCMD(StringBuilder s, int W, int H, String ml) {
         List<String> rows = new ArrayList<>();
         rows.add(topLine(W));
-        String modeLabel = showWriteCmds ? "⚠ WRITE" : "● READ";
-        rows.add(colorRow(acc(), "  ⚡ ARGUS   " + trn(pidName,20) + "   pid:" + pid + "   " + modeLabel + "   " + LANGS[langIdx].toUpperCase(), W));
+        rows.add(colorRow(acc(), "  ⚡ ARGUS   " + trn(pidName,20) + "   pid:" + pid + "   " + LANGS[langIdx].toUpperCase(), W));
         rows.add(midLine(W));
-
-        if (showWriteCmds) {
-            rows.add(colorRow("\033[33m", "  ⚠ Write commands may modify JVM state or extract data.", W));
-            rows.add(colorRow("\033[33m", "    Use with caution. Press 'w' to switch back to read-only.", W));
-            rows.add(midLine(W));
-        }
 
         int bodyH = H - rows.size() - 3;
         if (cIdx >= cScr+bodyH) cScr = cIdx-bodyH+1;
@@ -322,17 +315,60 @@ public final class TuiApp {
 
         rows.add(midLine(W));
         if (searching) rows.add(centerRow("/" + sq + "▏", W));
-        else {
-            String writeHint = showWriteCmds
-                    ? "w read cmds  ↑↓ navigate  ⏎ execute  / search  esc back"
-                    : "w write cmds (heapdump,profile...)  ↑↓ nav  ⏎ exec  / search  esc back";
-            rows.add(centerColorRow(DIM, writeHint, W));
-        }
+        else rows.add(centerColorRow(DIM, "↑↓ navigate  ⏎ execute  / search  w write cmds  esc back  l lang  t theme", W));
         rows.add(botLine(W));
 
-        for (String r : rows) s.append(ml).append(r).append("\n");
+        for (String r : rows) s.append(ml).append(r).append("\033[K\n");
 
         if (langSelect) drawLangOverlay(s, W, H);
+        if (writePopup) drawWritePopup(s, W, H);
+    }
+
+    private void drawWritePopup(StringBuilder s, int W, int H) {
+        // Collect WRITE commands
+        List<String[]> writeCmds = new ArrayList<>();
+        for (Command c : commands.values()) {
+            if (c.mode() == Command.CommandMode.WRITE && c.supportsTui()) {
+                writeCmds.add(new String[]{c.name(), c.description(messages)});
+            }
+        }
+
+        int ow = Math.min(W - 4, 62);
+        int oh = writeCmds.size() + 6;
+        int ox = (W - ow) / 2;
+        int oy = (H - oh) / 2;
+
+        s.append("\033[").append(oy).append(";").append(ox + 1).append("H");
+        s.append("\033[33m").append("╭").append("─".repeat(ow - 2)).append("╮").append(R);
+
+        s.append("\033[").append(oy + 1).append(";").append(ox + 1).append("H");
+        String title = "⚠ Write Commands (run from CLI)";
+        int tpad = ow - 2 - title.length();
+        s.append("\033[33m│\033[1m ").append(title).append(" ".repeat(Math.max(0, tpad - 1))).append("\033[0m\033[33m│").append(R);
+
+        s.append("\033[").append(oy + 2).append(";").append(ox + 1).append("H");
+        s.append("\033[33m├").append("─".repeat(ow - 2)).append("┤").append(R);
+
+        for (int i = 0; i < writeCmds.size(); i++) {
+            s.append("\033[").append(oy + 3 + i).append(";").append(ox + 1).append("H");
+            String name = writeCmds.get(i)[0];
+            String desc = writeCmds.get(i)[1];
+            String line = " \033[1m" + pad(name, 14) + "\033[0m\033[2m" + trn(desc, ow - 18) + "\033[0m";
+            int plainLen = 1 + 14 + Math.min(desc.length(), ow - 18);
+            s.append("\033[33m│").append(line).append(" ".repeat(Math.max(0, ow - 2 - plainLen))).append("\033[33m│").append(R);
+        }
+
+        int footerY = oy + 3 + writeCmds.size();
+        s.append("\033[").append(footerY).append(";").append(ox + 1).append("H");
+        s.append("\033[33m├").append("─".repeat(ow - 2)).append("┤").append(R);
+
+        s.append("\033[").append(footerY + 1).append(";").append(ox + 1).append("H");
+        String hint = " Run: argus <command> <pid>";
+        int hpad = ow - 2 - hint.length();
+        s.append("\033[33m│\033[2m").append(hint).append(" ".repeat(Math.max(0, hpad))).append("\033[0m\033[33m│").append(R);
+
+        s.append("\033[").append(footerY + 2).append(";").append(ox + 1).append("H");
+        s.append("\033[33m╰").append("─".repeat(ow - 2)).append("╯").append(R);
     }
 
     private void drawOUT(StringBuilder s, int W, int H, String ml) {
@@ -364,7 +400,7 @@ public final class TuiApp {
         rows.add(centerColorRow(DIM, hint, W));
         rows.add(botLine(W));
 
-        for (String r : rows) s.append(ml).append(r).append("\n");
+        for (String r : rows) s.append(ml).append(r).append("\033[K\n");
     }
 
     private void drawLangOverlay(StringBuilder s, int W, int H) {
