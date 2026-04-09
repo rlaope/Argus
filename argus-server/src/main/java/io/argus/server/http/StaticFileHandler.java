@@ -78,13 +78,19 @@ public final class StaticFileHandler {
             return "public" + normalized;
         }
         if (uri.startsWith("/css/") && uri.endsWith(".css")) {
-            return "public" + uri;
+            String normalized = java.net.URI.create(uri).normalize().getPath();
+            if (normalized.contains("..") || !normalized.startsWith("/css/")) return null;
+            return "public" + normalized;
         }
         if (uri.startsWith("/js/") && uri.endsWith(".js")) {
-            return "public" + uri;
+            String normalized = java.net.URI.create(uri).normalize().getPath();
+            if (normalized.contains("..") || !normalized.startsWith("/js/")) return null;
+            return "public" + normalized;
         }
         if (uri.startsWith("/img/") && (uri.endsWith(".png") || uri.endsWith(".jpg") || uri.endsWith(".svg"))) {
-            return "public" + uri;
+            String normalized = java.net.URI.create(uri).normalize().getPath();
+            if (normalized.contains("..") || !normalized.startsWith("/img/")) return null;
+            return "public" + normalized;
         }
         return null;
     }

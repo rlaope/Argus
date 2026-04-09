@@ -36,7 +36,9 @@ public final class HttpResponseHelper {
                 HttpVersion.HTTP_1_1, status, buf);
         response.headers()
                 .set(HttpHeaderNames.CONTENT_TYPE, contentType)
-                .setInt(HttpHeaderNames.CONTENT_LENGTH, buf.readableBytes());
+                .setInt(HttpHeaderNames.CONTENT_LENGTH, buf.readableBytes())
+                .set("X-Content-Type-Options", "nosniff")
+                .set("X-Frame-Options", "DENY");
 
         ChannelFuture future = ctx.writeAndFlush(response);
         if (!HttpUtil.isKeepAlive(request)) {

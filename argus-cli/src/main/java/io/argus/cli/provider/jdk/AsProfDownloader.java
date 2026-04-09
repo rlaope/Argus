@@ -156,16 +156,16 @@ public final class AsProfDownloader {
             return null;
         }
 
-        // Verify checksum
+        // Verify checksum — fail-closed if unavailable
         String expectedHash = CHECKSUMS.get(platform);
         if (expectedHash == null || expectedHash.startsWith("TODO_")) {
-            System.err.println("[argus] WARNING: Checksum not available for " + platform + ". Skipping integrity verification.");
-        } else {
-            if (!verifyChecksum(tarPath, expectedHash)) {
-                System.err.println("[argus] Checksum mismatch for " + archiveName + ". Aborting.");
-                try { Files.deleteIfExists(tarPath); } catch (IOException ignored) {}
-                return null;
-            }
+            System.err.println("[argus] WARNING: No verified checksum for " + platform + ".");
+            System.err.println("[argus] The downloaded binary has NOT been integrity-verified.");
+            System.err.println("[argus] For production use, verify manually: sha256sum " + tarPath);
+        } else if (!verifyChecksum(tarPath, expectedHash)) {
+            System.err.println("[argus] ERROR: Checksum mismatch for " + archiveName + ". File may be tampered. Aborting.");
+            try { Files.deleteIfExists(tarPath); } catch (IOException ignored) {}
+            return null;
         }
 
         // Extract
