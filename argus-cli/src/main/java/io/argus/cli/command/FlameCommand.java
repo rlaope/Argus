@@ -33,6 +33,7 @@ public final class FlameCommand implements Command {
 
     @Override public String name() { return "flame"; }
     @Override public CommandGroup group() { return CommandGroup.PROFILING; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
 
     @Override
     public String description(Messages messages) {

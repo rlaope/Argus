@@ -23,6 +23,7 @@ public final class JfrCommand implements Command {
     }
 
     @Override public CommandGroup group() { return CommandGroup.PROFILING; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
 
     @Override
     public String description(Messages messages) {

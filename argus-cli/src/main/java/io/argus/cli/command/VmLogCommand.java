@@ -19,6 +19,7 @@ public final class VmLogCommand implements Command {
     public String name() { return "vmlog"; }
 
     @Override public CommandGroup group() { return CommandGroup.PROCESS; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
 
     @Override
     public String description(Messages messages) {

@@ -25,6 +25,9 @@ public final class JfrAnalyzeCommand implements Command {
 
     private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
 
+    @Override public boolean supportsTui() { return false; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
+
     @Override
     public String name() {
         return "jfranalyze";

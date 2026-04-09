@@ -37,6 +37,7 @@ public final class HeapAnalyzeCommand implements Command {
 
     @Override public String name() { return "heapanalyze"; }
     @Override public CommandGroup group() { return CommandGroup.MEMORY; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
 
     @Override
     public String description(Messages messages) {

@@ -30,6 +30,7 @@ public final class SlowlogCommand implements Command {
 
     @Override public String name() { return "slowlog"; }
     @Override public CommandGroup group() { return CommandGroup.PROFILING; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
     @Override public boolean supportsTui() { return false; }
 
     @Override
