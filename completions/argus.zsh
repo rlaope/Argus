@@ -49,6 +49,10 @@ _argus() {
         'gcnew:Young generation GC detail'
         'symboltable:Symbol table statistics'
         'top:Real-time monitoring'
+        'heapanalyze:Analyze heap dump (.hprof)'
+        'ci:CI/CD health gate'
+        'compare:Compare two JVM snapshots'
+        'slowlog:Real-time slow method detection'
     )
 
     _arguments -C \
