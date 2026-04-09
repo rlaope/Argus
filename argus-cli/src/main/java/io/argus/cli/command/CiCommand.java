@@ -28,6 +28,7 @@ public final class CiCommand implements Command {
 
     @Override public String name() { return "ci"; }
     @Override public CommandGroup group() { return CommandGroup.PROFILING; }
+    @Override public boolean supportsTui() { return false; }
 
     @Override
     public String description(Messages messages) {
@@ -70,7 +71,7 @@ public final class CiCommand implements Command {
             default -> printSummary(findings, exitCode);
         }
 
-        if (exitCode > 0) System.exit(exitCode);
+        if (exitCode > 0) throw new CommandExitException(exitCode);
     }
 
     private void printSummary(List<Finding> findings, int exitCode) {

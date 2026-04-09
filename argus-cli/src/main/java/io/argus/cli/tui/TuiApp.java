@@ -79,7 +79,7 @@ public final class TuiApp {
         var g = new LinkedHashMap<CommandGroup, List<Command>>();
         for (CommandGroup cg : CommandGroup.values()) g.put(cg, new ArrayList<>());
         for (Command c : commands.values())
-            if (!c.name().equals("tui") && !c.name().equals("init")) g.get(c.group()).add(c);
+            if (!c.name().equals("tui") && !c.name().equals("init") && c.supportsTui()) g.get(c.group()).add(c);
         for (var e : g.entrySet()) {
             if (e.getValue().isEmpty()) continue;
             allCmds.add(new CE(null, e.getKey().displayName(), true));
@@ -251,7 +251,9 @@ public final class TuiApp {
         rows.add(emptyRow(W));
         for (String l : LOGO) rows.add(centerColorRow(fg(), l, W));
         rows.add(emptyRow(W));
-        rows.add(centerRow("Lightweight JVM Diagnostic Toolkit — v1.0.0", W));
+        String ver = TuiApp.class.getPackage() != null && TuiApp.class.getPackage().getImplementationVersion() != null
+                ? TuiApp.class.getPackage().getImplementationVersion() : "dev";
+        rows.add(centerRow("Lightweight JVM Diagnostic Toolkit — v" + ver, W));
         rows.add(centerColorRow(DIM, commands.size()+" commands  |  "+LANGS[langIdx].toUpperCase()+"  |  "+THEME_NAMES[themeIdx]+"  |  "+procs.size()+" JVMs", W));
         rows.add(emptyRow(W));
         rows.add(midLine(W));

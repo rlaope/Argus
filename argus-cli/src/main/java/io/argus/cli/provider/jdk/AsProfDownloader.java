@@ -156,9 +156,11 @@ public final class AsProfDownloader {
             return null;
         }
 
-        // Verify checksum (skip if placeholder)
+        // Verify checksum
         String expectedHash = CHECKSUMS.get(platform);
-        if (expectedHash != null && !expectedHash.startsWith("TODO_")) {
+        if (expectedHash == null || expectedHash.startsWith("TODO_")) {
+            System.err.println("[argus] WARNING: Checksum not available for " + platform + ". Skipping integrity verification.");
+        } else {
             if (!verifyChecksum(tarPath, expectedHash)) {
                 System.err.println("[argus] Checksum mismatch for " + archiveName + ". Aborting.");
                 try { Files.deleteIfExists(tarPath); } catch (IOException ignored) {}
@@ -226,13 +228,7 @@ public final class AsProfDownloader {
         return System.getProperty("user.home") + "/.argus/lib/async-profiler/bin/asprof";
     }
 
-    /**
-     * Verifies SHA-256 checksum of a file against the expected hex string.
-     *
-     * @param file         path to the file to verify
-     * @param expectedHash lowercase hex SHA-256 string
-     * @return true if the computed digest matches
-     */
+    /** Recursively deletes a directory and all its contents. */
     private static void deleteRecursive(File dir) {
         if (dir == null || !dir.exists()) return;
         File[] children = dir.listFiles();

@@ -1,6 +1,7 @@
 package io.argus.cli;
 
 import io.argus.cli.command.Command;
+import io.argus.cli.command.CommandExitException;
 import io.argus.cli.command.BuffersCommand;
 import io.argus.cli.command.CiCommand;
 import io.argus.cli.command.ClassStatCommand;
@@ -127,6 +128,17 @@ public final class ArgusCli {
             }
         }
 
+        // Warn on invalid --port
+        if (args.length > 0) {
+            for (String a : args) {
+                if (a.startsWith("--port=")) {
+                    try { Integer.parseInt(a.substring(7)); } catch (NumberFormatException e) {
+                        System.err.println("Warning: invalid --port value '" + a.substring(7) + "', using default: " + port);
+                    }
+                }
+            }
+        }
+
         // Apply CLI flag overrides on top of file-based config
         CliConfig config = new CliConfig(lang, source, color, format, port);
 
@@ -207,7 +219,19 @@ public final class ArgusCli {
         String[] subArgs = new String[args.length - commandArgStart];
         System.arraycopy(args, commandArgStart, subArgs, 0, subArgs.length);
 
-        command.execute(subArgs, config, registry, messages);
+        try {
+            command.execute(subArgs, config, registry, messages);
+        } catch (CommandExitException e) {
+            System.exit(e.exitCode());
+        } catch (Exception e) {
+            System.err.println("Error: " + (e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName()));
+            if (Boolean.getBoolean("argus.debug") || System.getenv("ARGUS_DEBUG") != null) {
+                e.printStackTrace();
+            } else {
+                System.err.println("Run with -Dargus.debug=true for full stack trace.");
+            }
+            System.exit(2);
+        }
     }
 
     private static void register(Map<String, Command> map, Command cmd) {

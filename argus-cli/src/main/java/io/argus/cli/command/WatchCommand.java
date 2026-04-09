@@ -27,6 +27,7 @@ public final class WatchCommand implements Command {
 
     @Override public String name() { return "watch"; }
     @Override public CommandGroup group() { return CommandGroup.MONITORING; }
+    @Override public boolean supportsTui() { return false; }
 
     @Override
     public String description(Messages messages) {

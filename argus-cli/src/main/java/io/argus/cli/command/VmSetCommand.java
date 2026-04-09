@@ -21,6 +21,7 @@ public final class VmSetCommand implements Command {
     public String name() { return "vmset"; }
 
     @Override public CommandGroup group() { return CommandGroup.PROCESS; }
+    @Override public boolean supportsTui() { return false; }
 
     @Override
     public String description(Messages messages) {

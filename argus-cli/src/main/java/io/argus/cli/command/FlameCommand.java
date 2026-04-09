@@ -122,20 +122,11 @@ public final class FlameCommand implements Command {
         if (openBrowser) {
             try {
                 String os = System.getProperty("os.name").toLowerCase();
-                ProcessBuilder pb;
-                if (os.contains("mac")) {
-                    pb = new ProcessBuilder("open", outputPath);
-                } else if (os.contains("win")) {
-                    pb = new ProcessBuilder("cmd", "/c", "start", outputPath);
-                } else {
-                    pb = new ProcessBuilder("xdg-open", outputPath);
-                }
-                // Resolve to canonical path to prevent command injection
                 String safePath = new java.io.File(outputPath).getCanonicalFile().getAbsolutePath();
+                ProcessBuilder pb;
                 if (os.contains("mac")) {
                     pb = new ProcessBuilder("open", safePath);
                 } else if (os.contains("win")) {
-                    // Use Desktop.browse on Windows to avoid cmd /c injection
                     java.awt.Desktop.getDesktop().browse(new java.io.File(safePath).toURI());
                     System.out.println("  " + AnsiStyle.style(useColor, AnsiStyle.CYAN)
                             + "\u2192 Opened in browser"
@@ -146,7 +137,8 @@ public final class FlameCommand implements Command {
                 }
                 pb.redirectErrorStream(true);
                 Process proc = pb.start();
-                proc.getInputStream().close(); // prevent resource leak
+                proc.getInputStream().close();
+                proc.waitFor(5, java.util.concurrent.TimeUnit.SECONDS);
                 System.out.println("  " + AnsiStyle.style(useColor, AnsiStyle.CYAN)
                         + "\u2192 Opened in browser"
                         + AnsiStyle.style(useColor, AnsiStyle.RESET));

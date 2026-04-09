@@ -84,6 +84,8 @@ public final class DoctorCommand implements Command {
         }
 
         printRich(findings, suggestedFlags, snapshot, useColor, exitCode);
+
+        if (exitCode > 0) throw new CommandExitException(exitCode);
     }
 
     private void printRich(List<Finding> findings, List<String> flags,
@@ -212,7 +214,9 @@ public final class DoctorCommand implements Command {
         System.out.println(RichRenderer.boxLine(
                 "  " + g + "\u2714" + r + " GC overhead: " + String.format("%.1f%%", s.gcOverheadPercent()) + " (healthy)", WIDTH));
         System.out.println(RichRenderer.boxLine(
-                "  " + g + "\u2714" + r + " Threads: " + s.threadCount() + " (0 blocked, 0 deadlocked)", WIDTH));
+                "  " + g + "\u2714" + r + " Threads: " + s.threadCount()
+                + " (" + s.threadStates().getOrDefault("BLOCKED", 0) + " blocked, "
+                + s.deadlockedThreads() + " deadlocked)", WIDTH));
         System.out.println(RichRenderer.boxLine(
                 "  " + g + "\u2714" + r + " Metaspace: stable", WIDTH));
         System.out.println(RichRenderer.boxLine(
@@ -266,7 +270,7 @@ public final class DoctorCommand implements Command {
         sb.append(",\"suggestedFlags\":[");
         for (int i = 0; i < flags.size(); i++) {
             if (i > 0) sb.append(',');
-            sb.append('"').append(flags.get(i)).append('"');
+            sb.append('"').append(RichRenderer.escapeJson(flags.get(i))).append('"');
         }
         sb.append("]}");
         System.out.println(sb);

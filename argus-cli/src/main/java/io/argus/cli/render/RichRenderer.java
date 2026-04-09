@@ -21,7 +21,13 @@ public final class RichRenderer {
         }
     }
 
+    private static volatile int cachedWidth;
     public static final int DEFAULT_WIDTH = terminalWidth();
+
+    /** Re-query terminal width (useful for watch/top commands). */
+    public static int currentWidth() {
+        return terminalWidth();
+    }
 
     // Box-drawing characters
     private static final char TL = '╭';
@@ -292,7 +298,11 @@ public final class RichRenderer {
      */
     public static String escapeJson(String s) {
         if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"");
+        return s.replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 
     /**

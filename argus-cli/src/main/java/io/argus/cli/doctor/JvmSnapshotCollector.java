@@ -13,13 +13,13 @@ import java.util.regex.Pattern;
  */
 public final class JvmSnapshotCollector {
 
-    private static final List<String> warnings = new ArrayList<>();
+    private static final ThreadLocal<List<String>> warnings = ThreadLocal.withInitial(ArrayList::new);
 
     /**
      * Collect snapshot — routes to local or remote based on PID.
      */
     public static JvmSnapshot collect(long pid) {
-        warnings.clear();
+        warnings.get().clear();
         if (pid <= 0 || pid == ProcessHandle.current().pid()) {
             return collectLocal();
         }
@@ -28,7 +28,7 @@ public final class JvmSnapshotCollector {
 
     /** Get warnings from the last collection (e.g., jcmd failures). */
     public static List<String> lastWarnings() {
-        return List.copyOf(warnings);
+        return List.copyOf(warnings.get());
     }
 
     @SuppressWarnings("deprecation")
@@ -113,7 +113,7 @@ public final class JvmSnapshotCollector {
                 if (p.max() > 0) heapMax = Math.max(heapMax, p.max());
             }
         } catch (RuntimeException e) {
-            warnings.add("GC.heap_info failed: " + e.getMessage());
+            warnings.get().add("GC.heap_info failed: " + e.getMessage());
             failures++;
         }
 
@@ -139,7 +139,7 @@ public final class JvmSnapshotCollector {
                 }
             }
         } catch (RuntimeException e) {
-            warnings.add("VM.info failed (GC stats unavailable): " + e.getMessage());
+            warnings.get().add("VM.info failed (GC stats unavailable): " + e.getMessage());
             failures++;
         }
 
@@ -153,7 +153,7 @@ public final class JvmSnapshotCollector {
                 else if (vmVersion.isEmpty() && t.contains("build")) vmVersion = t;
             }
         } catch (RuntimeException e) {
-            warnings.add("VM.version failed: " + e.getMessage());
+            warnings.get().add("VM.version failed: " + e.getMessage());
             failures++;
         }
 
@@ -170,7 +170,7 @@ public final class JvmSnapshotCollector {
                 } catch (NumberFormatException ignored2) {}
             }
         } catch (RuntimeException e) {
-            warnings.add("VM.uptime failed: " + e.getMessage());
+            warnings.get().add("VM.uptime failed: " + e.getMessage());
             failures++;
         }
 
@@ -191,7 +191,7 @@ public final class JvmSnapshotCollector {
                 }
             }
         } catch (RuntimeException e) {
-            warnings.add("VM.flags failed: " + e.getMessage());
+            warnings.get().add("VM.flags failed: " + e.getMessage());
             failures++;
         }
 
@@ -216,14 +216,14 @@ public final class JvmSnapshotCollector {
                 }
             }
         } catch (RuntimeException e) {
-            warnings.add("Thread.print failed: " + e.getMessage());
+            warnings.get().add("Thread.print failed: " + e.getMessage());
             failures++;
         }
 
         // Print warnings to stderr
         if (failures > 0) {
             System.err.println("[Argus] WARNING: " + failures + " jcmd call(s) failed for PID " + pid + ":");
-            for (String w : warnings) {
+            for (String w : warnings.get()) {
                 System.err.println("  → " + w);
             }
             if (failures >= 4) {

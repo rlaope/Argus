@@ -28,6 +28,7 @@ public final class HeapDumpCommand implements Command {
     }
 
     @Override public CommandGroup group() { return CommandGroup.MEMORY; }
+    @Override public boolean supportsTui() { return false; }
 
     @Override
     public String description(Messages messages) {

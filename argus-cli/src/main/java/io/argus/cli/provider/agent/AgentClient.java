@@ -19,7 +19,7 @@ public final class AgentClient {
 
     private final String baseUrl;
     private final HttpClient httpClient;
-    private Boolean reachableCache;
+    private volatile Boolean reachableCache;
 
     public AgentClient() {
         this(DEFAULT_HOST, DEFAULT_PORT);

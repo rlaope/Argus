@@ -25,6 +25,7 @@ public final class TopCommand implements Command {
     }
 
     @Override public CommandGroup group() { return CommandGroup.MONITORING; }
+    @Override public boolean supportsTui() { return false; }
 
     @Override
     public String description(Messages messages) {

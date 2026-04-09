@@ -71,16 +71,29 @@ public final class JcmdExecutor {
             pb.redirectErrorStream(true);
             Process process = pb.start();
 
-            String output;
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                output = reader.lines().collect(Collectors.joining("\n"));
-            }
+            // Read stdout in a separate thread so waitFor timeout actually works
+            StringBuilder outputBuf = new StringBuilder();
+            Thread reader = new Thread(() -> {
+                try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        if (!outputBuf.isEmpty()) outputBuf.append('\n');
+                        outputBuf.append(line);
+                    }
+                } catch (Exception ignored) {}
+            }, "jcmd-reader");
+            reader.setDaemon(true);
+            reader.start();
 
             boolean finished = process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!finished) {
                 process.destroyForcibly();
+                reader.join(1000);
                 throw new RuntimeException("jcmd timed out after " + TIMEOUT_SECONDS + "s: " + String.join(" ", args));
             }
+
+            reader.join(2000);
+            String output = outputBuf.toString();
 
             int exitCode = process.exitValue();
             if (exitCode != 0) {

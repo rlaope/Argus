@@ -33,4 +33,10 @@ public interface Command {
      * Executes the command with the provided args, config, registry, and messages.
      */
     void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages);
+
+    /**
+     * Whether this command is safe to run inside the TUI.
+     * Commands that use System.in, raw terminal mode, or call System.exit should return false.
+     */
+    default boolean supportsTui() { return true; }
 }
