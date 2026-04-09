@@ -23,6 +23,7 @@ import io.argus.cli.command.GcRunCommand;
 import io.argus.cli.command.GcCommand;
 import io.argus.cli.command.GcNewCommand;
 import io.argus.cli.command.GcUtilCommand;
+import io.argus.cli.command.HeapAnalyzeCommand;
 import io.argus.cli.command.HeapCommand;
 import io.argus.cli.command.HeapDumpCommand;
 import io.argus.cli.command.HistoCommand;
@@ -194,6 +195,7 @@ public final class ArgusCli {
         register(commands, new ClassStatCommand());
         register(commands, new GcNewCommand());
         register(commands, new SymbolTableCommand());
+        register(commands, new HeapAnalyzeCommand());
         register(commands, new TopCommand());
         register(commands, new WatchCommand());
         register(commands, new TuiCommand(commands));
