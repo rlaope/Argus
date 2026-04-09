@@ -52,6 +52,7 @@ public final class TuiApp {
     private List<CE> fCmds = new ArrayList<>();
     private int cIdx = 0, cScr = 0;
     private String sq = ""; private boolean searching = false;
+    private boolean showWriteCmds = false;
 
     private String output = "", outName = "";
     private int oScr = 0;
@@ -76,10 +77,12 @@ public final class TuiApp {
 
     private void buildCmds() {
         allCmds.clear();
+        Command.CommandMode targetMode = showWriteCmds ? Command.CommandMode.WRITE : Command.CommandMode.READ;
         var g = new LinkedHashMap<CommandGroup, List<Command>>();
         for (CommandGroup cg : CommandGroup.values()) g.put(cg, new ArrayList<>());
         for (Command c : commands.values())
-            if (!c.name().equals("tui") && !c.name().equals("init") && c.supportsTui()) g.get(c.group()).add(c);
+            if (!c.name().equals("tui") && !c.name().equals("init") && c.supportsTui()
+                    && c.mode() == targetMode) g.get(c.group()).add(c);
         for (var e : g.entrySet()) {
             if (e.getValue().isEmpty()) continue;
             allCmds.add(new CE(null, e.getKey().displayName(), true));
@@ -170,6 +173,7 @@ public final class TuiApp {
             case 'r','R' -> { if (phase == Phase.PS) refreshPs(); }
             case 'l','L' -> { langSelect = true; langSelIdx = langIdx; }
             case 't','T' -> themeIdx = (themeIdx+1) % THEME_NAMES.length;
+            case 'w','W' -> { if (phase == Phase.CMD) { showWriteCmds = !showWriteCmds; cIdx=0; cScr=0; buildCmds(); } }
             case 10, 13 -> enter();
             default -> {}
         }
@@ -281,8 +285,15 @@ public final class TuiApp {
     private void drawCMD(StringBuilder s, int W, int H, String ml) {
         List<String> rows = new ArrayList<>();
         rows.add(topLine(W));
-        rows.add(colorRow(acc(), "  ⚡ ARGUS   " + trn(pidName,20) + "   pid:" + pid + "   " + LANGS[langIdx].toUpperCase(), W));
+        String modeLabel = showWriteCmds ? "⚠ WRITE" : "● READ";
+        rows.add(colorRow(acc(), "  ⚡ ARGUS   " + trn(pidName,20) + "   pid:" + pid + "   " + modeLabel + "   " + LANGS[langIdx].toUpperCase(), W));
         rows.add(midLine(W));
+
+        if (showWriteCmds) {
+            rows.add(colorRow("\033[33m", "  ⚠ Write commands may modify JVM state or extract data.", W));
+            rows.add(colorRow("\033[33m", "    Use with caution. Press 'w' to switch back to read-only.", W));
+            rows.add(midLine(W));
+        }
 
         int bodyH = H - rows.size() - 3;
         if (cIdx >= cScr+bodyH) cScr = cIdx-bodyH+1;
@@ -311,7 +322,12 @@ public final class TuiApp {
 
         rows.add(midLine(W));
         if (searching) rows.add(centerRow("/" + sq + "▏", W));
-        else rows.add(centerColorRow(DIM, "↑↓ navigate  ⏎ execute  / search  esc back  l lang  t theme", W));
+        else {
+            String writeHint = showWriteCmds
+                    ? "w read cmds  ↑↓ navigate  ⏎ execute  / search  esc back"
+                    : "w write cmds (heapdump,profile...)  ↑↓ nav  ⏎ exec  / search  esc back";
+            rows.add(centerColorRow(DIM, writeHint, W));
+        }
         rows.add(botLine(W));
 
         for (String r : rows) s.append(ml).append(r).append("\n");

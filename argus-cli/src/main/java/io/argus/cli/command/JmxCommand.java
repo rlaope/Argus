@@ -20,6 +20,7 @@ public final class JmxCommand implements Command {
     public String name() { return "jmx"; }
 
     @Override public CommandGroup group() { return CommandGroup.PROCESS; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
 
     @Override
     public String description(Messages messages) {

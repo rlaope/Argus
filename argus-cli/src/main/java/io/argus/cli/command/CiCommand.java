@@ -28,6 +28,7 @@ public final class CiCommand implements Command {
 
     @Override public String name() { return "ci"; }
     @Override public CommandGroup group() { return CommandGroup.PROFILING; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
     @Override public boolean supportsTui() { return false; }
 
     @Override

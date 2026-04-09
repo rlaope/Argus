@@ -13,6 +13,14 @@ import io.argus.core.command.CommandGroup;
  */
 public interface Command {
 
+    /** Read-only vs mutating/extracting command classification. */
+    enum CommandMode {
+        /** Safe, read-only inspection (threads, gc, heap, etc.) */
+        READ,
+        /** Mutating or extracting operation (heapdump, gcrun, vmset, profile, etc.) */
+        WRITE
+    }
+
     /**
      * The command name used to route from the CLI entry point.
      */
@@ -23,6 +31,12 @@ public interface Command {
      * {@link io.argus.core.command.CommandGroup}.
      */
     default CommandGroup group() { return CommandGroup.MONITORING; }
+
+    /**
+     * Whether this command is read-only or mutating/extracting.
+     * TUI shows READ commands by default; WRITE commands require explicit toggle.
+     */
+    default CommandMode mode() { return CommandMode.READ; }
 
     /**
      * Short description shown in the help/usage output.

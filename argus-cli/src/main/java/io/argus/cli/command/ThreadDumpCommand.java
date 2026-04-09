@@ -28,6 +28,7 @@ public final class ThreadDumpCommand implements Command {
     }
 
     @Override public CommandGroup group() { return CommandGroup.THREADS; }
+    @Override public CommandMode mode() { return CommandMode.WRITE; }
 
     @Override
     public String description(Messages messages) {
