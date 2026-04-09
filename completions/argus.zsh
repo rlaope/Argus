@@ -50,6 +50,8 @@ _argus() {
         'symboltable:Symbol table statistics'
         'top:Real-time monitoring'
         'heapanalyze:Analyze heap dump (.hprof)'
+        'perfcounter:JVM internal performance counters'
+        'mbean:Browse JMX MBeans'
         'ci:CI/CD health gate'
         'compare:Compare two JVM snapshots'
         'slowlog:Real-time slow method detection'
