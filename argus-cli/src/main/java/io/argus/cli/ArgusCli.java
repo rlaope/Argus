@@ -34,7 +34,9 @@ import io.argus.cli.command.LoggerCommand;
 import io.argus.cli.command.ClassLoaderCommand;
 import io.argus.cli.command.JfrCommand;
 import io.argus.cli.command.JmxCommand;
+import io.argus.cli.command.MBeanCommand;
 import io.argus.cli.command.MetaspaceCommand;
+import io.argus.cli.command.PerfCounterCommand;
 import io.argus.cli.command.NmtCommand;
 import io.argus.cli.command.PoolCommand;
 import io.argus.cli.command.ProfileCommand;
@@ -196,6 +198,8 @@ public final class ArgusCli {
         register(commands, new GcNewCommand());
         register(commands, new SymbolTableCommand());
         register(commands, new HeapAnalyzeCommand());
+        register(commands, new PerfCounterCommand());
+        register(commands, new MBeanCommand());
         register(commands, new TopCommand());
         register(commands, new WatchCommand());
         register(commands, new TuiCommand(commands));

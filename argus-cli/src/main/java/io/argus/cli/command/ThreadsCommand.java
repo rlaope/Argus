@@ -9,11 +9,31 @@ import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
 
+import javax.management.MBeanServerConnection;
+import javax.management.remote.JMXConnector;
+import javax.management.remote.JMXConnectorFactory;
+import javax.management.remote.JMXServiceURL;
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadInfo;
+import java.lang.management.ThreadMXBean;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
  * Shows thread dump summary for a given PID.
+ *
+ * <p>With {@code --cpu} flag, shows per-thread CPU% ranking (like Arthas {@code thread -n 5}).
+ * Uses JMX Attach API to sample ThreadMXBean CPU times.
+ *
+ * <p>Usage:
+ * <pre>
+ * argus threads 12345                 # state distribution summary
+ * argus threads 12345 --cpu           # top threads by CPU%
+ * argus threads 12345 --cpu --top 10  # top 10 by CPU%
+ * </pre>
  */
 public final class ThreadsCommand implements Command {
 
@@ -50,6 +70,8 @@ public final class ThreadsCommand implements Command {
         String sourceOverride = null;
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
+        boolean cpuMode = false;
+        int topN = 5;
 
         for (int i = 1; i < args.length; i++) {
             String arg = args[i];
@@ -57,7 +79,19 @@ public final class ThreadsCommand implements Command {
                 sourceOverride = arg.substring(9);
             } else if (arg.equals("--format=json")) {
                 json = true;
+            } else if (arg.equals("--cpu")) {
+                cpuMode = true;
+            } else if (arg.startsWith("--top=")) {
+                try { topN = Integer.parseInt(arg.substring(6)); } catch (NumberFormatException ignored) {}
+            } else if (arg.equals("--top") && i + 1 < args.length) {
+                try { topN = Integer.parseInt(args[++i]); } catch (NumberFormatException ignored) {}
             }
+        }
+
+        // CPU mode: per-thread CPU% via JMX
+        if (cpuMode) {
+            showCpuRanking(pid, topN, useColor, json);
+            return;
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
@@ -159,6 +193,167 @@ public final class ThreadsCommand implements Command {
         sb.append(AnsiStyle.style(useColor, AnsiStyle.RESET));
         return sb.toString();
     }
+
+    /**
+     * Shows top-N threads ranked by CPU usage. Samples ThreadMXBean twice with 1s interval.
+     */
+    private void showCpuRanking(long pid, int topN, boolean c, boolean json) {
+        String connAddr = getConnectorAddress(pid);
+        if (connAddr == null) {
+            System.err.println("Cannot attach to PID " + pid + " via JMX. Ensure same user and Java 9+.");
+            return;
+        }
+
+        try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(connAddr))) {
+            MBeanServerConnection mbs = connector.getMBeanServerConnection();
+            ThreadMXBean tmx = ManagementFactory.newPlatformMXBeanProxy(
+                    mbs, ManagementFactory.THREAD_MXBEAN_NAME, ThreadMXBean.class);
+
+            if (!tmx.isThreadCpuTimeSupported() || !tmx.isThreadCpuTimeEnabled()) {
+                System.err.println("Thread CPU time not supported/enabled for PID " + pid);
+                return;
+            }
+
+            // Sample 1
+            long[] ids = tmx.getAllThreadIds();
+            Map<Long, Long> cpuBefore = new LinkedHashMap<>();
+            Map<Long, String> nameMap = new LinkedHashMap<>();
+            Map<Long, String> stateMap = new LinkedHashMap<>();
+            for (long id : ids) {
+                cpuBefore.put(id, tmx.getThreadCpuTime(id));
+                ThreadInfo info = tmx.getThreadInfo(id);
+                if (info != null) {
+                    nameMap.put(id, info.getThreadName());
+                    stateMap.put(id, info.getThreadState().name());
+                }
+            }
+
+            // Wait 1 second
+            System.err.print("Sampling CPU for 1s...");
+            Thread.sleep(1000);
+            System.err.println(" done.");
+
+            // Sample 2
+            List<ThreadCpuEntry> entries = new ArrayList<>();
+            long totalDelta = 0;
+            for (long id : ids) {
+                long after = tmx.getThreadCpuTime(id);
+                Long before = cpuBefore.get(id);
+                if (before == null || before < 0 || after < 0) continue;
+                long delta = after - before;
+                if (delta < 0) delta = 0;
+                totalDelta += delta;
+                String name = nameMap.getOrDefault(id, "Thread-" + id);
+                String state = stateMap.getOrDefault(id, "UNKNOWN");
+                entries.add(new ThreadCpuEntry(id, name, state, delta, after));
+            }
+
+            // Sort by CPU delta descending
+            entries.sort(Comparator.comparingLong(ThreadCpuEntry::cpuDelta).reversed());
+
+            int show = Math.min(topN, entries.size());
+
+            if (json) {
+                printCpuJson(entries, show, totalDelta);
+                return;
+            }
+
+            System.out.print(RichRenderer.brandedHeader(c, "threads --cpu",
+                    "Per-thread CPU% ranking (1s sample)"));
+            System.out.println(RichRenderer.boxHeader(c, "Thread CPU Ranking", WIDTH,
+                    "pid:" + pid, "top:" + show));
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+
+            // Header row
+            String hdr = AnsiStyle.style(c, AnsiStyle.BOLD)
+                    + RichRenderer.padRight("ID", 8)
+                    + RichRenderer.padRight("CPU%", 8)
+                    + RichRenderer.padRight("STATE", 16)
+                    + "NAME"
+                    + AnsiStyle.style(c, AnsiStyle.RESET);
+            System.out.println(RichRenderer.boxLine("  " + hdr, WIDTH));
+            System.out.println(RichRenderer.boxLine("  " + "─".repeat(Math.min(WIDTH - 6, 70)), WIDTH));
+
+            for (int i = 0; i < show; i++) {
+                ThreadCpuEntry e = entries.get(i);
+                double cpuPct = totalDelta > 0 ? (e.cpuDelta * 100.0) / 1_000_000_000.0 : 0;
+                // Cap at 100% per core (delta over 1s = 1 billion ns)
+                cpuPct = Math.min(cpuPct, 100.0 * Runtime.getRuntime().availableProcessors());
+
+                String cpuColor;
+                if (cpuPct > 50) cpuColor = AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);
+                else if (cpuPct > 20) cpuColor = AnsiStyle.style(c, AnsiStyle.YELLOW);
+                else cpuColor = AnsiStyle.style(c, AnsiStyle.GREEN);
+
+                String stateColor = switch (e.state) {
+                    case "RUNNABLE" -> AnsiStyle.style(c, AnsiStyle.GREEN);
+                    case "BLOCKED" -> AnsiStyle.style(c, AnsiStyle.RED);
+                    case "WAITING", "TIMED_WAITING" -> AnsiStyle.style(c, AnsiStyle.YELLOW);
+                    default -> AnsiStyle.style(c, AnsiStyle.DIM);
+                };
+
+                String line = RichRenderer.padRight(String.valueOf(e.id), 8)
+                        + cpuColor + RichRenderer.padRight(String.format("%.1f%%", cpuPct), 8)
+                        + AnsiStyle.style(c, AnsiStyle.RESET)
+                        + stateColor + RichRenderer.padRight(e.state, 16)
+                        + AnsiStyle.style(c, AnsiStyle.RESET)
+                        + RichRenderer.truncate(e.name, 35);
+                System.out.println(RichRenderer.boxLine("  " + line, WIDTH));
+            }
+
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+            System.out.println(RichRenderer.boxLine(
+                    AnsiStyle.style(c, AnsiStyle.DIM) + "  Total threads: " + entries.size()
+                            + "  |  Showing top " + show
+                            + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+            System.out.println(RichRenderer.boxFooter(c, null, WIDTH));
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            System.err.println("Error reading thread CPU: " + e.getMessage());
+        }
+    }
+
+    private String getConnectorAddress(long pid) {
+        try {
+            var vm = com.sun.tools.attach.VirtualMachine.attach(String.valueOf(pid));
+            try {
+                String addr = vm.getAgentProperties().getProperty(
+                        "com.sun.management.jmxremote.localConnectorAddress");
+                if (addr == null) {
+                    vm.startLocalManagementAgent();
+                    addr = vm.getAgentProperties().getProperty(
+                            "com.sun.management.jmxremote.localConnectorAddress");
+                }
+                return addr;
+            } finally {
+                vm.detach();
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private void printCpuJson(List<ThreadCpuEntry> entries, int show, long totalDelta) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"threads\":[");
+        for (int i = 0; i < show; i++) {
+            ThreadCpuEntry e = entries.get(i);
+            if (i > 0) sb.append(',');
+            double cpuPct = totalDelta > 0 ? (e.cpuDelta * 100.0) / 1_000_000_000.0 : 0;
+            sb.append("{\"id\":").append(e.id)
+              .append(",\"name\":\"").append(RichRenderer.escapeJson(e.name)).append('"')
+              .append(",\"state\":\"").append(e.state).append('"')
+              .append(",\"cpuPercent\":").append(String.format("%.2f", cpuPct))
+              .append(",\"cpuTimeNs\":").append(e.totalCpu)
+              .append('}');
+        }
+        sb.append("],\"totalThreads\":").append(entries.size()).append('}');
+        System.out.println(sb);
+    }
+
+    private record ThreadCpuEntry(long id, String name, String state, long cpuDelta, long totalCpu) {}
 
     private static void printJson(ThreadResult result) {
         StringBuilder sb = new StringBuilder();
