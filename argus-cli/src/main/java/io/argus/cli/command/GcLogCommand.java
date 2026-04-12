@@ -55,12 +55,20 @@ public final class GcLogCommand implements Command {
         boolean useColor = config.color();
         boolean flagsOnly = false;
         boolean showPhases = false;
+        boolean tenuring = false;
         String exportHtml = null;
         for (int i = 1; i < args.length; i++) {
             if (args[i].equals("--format=json")) json = true;
             if (args[i].equals("--suggest-flags")) flagsOnly = true;
             if (args[i].startsWith("--export=")) exportHtml = args[i].substring(9);
             if (args[i].equals("--phases")) showPhases = true;
+            if (args[i].equals("--tenuring")) tenuring = true;
+        }
+
+        // --tenuring: dedicated age table analysis from debug GC log
+        if (tenuring) {
+            printTenuringAnalysis(logFile, useColor);
+            return;
         }
 
         List<GcEvent> events;
@@ -322,6 +330,107 @@ public final class GcLogCommand implements Command {
                 + String.format("%6.1fms", totalAvg)
                 + AnsiStyle.style(c, AnsiStyle.RESET)
                 + RichRenderer.padLeft("100%", BAR_WIDTH + 25), WIDTH));
+    }
+
+    private void printTenuringAnalysis(Path logFile, boolean c) {
+        TenuringAnalyzer.TenuringAnalysis analysis;
+        try {
+            analysis = TenuringAnalyzer.analyze(logFile);
+        } catch (IOException e) {
+            System.err.println("Failed to read GC log: " + e.getMessage());
+            return;
+        }
+
+        System.out.print(RichRenderer.brandedHeader(c, "gclog", "Tenuring analysis from GC age table"));
+        System.out.println(RichRenderer.boxHeader(c, "Tenuring Analysis", WIDTH,
+                "file:" + logFile.getFileName()));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        if (analysis.snapshots().isEmpty()) {
+            System.out.println(RichRenderer.boxLine(
+                    "  No age table entries found.", WIDTH));
+            System.out.println(RichRenderer.boxLine(
+                    "  Enable with: -Xlog:gc+age=debug", WIDTH));
+            System.out.println(RichRenderer.boxFooter(c, null, WIDTH));
+            return;
+        }
+
+        // Summary
+        kv(c, "GC snapshots", String.valueOf(analysis.snapshots().size()));
+        kv(c, "Min threshold", String.valueOf(analysis.minThreshold()));
+        kv(c, "Max threshold seen", String.valueOf(analysis.maxThresholdSeen()));
+
+        if (analysis.prematurePromotionDetected()) {
+            kv(c, "Premature promotion",
+                    AnsiStyle.style(c, AnsiStyle.RED) + "DETECTED"
+                            + AnsiStyle.style(c, AnsiStyle.RESET));
+        }
+        if (analysis.survivorOverflowDetected()) {
+            kv(c, "Survivor overflow",
+                    AnsiStyle.style(c, AnsiStyle.YELLOW) + "DETECTED"
+                            + AnsiStyle.style(c, AnsiStyle.RESET));
+        }
+
+        // Latest age snapshot
+        if (!analysis.snapshots().isEmpty()) {
+            TenuringAnalyzer.GcAgeSnapshot latest = analysis.snapshots().getLast();
+            section(c, "Latest Age Distribution (GC " + latest.gcId() + ")");
+
+            var entries = latest.distribution().entries();
+            long total = latest.distribution().survivorCapacity();
+
+            if (!entries.isEmpty()) {
+                String bold = AnsiStyle.style(c, AnsiStyle.BOLD);
+                String reset = AnsiStyle.style(c, AnsiStyle.RESET);
+                System.out.println(RichRenderer.boxLine(
+                        "  " + bold
+                                + RichRenderer.padRight("Age", 5)
+                                + RichRenderer.padLeft("Bytes", 12)
+                                + RichRenderer.padLeft("Cumulative", 13)
+                                + "   Bar"
+                                + reset, WIDTH));
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+
+                for (var e : entries) {
+                    int pct = total > 0 ? (int) (e.bytes() * 100 / total) : 0;
+                    int barLen = 20 * pct / 100;
+                    String bar = "\u2588".repeat(Math.max(0, barLen));
+                    boolean atThreshold = e.age() == latest.distribution().tenuringThreshold();
+                    String lColor = atThreshold ? AnsiStyle.style(c, AnsiStyle.YELLOW) : "";
+                    String lReset = atThreshold ? AnsiStyle.style(c, AnsiStyle.RESET) : "";
+                    System.out.println(RichRenderer.boxLine("  " + lColor
+                            + RichRenderer.padLeft(String.valueOf(e.age()), 3) + "   "
+                            + RichRenderer.padLeft(RichRenderer.formatKB(e.bytes() / 1024), 10) + "   "
+                            + RichRenderer.padLeft(RichRenderer.formatKB(e.cumulativeBytes() / 1024), 10) + "   "
+                            + RichRenderer.padRight(bar, 20) + "  " + pct + "%"
+                            + lReset, WIDTH));
+                }
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+                System.out.println(RichRenderer.boxLine(
+                        "  Tenuring: " + latest.distribution().tenuringThreshold()
+                                + " / max: " + latest.distribution().maxTenuringThreshold(), WIDTH));
+            }
+        }
+
+        // Insights
+        if (!analysis.insights().isEmpty()) {
+            section(c, "Insights");
+            for (String insight : analysis.insights()) {
+                System.out.println(RichRenderer.boxLine("  \u2192 " + insight, WIDTH));
+            }
+        }
+
+        // Recommendations
+        if (!analysis.recommendations().isEmpty()) {
+            section(c, "Recommendations");
+            for (int i = 0; i < analysis.recommendations().size(); i++) {
+                System.out.println(RichRenderer.boxLine(
+                        "  " + (i + 1) + ". " + analysis.recommendations().get(i), WIDTH));
+            }
+        }
+
+        System.out.println(RichRenderer.boxFooter(c,
+                analysis.snapshots().size() + " snapshots", WIDTH));
     }
 
     private void section(boolean c, String title) {
