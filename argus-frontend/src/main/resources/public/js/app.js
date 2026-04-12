@@ -25,6 +25,7 @@ import {
 } from './state.js';
 import { formatNumber, formatTimestamp, escapeHtml, formatDuration } from './utils.js';
 import { initFilters, addEvent as addEventToFilter, clearEvents as clearFilterEvents } from './filter.js';
+import { initAnalysis } from './analysis.js';
 
 // DOM elements
 const elements = {
@@ -175,6 +176,9 @@ const maxEvents = 500;
 
 // Initialize modules
 function init() {
+    // Initialize file analysis modal
+    initAnalysis();
+
     // Initialize thread view
     initThreadView(elements);
 

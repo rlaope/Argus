@@ -32,6 +32,7 @@ _argus() {
         'doctor:One-click JVM health diagnosis'
         'gclog:Analyze GC log file with tuning recommendations'
         'gclogdiff:Compare two GC log files with regression detection'
+        'gcprofile:GC-aware allocation profiling via JFR'
         'flame:One-shot flame graph with browser open'
         'watch:Real-time terminal dashboard'
         'suggest:JVM flag optimization'

@@ -20,6 +20,7 @@ import io.argus.cli.command.WatchCommand;
 import io.argus.cli.command.GcCauseCommand;
 import io.argus.cli.command.GcLogCommand;
 import io.argus.cli.command.GcLogDiffCommand;
+import io.argus.cli.command.GcProfileCommand;
 import io.argus.cli.command.GcRunCommand;
 import io.argus.cli.command.GcCommand;
 import io.argus.cli.command.GcNewCommand;
@@ -172,6 +173,7 @@ public final class ArgusCli {
         register(commands, new SlowlogCommand());
         register(commands, new GcLogCommand());
         register(commands, new GcLogDiffCommand());
+        register(commands, new GcProfileCommand());
         register(commands, new FlameCommand());
         register(commands, new SuggestCommand());
         register(commands, new InfoCommand());
