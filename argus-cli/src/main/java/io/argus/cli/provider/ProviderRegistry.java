@@ -14,6 +14,7 @@ import io.argus.cli.provider.jdk.JdkDynLibsProvider;
 import io.argus.cli.provider.jdk.JdkEnvProvider;
 import io.argus.cli.provider.jdk.JdkFinalizerProvider;
 import io.argus.cli.provider.jdk.JdkGcCauseProvider;
+import io.argus.cli.provider.jdk.JdkGcAgeProvider;
 import io.argus.cli.provider.jdk.JdkGcNewProvider;
 import io.argus.cli.provider.jdk.JdkGcProvider;
 import io.argus.cli.provider.jdk.JdkGcUtilProvider;
@@ -78,6 +79,7 @@ public final class ProviderRegistry {
     private final List<DynLibsProvider> dynLibsProviders = new ArrayList<>();
     private final List<ClassStatProvider> classStatProviders = new ArrayList<>();
     private final List<GcNewProvider> gcNewProviders = new ArrayList<>();
+    private final List<GcAgeProvider> gcAgeProviders = new ArrayList<>();
     private final List<SymbolTableProvider> symbolTableProviders = new ArrayList<>();
     private final List<ThreadDumpProvider> threadDumpProviders = new ArrayList<>();
     private final List<BuffersProvider> buffersProviders = new ArrayList<>();
@@ -133,6 +135,7 @@ public final class ProviderRegistry {
         dynLibsProviders.add(new JdkDynLibsProvider());
         classStatProviders.add(new JdkClassStatProvider());
         gcNewProviders.add(new JdkGcNewProvider());
+        gcAgeProviders.add(new JdkGcAgeProvider());
         symbolTableProviders.add(new JdkSymbolTableProvider());
         threadDumpProviders.add(new JdkThreadDumpProvider());
         buffersProviders.add(new JdkBuffersProvider());
@@ -328,6 +331,13 @@ public final class ProviderRegistry {
      */
     public GcNewProvider findGcNewProvider(long pid, String sourceOverride) {
         return findBest(gcNewProviders, pid, sourceOverride);
+    }
+
+    /**
+     * Finds the best GcAgeProvider for the given PID.
+     */
+    public GcAgeProvider findGcAgeProvider(long pid, String sourceOverride) {
+        return findBest(gcAgeProviders, pid, sourceOverride);
     }
 
     /**
