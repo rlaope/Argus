@@ -127,6 +127,11 @@ public final class GCAnalyzer {
         // GC overhead warning if > 10%
         boolean overheadWarning = currentGcOverheadPercent > 10.0;
 
+        // Compute real-time rate and leak metrics from all recorded events
+        List<GCSummary> allSummaries = new ArrayList<>(recentGCs);
+        GcMetricsComputer.RateMetrics rates = GcMetricsComputer.computeRates(allSummaries);
+        GcMetricsComputer.LeakMetrics leak = GcMetricsComputer.detectLeak(allSummaries);
+
         return new GCAnalysisResult(
                 total,
                 totalPause / 1_000_000, // Convert to ms
@@ -138,7 +143,11 @@ public final class GCAnalyzer {
                 lastHeapCommitted,
                 lastGCTime,
                 currentGcOverheadPercent,
-                overheadWarning
+                overheadWarning,
+                rates.allocationRateKBPerSec(),
+                rates.promotionRateKBPerSec(),
+                leak.leakSuspected(),
+                leak.confidencePercent()
         );
     }
 
@@ -256,12 +265,18 @@ public final class GCAnalyzer {
         private final Instant lastGCTime;
         private final double gcOverheadPercent;
         private final boolean isOverheadWarning;
+        private final double allocationRateKBPerSec;
+        private final double promotionRateKBPerSec;
+        private final boolean leakSuspected;
+        private final double leakConfidencePercent;
 
         public GCAnalysisResult(long totalGCEvents, long totalPauseTimeMs, double avgPauseTimeMs,
                                 long maxPauseTimeMs, List<GCSummary> recentGCs,
                                 Map<String, Long> causeDistribution, long currentHeapUsed,
                                 long currentHeapCommitted, Instant lastGCTime,
-                                double gcOverheadPercent, boolean isOverheadWarning) {
+                                double gcOverheadPercent, boolean isOverheadWarning,
+                                double allocationRateKBPerSec, double promotionRateKBPerSec,
+                                boolean leakSuspected, double leakConfidencePercent) {
             this.totalGCEvents = totalGCEvents;
             this.totalPauseTimeMs = totalPauseTimeMs;
             this.avgPauseTimeMs = avgPauseTimeMs;
@@ -273,6 +288,10 @@ public final class GCAnalyzer {
             this.lastGCTime = lastGCTime;
             this.gcOverheadPercent = gcOverheadPercent;
             this.isOverheadWarning = isOverheadWarning;
+            this.allocationRateKBPerSec = allocationRateKBPerSec;
+            this.promotionRateKBPerSec = promotionRateKBPerSec;
+            this.leakSuspected = leakSuspected;
+            this.leakConfidencePercent = leakConfidencePercent;
         }
 
         public long totalGCEvents() { return totalGCEvents; }
@@ -286,5 +305,9 @@ public final class GCAnalyzer {
         public Instant lastGCTime() { return lastGCTime; }
         public double gcOverheadPercent() { return gcOverheadPercent; }
         public boolean isOverheadWarning() { return isOverheadWarning; }
+        public double allocationRateKBPerSec() { return allocationRateKBPerSec; }
+        public double promotionRateKBPerSec() { return promotionRateKBPerSec; }
+        public boolean leakSuspected() { return leakSuspected; }
+        public double leakConfidencePercent() { return leakConfidencePercent; }
     }
 }

@@ -570,6 +570,10 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         sb.append("\"currentHeapCommitted\":").append(analysis.currentHeapCommitted()).append(",");
         sb.append("\"gcOverheadPercent\":").append(String.format("%.2f", analysis.gcOverheadPercent())).append(",");
         sb.append("\"isOverheadWarning\":").append(analysis.isOverheadWarning()).append(",");
+        sb.append("\"allocationRateKBPerSec\":").append(String.format("%.2f", analysis.allocationRateKBPerSec())).append(",");
+        sb.append("\"promotionRateKBPerSec\":").append(String.format("%.2f", analysis.promotionRateKBPerSec())).append(",");
+        sb.append("\"leakSuspected\":").append(analysis.leakSuspected()).append(",");
+        sb.append("\"leakConfidencePercent\":").append(String.format("%.2f", analysis.leakConfidencePercent())).append(",");
 
         if (analysis.lastGCTime() != null) {
             sb.append("\"lastGCTime\":\"").append(analysis.lastGCTime()).append("\",");
