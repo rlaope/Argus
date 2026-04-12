@@ -15,10 +15,18 @@ public final class GcLogAnalyzer {
             return new GcLogAnalysis(0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, Map.of(), List.of());
         }
 
-        // Separate pause vs concurrent
-        List<GcEvent> pauseEvents = events.stream().filter(e -> !e.isConcurrent()).toList();
-        List<GcEvent> concurrentEvents = events.stream().filter(GcEvent::isConcurrent).toList();
-        List<GcEvent> fullGcEvents = events.stream().filter(GcEvent::isFullGc).toList();
+        // Single-pass partition into pause / concurrent / fullGc
+        List<GcEvent> pauseEvents = new ArrayList<>();
+        List<GcEvent> concurrentEvents = new ArrayList<>();
+        List<GcEvent> fullGcEvents = new ArrayList<>();
+        for (GcEvent e : events) {
+            if (e.isConcurrent()) {
+                concurrentEvents.add(e);
+            } else {
+                pauseEvents.add(e);
+                if (e.isFullGc()) fullGcEvents.add(e);
+            }
+        }
 
         // Duration
         double firstTs = events.getFirst().timestampSec();

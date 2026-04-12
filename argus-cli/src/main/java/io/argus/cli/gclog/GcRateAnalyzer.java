@@ -8,99 +8,93 @@ import java.util.List;
  */
 public final class GcRateAnalyzer {
 
-    public static RateAnalysis analyze(List<GcEvent> pauseEvents) {
-        List<GcEvent> pauses = pauseEvents;
+    private static final int NUM_WINDOWS = 10;
 
-        if (pauses.size() < 2) {
+    public static RateAnalysis analyze(List<GcEvent> pauseEvents) {
+        if (pauseEvents.size() < 2) {
             return new RateAnalysis(0, 0, 0, 0, 0, 0,
-                    new double[10], new double[10]);
+                    new double[NUM_WINDOWS], new double[NUM_WINDOWS]);
         }
 
-        List<Double> allocRates = new ArrayList<>();
-        List<Double> promoRates = new ArrayList<>();
+        double firstTs = pauseEvents.getFirst().timestampSec();
+        double lastTs = pauseEvents.getLast().timestampSec();
+        double duration = Math.max(lastTs - firstTs, 0.001);
+        double windowSize = duration / NUM_WINDOWS;
+
+        // Accumulators for aggregate stats
+        double allocSum = 0, allocMax = 0;
+        int allocCount = 0;
+        double promoSum = 0, promoMax = 0;
+        int promoCount = 0;
         long totalAllocatedKB = 0;
         long totalReclaimedKB = 0;
 
-        for (int i = 1; i < pauses.size(); i++) {
-            GcEvent prev = pauses.get(i - 1);
-            GcEvent cur = pauses.get(i);
+        // Buckets for sparkline windows (computed in single pass)
+        List<List<Double>> allocBuckets = new ArrayList<>();
+        List<List<Double>> promoBuckets = new ArrayList<>();
+        for (int i = 0; i < NUM_WINDOWS; i++) {
+            allocBuckets.add(new ArrayList<>());
+            promoBuckets.add(new ArrayList<>());
+        }
+
+        for (int i = 1; i < pauseEvents.size(); i++) {
+            GcEvent prev = pauseEvents.get(i - 1);
+            GcEvent cur = pauseEvents.get(i);
 
             double timeDelta = cur.timestampSec() - prev.timestampSec();
             if (timeDelta <= 0) continue;
 
-            // Allocation rate: heap grew between prev after-GC and this before-GC
+            int bucket = Math.min(NUM_WINDOWS - 1,
+                    (int) ((cur.timestampSec() - firstTs) / windowSize));
+
+            // Allocation rate
             long allocatedKB = cur.heapBeforeKB() - prev.heapAfterKB();
             if (allocatedKB > 0) {
-                allocRates.add(allocatedKB / timeDelta);
+                double rate = allocatedKB / timeDelta;
+                allocSum += rate;
+                allocCount++;
+                if (rate > allocMax) allocMax = rate;
                 totalAllocatedKB += allocatedKB;
+                allocBuckets.get(bucket).add(rate);
             }
 
             totalReclaimedKB += Math.max(0, cur.reclaimedKB());
 
-            // Promotion rate: old gen growth between consecutive non-Full GC events
+            // Promotion rate
             if (!prev.isFullGc() && !cur.isFullGc()) {
                 long promotedKB = cur.heapAfterKB() - prev.heapAfterKB();
                 if (promotedKB > 0) {
-                    promoRates.add(promotedKB / timeDelta);
+                    double rate = promotedKB / timeDelta;
+                    promoSum += rate;
+                    promoCount++;
+                    if (rate > promoMax) promoMax = rate;
+                    promoBuckets.get(bucket).add(rate);
                 }
             }
         }
 
-        double avgAlloc = allocRates.isEmpty() ? 0
-                : allocRates.stream().mapToDouble(Double::doubleValue).average().orElse(0);
-        double peakAlloc = allocRates.isEmpty() ? 0
-                : allocRates.stream().mapToDouble(Double::doubleValue).max().orElse(0);
-        double avgPromo = promoRates.isEmpty() ? 0
-                : promoRates.stream().mapToDouble(Double::doubleValue).average().orElse(0);
-        double peakPromo = promoRates.isEmpty() ? 0
-                : promoRates.stream().mapToDouble(Double::doubleValue).max().orElse(0);
-
+        double avgAlloc = allocCount > 0 ? allocSum / allocCount : 0;
+        double avgPromo = promoCount > 0 ? promoSum / promoCount : 0;
         double reclaimEfficiency = totalAllocatedKB > 0
                 ? (double) totalReclaimedKB / totalAllocatedKB * 100 : 0;
         double promoAllocRatio = avgAlloc > 0 ? avgPromo / avgAlloc * 100 : 0;
 
-        double[] allocWindows = computeWindows(pauses, true);
-        double[] promoWindows = computeWindows(pauses, false);
+        double[] allocWindows = averageBuckets(allocBuckets);
+        double[] promoWindows = averageBuckets(promoBuckets);
 
-        return new RateAnalysis(avgAlloc, peakAlloc, avgPromo, peakPromo,
+        return new RateAnalysis(avgAlloc, allocMax, avgPromo, promoMax,
                 reclaimEfficiency, promoAllocRatio, allocWindows, promoWindows);
     }
 
-    private static double[] computeWindows(List<GcEvent> pauses, boolean isAlloc) {
-        double[] windows = new double[10];
-        if (pauses.size() < 2) return windows;
-
-        double firstTs = pauses.getFirst().timestampSec();
-        double lastTs = pauses.getLast().timestampSec();
-        double duration = Math.max(lastTs - firstTs, 0.001);
-        double windowSize = duration / 10.0;
-
-        List<List<Double>> buckets = new ArrayList<>();
-        for (int i = 0; i < 10; i++) buckets.add(new ArrayList<>());
-
-        for (int i = 1; i < pauses.size(); i++) {
-            GcEvent prev = pauses.get(i - 1);
-            GcEvent cur = pauses.get(i);
-            double timeDelta = cur.timestampSec() - prev.timestampSec();
-            if (timeDelta <= 0) continue;
-
-            int bucket = Math.min(9, (int) ((cur.timestampSec() - firstTs) / windowSize));
-
-            if (isAlloc) {
-                long allocatedKB = cur.heapBeforeKB() - prev.heapAfterKB();
-                if (allocatedKB > 0) buckets.get(bucket).add(allocatedKB / timeDelta);
-            } else {
-                if (!prev.isFullGc() && !cur.isFullGc()) {
-                    long promotedKB = cur.heapAfterKB() - prev.heapAfterKB();
-                    if (promotedKB > 0) buckets.get(bucket).add(promotedKB / timeDelta);
-                }
-            }
-        }
-
-        for (int i = 0; i < 10; i++) {
+    private static double[] averageBuckets(List<List<Double>> buckets) {
+        double[] windows = new double[buckets.size()];
+        for (int i = 0; i < buckets.size(); i++) {
             List<Double> b = buckets.get(i);
-            windows[i] = b.isEmpty() ? 0
-                    : b.stream().mapToDouble(Double::doubleValue).average().orElse(0);
+            if (!b.isEmpty()) {
+                double sum = 0;
+                for (double v : b) sum += v;
+                windows[i] = sum / b.size();
+            }
         }
         return windows;
     }

@@ -11,6 +11,8 @@ public final class GcEvent {
     private final long heapBeforeKB;
     private final long heapAfterKB;
     private final long heapTotalKB;
+    private final boolean fullGc;
+    private final boolean concurrent;
 
     public GcEvent(double timestampSec, String type, String cause, double pauseMs,
                    long heapBeforeKB, long heapAfterKB, long heapTotalKB) {
@@ -21,6 +23,9 @@ public final class GcEvent {
         this.heapBeforeKB = heapBeforeKB;
         this.heapAfterKB = heapAfterKB;
         this.heapTotalKB = heapTotalKB;
+        String lower = type.toLowerCase();
+        this.fullGc = lower.contains("full");
+        this.concurrent = lower.contains("concurrent");
     }
 
     public double timestampSec() { return timestampSec; }
@@ -31,6 +36,6 @@ public final class GcEvent {
     public long heapAfterKB() { return heapAfterKB; }
     public long heapTotalKB() { return heapTotalKB; }
     public long reclaimedKB() { return heapBeforeKB - heapAfterKB; }
-    public boolean isFullGc() { return type.toLowerCase().contains("full"); }
-    public boolean isConcurrent() { return type.toLowerCase().contains("concurrent"); }
+    public boolean isFullGc() { return fullGc; }
+    public boolean isConcurrent() { return concurrent; }
 }
