@@ -45,6 +45,59 @@ public final class GcLogParser {
     private static final Pattern UNIFIED_CONCURRENT = Pattern.compile(
             "GC\\(\\d+\\)\\s+Concurrent\\s+(\\S+)\\s+(\\d+\\.?\\d*)ms");
 
+    // JDK 17+ debug phase: [debug][gc,phases] GC(0) Pre Evacuate Collection Set: 0.1ms
+    private static final Pattern GC_PHASE = Pattern.compile(
+            "GC\\((\\d+)\\)\\s+(.+?):\\s+(\\d+\\.?\\d*)ms");
+
+    /**
+     * Result container for phase-aware parsing.
+     */
+    public record ParseResult(List<GcEvent> events, List<GcPhaseEvent> phases) {}
+
+    /**
+     * Parse GC log file and also extract phase breakdown from debug gc,phases lines.
+     * Requires -Xlog:gc*=debug output. Phase lines have [gc,phases] tag.
+     */
+    public static ParseResult parseWithPhases(Path logFile) throws IOException {
+        List<GcEvent> events = new ArrayList<>();
+        List<GcPhaseEvent> phases = new ArrayList<>();
+        boolean unified = false;
+        boolean formatDetected = false;
+
+        try (BufferedReader reader = Files.newBufferedReader(logFile)) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!formatDetected && !line.isBlank()) {
+                    unified = line.contains("[gc") || line.contains("[info]")
+                            || line.startsWith("[") && (line.contains("s]") || line.contains("T"));
+                    formatDetected = true;
+                }
+
+                // Phase lines: must contain gc,phases tag
+                if (line.contains("gc,phases")) {
+                    GcPhaseEvent phase = parsePhraseLine(line);
+                    if (phase != null) {
+                        phases.add(phase);
+                        continue;
+                    }
+                }
+
+                GcEvent event = unified ? parseUnifiedLine(line) : parseLegacyLine(line);
+                if (event != null) events.add(event);
+            }
+        }
+        return new ParseResult(events, phases);
+    }
+
+    private static GcPhaseEvent parsePhraseLine(String line) {
+        Matcher m = GC_PHASE.matcher(line);
+        if (!m.find()) return null;
+        int gcId = Integer.parseInt(m.group(1));
+        String phase = m.group(2).trim();
+        double durationMs = Double.parseDouble(m.group(3));
+        return new GcPhaseEvent(gcId, phase, durationMs);
+    }
+
     /**
      * Parse GC log file using streaming reader. Handles multi-GB files.
      */

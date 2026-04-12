@@ -54,16 +54,25 @@ public final class GcLogCommand implements Command {
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
         boolean flagsOnly = false;
+        boolean showPhases = false;
         String exportHtml = null;
         for (int i = 1; i < args.length; i++) {
             if (args[i].equals("--format=json")) json = true;
             if (args[i].equals("--suggest-flags")) flagsOnly = true;
             if (args[i].startsWith("--export=")) exportHtml = args[i].substring(9);
+            if (args[i].equals("--phases")) showPhases = true;
         }
 
         List<GcEvent> events;
+        List<GcPhaseEvent> phaseEvents = List.of();
         try {
-            events = GcLogParser.parse(logFile);
+            if (showPhases) {
+                GcLogParser.ParseResult result = GcLogParser.parseWithPhases(logFile);
+                events = result.events();
+                phaseEvents = result.phases();
+            } else {
+                events = GcLogParser.parse(logFile);
+            }
         } catch (IOException e) {
             System.err.println("Failed to read GC log: " + e.getMessage());
             return;
@@ -92,7 +101,7 @@ public final class GcLogCommand implements Command {
             PrintStream original = System.out;
             ByteArrayOutputStream capture = new ByteArrayOutputStream();
             System.setOut(new PrintStream(capture));
-            printRich(analysis, events, logFile, true);
+            printRich(analysis, events, phaseEvents, logFile, true);
             System.setOut(original);
             String html = HtmlExporter.toHtml(capture.toString(), "Argus GC Log Analysis — " + logFile.getFileName());
             try {
@@ -105,10 +114,12 @@ public final class GcLogCommand implements Command {
             return;
         }
 
-        printRich(analysis, events, logFile, useColor);
+        printRich(analysis, events, phaseEvents, logFile, useColor);
     }
 
-    private void printRich(GcLogAnalysis a, List<GcEvent> events, Path file, boolean c) {
+    private void printRich(GcLogAnalysis a, List<GcEvent> events,
+                           List<GcPhaseEvent> phaseEvents,
+                           Path file, boolean c) {
         System.out.print(RichRenderer.brandedHeader(c, "gclog",
                 "GC log analysis with tuning recommendations"));
         System.out.println(RichRenderer.boxHeader(c, "GC Log Analysis", WIDTH,
@@ -271,8 +282,46 @@ public final class GcLogCommand implements Command {
             }
         }
 
+        // Phase Breakdown (only when --phases flag used and phase data available)
+        if (!phaseEvents.isEmpty()) {
+            GcPhaseAnalyzer.PhaseAnalysis phaseAnalysis = GcPhaseAnalyzer.analyze(phaseEvents);
+            if (!phaseAnalysis.phases().isEmpty()) {
+                printPhaseBreakdown(c, phaseAnalysis);
+            }
+        }
+
         System.out.println(RichRenderer.boxFooter(c,
                 a.pauseEvents() + " pauses, " + String.format("%.1f%%", a.throughputPercent()) + " throughput", WIDTH));
+    }
+
+    private void printPhaseBreakdown(boolean c, GcPhaseAnalyzer.PhaseAnalysis analysis) {
+        section(c, String.format("GC Pause Phase Breakdown (avg of %d GCs)", analysis.gcCount()));
+
+        // Bar chart: max bar width = 20 chars for 100%
+        int BAR_WIDTH = 20;
+        for (GcPhaseAnalyzer.PhaseStat stat : analysis.phases()) {
+            int barLen = (int) Math.round(stat.percentOfTotal() / 100.0 * BAR_WIDTH);
+            String bar = AnsiStyle.style(c, AnsiStyle.CYAN)
+                    + "\u2588".repeat(Math.max(0, barLen))
+                    + AnsiStyle.style(c, AnsiStyle.RESET);
+            String row = "  "
+                    + RichRenderer.padRight(RichRenderer.truncate(stat.phase(), 22), 22)
+                    + String.format("%6.1fms  ", stat.avgMs())
+                    + RichRenderer.padRight(bar, BAR_WIDTH + 20)  // +20 for ANSI escape codes
+                    + String.format("%3.0f%%", stat.percentOfTotal());
+            System.out.println(RichRenderer.boxLine(row, WIDTH));
+        }
+
+        // Total row
+        double totalAvg = analysis.phases().stream()
+                .mapToDouble(GcPhaseAnalyzer.PhaseStat::avgMs).sum();
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                "  " + AnsiStyle.style(c, AnsiStyle.BOLD)
+                + RichRenderer.padRight("Total", 22)
+                + String.format("%6.1fms", totalAvg)
+                + AnsiStyle.style(c, AnsiStyle.RESET)
+                + RichRenderer.padLeft("100%", BAR_WIDTH + 25), WIDTH));
     }
 
     private void section(boolean c, String title) {
