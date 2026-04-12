@@ -486,6 +486,26 @@
 
         </div><!-- end #vt-tab -->
 
+        <!-- ================================================================
+             FILE ANALYSIS COMMANDS
+        ================================================================ -->
+        <section class="content-section analysis-panel">
+            <div class="section-header">
+                <h3>File Analysis</h3>
+                <p class="section-desc">Upload GC log files for offline analysis and comparison.</p>
+            </div>
+            <div class="analysis-commands">
+                <button class="analysis-cmd-btn" data-cmd="gclog" title="Analyze GC log file">
+                    <span class="cmd-icon">GC</span>
+                    <span class="cmd-name">GC Log Analysis</span>
+                </button>
+                <button class="analysis-cmd-btn" data-cmd="gclogdiff" title="Compare two GC log files">
+                    <span class="cmd-icon">Diff</span>
+                    <span class="cmd-name">GC Log Diff</span>
+                </button>
+            </div>
+        </section>
+
     </main>
 
     <footer>
@@ -707,6 +727,47 @@
         });
     });
     </script>
+    <!-- ================================================================
+         FILE ANALYSIS MODAL
+    ================================================================ -->
+    <div id="analysis-modal" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="analysis-modal-title">GC Log Analysis</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="analysis-modal-form"></div>
+                <div id="analysis-modal-validation" class="validation-msg"></div>
+                <div id="analysis-progress" class="hidden">
+                    <div class="progress-bar"><div class="progress-fill"></div></div>
+                    <span class="progress-text">Uploading...</span>
+                </div>
+                <div class="modal-actions">
+                    <button id="analysis-cancel-btn" class="btn">Cancel</button>
+                    <button id="analysis-submit-btn" class="btn btn-primary" disabled>Analyze</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         ANALYSIS RESULT PANEL
+    ================================================================ -->
+    <div id="analysis-result" class="modal hidden">
+        <div class="modal-backdrop"></div>
+        <div class="modal-content modal-wide">
+            <div class="modal-header">
+                <h2 id="result-title">Analysis Result</h2>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="result-body"></div>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="/js/app.js"></script>
 </body>
 </html>

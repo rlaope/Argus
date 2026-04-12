@@ -1,7 +1,15 @@
 package io.argus.server.handler;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 
+import io.argus.cli.gclog.GcEvent;
+import io.argus.cli.gclog.GcLogAnalysis;
+import io.argus.cli.gclog.GcLogAnalyzer;
+import io.argus.cli.gclog.GcLogParser;
 import io.argus.core.config.AgentConfig;
 import io.argus.server.command.ServerCommandExecutor;
 import io.argus.server.analysis.AllocationAnalyzer;
@@ -26,6 +34,12 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.group.ChannelGroup;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpMethod;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.multipart.DefaultHttpDataFactory;
+import io.netty.handler.codec.http.multipart.FileUpload;
+import io.netty.handler.codec.http.multipart.HttpPostRequestDecoder;
+import io.netty.handler.codec.http.multipart.InterfaceHttpData;
 import io.netty.handler.codec.http.websocketx.*;
 
 /**
@@ -168,6 +182,8 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
                     HttpResponseHelper.sendJson(ctx, req, "{\"processInfo\":\"" + escapeJson(info) + "\"}");
                 })
                 .exact("/api/commands", (ctx, req, uri) -> handleCommandsList(ctx, req))
+                .exact("/api/analyze/gclog", (ctx, req, uri) -> handleGcLogUpload(ctx, req))
+                .exact("/api/analyze/gclogdiff", (ctx, req, uri) -> handleGcLogDiffUpload(ctx, req))
                 // Prefix routes
                 .prefix("/threads/", this::handleThreadRoute)
                 .prefix("/flame-graph", (ctx, req, uri) -> handleFlameGraph(ctx, req, uri))
@@ -1204,6 +1220,173 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         }
         sb.append("]}");
         HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handleGcLogUpload(ChannelHandlerContext ctx, FullHttpRequest request) {
+        if (!HttpMethod.POST.equals(request.method())) {
+            HttpResponseHelper.send(ctx, request, HttpResponseStatus.METHOD_NOT_ALLOWED,
+                    "{\"error\":\"POST required\"}", "application/json");
+            return;
+        }
+        Path tempFile = null;
+        try {
+            HttpPostRequestDecoder decoder = new HttpPostRequestDecoder(
+                    new DefaultHttpDataFactory(false), request);
+            FileUpload upload = null;
+            for (InterfaceHttpData data : decoder.getBodyHttpDatas()) {
+                if (data instanceof FileUpload fu && "file1".equals(fu.getName())) {
+                    upload = fu;
+                    break;
+                }
+            }
+            if (upload == null || !upload.isCompleted()) {
+                HttpResponseHelper.send(ctx, request, HttpResponseStatus.BAD_REQUEST,
+                        "{\"error\":\"Missing file1 field\"}", "application/json");
+                decoder.destroy();
+                return;
+            }
+            tempFile = Files.createTempFile("argus-gclog-", ".log");
+            upload.renameTo(tempFile.toFile());
+            decoder.destroy();
+
+            List<GcEvent> events = GcLogParser.parse(tempFile);
+            GcLogAnalysis a = GcLogAnalyzer.analyze(events);
+            String json = gcLogAnalysisToJson(a, tempFile.getFileName().toString());
+            HttpResponseHelper.sendJson(ctx, request, json);
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "GC log upload error: {0}", e.getMessage());
+            HttpResponseHelper.send(ctx, request, HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                    "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}", "application/json");
+        } finally {
+            if (tempFile != null) {
+                try { Files.deleteIfExists(tempFile); } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    private void handleGcLogDiffUpload(ChannelHandlerContext ctx, FullHttpRequest request) {
+        if (!HttpMethod.POST.equals(request.method())) {
+            HttpResponseHelper.send(ctx, request, HttpResponseStatus.METHOD_NOT_ALLOWED,
+                    "{\"error\":\"POST required\"}", "application/json");
+            return;
+        }
+        Path tempFile1 = null;
+        Path tempFile2 = null;
+        try {
+            HttpPostRequestDecoder decoder = new HttpPostRequestDecoder(
+                    new DefaultHttpDataFactory(false), request);
+            FileUpload upload1 = null;
+            FileUpload upload2 = null;
+            for (InterfaceHttpData data : decoder.getBodyHttpDatas()) {
+                if (data instanceof FileUpload fu) {
+                    if ("file1".equals(fu.getName())) upload1 = fu;
+                    else if ("file2".equals(fu.getName())) upload2 = fu;
+                }
+            }
+            if (upload1 == null || !upload1.isCompleted()
+                    || upload2 == null || !upload2.isCompleted()) {
+                HttpResponseHelper.send(ctx, request, HttpResponseStatus.BAD_REQUEST,
+                        "{\"error\":\"Both file1 and file2 are required\"}", "application/json");
+                decoder.destroy();
+                return;
+            }
+            tempFile1 = Files.createTempFile("argus-gclog1-", ".log");
+            tempFile2 = Files.createTempFile("argus-gclog2-", ".log");
+            upload1.renameTo(tempFile1.toFile());
+            upload2.renameTo(tempFile2.toFile());
+            String name1 = upload1.getFilename() != null ? upload1.getFilename() : "file1";
+            String name2 = upload2.getFilename() != null ? upload2.getFilename() : "file2";
+            decoder.destroy();
+
+            GcLogAnalysis a = GcLogAnalyzer.analyze(GcLogParser.parse(tempFile1));
+            GcLogAnalysis b = GcLogAnalyzer.analyze(GcLogParser.parse(tempFile2));
+            String json = gcLogDiffToJson(a, b, name1, name2);
+            HttpResponseHelper.sendJson(ctx, request, json);
+        } catch (IOException e) {
+            LOG.log(System.Logger.Level.WARNING, "GC log diff upload error: {0}", e.getMessage());
+            HttpResponseHelper.send(ctx, request, HttpResponseStatus.INTERNAL_SERVER_ERROR,
+                    "{\"error\":\"" + escapeJson(e.getMessage()) + "\"}", "application/json");
+        } finally {
+            if (tempFile1 != null) { try { Files.deleteIfExists(tempFile1); } catch (IOException ignored) {} }
+            if (tempFile2 != null) { try { Files.deleteIfExists(tempFile2); } catch (IOException ignored) {} }
+        }
+    }
+
+    private String gcLogAnalysisToJson(GcLogAnalysis a, String filename) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"file\":\"").append(escapeJson(filename)).append('"');
+        sb.append(",\"totalEvents\":").append(a.totalEvents());
+        sb.append(",\"pauseEvents\":").append(a.pauseEvents());
+        sb.append(",\"fullGcEvents\":").append(a.fullGcEvents());
+        sb.append(",\"durationSec\":").append(String.format("%.1f", a.durationSec()));
+        sb.append(",\"throughputPercent\":").append(String.format("%.1f", a.throughputPercent()));
+        sb.append(",\"pauses\":{");
+        sb.append("\"totalMs\":").append(a.totalPauseMs());
+        sb.append(",\"maxMs\":").append(a.maxPauseMs());
+        sb.append(",\"p50Ms\":").append(a.p50PauseMs());
+        sb.append(",\"p95Ms\":").append(a.p95PauseMs());
+        sb.append(",\"p99Ms\":").append(a.p99PauseMs());
+        sb.append(",\"avgMs\":").append(a.avgPauseMs()).append('}');
+        sb.append(",\"causes\":{");
+        boolean first = true;
+        for (var entry : a.causeBreakdown().entrySet()) {
+            var cs = entry.getValue();
+            if (!first) sb.append(',');
+            sb.append('"').append(escapeJson(cs.cause())).append("\":{");
+            sb.append("\"count\":").append(cs.count());
+            sb.append(",\"avgMs\":").append(cs.avgMs());
+            sb.append(",\"maxMs\":").append(cs.maxMs()).append('}');
+            first = false;
+        }
+        sb.append('}');
+        sb.append(",\"recommendations\":[");
+        for (int i = 0; i < a.recommendations().size(); i++) {
+            var rec = a.recommendations().get(i);
+            if (i > 0) sb.append(',');
+            sb.append("{\"severity\":\"").append(escapeJson(rec.severity())).append('"');
+            sb.append(",\"problem\":\"").append(escapeJson(rec.problem())).append('"');
+            sb.append(",\"flag\":\"").append(escapeJson(rec.flag())).append("\"}");
+        }
+        sb.append("]}");
+        return sb.toString();
+    }
+
+    private String gcLogDiffToJson(GcLogAnalysis a, GcLogAnalysis b, String name1, String name2) {
+        boolean regression =
+                regressionExceeds(a.p99PauseMs(), b.p99PauseMs(), false, 10)
+                || regressionExceeds(a.maxPauseMs(), b.maxPauseMs(), false, 10)
+                || regressionExceeds(a.throughputPercent(), b.throughputPercent(), true, 10);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"file1\":\"").append(escapeJson(name1)).append('"');
+        sb.append(",\"file2\":\"").append(escapeJson(name2)).append('"');
+        sb.append(",\"regression\":").append(regression);
+        sb.append(",\"metrics\":{");
+        sb.append("\"throughputPct\":[").append(String.format("%.1f", a.throughputPercent()))
+                .append(',').append(String.format("%.1f", b.throughputPercent())).append(']');
+        sb.append(",\"p50PauseMs\":[").append(a.p50PauseMs()).append(',').append(b.p50PauseMs()).append(']');
+        sb.append(",\"p95PauseMs\":[").append(a.p95PauseMs()).append(',').append(b.p95PauseMs()).append(']');
+        sb.append(",\"p99PauseMs\":[").append(a.p99PauseMs()).append(',').append(b.p99PauseMs()).append(']');
+        sb.append(",\"maxPauseMs\":[").append(a.maxPauseMs()).append(',').append(b.maxPauseMs()).append(']');
+        sb.append(",\"avgPauseMs\":[").append(a.avgPauseMs()).append(',').append(b.avgPauseMs()).append(']');
+        sb.append(",\"fullGcEvents\":[").append(a.fullGcEvents()).append(',').append(b.fullGcEvents()).append(']');
+        sb.append(",\"totalPauseMs\":[").append(a.totalPauseMs()).append(',').append(b.totalPauseMs()).append(']');
+        sb.append("}}");
+        return sb.toString();
+    }
+
+    private static boolean regressionExceeds(long a, long b, boolean higherIsBetter, double thresholdPct) {
+        if (a == 0) return false;
+        double diff = b - a;
+        double pct = diff / a * 100;
+        return higherIsBetter ? pct < -thresholdPct : pct > thresholdPct;
+    }
+
+    private static boolean regressionExceeds(double a, double b, boolean higherIsBetter, double thresholdPct) {
+        if (a == 0) return false;
+        double diff = b - a;
+        double pct = diff / a * 100;
+        return higherIsBetter ? pct < -thresholdPct : pct > thresholdPct;
     }
 
     @Override
