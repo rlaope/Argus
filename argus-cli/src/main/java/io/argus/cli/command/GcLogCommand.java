@@ -54,11 +54,18 @@ public final class GcLogCommand implements Command {
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
         boolean flagsOnly = false;
+        boolean follow = false;
         String exportHtml = null;
         for (int i = 1; i < args.length; i++) {
             if (args[i].equals("--format=json")) json = true;
             if (args[i].equals("--suggest-flags")) flagsOnly = true;
             if (args[i].startsWith("--export=")) exportHtml = args[i].substring(9);
+            if (args[i].equals("--follow") || args[i].equals("-f")) follow = true;
+        }
+
+        if (follow) {
+            runFollowMode(logFile, useColor);
+            return;
         }
 
         List<GcEvent> events;
@@ -273,6 +280,98 @@ public final class GcLogCommand implements Command {
 
         System.out.println(RichRenderer.boxFooter(c,
                 a.pauseEvents() + " pauses, " + String.format("%.1f%%", a.throughputPercent()) + " throughput", WIDTH));
+    }
+
+    private void runFollowMode(Path logFile, boolean c) {
+        GcLogFollower follower = new GcLogFollower(logFile);
+        RollingGcAnalysis rolling = new RollingGcAnalysis();
+
+        try {
+            List<GcEvent> initial = follower.readAll();
+            rolling.addEvents(initial);
+        } catch (IOException e) {
+            System.err.println("Failed to read GC log: " + e.getMessage());
+            return;
+        }
+
+        System.out.println("Following " + logFile.getFileName() + "... (Ctrl+C to stop)");
+
+        // Set terminal to non-canonical mode if possible
+        try {
+            new ProcessBuilder("stty", "-icanon", "min", "0", "-echo")
+                    .inheritIO().start().waitFor();
+        } catch (Exception ignored) {}
+
+        try {
+            long lastUpdate = System.currentTimeMillis();
+            while (true) {
+                // Poll for new events
+                List<GcEvent> newEvents = follower.pollNewEvents();
+                if (!newEvents.isEmpty()) {
+                    rolling.addEvents(newEvents);
+                    lastUpdate = System.currentTimeMillis();
+                }
+
+                // Refresh display every 2 seconds
+                long elapsed = System.currentTimeMillis() - lastUpdate;
+                RollingGcAnalysis.Snapshot snap = rolling.snapshot();
+
+                // Clear screen and render
+                System.out.print("\033[H\033[2J");
+                System.out.flush();
+
+                long uptime = (System.currentTimeMillis() - lastUpdate) / 1000;
+                String uptimeStr = snap.totalEventsEver() > 0
+                        ? String.format("last update %ds ago", elapsed / 1000) : "waiting for events...";
+
+                System.out.println(RichRenderer.boxHeader(c, "GC Log Monitor", WIDTH,
+                        logFile.getFileName().toString(), "following", uptimeStr));
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+
+                kv(c, "Events", snap.totalEventsEver() + " total, " + rolling.windowSize() + " in window");
+                kv(c, "Throughput", String.format("%.1f%%", snap.throughputPercent()));
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+
+                System.out.println(RichRenderer.boxLine(String.format(
+                        "  p50: %dms   p95: %dms   p99: %dms   max: %dms   avg: %dms",
+                        snap.p50PauseMs(), snap.p95PauseMs(), snap.p99PauseMs(),
+                        snap.maxPauseMs(), snap.avgPauseMs()), WIDTH));
+
+                if (snap.fullGcCount() > 0) {
+                    System.out.println(RichRenderer.emptyLine(WIDTH));
+                    kv(c, "Full GC", AnsiStyle.style(c, AnsiStyle.RED) + snap.fullGcCount()
+                            + AnsiStyle.style(c, AnsiStyle.RESET)
+                            + (snap.secsSinceLastFullGc() >= 0
+                            ? String.format("  (last %.0fs ago)", snap.secsSinceLastFullGc()) : ""));
+                }
+
+                if (snap.peakHeapKB() > 0) {
+                    kv(c, "Peak Heap", RichRenderer.formatKB(snap.peakHeapKB()));
+                }
+
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+                System.out.println(RichRenderer.boxFooter(c,
+                        "[Ctrl+C] quit", WIDTH));
+
+                // Check for key input (non-blocking)
+                if (System.in.available() > 0) {
+                    int key = System.in.read();
+                    if (key == 'q' || key == 'Q') break;
+                }
+
+                Thread.sleep(2000);
+            }
+        } catch (InterruptedException ignored) {
+            // Normal exit on Ctrl+C
+        } catch (IOException e) {
+            System.err.println("Follow error: " + e.getMessage());
+        } finally {
+            // Restore terminal
+            try {
+                new ProcessBuilder("stty", "icanon", "echo")
+                        .inheritIO().start().waitFor();
+            } catch (Exception ignored) {}
+        }
     }
 
     private void section(boolean c, String title) {
