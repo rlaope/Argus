@@ -1,5 +1,7 @@
 package io.argus.cli.gclog;
 
+import io.argus.cli.render.RichRenderer;
+
 import java.util.*;
 
 /**
@@ -65,10 +67,31 @@ public final class GcLogAnalyzer {
         List<GcLogAnalysis.TuningRecommendation> recs = generateRecommendations(
                 pauseEvents, fullGcEvents, throughput, p99, maxPauseMs, peakHeap, causeStats);
 
+        // Rate and leak analysis (pass pre-filtered pauseEvents — avoids redundant filtering)
+        GcRateAnalyzer.RateAnalysis rates = GcRateAnalyzer.analyze(pauseEvents);
+        GcLeakDetector.LeakAnalysis leak = GcLeakDetector.analyze(pauseEvents);
+
+        // Leak recommendation
+        if (leak.leakDetected()) {
+            recs.add(new GcLogAnalysis.TuningRecommendation("CRITICAL",
+                    String.format("Memory leak suspected (%.0f%% confidence), heap growing at %s/min",
+                            leak.confidencePercent(), RichRenderer.formatRate(leak.heapGrowthRateKBPerSec() * 60)),
+                    "Heap baseline is rising. Check for unclosed resources or growing caches.",
+                    "-XX:+HeapDumpOnOutOfMemoryError"));
+        }
+
+        // High promotion ratio recommendation
+        if (rates.promoAllocRatioPercent() > 5) {
+            recs.add(new GcLogAnalysis.TuningRecommendation("WARNING",
+                    String.format("High promotion ratio %.1f%% (target: <5%%)", rates.promoAllocRatioPercent()),
+                    "Objects are surviving young gen too quickly. Increase young gen size.",
+                    "-XX:NewRatio=2"));
+        }
+
         return new GcLogAnalysis(
                 events.size(), pauseEvents.size(), fullGcEvents.size(), concurrentEvents.size(),
                 durationSec, throughput, totalPauseMs, maxPauseMs, p50, p95, p99, avgPauseMs,
-                peakHeap, avgHeapAfter, Map.copyOf(causeStats), List.copyOf(recs));
+                peakHeap, avgHeapAfter, Map.copyOf(causeStats), List.copyOf(recs), rates, leak);
     }
 
     private static List<GcLogAnalysis.TuningRecommendation> generateRecommendations(

@@ -337,6 +337,16 @@ public final class RichRenderer {
     }
 
     /**
+     * Formats a KB/s rate as a human-readable string with unit.
+     * Examples: "512 KB", "1.5 MB", "2.00 GB"
+     */
+    public static String formatRate(double kbPerSec) {
+        if (kbPerSec < 1024) return String.format("%.0f KB", kbPerSec);
+        if (kbPerSec < 1024 * 1024) return String.format("%.1f MB", kbPerSec / 1024);
+        return String.format("%.2f GB", kbPerSec / (1024 * 1024));
+    }
+
+    /**
      * Left-pads the string with spaces to the given width.
      */
     public static String padLeft(String s, int width) {

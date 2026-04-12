@@ -92,7 +92,7 @@ public final class GcLogCommand implements Command {
             PrintStream original = System.out;
             ByteArrayOutputStream capture = new ByteArrayOutputStream();
             System.setOut(new PrintStream(capture));
-            printRich(analysis, logFile, true);
+            printRich(analysis, events, logFile, true);
             System.setOut(original);
             String html = HtmlExporter.toHtml(capture.toString(), "Argus GC Log Analysis — " + logFile.getFileName());
             try {
@@ -105,10 +105,10 @@ public final class GcLogCommand implements Command {
             return;
         }
 
-        printRich(analysis, logFile, useColor);
+        printRich(analysis, events, logFile, useColor);
     }
 
-    private void printRich(GcLogAnalysis a, Path file, boolean c) {
+    private void printRich(GcLogAnalysis a, List<GcEvent> events, Path file, boolean c) {
         System.out.print(RichRenderer.brandedHeader(c, "gclog",
                 "GC log analysis with tuning recommendations"));
         System.out.println(RichRenderer.boxHeader(c, "GC Log Analysis", WIDTH,
@@ -150,10 +150,72 @@ public final class GcLogCommand implements Command {
                 + "  " + a.p50PauseMs() + "ms ─── " + a.maxPauseMs() + "ms";
         System.out.println(RichRenderer.boxLine(bar, WIDTH));
 
+        // Pause Timeline
+        section(c, "Pause Timeline");
+        String timeline = GcTimelineRenderer.render(events, a.p50PauseMs(), a.p95PauseMs(), WIDTH, c);
+        System.out.print(timeline);
+
         // Heap
         section(c, "Heap");
-        kv(c, "Peak Heap", formatKB(a.peakHeapKB()));
-        kv(c, "Avg After GC", formatKB(a.avgHeapAfterKB()));
+        kv(c, "Peak Heap", RichRenderer.formatKB(a.peakHeapKB()));
+        kv(c, "Avg After GC", RichRenderer.formatKB(a.avgHeapAfterKB()));
+
+        // Allocation & Promotion Rates
+        GcRateAnalyzer.RateAnalysis rates = a.rateAnalysis();
+        if (rates != null && rates.allocationRateKBPerSec() > 0) {
+            section(c, "Allocation & Promotion Rates");
+            kv(c, "Allocation Rate",
+                    RichRenderer.formatRate(rates.allocationRateKBPerSec()) + "/s (avg)"
+                    + "   peak: " + RichRenderer.formatRate(rates.peakAllocationRateKBPerSec()) + "/s");
+            kv(c, "Promotion Rate",
+                    RichRenderer.formatRate(rates.promotionRateKBPerSec()) + "/s (avg)"
+                    + "   peak: " + RichRenderer.formatRate(rates.peakPromotionRateKBPerSec()) + "/s");
+            kv(c, "Reclaim Efficiency",
+                    String.format("%.1f%%", rates.reclaimEfficiencyPercent()));
+            String ratioColor = rates.promoAllocRatioPercent() > 5
+                    ? AnsiStyle.style(c, AnsiStyle.YELLOW) : AnsiStyle.style(c, AnsiStyle.GREEN);
+            kv(c, "Promo/Alloc Ratio",
+                    ratioColor + String.format("%.1f%%", rates.promoAllocRatioPercent())
+                    + AnsiStyle.style(c, AnsiStyle.RESET) + "   (healthy: <5%)");
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+            System.out.println(RichRenderer.boxLine(
+                    "  Alloc  " + sparkline(rates.allocationRateWindows())
+                    + "  " + RichRenderer.formatRate(rates.allocationRateKBPerSec()) + "/s avg", WIDTH));
+            System.out.println(RichRenderer.boxLine(
+                    "  Promo  " + sparkline(rates.promotionRateWindows())
+                    + "  " + RichRenderer.formatRate(rates.promotionRateKBPerSec()) + "/s avg", WIDTH));
+        }
+
+        // Memory Leak Detection
+        GcLeakDetector.LeakAnalysis leak = a.leakAnalysis();
+        if (leak != null && leak.trendPoints().length > 0) {
+            section(c, "Memory Leak Detection");
+            if (leak.leakDetected()) {
+                String leakColor = AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);
+                kv(c, "Status",
+                        leakColor + "\u26a0 LEAK DETECTED"
+                        + AnsiStyle.style(c, AnsiStyle.RESET)
+                        + String.format(" (R\u00b2=%.2f, %.0f%% confidence)",
+                                leak.confidencePercent() / 100.0, leak.confidencePercent()));
+                kv(c, "Pattern", leak.pattern()
+                        + (leak.staircaseSteps() > 0 ? " (" + leak.staircaseSteps() + " steps)" : ""));
+                kv(c, "Growth Rate",
+                        RichRenderer.formatRate(leak.heapGrowthRateKBPerSec()) + "/s"
+                        + "  (" + RichRenderer.formatRate(leak.heapGrowthRateKBPerSec() * 60) + "/min)");
+                if (leak.estimatedOomSec() > 0) {
+                    kv(c, "Est. OOM in", formatDuration(leak.estimatedOomSec()));
+                }
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+                String chart = renderTrendChart(leak.trendPoints(), leak.trendMinKB(),
+                        leak.trendMaxKB(), WIDTH, c);
+                System.out.print(chart);
+            } else {
+                kv(c, "Status",
+                        AnsiStyle.style(c, AnsiStyle.GREEN) + "\u2713 No leak detected"
+                        + AnsiStyle.style(c, AnsiStyle.RESET)
+                        + String.format(" (R\u00b2=%.2f)", leak.confidencePercent() / 100.0));
+            }
+        }
 
         // Cause Breakdown
         if (!a.causeBreakdown().isEmpty()) {
@@ -227,10 +289,63 @@ public final class GcLogCommand implements Command {
                 "  " + RichRenderer.padRight(key, 18) + "  " + value, WIDTH));
     }
 
-    private static String formatKB(long kb) {
-        if (kb < 1024) return kb + "KB";
-        if (kb < 1024 * 1024) return (kb / 1024) + "MB";
-        return String.format("%.1fGB", kb / (1024.0 * 1024));
+    private static String formatDuration(double sec) {
+        if (sec < 60) return String.format("%.0f sec", sec);
+        if (sec < 3600) return String.format("%.1f min", sec / 60);
+        return String.format("%.1f hours", sec / 3600);
+    }
+
+    private static String sparkline(double[] values) {
+        if (values == null || values.length == 0) return "";
+        String bars = "\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588";
+        double min = Double.MAX_VALUE, max = 0;
+        for (double v : values) {
+            if (v < min) min = v;
+            if (v > max) max = v;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (double v : values) {
+            if (max == min) {
+                sb.append(bars.charAt(0));
+            } else {
+                int idx = (int) ((v - min) / (max - min) * (bars.length() - 1));
+                sb.append(bars.charAt(Math.max(0, Math.min(idx, bars.length() - 1))));
+            }
+        }
+        return sb.toString();
+    }
+
+    private static String renderTrendChart(double[] points, double minKB, double maxKB,
+                                           int width, boolean c) {
+        if (points.length == 0) return "";
+        int chartHeight = 5;
+        int chartWidth = Math.min(points.length, width - 20);
+        double range = maxKB - minKB;
+
+        // Build rows top-to-bottom
+        StringBuilder sb = new StringBuilder();
+        for (int row = chartHeight - 1; row >= 0; row--) {
+            String label = row == chartHeight - 1 ? RichRenderer.padLeft(RichRenderer.formatKB((long) maxKB), 8)
+                         : row == 0              ? RichRenderer.padLeft(RichRenderer.formatKB((long) minKB), 8)
+                         : "        ";
+            StringBuilder line = new StringBuilder("  " + label + " ");
+            for (int col = 0; col < chartWidth; col++) {
+                int idx = col * points.length / chartWidth;
+                double val = points[Math.min(idx, points.length - 1)];
+                double normalized = range == 0 ? 0 : (val - minKB) / range * (chartHeight - 1);
+                if (Math.abs(normalized - row) < 0.6) {
+                    line.append(AnsiStyle.style(c, AnsiStyle.RED)).append('\u25cf')
+                        .append(AnsiStyle.style(c, AnsiStyle.RESET));
+                } else if (normalized > row) {
+                    line.append(AnsiStyle.style(c, AnsiStyle.YELLOW)).append('\u2592')
+                        .append(AnsiStyle.style(c, AnsiStyle.RESET));
+                } else {
+                    line.append(' ');
+                }
+            }
+            sb.append(RichRenderer.boxLine(line.toString(), width)).append('\n');
+        }
+        return sb.toString();
     }
 
     private static void printJson(GcLogAnalysis a, Path file) {
@@ -267,7 +382,35 @@ public final class GcLogCommand implements Command {
             sb.append(",\"problem\":\"").append(RichRenderer.escapeJson(rec.problem())).append('"');
             sb.append(",\"flag\":\"").append(RichRenderer.escapeJson(rec.flag())).append("\"}");
         }
-        sb.append("]}");
+        sb.append(']');
+
+        // Rate analysis
+        GcRateAnalyzer.RateAnalysis rates = a.rateAnalysis();
+        if (rates != null) {
+            sb.append(",\"rateAnalysis\":{");
+            sb.append("\"allocationRateKBPerSec\":").append(String.format("%.1f", rates.allocationRateKBPerSec()));
+            sb.append(",\"peakAllocationRateKBPerSec\":").append(String.format("%.1f", rates.peakAllocationRateKBPerSec()));
+            sb.append(",\"promotionRateKBPerSec\":").append(String.format("%.1f", rates.promotionRateKBPerSec()));
+            sb.append(",\"peakPromotionRateKBPerSec\":").append(String.format("%.1f", rates.peakPromotionRateKBPerSec()));
+            sb.append(",\"reclaimEfficiencyPercent\":").append(String.format("%.1f", rates.reclaimEfficiencyPercent()));
+            sb.append(",\"promoAllocRatioPercent\":").append(String.format("%.1f", rates.promoAllocRatioPercent()));
+            sb.append('}');
+        }
+
+        // Leak analysis
+        GcLeakDetector.LeakAnalysis leak = a.leakAnalysis();
+        if (leak != null) {
+            sb.append(",\"leakAnalysis\":{");
+            sb.append("\"leakDetected\":").append(leak.leakDetected());
+            sb.append(",\"heapGrowthRateKBPerSec\":").append(String.format("%.3f", leak.heapGrowthRateKBPerSec()));
+            sb.append(",\"estimatedOomSec\":").append(String.format("%.0f", leak.estimatedOomSec()));
+            sb.append(",\"confidencePercent\":").append(String.format("%.1f", leak.confidencePercent()));
+            sb.append(",\"pattern\":\"").append(leak.pattern()).append('"');
+            sb.append(",\"staircaseSteps\":").append(leak.staircaseSteps());
+            sb.append('}');
+        }
+
+        sb.append('}');
         System.out.println(sb);
     }
 }

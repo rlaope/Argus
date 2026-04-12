@@ -23,6 +23,8 @@ public final class GcLogAnalysis {
     private final long avgHeapAfterKB;
     private final Map<String, CauseStats> causeBreakdown;
     private final List<TuningRecommendation> recommendations;
+    private final GcRateAnalyzer.RateAnalysis rateAnalysis;
+    private final GcLeakDetector.LeakAnalysis leakAnalysis;
 
     public GcLogAnalysis(int totalEvents, int pauseEvents, int fullGcEvents, int concurrentEvents,
                          double durationSec, double throughputPercent,
@@ -30,6 +32,20 @@ public final class GcLogAnalysis {
                          long p99PauseMs, long avgPauseMs, long peakHeapKB, long avgHeapAfterKB,
                          Map<String, CauseStats> causeBreakdown,
                          List<TuningRecommendation> recommendations) {
+        this(totalEvents, pauseEvents, fullGcEvents, concurrentEvents,
+                durationSec, throughputPercent, totalPauseMs, maxPauseMs,
+                p50PauseMs, p95PauseMs, p99PauseMs, avgPauseMs, peakHeapKB, avgHeapAfterKB,
+                causeBreakdown, recommendations, null, null);
+    }
+
+    public GcLogAnalysis(int totalEvents, int pauseEvents, int fullGcEvents, int concurrentEvents,
+                         double durationSec, double throughputPercent,
+                         long totalPauseMs, long maxPauseMs, long p50PauseMs, long p95PauseMs,
+                         long p99PauseMs, long avgPauseMs, long peakHeapKB, long avgHeapAfterKB,
+                         Map<String, CauseStats> causeBreakdown,
+                         List<TuningRecommendation> recommendations,
+                         GcRateAnalyzer.RateAnalysis rateAnalysis,
+                         GcLeakDetector.LeakAnalysis leakAnalysis) {
         this.totalEvents = totalEvents;
         this.pauseEvents = pauseEvents;
         this.fullGcEvents = fullGcEvents;
@@ -46,6 +62,8 @@ public final class GcLogAnalysis {
         this.avgHeapAfterKB = avgHeapAfterKB;
         this.causeBreakdown = causeBreakdown;
         this.recommendations = recommendations;
+        this.rateAnalysis = rateAnalysis;
+        this.leakAnalysis = leakAnalysis;
     }
 
     public int totalEvents() { return totalEvents; }
@@ -64,6 +82,8 @@ public final class GcLogAnalysis {
     public long avgHeapAfterKB() { return avgHeapAfterKB; }
     public Map<String, CauseStats> causeBreakdown() { return causeBreakdown; }
     public List<TuningRecommendation> recommendations() { return recommendations; }
+    public GcRateAnalyzer.RateAnalysis rateAnalysis() { return rateAnalysis; }
+    public GcLeakDetector.LeakAnalysis leakAnalysis() { return leakAnalysis; }
 
     public static final class CauseStats {
         private final String cause;
