@@ -2,95 +2,166 @@
   <img src="assets/argus_logo.png" alt="Argus Logo" width="240">
 </p>
 
-# Argus
+<h1 align="center">Argus</h1>
 
-> Lightweight JVM diagnostic toolkit. CLI works on Java 11+, Dashboard on Java 17+, full features on Java 21+. No agent required for CLI diagnostics.
+<p align="center">
+  <a href="https://github.com/rlaope/Argus/actions/workflows/ci.yml"><img src="https://github.com/rlaope/Argus/actions/workflows/ci.yml/badge.svg" alt="Build"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/rlaope/Argus" alt="License"></a>
+  <a href="https://openjdk.org"><img src="https://img.shields.io/badge/Java-11%2B-blue" alt="Java"></a>
+  <a href="https://github.com/rlaope/Argus/stargazers"><img src="https://img.shields.io/github/stars/rlaope/Argus" alt="GitHub stars"></a>
+</p>
 
-Two independent tools in one package:
+> **One CLI for all JVM diagnostics.** 55 commands, zero agent required, works on Java 11+.
+> GC analysis, health diagnosis, flame graphs, interactive TUI — the free alternative to GCEasy + jcmd + VisualVM combined.
 
-- **`argus` CLI** — 50 diagnostic commands that work on any running JVM via `jcmd`/`jstat`
-- **Argus Agent** — Real-time web dashboard with JFR streaming, flame graphs, and metric export
+---
+
+## Quick Start
 
 ```bash
+# Install (macOS / Linux)
 curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/rlaope/argus/master/install.ps1 | iex
+
+# Try it now
+argus ps                    # List JVM processes
+argus doctor <pid>          # One-click health diagnosis
+argus tui                   # Interactive terminal UI
 ```
 
 ---
 
-<br>
+## Why Argus?
 
-## Argus CLI
+| | Argus | Arthas | VisualVM | jcmd | GCEasy |
+|---|---|---|---|---|---|
+| CLI diagnostic | ✅ 55 cmds | ✅ | ❌ GUI | ✅ limited | ❌ |
+| GC log analysis | ✅ free | ❌ | ❌ | ❌ | 💰 paid |
+| Health diagnosis | ✅ doctor | ❌ | ❌ | ❌ | ❌ |
+| Interactive TUI | ✅ k9s-style | ❌ | ❌ | ❌ | ❌ |
+| Virtual Threads | ✅ JFR-based | ❌ | ❌ | ❌ | ❌ |
+| CI/CD gate | ✅ exit codes | ❌ | ❌ | ❌ | ❌ |
+| Prometheus/Grafana | ✅ native | ❌ | ❌ | ❌ | ❌ |
+| K8s Helm chart | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Web dashboard | ✅ real-time | tunnel | ✅ | ❌ | ✅ web |
+| i18n | 🌏 en/ko/ja/zh | 🇨🇳 zh | 🇬🇧 en | 🇬🇧 en | 🇬🇧 en |
+| Cost | Free | Free | Free | Free | Paid |
 
-Diagnose any running JVM process directly from the terminal. No agent, no instrumentation, no restart needed.
+**Arthas = debugging (bytecode, tracing). Argus = observability (monitoring, diagnosis, metrics). They complement each other.**
 
-### Commands
+---
 
-| Command | Description |
-|---------|-------------|
-| **Process & System** | |
-| `argus ps` | List running JVM processes (with Java version, uptime) |
-| `argus info <pid>` | JVM information, flags, and CPU utilization |
-| `argus env <pid>` | JVM launch environment |
-| `argus sysprops <pid>` | System properties (`--filter` supported) |
-| `argus vmflag <pid>` | VM flags (`--filter`, `--set` supported) |
-| `argus vmset <pid> Flag=val` | Set VM flag at runtime |
-| `argus vmlog <pid>` | JVM unified logging control |
-| `argus jmx <pid> [cmd]` | JMX agent control |
-| **Memory & GC** | |
-| `argus heap <pid>` | Heap memory with detailed pool breakdown |
-| `argus histo <pid>` | Heap object histogram |
-| `argus gc <pid>` | GC statistics (collectors, pauses, overhead) |
-| `argus gcutil <pid>` | GC generation utilization (jstat-style) |
-| `argus gccause <pid>` | GC cause with utilization stats |
-| `argus gcnew <pid>` | Young generation GC detail |
-| `argus gcrun <pid>` | Trigger System.gc() remotely |
-| `argus metaspace <pid>` | Detailed metaspace breakdown |
-| `argus nmt <pid>` | Native memory tracking |
-| `argus buffers <pid>` | NIO buffer pool statistics (direct, mapped) |
-| `argus finalizer <pid>` | Finalizer queue status |
-| `argus diff <pid> [interval]` | Heap snapshot diff (leak detection) |
-| `argus heapdump <pid>` | Generate heap dump (with STW warning) |
-| **Threads** | |
-| `argus threads <pid>` | Thread dump summary (daemon, peak counts) |
-| `argus threaddump <pid>` | Full thread dump with stack traces |
-| `argus deadlock <pid>` | Detect Java-level deadlocks |
-| `argus pool <pid>` | Thread pool analysis |
-| **Runtime & Class Loading** | |
-| `argus classloader <pid>` | Class loader hierarchy |
-| `argus classstat <pid>` | Class loading statistics |
-| `argus sc <pid> <pattern>` | Search loaded classes by glob pattern |
-| `argus compiler <pid>` | JIT compiler and code cache stats |
-| `argus compilerqueue <pid>` | JIT compilation queue |
-| `argus stringtable <pid>` | Interned string table statistics |
-| `argus symboltable <pid>` | Symbol table statistics |
-| `argus dynlibs <pid>` | Loaded native libraries |
-| **Profiling & Diagnostics** | |
-| `argus profile <pid>` | CPU/allocation/lock profiling (async-profiler) |
-| `argus jfr <pid> start\|stop\|check\|dump` | Flight Recorder control |
-| `argus jfranalyze <file.jfr>` | Analyze JFR recording (GC, CPU, hot methods, I/O) |
-| `argus logger <pid>` | View and change log levels at runtime |
-| `argus events <pid>` | VM internal event log (safepoints, deopt, GC) |
-| `argus report <pid>` | Comprehensive diagnostic report |
-| `argus doctor` | One-click JVM health diagnosis with tuning recommendations |
-| `argus gclog <file>` | GC log analysis with pause distribution and tuning (GCEasy alternative) |
-| `argus flame <pid>` | One-shot flame graph — profiles, generates HTML, opens browser |
-| `argus suggest` | JVM flag optimization based on workload analysis |
-| `argus ci` | CI/CD health gate — exit codes + GitHub annotations |
-| `argus compare <pid1> <pid2>` | Side-by-side JVM comparison (live or baseline) |
-| `argus slowlog <pid>` | Real-time slow method detection via JFR streaming |
-| **Monitoring** | |
-| `argus top` | Real-time monitoring (agent required) |
-| `argus watch <pid>` | Real-time terminal dashboard (htop for JVM) |
-| `argus tui [pid]` | Interactive terminal UI — browse all commands (k9s-style) |
-| `argus init` | First-time setup (language selection) |
+## Key Features
 
-### `argus report` — Comprehensive Diagnostic
+### `argus doctor <pid>` — One-Click Health Diagnosis
+
+```
+$ argus doctor 39113
+
+╭─ Health Diagnosis ── pid:39113 ─────────────────────────────────────────────╮
+│                                                                              │
+│  ✅  Heap usage normal       41M / 256M  (16%)                               │
+│  ✅  GC overhead acceptable  0.3%                                            │
+│  ✅  No deadlocks detected                                                   │
+│  ✅  Thread count normal     29 threads                                      │
+│  ⚠   Metaspace near limit   96.5% — consider -XX:MaxMetaspaceSize           │
+│  ⚠   Old Gen elevated        41.8% — monitor for promotion pressure         │
+│                                                                              │
+│  Overall: WARN — 2 recommendations                                           │
+│                                                                              │
+│  Tuning Tips                                                                 │
+│  → Add -XX:MaxMetaspaceSize=256m to prevent unlimited growth                 │
+│  → Run argus gclog <file> to analyze GC pressure over time                  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+### `argus gclog gc.log` — GC Log Analysis (GCEasy Alternative, Free)
+
+```
+$ argus gclog gc.log
+
+╭─ GC Log Analysis ── gc.log ─────────────────────────────────────────────────╮
+│                                                                              │
+│  Collector:   G1GC                                                           │
+│  Duration:    3h 42m  (13,320 events)                                        │
+│                                                                              │
+│  Pause Distribution                                                          │
+│  p50    12ms   ████░░░░░░                                                    │
+│  p95    48ms   ████████░░                                                    │
+│  p99   124ms   ██████████                                                    │
+│  max   311ms   ██████████ ← Full GC detected                                 │
+│                                                                              │
+│  GC Overhead: 2.1% (healthy < 5%)                                            │
+│  Allocation Rate: 142 MB/s                                                   │
+│  Full GC Count: 3 (potential memory pressure)                                │
+│                                                                              │
+│  Recommendations                                                             │
+│  → Increase -Xmx to reduce Full GC frequency                                │
+│  → Consider -XX:G1HeapRegionSize=16m for large heap                         │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+### `argus watch <pid>` — Real-Time Terminal Dashboard (htop for JVM)
+
+```
+$ argus watch 39113
+
+╭─ JVM Watch ── pid:39113 ── OpenJDK 21.0.9 ── refreshing every 2s ───────────╮
+│                                                                              │
+│  Heap    [███░░░░░░░░░░░░░]  41M / 256M  (16%)   ↑ +2M/s                    │
+│  Metaspace [███████████████░░░░]  247M / 256M  (96%)                         │
+│                                                                              │
+│  CPU     [██░░░░░░░░░░░░░░]  12%    GC overhead: 0.3%                        │
+│                                                                              │
+│  Threads: 29 total  (RUNNABLE:11  WAITING:13  TIMED_WAITING:5)              │
+│  YGC: 18 (0.163s)    FGC: 2 (0.215s)    Uptime: 57m 5s                      │
+│                                                                              │
+│  Top Heap Objects                                                            │
+│  1. byte[]               111.0K instances  16M                               │
+│  2. java.lang.String     107.2K instances   2M                               │
+│  3. java.lang.Class       18.9K instances   2M                               │
+│                                                                              │
+│  ⚠  Metaspace at 96% — near limit                                            │
+│                                                                              │
+│  [q]uit  [r]efresh  [h]eap  [t]hreads  [g]c                                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+### `argus tui` — Interactive Terminal UI (k9s-style)
+
+```
+$ argus tui
+
+╭─ Argus TUI ─────────────────────────── [R]ead  [W]rite  [?]help  [q]quit ───╮
+│                                                                              │
+│  JVM Processes                                                               │
+│  ──────────────────────────────────────────────────────────────────────      │
+│  PID     Name                         Java     Heap        Uptime            │
+│  39113 ▶ com.example.MyApp            21.0.9   41M/256M    57m               │
+│  29286   org.gradle.launcher          17.0.8   88M/512M    12m               │
+│  11042   io.confluent.kafka.Server    11.0.21  312M/1G     3h 14m            │
+│                                                                              │
+│  Commands                            │  Output                               │
+│  ────────────────────────────────    │  ───────────────────────────────      │
+│  doctor    Health diagnosis          │  ✅ Heap OK   ⚠ Metaspace 96%        │
+│  heap      Memory breakdown          │  41M / 256M  (16%)                   │
+│  gc        GC statistics             │  YGC:18  FGC:2  overhead:0.3%        │
+│  threads   Thread summary            │  29 threads, 0 deadlocks             │
+│  profile   CPU profiling             │                                       │
+│  flame     Flame graph (HTML)        │                                       │
+│                                                                              │
+│  [↑↓] select process  [tab] switch panel  [enter] run command               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Additional showcase:
 
 ```
 $ argus report 39113
-
- argus report
- Comprehensive JVM diagnostic report. Collects all available metrics in one view.
 
 ╭─ JVM Report ── pid:39113 ── source:auto ─────────────────────────────────────╮
 │                                                                              │
@@ -119,286 +190,198 @@ $ argus report 39113
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```
 
-### `argus histo` — Heap Object Histogram
+---
 
-```
-$ argus histo 39113 --top 5
+## Command Reference
 
- argus histo
- Analyzes heap memory objects. Count = live instances, Size = total bytes occupied.
+All 55 commands. No agent needed. Works on any running JVM.
 
-╭─ Heap Histogram ── pid:39113 ── source:auto ─────────────────────────────────╮
-│                                                                              │
-│    #  Class                                                  Count      Size │
-│ ────  ────────────────────────────────────────────────  ──────────  ──────── │
-│    1  byte[]                                               111,050       16M │
-│    2  java.lang.String                                     107,249        2M │
-│    3  java.lang.Class                                       18,914        2M │
-│    4  ConcurrentHashMap.Node                                62,917        2M │
-│    5  java.lang.Object[]                                    25,496        1M │
-│                                                                              │
-│ Total: 718.6K objects · 40M                                                  │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
+**Process & System**
 
-### `argus gcutil` — GC Generation Utilization
+| Command | Description |
+|---------|-------------|
+| `argus ps` | List running JVM processes (with Java version, uptime) |
+| `argus info <pid>` | JVM information, flags, and CPU utilization |
+| `argus env <pid>` | JVM launch environment |
+| `argus sysprops <pid>` | System properties (`--filter` supported) |
+| `argus vmflag <pid>` | VM flags (`--filter`, `--set` supported) |
+| `argus vmset <pid> Flag=val` | Set VM flag at runtime |
+| `argus vmlog <pid>` | JVM unified logging control |
+| `argus jmx <pid> [cmd]` | JMX agent control |
 
-```
-$ argus gcutil 39113
+**Memory & GC**
 
- argus gcutil
- Monitors GC generation utilization. S0/S1 = Survivor, E = Eden, O = Old, M = Metaspace, CCS = Compressed Class.
+| Command | Description |
+|---------|-------------|
+| `argus heap <pid>` | Heap memory with detailed pool breakdown |
+| `argus histo <pid>` | Heap object histogram |
+| `argus gc <pid>` | GC statistics (collectors, pauses, overhead) |
+| `argus gcutil <pid>` | GC generation utilization (jstat-style) |
+| `argus gccause <pid>` | GC cause with utilization stats |
+| `argus gcnew <pid>` | Young generation GC detail |
+| `argus gcrun <pid>` | Trigger System.gc() remotely |
+| `argus metaspace <pid>` | Detailed metaspace breakdown |
+| `argus nmt <pid>` | Native memory tracking |
+| `argus buffers <pid>` | NIO buffer pool statistics (direct, mapped) |
+| `argus finalizer <pid>` | Finalizer queue status |
+| `argus diff <pid> [interval]` | Heap snapshot diff (leak detection) |
+| `argus heapdump <pid>` | Generate heap dump (with STW warning) |
+| `argus gclog <file>` | GC log analysis — pause distribution, tuning tips (GCEasy alternative) |
 
-╭─ GC Utilization ── pid:39113 ── source:auto ─────────────────────────────────╮
-│                                                                              │
-│ S0      S1      Eden    Old     Meta    CCS     YGC    FGC    GCT            │
-│ ──────────────────────────────────────────────────────────────────────       │
-│ 0.0%    0.0%    0.0%    41.8%   96.5%   87.1%   18     2      10.000         │
-│                                                                              │
-│   S0    [░░░░░░░░░░░░░░░░░░░░]    0.0%                                       │
-│   S1    [░░░░░░░░░░░░░░░░░░░░]    0.0%                                       │
-│   Eden  [░░░░░░░░░░░░░░░░░░░░]    0.0%                                       │
-│   Old   [████████░░░░░░░░░░░░]   41.8%                                       │
-│   Meta  [███████████████████░]   96.5%                                       │
-│   CCS   [█████████████████░░░]   87.1%                                       │
-│                                                                              │
-│ YGC: 18 (0.163s)    FGC: 2 (0.215s)    Total: 10.000s                        │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
+**Threads**
 
-### `argus profile` — async-profiler Integration
+| Command | Description |
+|---------|-------------|
+| `argus threads <pid>` | Thread dump summary (daemon, peak counts) |
+| `argus threaddump <pid>` | Full thread dump with stack traces |
+| `argus deadlock <pid>` | Detect Java-level deadlocks |
+| `argus pool <pid>` | Thread pool analysis |
 
-```
-$ argus profile 29286 --duration 3
+**Runtime & Class Loading**
 
- argus profile
- Profiling with async-profiler. Shows hottest methods by sample count.
+| Command | Description |
+|---------|-------------|
+| `argus classloader <pid>` | Class loader hierarchy |
+| `argus classstat <pid>` | Class loading statistics |
+| `argus sc <pid> <pattern>` | Search loaded classes by glob pattern |
+| `argus compiler <pid>` | JIT compiler and code cache stats |
+| `argus compilerqueue <pid>` | JIT compilation queue |
+| `argus stringtable <pid>` | Interned string table statistics |
+| `argus symboltable <pid>` | Symbol table statistics |
+| `argus dynlibs <pid>` | Loaded native libraries |
 
-╭─ Profile Results ── pid:29286 ── cpu 3s ── 3 samples ────────────────────────╮
-│                                                                              │
-│   #   Method                                           Samples        %      │
-│   ────  ────────────────────────────────────────────  ──────────  ────────   │
-│   1   __psynch_cvwait                                        2    66.7%  ███ │
-│   2   std::__1::basic_ostream<char, std::__1::cha…           1    33.3%  █   │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
+**Profiling & Diagnostics**
 
-Options: `--type cpu|alloc|lock|wall`, `--duration N`, `--flame` (HTML flame graph + browser open), `--top N`
+| Command | Description |
+|---------|-------------|
+| `argus profile <pid>` | CPU/allocation/lock profiling (async-profiler) |
+| `argus jfr <pid> start\|stop\|check\|dump` | Flight Recorder control |
+| `argus jfranalyze <file.jfr>` | Analyze JFR recording (GC, CPU, hot methods, I/O) |
+| `argus logger <pid>` | View and change log levels at runtime |
+| `argus events <pid>` | VM internal event log (safepoints, deopt, GC) |
+| `argus report <pid>` | Comprehensive diagnostic report |
+| `argus doctor <pid>` | One-click JVM health diagnosis with tuning recommendations |
+| `argus flame <pid>` | One-shot flame graph — profiles, generates HTML, opens browser |
+| `argus suggest <pid>` | JVM flag optimization based on workload analysis |
+| `argus ci` | CI/CD health gate — exit codes + GitHub annotations |
+| `argus compare <pid1> <pid2>` | Side-by-side JVM comparison (live or baseline) |
+| `argus slowlog <pid>` | Real-time slow method detection via JFR streaming |
 
-### Multi-language Support
+**Monitoring**
 
-All commands support `--lang=en|ko|ja|zh`. Example with Korean (`--lang=ko`):
+| Command | Description |
+|---------|-------------|
+| `argus top` | Real-time monitoring (agent required) |
+| `argus watch <pid>` | Real-time terminal dashboard (htop for JVM) |
+| `argus tui [pid]` | Interactive terminal UI — browse all commands (k9s-style) |
+| `argus init` | First-time setup (language selection) |
 
-```
-$ argus --lang=ko report 39113
+**Global Options:** `--source=auto|agent|jdk` · `--lang=en|ko|ja|zh` · `--format=table|json` · `--no-color`
 
- argus report
- 종합 JVM 진단 보고서. 사용 가능한 모든 지표를 한 화면에 수집합니다.
-
-╭─ JVM 보고서 ── pid:39113 ── source:auto ────────────────────────────────────────╮
-│                                                                              │
-│   ▸ JVM Info                                                                 │
-│     39113: OpenJDK 64-Bit Server VM version 21.0.9    Uptime: 1h 3m          │
-│                                                                              │
-│   ▸ Memory                                                                   │
-│     Heap    [██░░░░░░░░░░░░░░]  39M / 256M  (15%)                            │
-│     Free    217M                                                             │
-│                                                                              │
-│   ▸ GC                                                                       │
-│     S0: 0%  S1: 0%  Eden: 0%  Old: 41%  Meta: 96%                            │
-│                                                                              │
-│   ▸ Threads                                                                  │
-│     Total: 25    Virtual: 0    Platform: 25                                  │
-│     TIMED_WAITING: 6  RUNNABLE: 12  WAITING: 7                               │
-│                                                                              │
-│   ▸ Top Heap Objects                                                         │
-│     1. byte[]                110.9K instances   16M                          │
-│     2. java.lang.String      107.9K instances   2M                           │
-│     3. java.lang.Class       18.9K instances   2M                            │
-│                                                                              │
-│   ▸ Warnings                                                                 │
-│     ⚠ Metaspace at 96% — near limit                                          │
-│                                                                              │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-### Global Options
-
-```
---source=auto|agent|jdk   Data source (default: auto)
---no-color                Disable colors
---lang=en|ko|ja|zh        Output language
---format=table|json       Output format (default: table)
---help, -h                Show help
---version, -v             Show version
-```
-
-> See [CLI Command Reference](docs/cli-commands.md) for all 50 commands with full output examples.
+> Full output examples for all 55 commands: [docs/cli-commands.md](docs/cli-commands.md)
 
 ---
 
-<br>
+## Argus Agent & Dashboard
 
-## Argus Agent (Dashboard)
-
-Attach to your JVM for real-time monitoring with a web dashboard, flame graphs, and metric export.
-
-When the agent starts, you'll see the Argus banner:
-
-```
-       _____
-      /  _  \_______  ____  __ __  ______
-     /  /_\  \_  __ \/ ___\|  |  \/  ___/
-    /    |    \  | \/ /_/  >  |  /\___ \
-    \____|__  /__|  \___  /|____//____  >
-            \/     /_____/            \/
-
-    JVM Observability Platform v1.0.0
-[Argus] Initializing JFR streaming engine...
-[Argus] Agent initialized successfully
-[Argus] Ring buffer size: 65536
-[Argus] JFR streaming started
-[Argus] Dashboard: http://localhost:9202/
-```
-
-### Features
-
-- **Real-time Dashboard** — WebSocket streaming with Chart.js, dual tabs (Virtual Threads + JVM Overview)
-- **Flame Graph** — Continuous profiling with d3-flamegraph (zoom, hover, export)
-- **Virtual Thread Monitoring** — Lifecycle tracking, pinning detection, carrier thread analysis
-- **Memory & GC** — Heap usage, GC pause analysis, allocation rate, metaspace monitoring
-- **CPU & Profiling** — CPU tracking with 60s history, hot method detection, lock contention
-- **Metric Export** — Prometheus `/prometheus` endpoint, OTLP push export, CSV/JSON/JSONL data export
-- **Correlation Analysis** — Cross-metric correlation with automatic recommendations
-
-### Quick Start
+Attach to your JVM for real-time monitoring — WebSocket streaming, flame graphs, Prometheus export, OTLP push.
 
 ```bash
-# 1. Attach agent to your app
+# Attach agent
 java -javaagent:$(argus-agent --path) -jar your-app.jar
 
-# 2. Open dashboard
+# Open dashboard
 open http://localhost:9202/
 
-# 3. Enable profiling + flame graph
+# Enable profiling + flame graph
 java -javaagent:~/.argus/argus-agent.jar \
      -Dargus.profiling.enabled=true \
      -Dargus.contention.enabled=true \
      -jar your-app.jar
+```
 
-# 4. Export to OpenTelemetry
+```
+[Argus] JVM Observability Platform v1.0.0
+[Argus] JFR streaming started
+[Argus] Dashboard: http://localhost:9202/
+```
+
+**Dashboard endpoints:** `/` UI · `/prometheus` metrics · `/flame-graph` · `/gc-analysis` · `/correlation` · `/export` (CSV/JSON/JSONL)
+
+> See [Configuration Guide](docs/configuration.md) for all agent properties.
+
+---
+
+## Monitoring Stack
+
+Native Prometheus + Grafana integration. Deploy to Kubernetes with the included Helm chart.
+
+```bash
+# Prometheus scrape endpoint (no extra config needed)
+curl http://localhost:9202/prometheus
+
+# Export to OpenTelemetry Collector
 java -javaagent:~/.argus/argus-agent.jar \
      -Dargus.otlp.enabled=true \
      -Dargus.otlp.endpoint=http://localhost:4318/v1/metrics \
      -jar your-app.jar
+
+# Docker — diagnose any JVM on the host
+docker run --pid=host ghcr.io/rlaope/argus doctor
+docker run --pid=host ghcr.io/rlaope/argus watch
 ```
 
-### API Endpoints
-
-| Endpoint | Description |
-|----------|-------------|
-| `/` | Dashboard UI |
-| `/health` | Health check |
-| `/metrics` | Virtual thread metrics |
-| `/gc-analysis` | GC statistics and recent events |
-| `/cpu-metrics` | CPU utilization history |
-| `/pinning-analysis` | Pinning hotspot analysis |
-| `/allocation-analysis` | Allocation rate and top classes |
-| `/metaspace-metrics` | Metaspace usage and growth |
-| `/method-profiling` | Hot methods (Top 20) |
-| `/contention-analysis` | Lock contention hotspots |
-| `/correlation` | Correlation analysis and recommendations |
-| `/flame-graph` | Flame graph data (JSON or `?format=collapsed`) |
-| `/prometheus` | Prometheus metrics endpoint |
-| `/carrier-threads` | Carrier thread distribution |
-| `/active-threads` | Currently active virtual threads |
-| `/export` | Export events (CSV, JSON, JSONL) |
-
-### Agent Configuration
-
-| Property | Default | Description |
-|----------|---------|-------------|
-| `argus.server.port` | `9202` | Dashboard server port |
-| `argus.gc.enabled` | `true` | GC monitoring |
-| `argus.cpu.enabled` | `true` | CPU monitoring |
-| `argus.profiling.enabled` | `false` | Method profiling (high overhead) |
-| `argus.contention.enabled` | `false` | Lock contention tracking |
-| `argus.allocation.enabled` | `false` | Allocation tracking (high overhead) |
-| `argus.otlp.enabled` | `false` | OTLP push export |
-| `argus.otlp.endpoint` | `http://localhost:4318/v1/metrics` | OTLP collector URL |
-
-> See [Configuration Guide](docs/configuration.md) for all options.
+> Helm chart, Grafana dashboard JSON, and K8s setup: [docs/kubernetes.md](docs/kubernetes.md)
 
 ---
 
-<br>
+## CI/CD Integration
 
-## Installation
+Add JVM health checks to your pipeline. Exit codes are machine-readable: `0=pass`, `1=warnings`, `2=critical`.
 
-### One-line Install (Recommended)
-
-**macOS / Linux:**
-```bash
-curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
+```yaml
+- name: JVM Health Check
+  uses: rlaope/Argus/action@master
+  with:
+    command: ci
+    fail-on: critical
+    format: github-annotations
 ```
 
-**Windows (PowerShell):**
-```powershell
-irm https://raw.githubusercontent.com/rlaope/argus/master/install.ps1 | iex
-```
-
-Installs both CLI + Agent to `~/.argus/` and adds `argus` to PATH.
-
-**Shell completions:** bash, zsh, fish, PowerShell are all supported and installed automatically.
-
-### Build from Source
-
 ```bash
-git clone https://github.com/rlaope/argus.git
-cd argus
-./gradlew build
-./gradlew :argus-cli:fatJar
-```
-
-### Requirements
-
-- **CLI**: Java 11+ (JDK required for `jcmd`/`jstat`)
-- **Agent + Dashboard**: Java 17+ (MXBean polling) or Java 21+ (full JFR streaming)
-- Gradle 8.4+ (only if building from source)
-
-### Java Version Compatibility
-
-Argus adapts its capabilities based on the target JVM version at runtime:
-
-| Feature | Java 11+ | Java 17+ | Java 21+ |
-|---------|:--------:|:--------:|:--------:|
-| CLI (50 commands) | ✅ | ✅ | ✅ |
-| Dashboard & Web UI | — | ✅ | ✅ |
-| GC Analysis | CLI only | ✅ MXBean | ✅ JFR |
-| CPU Monitoring | CLI only | ✅ MXBean | ✅ JFR |
-| Heap / Memory | CLI only | ✅ MXBean | ✅ JFR |
-| Metaspace | CLI only | ✅ MXBean | ✅ JFR |
-| Thread Analysis | CLI only | ✅ MXBean | ✅ JFR |
-| Lock Contention | — | — | ✅ JFR |
-| Allocation Tracking | — | — | ✅ JFR |
-| Virtual Thread Monitoring | — | — | ✅ JFR |
-| Flame Graph | — | — | ✅ JFR |
-| Micrometer Metrics | — | ✅ | ✅ |
-| Spring Boot Starter | — | ✅ | ✅ |
-
-> **Note**: On Java 17-20, the agent uses MXBean polling for GC/CPU/Memory metrics. Virtual thread monitoring and JFR-based profiling require Java 21+. The dashboard automatically adapts its UI based on the detected Java version.
-
-### Uninstall
-
-```bash
-rm -rf ~/.argus
-# Remove the PATH line from ~/.zshrc or ~/.bashrc
+argus ci --pid=auto --fail-on=critical --format=summary
 ```
 
 ---
 
-<br>
+## Spring Boot Integration
+
+Zero-configuration auto-setup for Spring Boot 3.2+ applications.
+
+**Maven:**
+```xml
+<dependency>
+  <groupId>io.argus</groupId>
+  <artifactId>argus-spring-boot-starter</artifactId>
+  <version>1.0.0</version>
+</dependency>
+```
+
+**Gradle:**
+```groovy
+implementation 'io.argus:argus-spring-boot-starter:1.0.0'
+```
+
+```properties
+# application.properties
+argus.server.port=9202
+argus.profiling.enabled=true
+argus.contention.enabled=true
+```
+
+The `argus-micrometer` module also provides a `MeterBinder` exposing ~25 JVM metrics to any Micrometer-compatible registry (Prometheus, Datadog, InfluxDB, etc.).
+
+---
 
 ## Architecture
 
@@ -431,97 +414,52 @@ rm -rf ~/.argus
 | **argus-agent** | Java agent with JFR streaming engine |
 | **argus-server** | Netty HTTP/WS server, 10 analyzers, Prometheus + OTLP |
 | **argus-frontend** | Static dashboard with Chart.js and d3-flamegraph |
-| **argus-cli** | 50 diagnostic commands, auto source detection, i18n |
+| **argus-cli** | 55 diagnostic commands, auto source detection, i18n |
 | **argus-micrometer** | Micrometer MeterBinder exposing ~25 JVM metrics |
 | **argus-spring-boot-starter** | Spring Boot 3.2+ auto-configuration for Argus agent |
 
-## Docker
+---
 
-```bash
-docker run --pid=host ghcr.io/rlaope/argus ps
-docker run --pid=host ghcr.io/rlaope/argus doctor
-docker run --pid=host ghcr.io/rlaope/argus watch
-```
+## Java Version Compatibility
 
-## CI/CD Integration
-
-Add JVM health checks to your GitHub Actions pipeline:
-
-```yaml
-- name: JVM Health Check
-  uses: rlaope/Argus/action@master
-  with:
-    command: ci
-    fail-on: critical
-    format: github-annotations
-```
-
-Or use `argus ci` directly:
-
-```bash
-argus ci --pid=auto --fail-on=critical --format=summary
-# Exit code: 0=pass, 1=warnings, 2=critical
-```
-
-## Spring Boot Integration
-
-The `argus-spring-boot-starter` provides zero-configuration auto-setup for Spring Boot 3.2+ applications.
-
-Add the dependency:
-
-```xml
-<dependency>
-  <groupId>io.argus</groupId>
-  <artifactId>argus-spring-boot-starter</artifactId>
-  <version>1.0.0</version>
-</dependency>
-```
-
-Or with Gradle:
-
-```groovy
-implementation 'io.argus:argus-spring-boot-starter:1.0.0'
-```
-
-The starter auto-configures the Argus agent on application startup. All `argus.*` properties can be set in `application.properties` / `application.yml`:
-
-```properties
-argus.server.port=9202
-argus.profiling.enabled=true
-argus.contention.enabled=true
-argus.otlp.enabled=false
-```
+| Feature | Java 11+ | Java 17+ | Java 21+ |
+|---------|:--------:|:--------:|:--------:|
+| CLI (55 commands) | ✅ | ✅ | ✅ |
+| Dashboard & Web UI | — | ✅ | ✅ |
+| GC Analysis | CLI only | ✅ MXBean | ✅ JFR |
+| Virtual Thread Monitoring | — | — | ✅ JFR |
+| Flame Graph | — | — | ✅ JFR |
+| Micrometer Metrics | — | ✅ | ✅ |
+| Spring Boot Starter | — | ✅ | ✅ |
 
 ---
 
-<br>
+## Installation
 
-## Micrometer Metrics
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | bash
 
-The `argus-micrometer` module provides a `MeterBinder` implementation that bridges ~25 JVM metrics into any Micrometer-compatible registry (Prometheus, Datadog, InfluxDB, etc.).
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/rlaope/argus/master/install.ps1 | iex
 
-Metrics exposed include GC pause time, heap usage, thread counts (virtual and platform), allocation rate, metaspace usage, CPU load, lock contention, and method profiling data.
+# Build from source
+git clone https://github.com/rlaope/argus.git && cd argus
+./gradlew :argus-cli:fatJar
 
-When used with the Spring Boot starter and a Micrometer registry on the classpath, metrics are registered automatically. For standalone use:
-
-```java
-ArgusMetrics argusMetrics = new ArgusMetrics();
-argusMetrics.bindTo(meterRegistry);
+# Uninstall
+rm -rf ~/.argus
 ```
+
+Shell completions (bash, zsh, fish, PowerShell) are installed automatically.
 
 ---
 
-<br>
+## Contributing & License
 
-## Contributing
+Contributions welcome — bugs, features, docs, tests.
+See [CONTRIBUTING.md](CONTRIBUTING.md) · [Architecture](docs/architecture.md) · [CLI Reference](docs/cli-commands.md)
 
-Contributions welcome — bug reports, features, docs, testing.
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+Maintainer: [@rlaope](https://github.com/rlaope)
 
-## Maintainer
-
-[@rlaope](https://github.com/rlaope)
-
-## License
-
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.
