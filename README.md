@@ -23,8 +23,6 @@ curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | ba
 
 Diagnose any running JVM process directly from the terminal. No agent, no instrumentation, no restart needed.
 
-<video src="https://rlaope.github.io/Argus/assets/argus-cli-demo.mp4" width="100%" autoplay loop muted playsinline></video>
-
 ### Commands
 
 | Command | Description |
@@ -246,8 +244,6 @@ $ argus --lang=ko report 39113
 
 Attach to your JVM for real-time monitoring with a web dashboard, flame graphs, and metric export.
 
-<video src="https://rlaope.github.io/Argus/assets/argus-dashboard-real.mp4" width="100%" autoplay loop muted playsinline></video>
-
 When the agent starts, you'll see the Argus banner:
 
 ```
@@ -258,7 +254,7 @@ When the agent starts, you'll see the Argus banner:
     \____|__  /__|  \___  /|____//____  >
             \/     /_____/            \/
 
-    JVM Observability Platform v0.8.0
+    JVM Observability Platform v1.0.0
 [Argus] Initializing JFR streaming engine...
 [Argus] Agent initialized successfully
 [Argus] Ring buffer size: 65536
@@ -477,14 +473,14 @@ Add the dependency:
 <dependency>
   <groupId>io.argus</groupId>
   <artifactId>argus-spring-boot-starter</artifactId>
-  <version>0.8.0</version>
+  <version>1.0.0</version>
 </dependency>
 ```
 
 Or with Gradle:
 
 ```groovy
-implementation 'io.argus:argus-spring-boot-starter:0.8.0'
+implementation 'io.argus:argus-spring-boot-starter:1.0.0'
 ```
 
 The starter auto-configures the Argus agent on application startup. All `argus.*` properties can be set in `application.properties` / `application.yml`:
