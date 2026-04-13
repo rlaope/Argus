@@ -1,0 +1,56 @@
+{{- if .Values.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "argus.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    {{- with .Values.prometheusRule.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: argus.jvm
+      rules:
+        {{- if .Values.prometheusRule.rules.gcOverhead.enabled }}
+        - alert: ArgusGCOverhead
+          expr: argus_gc_overhead_ratio > {{ .Values.prometheusRule.rules.gcOverhead.threshold }}
+          for: {{ .Values.prometheusRule.rules.gcOverhead.duration }}
+          labels:
+            severity: {{ .Values.prometheusRule.rules.gcOverhead.severity }}
+          annotations:
+            summary: "High GC overhead on {{ "{{" }} $labels.instance {{ "}}" }}"
+            description: >-
+              GC overhead ratio is {{ "{{" }} $value | humanizePercentage {{ "}}" }} on
+              {{ "{{" }} $labels.instance {{ "}}" }}, exceeding the
+              {{ .Values.prometheusRule.rules.gcOverhead.threshold | mul 100 }}% threshold
+              for {{ .Values.prometheusRule.rules.gcOverhead.duration }}.
+        {{- end }}
+        {{- if .Values.prometheusRule.rules.memoryLeak.enabled }}
+        - alert: ArgusMemoryLeak
+          expr: argus_gc_leak_suspected == 1
+          for: {{ .Values.prometheusRule.rules.memoryLeak.duration }}
+          labels:
+            severity: {{ .Values.prometheusRule.rules.memoryLeak.severity }}
+          annotations:
+            summary: "Suspected memory leak on {{ "{{" }} $labels.instance {{ "}}" }}"
+            description: >-
+              Argus has detected a suspected memory leak on {{ "{{" }} $labels.instance {{ "}}" }}.
+              Heap usage has been trending upward for {{ .Values.prometheusRule.rules.memoryLeak.duration }}.
+        {{- end }}
+        {{- if .Values.prometheusRule.rules.highCpu.enabled }}
+        - alert: ArgusHighCPU
+          expr: argus_cpu_jvm_user_ratio + argus_cpu_jvm_system_ratio > {{ .Values.prometheusRule.rules.highCpu.threshold }}
+          for: {{ .Values.prometheusRule.rules.highCpu.duration }}
+          labels:
+            severity: {{ .Values.prometheusRule.rules.highCpu.severity }}
+          annotations:
+            summary: "High JVM CPU usage on {{ "{{" }} $labels.instance {{ "}}" }}"
+            description: >-
+              JVM CPU usage (user + system) is {{ "{{" }} $value | humanizePercentage {{ "}}" }} on
+              {{ "{{" }} $labels.instance {{ "}}" }}, exceeding the
+              {{ .Values.prometheusRule.rules.highCpu.threshold | mul 100 }}% threshold
+              for {{ .Values.prometheusRule.rules.highCpu.duration }}.
+        {{- end }}
+{{- end }}

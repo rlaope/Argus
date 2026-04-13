@@ -1,0 +1,20 @@
+# Example: Adding Argus to any JVM application
+FROM eclipse-temurin:21-jdk-alpine AS builder
+WORKDIR /app
+COPY . .
+RUN ./gradlew :your-app:build -x test
+
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+
+# Copy Argus agent
+COPY --from=ghcr.io/rlaope/argus-agent:latest /opt/argus/argus-agent.jar /opt/argus/argus-agent.jar
+
+# Copy your app
+COPY --from=builder /app/build/libs/app.jar /app/app.jar
+
+EXPOSE 8080 9202
+
+ENV JAVA_OPTS="-javaagent:/opt/argus/argus-agent.jar -Dargus.server.enabled=true -Dargus.server.bind=0.0.0.0 -Dargus.server.port=9202"
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

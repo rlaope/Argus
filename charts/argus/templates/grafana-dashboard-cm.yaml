@@ -1,0 +1,15 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "argus.fullname" . }}-grafana-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    {{ .Values.grafana.sidecarLabel }}: {{ .Values.grafana.sidecarLabelValue | quote }}
+  annotations:
+    grafana_folder: {{ .Values.grafana.folder | quote }}
+data:
+  argus-jvm-observability.json: |-
+    {{ .Files.Get "dashboards/argus-jvm-observability.json" | nindent 4 }}
+{{- end }}

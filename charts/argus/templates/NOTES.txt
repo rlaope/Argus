@@ -1,0 +1,90 @@
+Argus JVM Observability has been installed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Argus is a JVM agent — it does NOT deploy pods.
+  Follow these steps to instrument your application:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. LABEL YOUR PODS
+   Add the following label to pods you want Argus to monitor:
+
+     argus.io/enabled: "true"
+
+   This enables the ServiceMonitor to discover and scrape them.
+
+2. ADD THE ARGUS AGENT TO YOUR JVM APPLICATION
+
+   Option A — Java agent (any JVM app):
+     Download the agent JAR and mount it into your pod, then add to your
+     container's JAVA_TOOL_OPTIONS or via an init container:
+
+       env:
+         - name: JAVA_TOOL_OPTIONS
+           value: "-javaagent:/opt/argus/argus-agent.jar $(ARGUS_JAVA_OPTS)"
+         - name: ARGUS_JAVA_OPTS
+           valueFrom:
+             configMapKeyRef:
+               name: {{ include "argus.fullname" . }}-config
+               key: ARGUS_JAVA_OPTS
+
+   Option B — Spring Boot Starter:
+     Add the dependency to your pom.xml or build.gradle:
+
+       # Maven
+       <dependency>
+         <groupId>io.github.rlaope</groupId>
+         <artifactId>argus-spring-boot-starter</artifactId>
+         <version>{{ .Chart.AppVersion }}</version>
+       </dependency>
+
+       # Gradle
+       implementation 'io.github.rlaope:argus-spring-boot-starter:{{ .Chart.AppVersion }}'
+
+3. EXPOSE THE METRICS PORT
+   Argus serves metrics on port {{ .Values.agent.port }}. Ensure your Service exposes
+   this port with the name "argus-metrics":
+
+     ports:
+       - name: argus-metrics
+         port: {{ .Values.agent.port }}
+         targetPort: {{ .Values.agent.port }}
+
+4. VERIFY PROMETHEUS DISCOVERY
+{{- if .Values.serviceMonitor.enabled }}
+   A ServiceMonitor has been created. Verify Prometheus picks it up:
+
+     kubectl get servicemonitor {{ include "argus.fullname" . }} -n {{ .Release.Namespace }}
+
+   In Prometheus UI, check Status > Targets for your application pods.
+{{- else }}
+   ServiceMonitor is disabled. Enable it with:
+
+     helm upgrade {{ .Release.Name }} argus/argus --set serviceMonitor.enabled=true
+{{- end }}
+
+{{- if .Values.grafana.enabled }}
+
+5. GRAFANA DASHBOARD
+   A dashboard ConfigMap has been created with the label
+   {{ .Values.grafana.sidecarLabel }}={{ .Values.grafana.sidecarLabelValue | quote }} for Grafana sidecar auto-discovery.
+   The dashboard will appear in the "{{ .Values.grafana.folder }}" folder.
+
+     kubectl get configmap {{ include "argus.fullname" . }}-grafana-dashboard -n {{ .Release.Namespace }}
+{{- end }}
+
+{{- if .Values.prometheusRule.enabled }}
+
+6. ALERT RULES
+   PrometheusRule has been created with the following alerts:
+{{- if .Values.prometheusRule.rules.gcOverhead.enabled }}
+   - ArgusGCOverhead: fires when GC overhead > {{ .Values.prometheusRule.rules.gcOverhead.threshold | mul 100 }}% for {{ .Values.prometheusRule.rules.gcOverhead.duration }}
+{{- end }}
+{{- if .Values.prometheusRule.rules.memoryLeak.enabled }}
+   - ArgusMemoryLeak: fires when memory leak is suspected for {{ .Values.prometheusRule.rules.memoryLeak.duration }}
+{{- end }}
+{{- if .Values.prometheusRule.rules.highCpu.enabled }}
+   - ArgusHighCPU: fires when JVM CPU > {{ .Values.prometheusRule.rules.highCpu.threshold | mul 100 }}% for {{ .Values.prometheusRule.rules.highCpu.duration }}
+{{- end }}
+{{- end }}
+
+For documentation and source: https://github.com/rlaope/Argus

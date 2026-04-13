@@ -246,7 +246,7 @@ public final class ArgusServer {
                 .option(ChannelOption.SO_BACKLOG, 128)
                 .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-        String bindAddress = System.getProperty("argus.server.bind", "127.0.0.1");
+        String bindAddress = System.getProperty("argus.server.bind", "0.0.0.0");
         serverChannel = bootstrap.bind(bindAddress, port).sync().channel();
 
         // Start event broadcasting

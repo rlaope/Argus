@@ -241,9 +241,11 @@ public final class PrometheusMetricsCollector {
             sb.append("# HELP argus_contention_hotspot_events Contention events per monitor class\n");
             sb.append("# TYPE argus_contention_hotspot_events gauge\n");
             for (var hotspot : hotspots.stream().limit(10).toList()) {
-                sb.append("argus_contention_hotspot_events{monitor=\"")
-                        .append(escapeLabel(hotspot.monitorClass()))
-                        .append("\"} ")
+                String labels = KubernetesLabels.mergeLabels(
+                        "{monitor=\"" + escapeLabel(hotspot.monitorClass()) + "\"}");
+                sb.append("argus_contention_hotspot_events")
+                        .append(labels)
+                        .append(' ')
                         .append(hotspot.eventCount())
                         .append('\n');
             }
@@ -267,9 +269,11 @@ public final class PrometheusMetricsCollector {
             sb.append("# HELP argus_allocation_class_bytes Bytes allocated by class\n");
             sb.append("# TYPE argus_allocation_class_bytes gauge\n");
             for (var classAlloc : topClasses.stream().limit(10).toList()) {
-                sb.append("argus_allocation_class_bytes{class=\"")
-                        .append(escapeLabel(classAlloc.className()))
-                        .append("\"} ")
+                String labels = KubernetesLabels.mergeLabels(
+                        "{class=\"" + escapeLabel(classAlloc.className()) + "\"}");
+                sb.append("argus_allocation_class_bytes")
+                        .append(labels)
+                        .append(' ')
                         .append(classAlloc.totalBytes())
                         .append('\n');
             }
@@ -287,11 +291,12 @@ public final class PrometheusMetricsCollector {
             sb.append("# HELP argus_profiling_method_samples Execution samples per method\n");
             sb.append("# TYPE argus_profiling_method_samples gauge\n");
             for (var method : topMethods.stream().limit(20).toList()) {
-                sb.append("argus_profiling_method_samples{class=\"")
-                        .append(escapeLabel(method.className()))
-                        .append("\",method=\"")
-                        .append(escapeLabel(method.methodName()))
-                        .append("\"} ")
+                String labels = KubernetesLabels.mergeLabels(
+                        "{class=\"" + escapeLabel(method.className())
+                        + "\",method=\"" + escapeLabel(method.methodName()) + "\"}");
+                sb.append("argus_profiling_method_samples")
+                        .append(labels)
+                        .append(' ')
                         .append(method.sampleCount())
                         .append('\n');
             }
@@ -315,7 +320,7 @@ public final class PrometheusMetricsCollector {
     private void appendGauge(StringBuilder sb, String name, String help, double value) {
         sb.append("# HELP ").append(name).append(' ').append(help).append('\n');
         sb.append("# TYPE ").append(name).append(" gauge\n");
-        sb.append(name).append(' ');
+        sb.append(name).append(KubernetesLabels.prometheusLabelSuffix()).append(' ');
         if (value == (long) value) {
             sb.append((long) value);
         } else {
@@ -327,13 +332,13 @@ public final class PrometheusMetricsCollector {
     private void appendCounter(StringBuilder sb, String name, String help, long value) {
         sb.append("# HELP ").append(name).append(' ').append(help).append('\n');
         sb.append("# TYPE ").append(name).append(" counter\n");
-        sb.append(name).append(' ').append(value).append('\n');
+        sb.append(name).append(KubernetesLabels.prometheusLabelSuffix()).append(' ').append(value).append('\n');
     }
 
     private void appendCounter(StringBuilder sb, String name, String help, double value) {
         sb.append("# HELP ").append(name).append(' ').append(help).append('\n');
         sb.append("# TYPE ").append(name).append(" counter\n");
-        sb.append(name).append(' ').append(value).append('\n');
+        sb.append(name).append(KubernetesLabels.prometheusLabelSuffix()).append(' ').append(value).append('\n');
     }
 
     private String escapeLabel(String value) {

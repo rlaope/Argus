@@ -1,0 +1,79 @@
+# Argus agent configuration
+agent:
+  # Port for metrics/dashboard server
+  port: 9202
+  # Bind address (0.0.0.0 for K8s)
+  bindAddress: "0.0.0.0"
+
+  # Feature toggles (match -Dargus.* system properties)
+  gc:
+    enabled: true
+  cpu:
+    enabled: true
+    intervalMs: 1000
+  allocation:
+    enabled: false
+    threshold: 1048576
+  metaspace:
+    enabled: true
+  profiling:
+    enabled: false
+    intervalMs: 20
+  contention:
+    enabled: false
+    thresholdMs: 50
+  correlation:
+    enabled: true
+
+# Prometheus ServiceMonitor
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  scrapeTimeout: 10s
+  path: /prometheus
+  port: argus-metrics
+  # Additional labels for ServiceMonitor (e.g., for Prometheus Operator selector)
+  additionalLabels: {}
+  # Namespace selector — if empty, uses Release namespace
+  namespaceSelector: {}
+  # Label selector for target pods — must match your app's pod labels
+  selector:
+    matchLabels:
+      argus.io/enabled: "true"
+
+# Prometheus alerting rules
+prometheusRule:
+  enabled: true
+  additionalLabels: {}
+  rules:
+    gcOverhead:
+      enabled: true
+      threshold: 0.10
+      duration: 5m
+      severity: warning
+    memoryLeak:
+      enabled: true
+      duration: 10m
+      severity: critical
+    highCpu:
+      enabled: true
+      threshold: 0.80
+      duration: 5m
+      severity: warning
+
+# Grafana dashboard
+grafana:
+  enabled: true
+  # Dashboard ConfigMap label for Grafana sidecar auto-discovery
+  sidecarLabel: grafana_dashboard
+  sidecarLabelValue: "1"
+  folder: "Argus"
+
+# NetworkPolicy
+networkPolicy:
+  enabled: false
+  # Allow ingress from Prometheus namespace
+  ingressFrom:
+    - namespaceSelector:
+        matchLabels:
+          app.kubernetes.io/name: prometheus

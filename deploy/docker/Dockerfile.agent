@@ -1,0 +1,8 @@
+FROM eclipse-temurin:21-jre-alpine
+LABEL org.opencontainers.image.title="Argus JVM Agent"
+LABEL org.opencontainers.image.description="JVM observability agent with Prometheus metrics"
+
+COPY argus-agent/build/libs/argus-agent-*.jar /opt/argus/argus-agent.jar
+
+# No ENTRYPOINT — this image is used as an init container or base layer
+# Usage: copy /opt/argus/argus-agent.jar into your app container

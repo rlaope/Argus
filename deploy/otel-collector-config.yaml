@@ -1,0 +1,81 @@
+# OpenTelemetry Collector configuration for Argus
+# Deploy as a DaemonSet or Deployment alongside your JVM pods
+#
+# Supports two modes:
+# 1. OTLP Push: Argus pushes metrics to collector (configure argus.metrics.otlp.endpoint)
+# 2. Prometheus Pull: Collector scrapes Argus /prometheus endpoint
+#
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'argus'
+          metrics_path: '/prometheus'
+          kubernetes_sd_configs:
+            - role: pod
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_annotation_argus_io_scrape]
+              action: keep
+              regex: "true"
+            - source_labels: [__meta_kubernetes_pod_annotation_argus_io_port]
+              action: replace
+              target_label: __address__
+              regex: (.+)
+              replacement: ${1}:$1
+            - source_labels: [__meta_kubernetes_namespace]
+              target_label: namespace
+            - source_labels: [__meta_kubernetes_pod_name]
+              target_label: pod
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1024
+
+  k8sattributes:
+    auth_type: "serviceAccount"
+    extract:
+      metadata:
+        - k8s.pod.name
+        - k8s.namespace.name
+        - k8s.node.name
+        - k8s.deployment.name
+    pod_association:
+      - sources:
+          - from: resource_attribute
+            name: k8s.pod.ip
+
+  resource:
+    attributes:
+      - key: service.name
+        value: "argus"
+        action: upsert
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    namespace: argus
+
+  prometheusremotewrite:
+    endpoint: "http://prometheus:9090/api/v1/write"
+
+  debug:
+    verbosity: basic
+
+service:
+  pipelines:
+    metrics/otlp:
+      receivers: [otlp]
+      processors: [batch, k8sattributes, resource]
+      exporters: [prometheus]
+    metrics/scrape:
+      receivers: [prometheus]
+      processors: [batch]
+      exporters: [prometheusremotewrite]

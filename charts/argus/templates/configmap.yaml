@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "argus.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+data:
+  ARGUS_JAVA_OPTS: >-
+    -Dargus.server.enabled=true
+    -Dargus.server.bind={{ .Values.agent.bindAddress }}
+    -Dargus.server.port={{ .Values.agent.port }}
+    {{- if .Values.agent.gc.enabled }}
+    -Dargus.gc.enabled=true
+    {{- else }}
+    -Dargus.gc.enabled=false
+    {{- end }}
+    {{- if .Values.agent.cpu.enabled }}
+    -Dargus.cpu.enabled=true
+    -Dargus.cpu.interval={{ .Values.agent.cpu.intervalMs }}
+    {{- else }}
+    -Dargus.cpu.enabled=false
+    {{- end }}
+    {{- if .Values.agent.allocation.enabled }}
+    -Dargus.allocation.enabled=true
+    -Dargus.allocation.threshold={{ .Values.agent.allocation.threshold }}
+    {{- else }}
+    -Dargus.allocation.enabled=false
+    {{- end }}
+    {{- if .Values.agent.metaspace.enabled }}
+    -Dargus.metaspace.enabled=true
+    {{- else }}
+    -Dargus.metaspace.enabled=false
+    {{- end }}
+    {{- if .Values.agent.profiling.enabled }}
+    -Dargus.profiling.enabled=true
+    -Dargus.profiling.interval={{ .Values.agent.profiling.intervalMs }}
+    {{- else }}
+    -Dargus.profiling.enabled=false
+    {{- end }}
+    {{- if .Values.agent.contention.enabled }}
+    -Dargus.contention.enabled=true
+    -Dargus.contention.threshold={{ .Values.agent.contention.thresholdMs }}
+    {{- else }}
+    -Dargus.contention.enabled=false
+    {{- end }}
+    {{- if .Values.agent.correlation.enabled }}
+    -Dargus.correlation.enabled=true
+    {{- else }}
+    -Dargus.correlation.enabled=false
+    {{- end }}

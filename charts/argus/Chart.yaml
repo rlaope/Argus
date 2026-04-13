@@ -1,0 +1,18 @@
+apiVersion: v2
+name: argus
+description: Argus JVM Observability — Prometheus metrics, Grafana dashboards, and alerting for JVM applications
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+home: https://github.com/rlaope/Argus
+sources:
+  - https://github.com/rlaope/Argus
+keywords:
+  - jvm
+  - observability
+  - gc
+  - virtual-threads
+  - prometheus
+  - grafana
+maintainers:
+  - name: rlaope
