@@ -16,6 +16,7 @@ import java.util.Map;
 public final class KubernetesLabels {
 
     private static final Map<String, String> LABELS = detectLabels();
+    private static final String SUFFIX = buildSuffix();
 
     private KubernetesLabels() {}
 
@@ -28,10 +29,14 @@ public final class KubernetesLabels {
     }
 
     /**
-     * Returns Prometheus label suffix string like {pod="abc",namespace="default"}
+     * Returns cached Prometheus label suffix like {pod="abc",namespace="default"}
      * or empty string if not in K8s.
      */
     public static String prometheusLabelSuffix() {
+        return SUFFIX;
+    }
+
+    private static String buildSuffix() {
         if (LABELS.isEmpty()) return "";
         StringBuilder sb = new StringBuilder("{");
         boolean first = true;
