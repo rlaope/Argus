@@ -1,135 +1,114 @@
 {
-  "__inputs": [
-    {
-      "name": "DS_PROMETHEUS",
-      "label": "Prometheus",
-      "description": "",
-      "type": "datasource",
-      "pluginId": "prometheus",
-      "pluginName": "Prometheus"
-    }
-  ],
-  "__requires": [
-    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
-    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
-    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
-    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
-    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
-    { "type": "panel", "id": "table", "name": "Table", "version": "" }
-  ],
-  "annotations": { "list": [] },
-  "description": "Argus JVM Observability — Virtual Threads, GC, Memory Leak Detection, Allocation Profiling",
+  "annotations": { "list": [{ "builtIn": 1, "datasource": { "type": "grafana", "uid": "-- Grafana --" }, "enable": true, "hide": true, "iconColor": "rgba(0, 211, 255, 1)", "name": "Annotations & Alerts", "type": "dashboard" }] },
+  "description": "Argus JVM Observability Platform — Production-grade monitoring for Virtual Threads, GC, Memory, CPU, and Application Health",
   "editable": true,
   "fiscalYearStartMonth": 0,
-  "graphTooltip": 1,
+  "graphTooltip": 2,
   "id": null,
   "links": [],
+  "liveNow": true,
   "panels": [
     {
       "collapsed": false,
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
-      "id": 100,
-      "title": "Overview",
+      "id": 200,
+      "title": "🔴 Health Overview",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "yellow", "value": 5 },
-              { "color": "red", "value": 15 }
-            ]
-          },
-          "unit": "percentunit"
-        }
-      },
-      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "mappings": [{ "options": { "0": { "color": "green", "text": "Healthy" }, "1": { "color": "red", "text": "⚠ LEAK" } }, "type": "value" }], "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } },
+      "gridPos": { "h": 3, "w": 3, "x": 0, "y": 1 },
       "id": 1,
-      "options": { "colorMode": "background", "graphMode": "area", "textMode": "auto" },
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Memory Leak",
+      "type": "stat",
+      "targets": [{ "expr": "argus_gc_leak_suspected", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "mappings": [{ "options": { "0": { "color": "green", "text": "Normal" }, "1": { "color": "orange", "text": "⚠ HIGH" } }, "type": "value" }], "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "orange", "value": 1 }] } } },
+      "gridPos": { "h": 3, "w": 3, "x": 3, "y": 1 },
+      "id": 2,
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "GC Overhead",
       "type": "stat",
-      "targets": [{ "expr": "argus_gc_overhead_ratio", "legendFormat": "GC Overhead" }]
+      "targets": [{ "expr": "argus_gc_overhead_warning", "legendFormat": "" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "bytes" } },
-      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 1 },
-      "id": 2,
-      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto" },
-      "title": "Heap Used",
-      "type": "stat",
-      "targets": [{ "expr": "argus_heap_used_bytes", "legendFormat": "Heap Used" }]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "none" } },
-      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "#EAB839", "value": 0.05 }, { "color": "red", "value": 0.15 }] }, "min": 0, "max": 0.3 } },
+      "gridPos": { "h": 3, "w": 3, "x": 6, "y": 1 },
       "id": 3,
-      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto" },
-      "title": "Active Virtual Threads",
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "GC Overhead %",
       "type": "stat",
-      "targets": [{ "expr": "argus_virtual_threads_active", "legendFormat": "Active VT" }]
+      "targets": [{ "expr": "argus_gc_overhead_ratio", "legendFormat": "" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": {
-          "thresholds": {
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
-            ]
-          }
-        }
-      },
-      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "#EAB839", "value": 0.1 }, { "color": "red", "value": 0.5 }] } } },
+      "gridPos": { "h": 3, "w": 3, "x": 9, "y": 1 },
       "id": 4,
-      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto" },
-      "title": "Leak Suspected",
-      "type": "stat",
-      "targets": [{ "expr": "argus_gc_leak_suspected", "legendFormat": "Leak" }]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "KBs" } },
-      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 1 },
-      "id": 5,
-      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto" },
-      "title": "Allocation Rate",
-      "type": "stat",
-      "targets": [{ "expr": "argus_gc_allocation_rate_kbps", "legendFormat": "Alloc Rate" }]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "s" } },
-      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 1 },
-      "id": 6,
-      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto" },
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
       "title": "Max GC Pause",
       "type": "stat",
-      "targets": [{ "expr": "argus_gc_pause_time_max_seconds", "legendFormat": "Max Pause" }]
+      "targets": [{ "expr": "argus_gc_pause_time_seconds_max", "legendFormat": "" }]
     },
     {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "#EAB839", "value": 2147483648 }, { "color": "red", "value": 3758096384 }] } } },
+      "gridPos": { "h": 3, "w": 3, "x": 12, "y": 1 },
+      "id": 5,
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Heap Used",
+      "type": "stat",
+      "targets": [{ "expr": "argus_heap_used_bytes", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "#EAB839", "value": 0.3 }, { "color": "red", "value": 0.7 }] }, "min": 0, "max": 1 } },
+      "gridPos": { "h": 3, "w": 3, "x": 15, "y": 1 },
+      "id": 6,
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "JVM CPU",
+      "type": "stat",
+      "targets": [{ "expr": "argus_cpu_jvm_user_ratio + argus_cpu_jvm_system_ratio", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "blue", "value": null }] } } },
+      "gridPos": { "h": 3, "w": 3, "x": 18, "y": 1 },
+      "id": 7,
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Active VThreads",
+      "type": "stat",
+      "targets": [{ "expr": "argus_virtual_threads_active", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } },
+      "gridPos": { "h": 3, "w": 3, "x": 21, "y": 1 },
+      "id": 8,
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Pinning Stacks",
+      "type": "stat",
+      "targets": [{ "expr": "argus_virtual_threads_pinned_unique_stacks", "legendFormat": "" }]
+    },
+
+    {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
-      "id": 101,
-      "title": "GC & Heap",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 4 },
+      "id": 201,
+      "title": "📊 Heap & GC",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": { "unit": "bytes", "custom": { "fillOpacity": 20 } },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "Committed" }, "properties": [{ "id": "custom.fillOpacity", "value": 5 }, { "id": "custom.lineStyle", "value": { "fill": "dash" } }] }
-        ]
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 15, "lineWidth": 2, "showPoints": "never", "spanNulls": true } }, "overrides": [{ "matcher": { "id": "byName", "options": "Committed" }, "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }, { "id": "custom.fillOpacity", "value": 0 }, { "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Used" }, "properties": [{ "id": "color", "value": { "fixedColor": "blue", "mode": "fixed" } }] }] },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 5 },
       "id": 10,
-      "options": { "tooltip": { "mode": "multi" } },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "list", "placement": "bottom" } },
       "title": "Heap Memory",
       "type": "timeseries",
       "targets": [
@@ -138,132 +117,185 @@
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": { "unit": "s", "custom": { "fillOpacity": 10 } },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "Max" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] },
-          { "matcher": { "id": "byName", "options": "Avg" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }
-        ]
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 20, "lineWidth": 2, "showPoints": "never", "thresholdsStyle": { "mode": "line+area" } }, "thresholds": { "steps": [{ "color": "transparent", "value": null }, { "color": "rgba(255,0,0,0.1)", "value": 0.8 }] } }, "overrides": [{ "matcher": { "id": "byName", "options": "Heap Usage" }, "properties": [{ "id": "color", "value": { "fixedColor": "semi-dark-blue", "mode": "fixed" } }] }] },
+      "gridPos": { "h": 8, "w": 4, "x": 8, "y": 5 },
       "id": 11,
-      "options": { "tooltip": { "mode": "multi" } },
-      "title": "GC Pause Times",
+      "title": "Heap Usage %",
+      "type": "timeseries",
+      "targets": [{ "expr": "argus_heap_usage_ratio", "legendFormat": "Heap Usage" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" } }, "overrides": [{ "matcher": { "id": "byName", "options": "Max Pause" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }, { "matcher": { "id": "byName", "options": "Avg Pause" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] }] },
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 5 },
+      "id": 12,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "GC Pause Time",
       "type": "timeseries",
       "targets": [
-        { "expr": "argus_gc_pause_time_max_seconds", "legendFormat": "Max" },
-        { "expr": "argus_gc_pause_time_avg_seconds", "legendFormat": "Avg" },
-        { "expr": "argus_gc_pause_time_seconds / argus_gc_events", "legendFormat": "Cumulative Avg" }
+        { "expr": "argus_gc_pause_time_seconds_max", "legendFormat": "Max Pause" },
+        { "expr": "argus_gc_pause_time_seconds_avg", "legendFormat": "Avg Pause" }
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 30 } },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "Overhead" }, "properties": [{ "id": "custom.thresholdsStyle", "value": { "mode": "line" } }, { "id": "thresholds", "value": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 0.1 }] } }] }
-        ]
-      },
-      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 14 },
-      "id": 12,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 0.3, "custom": { "fillOpacity": 25, "lineWidth": 2, "showPoints": "never", "thresholdsStyle": { "mode": "line+area" } }, "thresholds": { "steps": [{ "color": "transparent", "value": null }, { "color": "rgba(255,165,0,0.15)", "value": 0.05 }, { "color": "rgba(255,0,0,0.15)", "value": 0.1 }] }, "color": { "fixedColor": "semi-dark-orange", "mode": "fixed" } } },
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 5 },
+      "id": 13,
       "title": "GC Overhead",
       "type": "timeseries",
-      "targets": [
-        { "expr": "argus_gc_overhead_ratio", "legendFormat": "Overhead" }
-      ]
+      "targets": [{ "expr": "argus_gc_overhead_ratio", "legendFormat": "Overhead" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 13 },
+      "id": 202,
+      "title": "🔍 Memory Leak Detection & Allocation",
+      "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "KBs", "custom": { "fillOpacity": 15 } } },
-      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 14 },
-      "id": 13,
-      "title": "Allocation & Promotion Rate",
-      "type": "timeseries",
-      "targets": [
-        { "expr": "argus_gc_allocation_rate_kbps", "legendFormat": "Allocation Rate" },
-        { "expr": "argus_gc_promotion_rate_kbps", "legendFormat": "Promotion Rate" }
-      ]
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit", "min": 0, "max": 1,
-          "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 0.5 }, { "color": "red", "value": 0.7 }] }
-        }
-      },
-      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 14 },
-      "id": 14,
-      "options": { "showThresholdLabels": true, "showThresholdMarkers": true },
-      "title": "Memory Leak Confidence (R²)",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "#EAB839", "value": 0.5 }, { "color": "red", "value": 0.7 }] } } },
+      "gridPos": { "h": 7, "w": 4, "x": 0, "y": 14 },
+      "id": 20,
+      "options": { "showThresholdLabels": true, "showThresholdMarkers": true, "orientation": "horizontal", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Leak Confidence (R²)",
       "type": "gauge",
+      "targets": [{ "expr": "argus_gc_leak_confidence", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "custom": { "fillOpacity": 15, "lineWidth": 2, "showPoints": "never", "thresholdsStyle": { "mode": "line" } }, "thresholds": { "steps": [{ "color": "transparent", "value": null }, { "color": "red", "value": 0.7 }] }, "color": { "fixedColor": "dark-red", "mode": "fixed" } } },
+      "gridPos": { "h": 7, "w": 8, "x": 4, "y": 14 },
+      "id": 21,
+      "title": "Leak Confidence Over Time",
+      "type": "timeseries",
       "targets": [{ "expr": "argus_gc_leak_confidence", "legendFormat": "R²" }]
     },
     {
-      "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 22 },
-      "id": 102,
-      "title": "Virtual Threads",
-      "type": "row"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 20 } } },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 23 },
-      "id": 20,
-      "title": "Virtual Thread Lifecycle",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "KBs", "custom": { "fillOpacity": 20, "lineWidth": 2, "showPoints": "never", "gradientMode": "scheme" }, "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 14 },
+      "id": 22,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Allocation & Promotion Rate",
       "type": "timeseries",
       "targets": [
-        { "expr": "argus_virtual_threads_active", "legendFormat": "Active" },
-        { "expr": "rate(argus_virtual_threads_started_total[1m])", "legendFormat": "Started/min" },
-        { "expr": "rate(argus_virtual_threads_ended_total[1m])", "legendFormat": "Ended/min" }
+        { "expr": "argus_gc_allocation_rate_kbps", "legendFormat": "Allocation" },
+        { "expr": "argus_gc_promotion_rate_kbps", "legendFormat": "Promotion" }
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": {
-        "defaults": { "custom": { "fillOpacity": 10 } },
-        "overrides": [
-          { "matcher": { "id": "byName", "options": "Pinned Events/min" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
-        ]
-      },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 23 },
-      "id": 21,
-      "title": "Pinning & Carrier Threads",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }, "color": { "fixedColor": "purple", "mode": "fixed" } } },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 14 },
+      "id": 23,
+      "title": "GC Events (rate)",
+      "type": "timeseries",
+      "targets": [{ "expr": "rate(argus_gc_events_total[1m])*60", "legendFormat": "GC Events/min" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 21 },
+      "id": 203,
+      "title": "🧵 Virtual Threads",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 20, "lineWidth": 2, "showPoints": "never", "gradientMode": "opacity" }, "color": { "fixedColor": "blue", "mode": "fixed" } } },
+      "gridPos": { "h": 7, "w": 6, "x": 0, "y": 22 },
+      "id": 30,
+      "title": "Active Virtual Threads",
+      "type": "timeseries",
+      "targets": [{ "expr": "argus_virtual_threads_active", "legendFormat": "Active" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }, "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 7, "w": 6, "x": 6, "y": 22 },
+      "id": 31,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "VThread Throughput",
       "type": "timeseries",
       "targets": [
-        { "expr": "rate(argus_virtual_threads_pinned_total[1m])", "legendFormat": "Pinned Events/min" },
-        { "expr": "argus_virtual_threads_pinned_unique_stacks", "legendFormat": "Unique Pinning Stacks" },
-        { "expr": "argus_carrier_threads_total", "legendFormat": "Carrier Threads" },
+        { "expr": "rate(argus_virtual_threads_started_total[1m])*60", "legendFormat": "Started/min" },
+        { "expr": "rate(argus_virtual_threads_ended_total[1m])*60", "legendFormat": "Ended/min" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 15, "lineWidth": 2, "showPoints": "never" }, "color": { "mode": "palette-classic" } }, "overrides": [{ "matcher": { "id": "byName", "options": "Pinning Events/min" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }] },
+      "gridPos": { "h": 7, "w": 6, "x": 12, "y": 22 },
+      "id": 32,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Pinning Events",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "rate(argus_virtual_threads_pinned_total[1m])*60", "legendFormat": "Pinning Events/min" },
+        { "expr": "argus_virtual_threads_pinned_unique_stacks", "legendFormat": "Unique Stacks" }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 15, "lineWidth": 2, "showPoints": "never" }, "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 7, "w": 6, "x": 18, "y": 22 },
+      "id": 33,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "Carrier Threads",
+      "type": "timeseries",
+      "targets": [
+        { "expr": "argus_carrier_threads_total", "legendFormat": "Carrier Count" },
         { "expr": "argus_carrier_threads_avg_per_carrier", "legendFormat": "Avg VT/Carrier" }
       ]
     },
+
     {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 31 },
-      "id": 103,
-      "title": "CPU & Resources",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 29 },
+      "id": 204,
+      "title": "⚡ CPU",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 15 } } },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
-      "id": 30,
-      "title": "CPU Usage",
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 20, "lineWidth": 2, "showPoints": "never", "gradientMode": "scheme", "stacking": { "mode": "normal" } }, "color": { "mode": "palette-classic" } } },
+      "gridPos": { "h": 7, "w": 8, "x": 0, "y": 30 },
+      "id": 40,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
+      "title": "JVM CPU Breakdown",
       "type": "timeseries",
       "targets": [
-        { "expr": "argus_cpu_jvm_user_ratio", "legendFormat": "JVM User" },
-        { "expr": "argus_cpu_jvm_system_ratio", "legendFormat": "JVM System" },
-        { "expr": "argus_cpu_machine_total_ratio", "legendFormat": "Machine Total" }
+        { "expr": "argus_cpu_jvm_user_ratio", "legendFormat": "User" },
+        { "expr": "argus_cpu_jvm_system_ratio", "legendFormat": "System" }
       ]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 15 } } },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
-      "id": 31,
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1, "custom": { "fillOpacity": 15, "lineWidth": 2, "showPoints": "never" }, "color": { "fixedColor": "semi-dark-green", "mode": "fixed" } } },
+      "gridPos": { "h": 7, "w": 4, "x": 8, "y": 30 },
+      "id": 41,
+      "title": "Machine CPU",
+      "type": "timeseries",
+      "targets": [{ "expr": "argus_cpu_machine_total_ratio", "legendFormat": "Total" }]
+    },
+
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 },
+      "id": 205,
+      "title": "💾 Metaspace",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 15, "lineWidth": 2, "showPoints": "never" }, "color": { "mode": "palette-classic" } }, "overrides": [{ "matcher": { "id": "byName", "options": "Reserved" }, "properties": [{ "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }, { "id": "custom.fillOpacity", "value": 0 }] }] },
+      "gridPos": { "h": 7, "w": 8, "x": 12, "y": 30 },
+      "id": 50,
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "list", "placement": "bottom" } },
       "title": "Metaspace Memory",
       "type": "timeseries",
       "targets": [
@@ -273,44 +305,107 @@
       ]
     },
     {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" }, "color": { "fixedColor": "dark-green", "mode": "fixed" } } },
+      "gridPos": { "h": 7, "w": 4, "x": 20, "y": 30 },
+      "id": 51,
+      "title": "Loaded Classes",
+      "type": "timeseries",
+      "targets": [{ "expr": "argus_metaspace_classes_loaded", "legendFormat": "Classes" }]
+    },
+
+    {
       "collapsed": false,
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 40 },
-      "id": 104,
-      "title": "Allocation & Contention",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 37 },
+      "id": 206,
+      "title": "📈 Counters & Totals",
       "type": "row"
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "fillOpacity": 20 } } },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
-      "id": 40,
-      "title": "Object Allocation",
-      "type": "timeseries",
-      "targets": [
-        { "expr": "argus_allocation_rate_bytes_per_second", "legendFormat": "Allocation Rate (B/s)" },
-        { "expr": "rate(argus_allocation_bytes_total[1m])", "legendFormat": "Allocated/min" }
-      ]
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "blue", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 38 },
+      "id": 60,
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Total GC Events",
+      "type": "stat",
+      "targets": [{ "expr": "argus_gc_events_total", "legendFormat": "" }]
     },
     {
-      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
-      "fieldConfig": { "defaults": { "custom": { "fillOpacity": 10 } } },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
-      "id": 41,
-      "title": "Lock Contention",
-      "type": "timeseries",
-      "targets": [
-        { "expr": "rate(argus_contention_events_total[1m])", "legendFormat": "Contention Events/min" },
-        { "expr": "argus_contention_time_seconds", "legendFormat": "Total Contention Time" }
-      ]
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "unit": "s", "thresholds": { "steps": [{ "color": "blue", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 38 },
+      "id": 61,
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Total GC Pause",
+      "type": "stat",
+      "targets": [{ "expr": "argus_gc_pause_time_seconds_total", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "blue", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 38 },
+      "id": 62,
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "VThreads Started",
+      "type": "stat",
+      "targets": [{ "expr": "argus_virtual_threads_started_total", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "blue", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 38 },
+      "id": 63,
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "VThreads Ended",
+      "type": "stat",
+      "targets": [{ "expr": "argus_virtual_threads_ended_total", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 38 },
+      "id": 64,
+      "options": { "colorMode": "background", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Submit Failures",
+      "type": "stat",
+      "targets": [{ "expr": "argus_virtual_threads_submit_failed_total", "legendFormat": "" }]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "${datasource}" },
+      "fieldConfig": { "defaults": { "thresholds": { "steps": [{ "color": "orange", "value": null }] } } },
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 38 },
+      "id": 65,
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "title": "Total Pinned",
+      "type": "stat",
+      "targets": [{ "expr": "argus_virtual_threads_pinned_total", "legendFormat": "" }]
     }
   ],
   "schemaVersion": 39,
-  "tags": ["argus", "jvm", "virtual-threads", "gc", "observability"],
-  "templating": { "list": [] },
-  "time": { "from": "now-1h", "to": "now" },
-  "timepicker": {},
+  "tags": ["argus", "jvm", "virtual-threads", "gc", "observability", "production"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "Prometheus", "value": "Prometheus" },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Data Source",
+        "multi": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "type": "datasource"
+      }
+    ]
+  },
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m"] },
   "timezone": "",
   "title": "Argus JVM Observability",
   "uid": "argus-jvm-observability",
-  "version": 1
+  "version": 2
 }

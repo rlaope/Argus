@@ -174,6 +174,28 @@ public final class PrometheusMetricsCollector {
         appendGauge(sb, "argus_heap_committed_bytes",
                 "Current heap memory committed in bytes",
                 analysis.currentHeapCommitted());
+        appendGauge(sb, "argus_gc_pause_time_seconds_avg",
+                "Average GC pause time in seconds",
+                analysis.avgPauseTimeMs() / 1000.0);
+        appendGauge(sb, "argus_gc_overhead_warning",
+                "GC overhead warning (1 = overhead > 10%)",
+                analysis.isOverheadWarning() ? 1 : 0);
+        appendGauge(sb, "argus_gc_allocation_rate_kbps",
+                "Allocation rate in KB/s from recent GC events",
+                analysis.allocationRateKBPerSec());
+        appendGauge(sb, "argus_gc_promotion_rate_kbps",
+                "Promotion rate (young to old gen) in KB/s",
+                analysis.promotionRateKBPerSec());
+        appendGauge(sb, "argus_gc_leak_suspected",
+                "Memory leak suspected (1 = leak detected)",
+                analysis.leakSuspected() ? 1 : 0);
+        appendGauge(sb, "argus_gc_leak_confidence",
+                "Memory leak detection confidence (R-squared 0-1)",
+                analysis.leakConfidencePercent() / 100.0);
+        appendGauge(sb, "argus_heap_usage_ratio",
+                "Heap usage ratio (used/committed)",
+                analysis.currentHeapCommitted() > 0
+                        ? (double) analysis.currentHeapUsed() / analysis.currentHeapCommitted() : 0);
     }
 
     private void appendCPUMetrics(StringBuilder sb) {
