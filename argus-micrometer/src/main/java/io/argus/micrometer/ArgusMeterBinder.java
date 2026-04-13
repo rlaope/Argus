@@ -191,6 +191,36 @@ public final class ArgusMeterBinder implements MeterBinder {
                 .description("Current heap memory committed in bytes")
                 .baseUnit("bytes")
                 .register(registry);
+
+        Gauge.builder("argus.gc.pause.time.avg.seconds", gcAnalyzer,
+                        a -> a.getAnalysis().avgPauseTimeMs() / 1000.0)
+                .description("Average GC pause time in seconds")
+                .register(registry);
+
+        Gauge.builder("argus.gc.overhead.warning", gcAnalyzer,
+                        a -> a.getAnalysis().isOverheadWarning() ? 1.0 : 0.0)
+                .description("GC overhead warning flag (1 = overhead > 10%)")
+                .register(registry);
+
+        Gauge.builder("argus.gc.allocation.rate.kbps", gcAnalyzer,
+                        a -> a.getAnalysis().allocationRateKBPerSec())
+                .description("Allocation rate in KB/s computed from recent GC events")
+                .register(registry);
+
+        Gauge.builder("argus.gc.promotion.rate.kbps", gcAnalyzer,
+                        a -> a.getAnalysis().promotionRateKBPerSec())
+                .description("Promotion rate (young -> old gen) in KB/s")
+                .register(registry);
+
+        Gauge.builder("argus.gc.leak.suspected", gcAnalyzer,
+                        a -> a.getAnalysis().leakSuspected() ? 1.0 : 0.0)
+                .description("Memory leak suspected flag (1 = leak detected via linear regression)")
+                .register(registry);
+
+        Gauge.builder("argus.gc.leak.confidence", gcAnalyzer,
+                        a -> a.getAnalysis().leakConfidencePercent() / 100.0)
+                .description("Memory leak detection confidence (R² value, 0-1)")
+                .register(registry);
     }
 
     private void bindCPUMetrics(MeterRegistry registry) {
