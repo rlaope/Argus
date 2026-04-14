@@ -10,6 +10,7 @@ import io.argus.server.analysis.CorrelationAnalyzer;
 import io.argus.server.analysis.FlameGraphAnalyzer;
 import io.argus.server.analysis.CPUAnalyzer;
 import io.argus.server.analysis.GCAnalyzer;
+import io.argus.server.analysis.HealthScoreComputer;
 import io.argus.server.analysis.MetaspaceAnalyzer;
 import io.argus.server.analysis.MethodProfilingAnalyzer;
 import io.argus.server.http.HttpResponseHelper;
@@ -168,6 +169,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
                     HttpResponseHelper.sendJson(ctx, req, "{\"processInfo\":\"" + escapeJson(info) + "\"}");
                 })
                 .exact("/api/commands", (ctx, req, uri) -> handleCommandsList(ctx, req))
+                .exact("/api/doctor", (ctx, req, uri) -> handleDoctorReport(ctx, req))
                 // Prefix routes
                 .prefix("/threads/", this::handleThreadRoute)
                 .prefix("/flame-graph", (ctx, req, uri) -> handleFlameGraph(ctx, req, uri))
@@ -612,6 +614,29 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         }
         sb.append("]");
 
+        sb.append("}");
+
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
+    private void handleDoctorReport(ChannelHandlerContext ctx, FullHttpRequest request) {
+        var report = HealthScoreComputer.compute(gcAnalyzer, cpuAnalyzer, metaspaceAnalyzer);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"score\":").append(report.score()).append(",");
+        sb.append("\"findings\":[");
+        boolean first = true;
+        for (var finding : report.findings()) {
+            if (!first) sb.append(",");
+            first = false;
+            sb.append("{");
+            sb.append("\"severity\":\"").append(escapeJson(finding.severity())).append("\",");
+            sb.append("\"message\":\"").append(escapeJson(finding.message())).append("\",");
+            sb.append("\"recommendation\":\"").append(escapeJson(finding.recommendation())).append("\"");
+            sb.append("}");
+        }
+        sb.append("]");
         sb.append("}");
 
         HttpResponseHelper.sendJson(ctx, request, sb.toString());

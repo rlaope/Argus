@@ -145,6 +145,25 @@
                 </div>
             </section>
 
+            <!-- GC Pause Timeline (Interactive Scatter) -->
+            <section class="content-section">
+                <div class="section-header">
+                    <h3>GC Pause Timeline</h3>
+                    <p class="section-desc">Scatter plot of GC pause events. Blue = Young, Yellow = Mixed, Red = Full GC. Dot size reflects memory reclaimed.</p>
+                </div>
+                <div class="charts-grid-1">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">Pause Events</span>
+                            <span class="chart-subtitle">pause duration by GC type over time</span>
+                        </div>
+                        <div class="chart-container chart-container-tall">
+                            <canvas id="gc-scatter-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- GC Cause Distribution -->
             <section class="content-section">
                 <div class="section-header">

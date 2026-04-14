@@ -57,6 +57,7 @@ _argus() {
         'ci:CI/CD health gate'
         'compare:Compare two JVM snapshots'
         'slowlog:Real-time slow method detection'
+        'explain:Explain JVM metrics, GC causes, and flags in plain English'
     )
 
     _arguments -C \

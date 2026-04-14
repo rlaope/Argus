@@ -26,6 +26,7 @@ import {
 import { formatNumber, formatTimestamp, escapeHtml, formatDuration } from './utils.js';
 import { initFilters, addEvent as addEventToFilter, clearEvents as clearFilterEvents } from './filter.js';
 import { initAnalysis } from './analysis.js';
+import { initGCTimeline, updateGCTimeline } from './gc-timeline.js';
 
 // DOM elements
 const elements = {
@@ -113,6 +114,7 @@ const elements = {
     activeThreadsCanvas: document.getElementById('active-threads-chart'),
     durationCanvas: document.getElementById('duration-chart'),
     gcTimelineCanvas: document.getElementById('gc-timeline-chart'),
+    gcScatterCanvas: document.getElementById('gc-scatter-chart'),
     heapCanvas: document.getElementById('heap-chart'),
     cpuCanvas: document.getElementById('cpu-chart'),
 
@@ -181,6 +183,9 @@ function init() {
 
     // Initialize thread view
     initThreadView(elements);
+
+    // Initialize GC scatter timeline
+    initGCTimeline(elements.gcScatterCanvas);
 
     // Initialize charts
     initCharts({
@@ -465,6 +470,7 @@ async function fetchGCAnalysis() {
             const data = await response.json();
             updateGCDisplay(data);
             updateGCCharts(data);
+            updateGCTimeline(data);
         }
     } catch (e) {
         console.error('[Argus] Failed to fetch GC analysis:', e);

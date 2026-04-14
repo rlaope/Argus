@@ -1,6 +1,6 @@
 # Fish completions for argus
 
-set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile flame suggest watch info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top
+set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile flame suggest watch info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top explain
 
 # Disable file completions for argus
 complete -c argus -f
@@ -77,5 +77,7 @@ complete -c argus -n "__fish_seen_subcommand_from heapdump" -l live -d 'Live obj
 complete -c argus -n "__fish_seen_subcommand_from heapdump" -l all -d 'All objects'
 complete -c argus -n "__fish_seen_subcommand_from heapdump vmset" -l yes -d 'Skip confirmation'
 complete -c argus -n "__fish_seen_subcommand_from jmx" -a 'status start start-local stop' -d 'JMX subcommand'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a explain -d 'Explain JVM metrics, GC causes, and flags in plain English'
+
 complete -c argus -n "__fish_seen_subcommand_from top" -l interval -d 'Refresh interval'
 complete -c argus -n "__fish_seen_subcommand_from gcutil" -l watch -d 'Watch interval'

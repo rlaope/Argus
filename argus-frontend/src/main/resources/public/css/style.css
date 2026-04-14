@@ -1555,3 +1555,95 @@ canvas {
 .rec-critical { background: rgba(198,40,40,0.07); border-left: 3px solid var(--red); }
 .rec-warning  { background: rgba(249,168,37,0.09); border-left: 3px solid var(--amber); }
 .rec-info     { background: rgba(21,101,192,0.07); border-left: 3px solid var(--blue); }
+
+/* ----------------------------------------------------------------
+   GC LOG ANALYSIS RESULT — rich full-page layout
+---------------------------------------------------------------- */
+.modal-wide { max-width: 900px; }
+
+.gclog-result {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.gclog-summary-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+}
+
+.gclog-card {
+    background: var(--off-white);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.gclog-card-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+}
+
+.gclog-card-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.2;
+}
+
+.gclog-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.gclog-section h4 {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ink-3);
+    margin: 0;
+}
+
+.gclog-chart-wrap {
+    position: relative;
+    height: 180px;
+    width: 100%;
+}
+
+.rec-card {
+    padding: 0.5rem 0.75rem;
+    margin: 0.25rem 0;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.rec-card.rec-critical { background: rgba(198,40,40,0.07); border-left: 3px solid var(--red); }
+.rec-card.rec-warning  { background: rgba(249,168,37,0.09); border-left: 3px solid var(--amber); }
+.rec-card.rec-info     { background: rgba(21,101,192,0.07); border-left: 3px solid var(--blue); }
+
+.copy-flag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    background: var(--off-white);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.1em 0.4em;
+    cursor: pointer;
+    color: var(--ink-2);
+    transition: background 0.15s;
+}
+
+.copy-flag:hover {
+    background: var(--border-light);
+}

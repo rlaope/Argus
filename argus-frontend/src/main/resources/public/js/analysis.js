@@ -143,6 +143,8 @@ function showResult(cmdName, data) {
 
     if (cmdName === 'gclog') {
         body.innerHTML = renderGcLogResult(data);
+        // Initialize charts after DOM is populated
+        initGcLogCharts(data);
     } else if (cmdName === 'gclogdiff') {
         body.innerHTML = renderGcDiffResult(data);
     } else {
@@ -155,60 +157,149 @@ function showResult(cmdName, data) {
 function renderGcLogResult(d) {
     const tp = parseFloat(d.throughputPercent);
     const tpClass = tp >= 95 ? 'good' : tp >= 90 ? 'warn' : 'bad';
-    const pauses = d.pauses || {};
-
-    let causesHtml = '';
-    if (d.causes && Object.keys(d.causes).length > 0) {
-        const rows = Object.entries(d.causes).map(([cause, stats]) =>
-            `<tr><td>${escapeHtml(cause)}</td><td>${stats.count}</td><td>${stats.avgMs}ms</td><td>${stats.maxMs}ms</td></tr>`
-        ).join('');
-        causesHtml = `
-        <div class="result-section">
-            <h4>GC Causes</h4>
-            <table class="result-table">
-                <tr><th>Cause</th><th>Count</th><th>Avg</th><th>Max</th></tr>
-                ${rows}
-            </table>
-        </div>`;
-    }
+    const fullBadge = d.fullGcEvents > 0 ? 'bad' : 'good';
 
     let recsHtml = '';
     if (d.recommendations && d.recommendations.length > 0) {
-        const items = d.recommendations.map(r =>
-            `<li class="rec-${r.severity.toLowerCase()}">
-                <strong>[${escapeHtml(r.severity)}]</strong> ${escapeHtml(r.problem)}
-                ${r.flag ? `<br><code>${escapeHtml(r.flag)}</code>` : ''}
-            </li>`
-        ).join('');
+        const items = d.recommendations.map(r => {
+            const sev = escapeHtml(r.severity || '');
+            const prob = escapeHtml(r.problem || '');
+            const flag = r.flag ? `<code class="copy-flag" onclick="navigator.clipboard.writeText('${escapeHtml(r.flag)}')" title="Click to copy">${escapeHtml(r.flag)}</code>` : '';
+            return `<div class="rec-card rec-${sev.toLowerCase()}"><strong>[${sev}]</strong> ${prob}${flag ? ' ' + flag : ''}</div>`;
+        }).join('');
         recsHtml = `
-        <div class="result-section full-width">
-            <h4>Recommendations</h4>
-            <ul class="rec-list">${items}</ul>
+        <div class="gclog-section">
+            <h4>Tuning Recommendations</h4>
+            ${items}
         </div>`;
     }
 
-    return `<div class="result-grid">
-        <div class="result-section">
-            <h4>Summary</h4>
-            <table class="result-table">
-                <tr><td>Total Events</td><td>${d.totalEvents} (${d.pauseEvents} pauses, ${d.fullGcEvents} full)</td></tr>
-                <tr><td>Duration</td><td>${d.durationSec}s</td></tr>
-                <tr><td>Throughput</td><td class="${tpClass}">${d.throughputPercent}%</td></tr>
-            </table>
+    return `<div class="gclog-result">
+        <div class="gclog-summary-row">
+            <div class="gclog-card">
+                <span class="gclog-card-label">Events</span>
+                <span class="gclog-card-value">${d.totalEvents ?? '—'}</span>
+            </div>
+            <div class="gclog-card">
+                <span class="gclog-card-label">Throughput</span>
+                <span class="gclog-card-value ${tpClass}">${d.throughputPercent ?? '—'}%</span>
+            </div>
+            <div class="gclog-card">
+                <span class="gclog-card-label">Full GC</span>
+                <span class="gclog-card-value ${fullBadge}">${d.fullGcEvents ?? 0}</span>
+            </div>
+            <div class="gclog-card">
+                <span class="gclog-card-label">Duration</span>
+                <span class="gclog-card-value">${d.durationSec ?? '—'}s</span>
+            </div>
         </div>
-        <div class="result-section">
+        <div class="gclog-section">
             <h4>Pause Distribution</h4>
-            <table class="result-table">
-                <tr><td>p50</td><td>${pauses.p50Ms}ms</td></tr>
-                <tr><td>p95</td><td>${pauses.p95Ms}ms</td></tr>
-                <tr><td>p99</td><td>${pauses.p99Ms}ms</td></tr>
-                <tr><td>Max</td><td>${pauses.maxMs}ms</td></tr>
-                <tr><td>Avg</td><td>${pauses.avgMs}ms</td></tr>
-            </table>
+            <div class="gclog-chart-wrap">
+                <canvas id="pause-histogram"></canvas>
+            </div>
         </div>
-        ${causesHtml}
+        <div class="gclog-section">
+            <h4>GC Causes</h4>
+            <div class="gclog-chart-wrap">
+                <canvas id="cause-chart"></canvas>
+            </div>
+        </div>
         ${recsHtml}
     </div>`;
+}
+
+function initGcLogCharts(d) {
+    const pauses = d.pauses || {};
+    const gridColor = '#e0e0e0';
+    const textColor = '#757575';
+
+    // Pause histogram (p50/p95/p99/max as bars)
+    const pauseCanvas = document.getElementById('pause-histogram');
+    if (pauseCanvas) {
+        new Chart(pauseCanvas, {
+            type: 'bar',
+            data: {
+                labels: ['p50', 'p95', 'p99', 'Max', 'Avg'],
+                datasets: [{
+                    label: 'Pause (ms)',
+                    data: [
+                        parseFloat(pauses.p50Ms) || 0,
+                        parseFloat(pauses.p95Ms) || 0,
+                        parseFloat(pauses.p99Ms) || 0,
+                        parseFloat(pauses.maxMs) || 0,
+                        parseFloat(pauses.avgMs) || 0
+                    ],
+                    backgroundColor: [
+                        'rgba(46, 125, 50, 0.7)',
+                        'rgba(249, 168, 37, 0.7)',
+                        'rgba(249, 168, 37, 0.9)',
+                        'rgba(198, 40, 40, 0.8)',
+                        'rgba(21, 101, 192, 0.7)'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 300 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: textColor, font: { size: 11 } } },
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            font: { size: 10 },
+                            callback: v => v + 'ms'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Cause breakdown (horizontal bar sorted by count)
+    const causeCanvas = document.getElementById('cause-chart');
+    if (causeCanvas && d.causes && Object.keys(d.causes).length > 0) {
+        const entries = Object.entries(d.causes)
+            .map(([cause, stats]) => ({ cause, count: stats.count || 0 }))
+            .sort((a, b) => b.count - a.count);
+
+        new Chart(causeCanvas, {
+            type: 'bar',
+            data: {
+                labels: entries.map(e => e.cause),
+                datasets: [{
+                    label: 'Count',
+                    data: entries.map(e => e.count),
+                    backgroundColor: 'rgba(54, 162, 235, 0.65)',
+                    borderColor: 'rgba(54, 162, 235, 0.9)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: { duration: 300 },
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
 }
 
 function renderGcDiffResult(d) {

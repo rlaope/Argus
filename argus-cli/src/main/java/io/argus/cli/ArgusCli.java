@@ -14,6 +14,7 @@ import io.argus.cli.command.DiffCommand;
 import io.argus.cli.command.DoctorCommand;
 import io.argus.cli.command.DynLibsCommand;
 import io.argus.cli.command.EnvCommand;
+import io.argus.cli.command.ExplainCommand;
 import io.argus.cli.command.FinalizerCommand;
 import io.argus.cli.command.FlameCommand;
 import io.argus.cli.command.WatchCommand;
@@ -206,6 +207,7 @@ public final class ArgusCli {
         register(commands, new MBeanCommand());
         register(commands, new TopCommand());
         register(commands, new WatchCommand());
+        register(commands, new ExplainCommand());
         register(commands, new TuiCommand(commands));
 
         if (version) {
