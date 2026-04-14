@@ -1,5 +1,6 @@
 package io.argus.cli;
 
+import io.argus.cli.command.AlertCommand;
 import io.argus.cli.command.Command;
 import io.argus.cli.command.CommandExitException;
 import io.argus.cli.command.ClusterCommand;
@@ -154,6 +155,7 @@ public final class ArgusCli {
 
         // Register all commands
         Map<String, Command> commands = new LinkedHashMap<>();
+        register(commands, new AlertCommand());
         register(commands, new ClusterCommand());
         register(commands, new InitCommand());
         register(commands, new PsCommand());

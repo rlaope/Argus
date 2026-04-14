@@ -1,11 +1,12 @@
 # Fish completions for argus
 
-set -l commands init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile flame suggest watch info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top explain
+set -l commands alert init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile flame suggest watch info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top explain
 
 # Disable file completions for argus
 complete -c argus -f
 
 # Commands
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a alert -d 'Monitor JVM metrics and send webhook alerts on threshold breach'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a init -d 'Initialize CLI configuration'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a ps -d 'List running JVM processes'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a histo -d 'Heap object histogram'

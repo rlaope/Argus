@@ -3,6 +3,7 @@
 _argus() {
     local -a commands
     commands=(
+        'alert:Monitor JVM metrics and send webhook alerts on threshold breach'
         'init:Initialize CLI configuration'
         'ps:List running JVM processes'
         'histo:Heap object histogram'

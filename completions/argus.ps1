@@ -1,6 +1,7 @@
 # PowerShell completions for argus
 
 $ArgusCommands = @(
+    @{ Name = 'alert';       Desc = 'Monitor JVM metrics and send webhook alerts on threshold breach' }
     @{ Name = 'init';        Desc = 'Initialize CLI configuration' }
     @{ Name = 'ps';          Desc = 'List running JVM processes' }
     @{ Name = 'histo';       Desc = 'Heap object histogram' }
