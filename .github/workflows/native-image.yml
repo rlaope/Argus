@@ -1,0 +1,43 @@
+name: Native Image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            artifact: argus-linux-amd64
+          - os: macos-latest
+            artifact: argus-macos-aarch64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          java-version: '21'
+          distribution: 'graalce'
+      - name: Build fat JAR
+        run: ./gradlew :argus-cli:fatJar
+      - name: Build native image
+        run: |
+          native-image --no-fallback \
+            -jar argus-cli/build/libs/argus-cli-*-all.jar \
+            -o argus \
+            --enable-url-protocols=http \
+            -H:+ReportExceptionStackTraces
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: argus
+      - name: Upload to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload ${{ github.event.release.tag_name }} argus --clobber

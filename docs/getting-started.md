@@ -360,3 +360,16 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 - [Architecture Overview](architecture.md) - Understand how Argus works
 - [Troubleshooting](troubleshooting.md) - Solutions for common issues
 - [Sample Project](../samples/virtual-thread-demo) - Explore the demo code
+
+## Native Binary (GraalVM)
+
+Pre-built native binaries are available in [Releases](https://github.com/rlaope/Argus/releases):
+- `argus-linux-amd64` — Linux x86_64
+- `argus-macos-aarch64` — macOS Apple Silicon
+
+Or build from source with GraalVM installed:
+
+```bash
+./gradlew :argus-cli:nativeImage
+./argus-cli/build/native/argus --help
+```

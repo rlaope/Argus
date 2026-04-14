@@ -1,0 +1,6 @@
+[
+  {
+    "name": "io.argus.cli.ArgusCli",
+    "methods": [{"name": "main", "parameterTypes": ["java.lang.String[]"]}]
+  }
+]

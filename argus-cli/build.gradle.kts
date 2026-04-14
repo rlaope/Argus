@@ -29,6 +29,32 @@ tasks.withType<JavaCompile> {
     options.compilerArgs.remove("--enable-preview")
 }
 
+// GraalVM Native Image build
+tasks.register<Exec>("nativeImage") {
+    group = "build"
+    description = "Build GraalVM native image for argus-cli"
+
+    dependsOn("fatJar")
+
+    val jarFile = layout.buildDirectory.file("libs/argus-cli-${project.version}-all.jar")
+    val outputName = "argus"
+    val outputDir = layout.buildDirectory.dir("native")
+
+    doFirst {
+        outputDir.get().asFile.mkdirs()
+    }
+
+    commandLine(
+        "native-image",
+        "--no-fallback",
+        "-jar", jarFile.get().asFile.absolutePath,
+        "-o", outputDir.get().file(outputName).asFile.absolutePath,
+        "-H:Name=$outputName",
+        "--enable-url-protocols=http",
+        "-H:+ReportExceptionStackTraces"
+    )
+}
+
 // Fat JAR for standalone execution
 tasks.register<Jar>("fatJar") {
     dependsOn(tasks.jar, ":argus-core:jar")
