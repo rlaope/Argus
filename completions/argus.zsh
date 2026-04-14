@@ -59,7 +59,9 @@ _argus() {
         'compare:Compare two JVM snapshots'
         'slowlog:Real-time slow method detection'
         'explain:Explain JVM metrics, GC causes, and flags in plain English'
-        'trace:Method execution tracing via rapid thread sampling'
+'trace:Method execution tracing via rapid thread sampling'
+'spring:Inspect Spring Boot application via JMX'
+        'benchmark:Sampling-based method benchmark'
     )
 
     _arguments -C \
@@ -105,8 +107,17 @@ _argus() {
                 gcutil)
                     _arguments '--watch=[Refresh interval]'
                     ;;
-                trace)
+trace)
                     _arguments '--duration=[Duration in seconds]'
+spring)
+                    _arguments \
+                        '--beans[List Spring beans with count]' \
+                        '--datasource[Show datasource connection pool stats]'
+                    ;;
+                benchmark)
+                        '--iterations=[Approximate iteration count]' \
+                        '--warmup=[Warmup iterations]' \
+                        '--duration=[Measurement duration in seconds]'
                     ;;
             esac
             ;;
