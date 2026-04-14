@@ -7,10 +7,10 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build:
+  build-cli:
+    name: Build CLI image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,23 +29,66 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
+      - name: Extract metadata (CLI)
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/argus
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Build and push
+      - name: Build and push CLI image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-agent:
+    name: Build agent image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (agent)
+        id: meta-agent
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/argus-agent
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest
+
+      - name: Build and push agent image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: deploy/docker/Dockerfile.agent
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta-agent.outputs.tags }}
+          labels: ${{ steps.meta-agent.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -1,0 +1,12 @@
+{
+  "candidate": "argus",
+  "name": "Argus JVM Diagnostic Toolkit",
+  "description": "56 CLI commands for JVM diagnostics — health diagnosis, GC analysis, flame graphs, interactive TUI",
+  "websiteUrl": "https://github.com/rlaope/Argus",
+  "distribution": "PLATFORM_SPECIFIC",
+  "platform": {
+    "LINUX_64": "https://github.com/rlaope/Argus/releases/download/v${version}/argus-cli-${version}-all.jar",
+    "MAC_OSX": "https://github.com/rlaope/Argus/releases/download/v${version}/argus-cli-${version}-all.jar",
+    "MAC_ARM64": "https://github.com/rlaope/Argus/releases/download/v${version}/argus-cli-${version}-all.jar"
+  }
+}
