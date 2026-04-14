@@ -3,7 +3,11 @@ _argus_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
+<<<<<<< HEAD
     commands="alert init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile flame suggest watch tui info heapdump heapanalyze deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top perfcounter mbean ci compare slowlog explain trace"
+=======
+    commands="init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile flame suggest watch tui info heapdump heapanalyze deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top perfcounter mbean ci compare slowlog explain spring benchmark"
+>>>>>>> e23934b (feat: argus spring + benchmark commands (#132, #133))
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands --help --version" -- "$cur"))
@@ -40,6 +44,8 @@ _argus_completions() {
                     dynlibs) opts="$opts --filter=" ;;
                     vmset) opts="$opts --yes" ;;
                     jmx) opts="$opts" ;;
+                    spring) opts="$opts --beans --datasource" ;;
+                    benchmark) opts="$opts --iterations= --warmup= --duration=" ;;
                     diff) opts="$opts --top=" ;;
                     alert) opts="$opts --config= --gc-overhead= --leak --webhook= --interval=" ;;
                     top) opts="$opts --host= --port= --interval=" ;;
