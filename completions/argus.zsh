@@ -59,6 +59,7 @@ _argus() {
         'compare:Compare two JVM snapshots'
         'slowlog:Real-time slow method detection'
         'explain:Explain JVM metrics, GC causes, and flags in plain English'
+        'trace:Method execution tracing via rapid thread sampling'
     )
 
     _arguments -C \
@@ -103,6 +104,9 @@ _argus() {
                     ;;
                 gcutil)
                     _arguments '--watch=[Refresh interval]'
+                    ;;
+                trace)
+                    _arguments '--duration=[Duration in seconds]'
                     ;;
             esac
             ;;

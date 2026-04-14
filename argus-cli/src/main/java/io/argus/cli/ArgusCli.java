@@ -56,6 +56,7 @@ import io.argus.cli.command.SysPropsCommand;
 import io.argus.cli.command.ThreadDumpCommand;
 import io.argus.cli.command.ThreadsCommand;
 import io.argus.cli.command.TopCommand;
+import io.argus.cli.command.TraceCommand;
 import io.argus.cli.command.TuiCommand;
 import io.argus.cli.command.VmFlagCommand;
 import io.argus.cli.command.VmLogCommand;
@@ -210,6 +211,7 @@ public final class ArgusCli {
         register(commands, new PerfCounterCommand());
         register(commands, new MBeanCommand());
         register(commands, new TopCommand());
+        register(commands, new TraceCommand());
         register(commands, new WatchCommand());
         register(commands, new ExplainCommand());
         register(commands, new TuiCommand(commands));
