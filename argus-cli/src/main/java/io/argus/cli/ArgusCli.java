@@ -2,6 +2,7 @@ package io.argus.cli;
 
 import io.argus.cli.command.Command;
 import io.argus.cli.command.CommandExitException;
+import io.argus.cli.command.ClusterCommand;
 import io.argus.cli.command.BuffersCommand;
 import io.argus.cli.command.CiCommand;
 import io.argus.cli.command.ClassStatCommand;
@@ -153,6 +154,7 @@ public final class ArgusCli {
 
         // Register all commands
         Map<String, Command> commands = new LinkedHashMap<>();
+        register(commands, new ClusterCommand());
         register(commands, new InitCommand());
         register(commands, new PsCommand());
         register(commands, new HistoCommand());
