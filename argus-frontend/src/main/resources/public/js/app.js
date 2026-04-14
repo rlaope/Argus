@@ -27,6 +27,10 @@ import { formatNumber, formatTimestamp, escapeHtml, formatDuration } from './uti
 import { initFilters, addEvent as addEventToFilter, clearEvents as clearFilterEvents } from './filter.js';
 import { initAnalysis } from './analysis.js';
 import { initGCTimeline, updateGCTimeline } from './gc-timeline.js';
+import { initThreadPool, updateThreadPool } from './thread-pool.js';
+import { initProfiler } from './profiler.js';
+import { initCompare } from './compare.js';
+import { initJfrManager } from './jfr-manager.js';
 
 // DOM elements
 const elements = {
@@ -200,6 +204,12 @@ function init() {
         hotMethods: elements.hotMethodsCanvas,
         contention: elements.contentionCanvas
     });
+
+    // Initialize new dashboard modules
+    initThreadPool();
+    initProfiler();
+    initCompare();
+    initJfrManager();
 
     // Initialize filters
     initFilters({ eventsLog: elements.eventsLog }, handleFilterChange);

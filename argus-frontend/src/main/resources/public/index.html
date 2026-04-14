@@ -525,6 +525,141 @@
             </div>
         </section>
 
+        <!-- ================================================================
+             THREAD POOL VISUALIZATION (#139)
+        ================================================================ -->
+        <section class="content-section" id="thread-pool-section">
+            <div class="section-header">
+                <h3>Thread Overview</h3>
+                <p class="section-desc">JVM thread state distribution. BLOCKED threads indicate lock contention. Virtual thread pinning reduces scheduler efficiency.</p>
+                <div class="section-header-right stats-row">
+                    <span class="stat-inline">Total: <strong id="thread-pool-total">—</strong></span>
+                    <span class="stat-inline">Runnable: <strong id="thread-pool-runnable">—</strong></span>
+                    <span class="stat-inline">Blocked: <strong id="thread-pool-blocked">—</strong></span>
+                </div>
+            </div>
+
+            <div id="thread-pool-deadlock-banner" class="deadlock-banner" hidden>
+                <span class="deadlock-icon">&#9888;</span>
+                <strong>Deadlock detected:</strong> <span class="deadlock-count">0</span> thread(s) deadlocked.
+            </div>
+
+            <div class="charts-grid-2">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <span class="chart-title">Thread States</span>
+                        <span class="chart-subtitle">live distribution</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="thread-pool-donut"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <span class="chart-title">Virtual Thread Stats</span>
+                        <span class="chart-subtitle">carrier thread utilization</span>
+                    </div>
+                    <div class="thread-pool-stats-grid">
+                        <div class="thread-stat-item">
+                            <span class="thread-stat-label">Active VT</span>
+                            <span class="thread-stat-value" id="thread-pool-vt-active">—</span>
+                        </div>
+                        <div class="thread-stat-item">
+                            <span class="thread-stat-label">Pinned VT</span>
+                            <span class="thread-stat-value thread-stat-value--warn" id="thread-pool-vt-pinned">—</span>
+                        </div>
+                        <div class="thread-stat-item">
+                            <span class="thread-stat-label">Pin Rate</span>
+                            <span class="thread-stat-value" id="thread-pool-pin-rate">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             ALLOCATION PROFILER (#140)
+        ================================================================ -->
+        <section class="content-section" id="profiler-section">
+            <div class="section-header">
+                <h3>Allocation Profiler</h3>
+                <p class="section-desc">Record object allocation hot paths. Results show top allocating methods after recording stops.</p>
+                <div class="section-header-right">
+                    <span id="profiler-status" class="profiler-status profiler-status--idle">Idle</span>
+                </div>
+            </div>
+
+            <div class="profiler-controls">
+                <button id="profiler-start-btn" class="btn btn-primary">Start Recording</button>
+                <button id="profiler-stop-btn" class="btn" disabled>Stop</button>
+                <span id="profiler-timer-wrap" class="profiler-timer-wrap" hidden>
+                    Elapsed: <strong id="profiler-timer">0s</strong>
+                </span>
+            </div>
+
+            <div id="profiler-results" class="profiler-results">
+                <div class="empty-state">Start a recording to capture allocation data.</div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             JVM COMPARE (#142) — collapsible
+        ================================================================ -->
+        <section class="content-section" id="compare-section">
+            <div class="section-header">
+                <h3>JVM Compare</h3>
+                <p class="section-desc">Compare metrics between two Argus-monitored JVM instances side-by-side.</p>
+                <div class="section-header-right">
+                    <button id="compare-section-toggle" class="btn btn-small" title="Expand/Collapse">&#9660;</button>
+                </div>
+            </div>
+
+            <div id="compare-section-body" hidden>
+                <div class="compare-inputs">
+                    <label class="compare-label">
+                        Instance A
+                        <input id="compare-host-a" class="compare-host-input" type="text" value="localhost:9202" placeholder="host:port" />
+                    </label>
+                    <label class="compare-label">
+                        Instance B
+                        <input id="compare-host-b" class="compare-host-input" type="text" value="localhost:9202" placeholder="host:port" />
+                    </label>
+                    <button id="compare-fetch-btn" class="btn btn-primary">Fetch &amp; Compare</button>
+                </div>
+
+                <div id="compare-verdict" class="compare-verdict"></div>
+                <div id="compare-results" class="compare-results">
+                    <div class="empty-state">Enter two instance addresses and click Fetch &amp; Compare.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================================================================
+             JFR RECORDING MANAGER (#143)
+        ================================================================ -->
+        <section class="content-section" id="jfr-section">
+            <div class="section-header">
+                <h3>JFR Recording</h3>
+                <p class="section-desc">Start, stop, and download Java Flight Recorder recordings from the monitored JVM.</p>
+                <div class="section-header-right">
+                    <span id="jfr-status" class="jfr-status jfr-status--idle">No active recording</span>
+                </div>
+            </div>
+
+            <div class="jfr-controls">
+                <label class="jfr-duration-label">
+                    Duration (s)
+                    <input id="jfr-duration" class="jfr-duration-input" type="number" value="60" min="5" max="3600" />
+                </label>
+                <button id="jfr-start-btn" class="btn btn-primary">Start Recording</button>
+                <button id="jfr-stop-btn" class="btn" disabled>Stop</button>
+                <button id="jfr-download-btn" class="btn" hidden>Download JFR</button>
+                <span id="jfr-elapsed-wrap" class="jfr-elapsed-wrap" hidden>
+                    Elapsed: <strong id="jfr-elapsed">0s</strong>
+                </span>
+            </div>
+        </section>
+
     </main>
 
     <footer>
