@@ -19,6 +19,34 @@ INSTALL_DIR="$HOME/.argus"
 BIN_DIR="$INSTALL_DIR/bin"
 VERSION="${1:-latest}"
 
+# --- OS/Arch detection ---
+
+detect_platform() {
+    local os arch
+    os=$(uname -s | tr '[:upper:]' '[:lower:]')
+    arch=$(uname -m)
+
+    case "$os" in
+        linux*)
+            case "$arch" in
+                x86_64|amd64) echo "linux-amd64" ;;
+                aarch64|arm64) echo "linux-arm64" ;;
+                *) echo "" ;;
+            esac
+            ;;
+        darwin*)
+            case "$arch" in
+                arm64) echo "macos-aarch64" ;;
+                x86_64) echo "macos-amd64" ;;
+                *) echo "" ;;
+            esac
+            ;;
+        *) echo "" ;;
+    esac
+}
+
+PLATFORM=$(detect_platform)
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -87,6 +115,24 @@ curl -fSL "$DOWNLOAD_BASE/argus-cli-${VER_NUM}-all.jar" -o "$INSTALL_DIR/argus-c
     || { warn "argus-cli not found in release. CLI may not be available in $VERSION."; }
 ok "argus-cli.jar"
 
+# --- Attempt native binary download (faster startup, no JVM required for launch) ---
+
+NATIVE_BIN=""
+if [ -n "$PLATFORM" ]; then
+    NATIVE_ARTIFACT="argus-${PLATFORM}"
+    NATIVE_URL="$DOWNLOAD_BASE/${NATIVE_ARTIFACT}"
+    info "Attempting native binary download for ${PLATFORM}..."
+    if curl -fSL "$NATIVE_URL" -o "$INSTALL_DIR/argus-native" 2>/dev/null; then
+        chmod +x "$INSTALL_DIR/argus-native"
+        NATIVE_BIN="$INSTALL_DIR/argus-native"
+        ok "Native binary (${PLATFORM})"
+    else
+        warn "No native binary for ${PLATFORM} — using fat JAR (requires Java 11+)"
+    fi
+else
+    warn "Unknown platform — using fat JAR (requires Java 11+)"
+fi
+
 # --- Download async-profiler ---
 
 ASPROF_VERSION="3.0"
@@ -151,7 +197,14 @@ fi
 # --- Create wrapper scripts ---
 
 # argus - CLI diagnostic tool
-cat > "$BIN_DIR/argus" << 'WRAPPER'
+# Use native binary if available, otherwise fall back to fat JAR via JVM
+if [ -x "$INSTALL_DIR/argus-native" ]; then
+    cat > "$BIN_DIR/argus" << 'WRAPPER'
+#!/usr/bin/env bash
+exec "$HOME/.argus/argus-native" "$@"
+WRAPPER
+else
+    cat > "$BIN_DIR/argus" << 'WRAPPER'
 #!/usr/bin/env bash
 find_java() {
     local candidates=()
@@ -190,6 +243,7 @@ PREVIEW=""
 [ "$JAVA_VER" -ge 21 ] 2>/dev/null && PREVIEW="--enable-preview"
 exec "$ARGUS_JAVA" $PREVIEW -jar "$HOME/.argus/argus-cli.jar" "$@"
 WRAPPER
+fi
 chmod +x "$BIN_DIR/argus"
 
 # argus-agent - prints the agent JAR path (for -javaagent)
