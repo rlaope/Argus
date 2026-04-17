@@ -25,6 +25,7 @@ import io.argus.cli.command.GcLogCommand;
 import io.argus.cli.command.GcLogDiffCommand;
 import io.argus.cli.command.GcProfileCommand;
 import io.argus.cli.command.GcRunCommand;
+import io.argus.cli.command.GcScoreCommand;
 import io.argus.cli.command.GcCommand;
 import io.argus.cli.command.GcNewCommand;
 import io.argus.cli.command.GcUtilCommand;
@@ -182,6 +183,7 @@ public final class ArgusCli {
         register(commands, new GcLogCommand());
         register(commands, new GcLogDiffCommand());
         register(commands, new GcProfileCommand());
+        register(commands, new GcScoreCommand());
         register(commands, new FlameCommand());
         register(commands, new SuggestCommand());
         register(commands, new InfoCommand());

@@ -32,6 +32,7 @@ $ArgusCommands = @(
     @{ Name = 'gclog';      Desc = 'Analyze GC log file with tuning recommendations' }
     @{ Name = 'gclogdiff'; Desc = 'Compare two GC log files with regression detection' }
     @{ Name = 'gcprofile'; Desc = 'GC-aware allocation profiling via JFR' }
+    @{ Name = 'gcscore';   Desc = 'GC Health Score Card (A-F grade from a GC log)' }
     @{ Name = 'flame';      Desc = 'One-shot flame graph with browser open' }
     @{ Name = 'watch';      Desc = 'Real-time terminal dashboard' }
     @{ Name = 'suggest';    Desc = 'JVM flag optimization' }
