@@ -35,6 +35,7 @@ _argus() {
         'gclogdiff:Compare two GC log files with regression detection'
         'gcprofile:GC-aware allocation profiling via JFR'
         'gcscore:One-page GC Health Score Card (A-F grade from a GC log)'
+        'gcwhy:Narrate why the worst recent GC pause happened'
         'flame:One-shot flame graph with browser open'
         'watch:Real-time terminal dashboard'
         'suggest:JVM flag optimization'
