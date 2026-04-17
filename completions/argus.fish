@@ -1,6 +1,6 @@
 # Fish completions for argus
 
-set -l commands alert init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile flame suggest watch info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top explain
+set -l commands alert init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile gcscore flame suggest watch info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top explain
 
 # Disable file completions for argus
 complete -c argus -f
@@ -37,6 +37,7 @@ complete -c argus -n "not __fish_seen_subcommand_from $commands" -a doctor -d 'O
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gclog -d 'Analyze GC log file'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gclogdiff -d 'Compare two GC log files'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gcprofile -d 'GC allocation profiling via JFR'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gcscore -d 'GC Health Score Card (A-F grade from a GC log)'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a flame -d 'One-shot flame graph'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a watch -d 'Real-time terminal dashboard'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a suggest -d 'JVM flag optimization'

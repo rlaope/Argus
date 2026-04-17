@@ -3,7 +3,7 @@ _argus_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    commands="alert cluster init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile flame suggest watch tui info heapdump heapanalyze deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top perfcounter mbean ci compare slowlog explain trace spring benchmark"
+    commands="alert cluster init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile gcscore flame suggest watch tui info heapdump heapanalyze deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top perfcounter mbean ci compare slowlog explain trace spring benchmark"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands --help --version" -- "$cur"))

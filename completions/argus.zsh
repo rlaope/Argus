@@ -34,6 +34,7 @@ _argus() {
         'gclog:Analyze GC log file with tuning recommendations'
         'gclogdiff:Compare two GC log files with regression detection'
         'gcprofile:GC-aware allocation profiling via JFR'
+        'gcscore:One-page GC Health Score Card (A-F grade from a GC log)'
         'flame:One-shot flame graph with browser open'
         'watch:Real-time terminal dashboard'
         'suggest:JVM flag optimization'
