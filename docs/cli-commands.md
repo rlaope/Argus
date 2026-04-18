@@ -1000,6 +1000,92 @@ $ argus gclog gc.log --format=json      # CI/CD integration
 
 ---
 
+## argus gcscore
+
+One-page GC Health Score Card. Scores six KPI axes against widely-accepted thresholds and emits a weighted A–F grade plus up to three improvement hints. The short answer to *"does my app need GC tuning right now?"*.
+
+```bash
+$ argus gcscore /var/log/gc.log
+$ argus gcscore gc.log --format=json    # CI/CD integration
+```
+
+**Axes (weighted):**
+
+| Axis | Pass target |
+|------|-------------|
+| Pause p99 | < 200 ms |
+| Pause tail (max) | < 500 ms |
+| Throughput | > 95% |
+| Full GC frequency | 0 / hour |
+| Allocation rate | < 1 GB/s |
+| Promotion ratio | < 20% of allocation |
+
+**Grade:** `A` (≥ 90), `B` (≥ 75), `C` (≥ 60), `D` (≥ 40), `F` (< 40). Up to 3 improvement hints selected from a rule base when axes fail. Missing rate data marks axes as N/A and excludes them from the weighted average.
+
+**Lineage:** GCeasy.io score card (1-page KPI summary) + Censum-style rule-based hints.
+
+---
+
+## argus gcwhy
+
+Narrates why the single worst GC pause in a lookback window happened. Picks the top pause event and correlates the preceding events to produce up to three plain-English "why" bullets plus a related-counters block.
+
+```bash
+$ argus gcwhy /var/log/gc.log --last=5m
+$ argus gcwhy gc.log --last=30s --format=json
+```
+
+**Rule engine (ordered):**
+
+| Rule | Triggered when |
+|------|----------------|
+| Explicit `System.gc()` | Cause contains `System.gc` |
+| G1 humongous allocation | Cause contains `humongous` |
+| Metaspace pressure | Cause contains `Metadata` |
+| Full GC fallback | Full GC + concurrent/evacuation/failure in cause |
+| Allocation burst | Target's alloc rate ≥ 2× recent baseline |
+| High heap occupancy | Heap-before ≥ 90% of total |
+| Outlier pause | Target pause ≥ 3× recent average |
+
+Always emits at least one bullet (neutral fallback when nothing anomalous fires). `--last` accepts `Ns`, `Nm`, `Nh` or a bare number in seconds; default `5m`.
+
+**Lineage:** Censum-style reasoning ("why", not just "what").
+
+---
+
+## argus gcprofile
+
+Short JFR recording focused on allocation events (`jdk.ObjectAllocationInNewTLAB` / `ObjectAllocationOutsideTLAB`). Produces three views:
+
+```bash
+$ argus gcprofile 12345                       # default: top stack-frame sites
+$ argus gcprofile 12345 --duration=30 --top=20
+$ argus gcprofile 12345 --by=class            # top allocated types instead
+$ argus gcprofile 12345 --fold=alloc.folded   # folded stacks for flamegraph.pl
+$ argus gcprofile 12345 --format=json
+```
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--duration=N` | 30 | Recording duration in seconds |
+| `--top=N` | 10 | Show top N rows |
+| `--by=site\|class` | `site` | Aggregate by stack frame (default) or allocated object class |
+| `--fold=FILE` | off | Write folded stacks in flamegraph.pl format (root-first, leaf-last, merged) |
+| `--format=json` | off | JSON output |
+
+**Rendering the flamegraph** (requires `flamegraph.pl` from Brendan Gregg):
+
+```bash
+$ argus gcprofile 12345 --duration=30 --fold=alloc.folded
+$ flamegraph.pl --colors=mem --title="alloc" alloc.folded > alloc.svg
+```
+
+**Lineage:** async-profiler `-e alloc` + JDK Mission Control allocation view.
+
+---
+
 ## argus flame
 
 One-shot flame graph generation. Profiles for N seconds, generates interactive HTML, and opens in browser.

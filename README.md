@@ -227,6 +227,9 @@ All 55 commands. No agent needed. Works on any running JVM.
 | `argus diff <pid> [interval]` | Heap snapshot diff (leak detection) |
 | `argus heapdump <pid>` | Generate heap dump (with STW warning) |
 | `argus gclog <file>` | GC log analysis — pause distribution, tuning tips (GCEasy alternative) |
+| `argus gcscore <file>` | GC Health Score Card — A–F grade with improvement hints |
+| `argus gcwhy <file>` | Narrate why the worst recent GC pause happened |
+| `argus gcprofile <pid>` | Allocation profiling via JFR — by stack frame, by class (`--by=class`), or folded stacks for flamegraph.pl (`--fold=FILE`) |
 
 **Threads**
 
