@@ -3,6 +3,8 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.profiler.AllocationProfiler;
+import io.argus.cli.profiler.AllocationProfiler.AllocatedType;
+import io.argus.cli.profiler.AllocationProfiler.AllocationByClass;
 import io.argus.cli.profiler.AllocationProfiler.AllocationProfile;
 import io.argus.cli.profiler.AllocationProfiler.AllocationSite;
 import io.argus.cli.provider.ProviderRegistry;
@@ -13,7 +15,9 @@ import io.argus.core.command.CommandGroup;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
+import java.util.Map;
 
 /**
  * GC-aware allocation profiling via JFR.
@@ -69,6 +73,8 @@ public final class GcProfileCommand implements Command {
         int durationSec = DEFAULT_DURATION;
         int top = DEFAULT_TOP;
         boolean json = "json".equals(config.format());
+        String by = "site";
+        String foldPath = null;
 
         for (int i = 1; i < args.length; i++) {
             String arg = args[i];
@@ -80,6 +86,11 @@ public final class GcProfileCommand implements Command {
                 try { top = Integer.parseInt(arg.substring(6)); } catch (NumberFormatException ignored) {}
             } else if (arg.equals("--format=json") || arg.equals("--json")) {
                 json = true;
+            } else if (arg.startsWith("--by=")) {
+                String v = arg.substring(5).toLowerCase();
+                if (v.equals("class") || v.equals("site")) by = v;
+            } else if (arg.startsWith("--fold=")) {
+                foldPath = arg.substring(7);
             }
         }
 
@@ -133,12 +144,30 @@ public final class GcProfileCommand implements Command {
                 return;
             }
 
-            AllocationProfile profile = AllocationProfiler.analyze(tmpFile);
+            // Optional: write folded stacks for flamegraph.pl consumption.
+            if (foldPath != null) {
+                Map<String, Long> folded = AllocationProfiler.analyzeFoldedStacks(tmpFile);
+                writeFolded(Path.of(foldPath), folded);
+                System.out.println("  Folded stacks written: " + foldPath
+                        + " (" + folded.size() + " stacks)");
+                System.out.println("  Render with: flamegraph.pl --title=\"alloc\" --colors=mem "
+                        + foldPath + " > alloc.svg");
+            }
 
-            if (json) {
-                printJson(profile, pid, durationSec, top);
+            if ("class".equals(by)) {
+                AllocationByClass byClass = AllocationProfiler.analyzeByClass(tmpFile);
+                if (json) {
+                    printJsonByClass(byClass, pid, durationSec, top);
+                } else {
+                    printRichByClass(byClass, pid, durationSec, top, useColor);
+                }
             } else {
-                printRich(profile, pid, durationSec, top, useColor);
+                AllocationProfile profile = AllocationProfiler.analyze(tmpFile);
+                if (json) {
+                    printJson(profile, pid, durationSec, top);
+                } else {
+                    printRich(profile, pid, durationSec, top, useColor);
+                }
             }
 
         } catch (IOException e) {
@@ -282,7 +311,13 @@ public final class GcProfileCommand implements Command {
                 + "Recording duration in seconds (default: 30)", WIDTH));
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --top=N", 36)
-                + "Show top N allocation sites (default: 10)", WIDTH));
+                + "Show top N rows (default: 10)", WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --by=site|class", 36)
+                + "Aggregate by stack frame (default) or allocated class", WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --fold=FILE", 36)
+                + "Write folded stacks for flamegraph.pl consumption", WIDTH));
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --format=json", 36)
                 + "Output as JSON", WIDTH));
@@ -345,5 +380,96 @@ public final class GcProfileCommand implements Command {
         int dot = className.lastIndexOf('.');
         String simple = dot >= 0 ? className.substring(dot + 1) : className;
         return simple + "." + methodName;
+    }
+
+    // -------------------------------------------------------------------------
+    // --by=class rendering
+    // -------------------------------------------------------------------------
+
+    private static void printRichByClass(AllocationByClass byClass, long pid, int durationSec,
+                                         int top, boolean useColor) {
+        System.out.println();
+        System.out.println(RichRenderer.boxHeader(useColor, "GC Allocation Profile (by class)",
+                WIDTH, "pid:" + pid, durationSec + "s"));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        double totalMb = byClass.totalBytes() / (1024.0 * 1024.0);
+        double mbPerSec = byClass.durationSec() > 0 ? totalMb / byClass.durationSec() : 0;
+        System.out.println(RichRenderer.boxLine(
+                "  Total Allocated: " + formatBytes(byClass.totalBytes())
+                        + " in " + durationSec + "s"
+                        + " (" + formatBytesPerSec(mbPerSec) + ")", WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxSeparator(WIDTH));
+
+        if (byClass.sites().isEmpty()) {
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+            System.out.println(RichRenderer.boxLine("  No allocation events found in recording.", WIDTH));
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+            System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
+            return;
+        }
+
+        String colHeader = AnsiStyle.style(useColor, AnsiStyle.BOLD)
+                + "  " + RichRenderer.padRight("#", 4)
+                + RichRenderer.padRight("Total", 12)
+                + RichRenderer.padRight("% ", 8)
+                + RichRenderer.padRight("Count", 10)
+                + "Class"
+                + AnsiStyle.style(useColor, AnsiStyle.RESET);
+        System.out.println(RichRenderer.boxLine(colHeader, WIDTH));
+
+        int limit = Math.min(top, byClass.sites().size());
+        for (int i = 0; i < limit; i++) {
+            AllocatedType t = byClass.sites().get(i);
+            double pct = byClass.totalBytes() > 0
+                    ? (t.totalBytes() * 100.0 / byClass.totalBytes()) : 0;
+            int classWidth = WIDTH - 4 - 4 - 12 - 8 - 10 - 2;
+            String line = "  " + RichRenderer.padRight(String.valueOf(i + 1), 4)
+                    + RichRenderer.padRight(formatBytes(t.totalBytes()), 12)
+                    + RichRenderer.padRight(String.format("%.1f%%", pct), 8)
+                    + RichRenderer.padRight(formatWithCommas(t.allocationCount()), 10)
+                    + RichRenderer.truncate(t.className(), Math.max(10, classWidth));
+            System.out.println(RichRenderer.boxLine(line, WIDTH));
+        }
+
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxFooter(useColor,
+                byClass.sites().size() + " unique classes", WIDTH));
+        System.out.println();
+    }
+
+    private static void printJsonByClass(AllocationByClass byClass, long pid, int durationSec, int top) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"pid\":").append(pid);
+        sb.append(",\"durationSec\":").append(durationSec);
+        sb.append(",\"by\":\"class\"");
+        sb.append(",\"totalBytes\":").append(byClass.totalBytes());
+        sb.append(",\"sites\":[");
+        int limit = Math.min(top, byClass.sites().size());
+        for (int i = 0; i < limit; i++) {
+            AllocatedType t = byClass.sites().get(i);
+            if (i > 0) sb.append(',');
+            sb.append("{\"className\":\"").append(RichRenderer.escapeJson(t.className())).append('"');
+            sb.append(",\"totalBytes\":").append(t.totalBytes());
+            sb.append(",\"allocationCount\":").append(t.allocationCount());
+            sb.append(",\"bytesPerSec\":").append(String.format("%.2f", t.bytesPerSec()));
+            sb.append('}');
+        }
+        sb.append("]}");
+        System.out.println(sb);
+    }
+
+    // -------------------------------------------------------------------------
+    // Folded stacks writer (flamegraph.pl input)
+    // -------------------------------------------------------------------------
+
+    private static void writeFolded(Path out, Map<String, Long> folded) throws IOException {
+        StringBuilder sb = new StringBuilder();
+        for (Map.Entry<String, Long> e : folded.entrySet()) {
+            sb.append(e.getKey()).append(' ').append(e.getValue()).append('\n');
+        }
+        Files.writeString(out, sb.toString(),
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
     }
 }
