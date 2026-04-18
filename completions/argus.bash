@@ -32,6 +32,7 @@ _argus_completions() {
                 case "${COMP_WORDS[1]}" in
                     histo) opts="$opts --top=" ;;
                     profile) opts="$opts --type= --duration= --flame --file= --top=" ;;
+                    gcprofile) opts="$opts --duration= --top= --by= --fold=" ;;
                     gcutil) opts="$opts --watch=" ;;
                     sysprops|vmflag) opts="$opts --filter=" ;;
                     vmflag) opts="$opts --set=" ;;

@@ -1,5 +1,7 @@
 package io.argus.cli.profiler;
 
+import io.argus.cli.profiler.AllocationProfiler.AllocatedType;
+import io.argus.cli.profiler.AllocationProfiler.AllocationByClass;
 import io.argus.cli.profiler.AllocationProfiler.AllocationProfile;
 import io.argus.cli.profiler.AllocationProfiler.AllocationSite;
 import org.junit.jupiter.api.Test;
@@ -7,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -176,6 +179,150 @@ class AllocationProfilerTest {
         AllocationProfile profile = agg.build(100);
 
         assertEquals(2, profile.sites().size());
+    }
+
+    // -------------------------------------------------------------------------
+    // --by=class aggregation — mirrors AllocationProfiler.analyzeByClass() logic
+    // -------------------------------------------------------------------------
+
+    static final class ClassAggregator {
+        private final Map<String, long[]> agg = new HashMap<>();
+        private long totalBytes = 0;
+        private final double durationSec;
+
+        ClassAggregator(double durationSec) { this.durationSec = durationSec; }
+
+        void add(String className, long bytes) {
+            agg.computeIfAbsent(className, k -> new long[2]);
+            agg.get(className)[0] += bytes;
+            agg.get(className)[1]++;
+            totalBytes += bytes;
+        }
+
+        AllocationByClass build() {
+            double dur = durationSec > 0 ? durationSec : 1.0;
+            List<AllocatedType> rows = new ArrayList<>();
+            for (Map.Entry<String, long[]> e : agg.entrySet()) {
+                long bytes = e.getValue()[0];
+                long count = e.getValue()[1];
+                rows.add(new AllocatedType(e.getKey(), bytes, count, bytes / dur));
+            }
+            rows.sort((a, b) -> Long.compare(b.totalBytes(), a.totalBytes()));
+            return new AllocationByClass(rows, totalBytes, dur);
+        }
+    }
+
+    @Test
+    void byClassSortsByTotalBytesDescending() {
+        ClassAggregator agg = new ClassAggregator(5.0);
+        agg.add("byte[]", 1_000_000);
+        agg.add("java.util.HashMap$Node", 500_000);
+        agg.add("java.lang.String", 250_000);
+        agg.add("byte[]", 200_000); // accumulates with first byte[]
+
+        AllocationByClass result = agg.build();
+
+        assertEquals(3, result.sites().size(), "byte[] entries coalesce");
+        assertEquals("byte[]", result.sites().get(0).className());
+        assertEquals(1_200_000, result.sites().get(0).totalBytes());
+        assertEquals(2, result.sites().get(0).allocationCount());
+        assertEquals(1_950_000, result.totalBytes());
+    }
+
+    @Test
+    void byClassRateCalculation() {
+        ClassAggregator agg = new ClassAggregator(2.0);
+        agg.add("java.lang.String", 400_000); // 200 KB/s
+
+        AllocationByClass result = agg.build();
+        assertEquals(200_000, result.sites().getFirst().bytesPerSec(), 1);
+    }
+
+    @Test
+    void byClassEmpty() {
+        AllocationByClass r = new ClassAggregator(10.0).build();
+        assertTrue(r.sites().isEmpty());
+        assertEquals(0, r.totalBytes());
+    }
+
+    // -------------------------------------------------------------------------
+    // Folded stack aggregation — mirrors AllocationProfiler.analyzeFoldedStacks()
+    // -------------------------------------------------------------------------
+
+    /**
+     * Mirror of the folded-stack building in {@link AllocationProfiler#analyzeFoldedStacks}.
+     * Each "event" is a list of frames ordered leaf-first (matching JFR), with an
+     * allocated byte count.
+     */
+    static Map<String, Long> foldStacks(List<Object[]> events) {
+        Map<String, Long> folded = new LinkedHashMap<>();
+        for (Object[] ev : events) {
+            @SuppressWarnings("unchecked")
+            List<String> leafFirstFrames = (List<String>) ev[0];
+            long size = (long) ev[1];
+            if (size <= 0 || leafFirstFrames.isEmpty()) continue;
+            StringBuilder sb = new StringBuilder();
+            for (int i = leafFirstFrames.size() - 1; i >= 0; i--) {
+                if (sb.length() > 0) sb.append(';');
+                sb.append(leafFirstFrames.get(i));
+            }
+            folded.merge(sb.toString(), size, Long::sum);
+        }
+        return folded.entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue(Comparator.reverseOrder()))
+                .collect(LinkedHashMap::new, (m, e) -> m.put(e.getKey(), e.getValue()), LinkedHashMap::putAll);
+    }
+
+    @Test
+    void foldedStacksReorderLeafLast() {
+        List<Object[]> events = new ArrayList<>();
+        events.add(new Object[]{List.of("Leaf.alloc", "Mid.call", "Root.main"), 1000L});
+
+        Map<String, Long> folded = foldStacks(events);
+
+        assertEquals(1, folded.size());
+        assertTrue(folded.containsKey("Root.main;Mid.call;Leaf.alloc"),
+                "expected root-first leaf-last stack, got " + folded.keySet());
+    }
+
+    @Test
+    void foldedStacksMergeIdenticalStacks() {
+        List<Object[]> events = new ArrayList<>();
+        events.add(new Object[]{List.of("byte[].<init>", "Loader.load", "App.main"), 500L});
+        events.add(new Object[]{List.of("byte[].<init>", "Loader.load", "App.main"), 300L});
+
+        Map<String, Long> folded = foldStacks(events);
+
+        assertEquals(1, folded.size());
+        assertEquals(800L, folded.values().iterator().next());
+    }
+
+    @Test
+    void foldedStacksSortedByBytesDesc() {
+        List<Object[]> events = new ArrayList<>();
+        events.add(new Object[]{List.of("A.a"), 100L});
+        events.add(new Object[]{List.of("B.b"), 500L});
+        events.add(new Object[]{List.of("C.c"), 250L});
+
+        Map<String, Long> folded = foldStacks(events);
+
+        List<Long> values = new ArrayList<>(folded.values());
+        assertEquals(500L, values.get(0));
+        assertEquals(250L, values.get(1));
+        assertEquals(100L, values.get(2));
+    }
+
+    @Test
+    void foldedStacksSkipEmptyOrZero() {
+        List<Object[]> events = new ArrayList<>();
+        events.add(new Object[]{List.<String>of(), 1000L});        // no frames → skip
+        events.add(new Object[]{List.of("A.a"), 0L});              // zero bytes → skip
+        events.add(new Object[]{List.of("B.b"), 500L});            // keep
+
+        Map<String, Long> folded = foldStacks(events);
+
+        assertEquals(1, folded.size());
+        assertEquals(500L, folded.get("B.b"));
     }
 
     @Test
