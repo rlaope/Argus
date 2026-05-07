@@ -3,6 +3,7 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.doctor.*;
+import io.argus.cli.provider.jdk.AsProfCapabilities;
 import io.argus.cli.doctor.rules.MaxPauseRule;
 import io.argus.cli.export.HtmlExporter;
 import io.argus.cli.model.ProfileSnapshot;
@@ -301,6 +302,16 @@ public final class DoctorCommand implements Command {
             }
             System.out.println(RichRenderer.emptyLine(WIDTH));
         }
+
+        // Profiling capabilities summary \u2014 always shown so users see it without --profile
+        System.out.println(RichRenderer.boxSeparator(WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        String profCapLine = "  " + AnsiStyle.style(c, AnsiStyle.GREEN) + "\u2714" + AnsiStyle.style(c, AnsiStyle.RESET)
+                + " Profiling: async-profiler v" + AsProfCapabilities.ASPROF_VERSION
+                + " (" + AsProfCapabilities.displayPlatform() + ")"
+                + " \u2014 events: " + AsProfCapabilities.supportedEventList();
+        System.out.println(RichRenderer.boxLine(profCapLine, WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
 
         String footerStatus = exitCode == 0 ? "\u2714 healthy"
                 : exitCode == 1 ? "\u26a0 warnings" : "\u2718 critical";

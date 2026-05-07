@@ -91,10 +91,17 @@ public final class GcLogAnalysis {
         private final long totalMs;
         private final long maxMs;
         private final long avgMs;
+        private final long p99Ms;
 
-        public CauseStats(String cause, int count, long totalMs, long maxMs, long avgMs) {
+        /** Full constructor including p99. */
+        public CauseStats(String cause, int count, long totalMs, long maxMs, long avgMs, long p99Ms) {
             this.cause = cause; this.count = count; this.totalMs = totalMs;
-            this.maxMs = maxMs; this.avgMs = avgMs;
+            this.maxMs = maxMs; this.avgMs = avgMs; this.p99Ms = p99Ms;
+        }
+
+        /** Legacy constructor — p99 falls back to maxMs when not computed. */
+        public CauseStats(String cause, int count, long totalMs, long maxMs, long avgMs) {
+            this(cause, count, totalMs, maxMs, avgMs, maxMs);
         }
 
         public String cause() { return cause; }
@@ -102,6 +109,8 @@ public final class GcLogAnalysis {
         public long totalMs() { return totalMs; }
         public long maxMs() { return maxMs; }
         public long avgMs() { return avgMs; }
+        /** p99 pause for this cause; equals maxMs when fewer than 100 events (sorted-tail proxy). */
+        public long p99Ms() { return p99Ms; }
     }
 
     public static final class TuningRecommendation {

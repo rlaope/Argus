@@ -95,6 +95,10 @@ public final class NmtCommand implements Command {
         }
 
         NmtResult result = provider.getNativeMemory(pid);
+        if (result.isNmtNotEnabled()) {
+            printNmtNotEnabledError(pid, messages);
+            throw new CommandExitException(1);
+        }
 
         // Save baseline (write-through; still render the snapshot for the user)
         if (saveTo != null) {
@@ -152,16 +156,11 @@ public final class NmtCommand implements Command {
             long previousAtSec = System.currentTimeMillis() / 1000L;
 
             // Check NMT enabled
-            if (previous.totalReservedKB() == 0 && previous.categories().isEmpty()) {
+            if (previous.isNmtNotEnabled()) {
                 System.out.print(SHOW_CURSOR);
                 if (!isWindows) setRawMode(false);
-                System.err.println(AnsiStyle.style(useColor, AnsiStyle.YELLOW)
-                        + "NMT not enabled on this JVM."
-                        + AnsiStyle.style(useColor, AnsiStyle.RESET));
-                System.err.println(AnsiStyle.style(useColor, AnsiStyle.DIM)
-                        + "Start the JVM with: -XX:NativeMemoryTracking=summary"
-                        + AnsiStyle.style(useColor, AnsiStyle.RESET));
-                System.exit(1);
+                printNmtNotEnabledError(pid, messages);
+                throw new CommandExitException(1);
             }
 
             // Render initial snapshot with zero deltas
@@ -396,6 +395,12 @@ public final class NmtCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor,
                 messages.get("nmt.diff.footer", RichRenderer.formatDuration(elapsedSec * 1000)),
                 WIDTH));
+    }
+
+    private static void printNmtNotEnabledError(long pid, Messages messages) {
+        System.err.println(messages.get("error.nmt.not.enabled", pid));
+        System.err.println(messages.get("error.nmt.not.enabled.hint"));
+        System.err.println(messages.get("error.nmt.not.enabled.ref"));
     }
 
     private static String signed(long deltaKB) {

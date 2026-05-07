@@ -64,7 +64,9 @@ public final class GcLogAnalyzer {
         }
         Map<String, GcLogAnalysis.CauseStats> causeStats = new LinkedHashMap<>();
         byCause.entrySet().stream()
-                .sorted((a, b) -> Integer.compare(b.getValue().size(), a.getValue().size()))
+                .sorted((a, b) -> Long.compare(
+                        Math.round(b.getValue().stream().mapToDouble(GcEvent::pauseMs).sum()),
+                        Math.round(a.getValue().stream().mapToDouble(GcEvent::pauseMs).sum())))
                 .forEach(entry -> {
                     List<GcEvent> ces = entry.getValue();
                     double totalD = ces.stream().mapToDouble(GcEvent::pauseMs).sum();
@@ -72,8 +74,12 @@ public final class GcLogAnalyzer {
                     long total = Math.round(totalD);
                     long max = Math.round(maxD);
                     long avg = Math.round(totalD / ces.size());
+                    // p99: use sorted-tail percentile; for small buckets (<100) this equals the
+                    // highest-pause value, which is an intentionally conservative proxy.
+                    double[] sortedCause = ces.stream().mapToDouble(GcEvent::pauseMs).sorted().toArray();
+                    long p99cause = (long) percentile(sortedCause, 99);
                     causeStats.put(entry.getKey(), new GcLogAnalysis.CauseStats(
-                            entry.getKey(), ces.size(), total, max, avg));
+                            entry.getKey(), ces.size(), total, max, avg, p99cause));
                 });
 
         // Tuning recommendations

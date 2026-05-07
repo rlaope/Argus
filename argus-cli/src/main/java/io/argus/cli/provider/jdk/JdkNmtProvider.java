@@ -42,7 +42,7 @@ public final class JdkNmtProvider implements NmtProvider {
         try {
             String output = JcmdExecutor.execute(pid, "VM.native_memory summary");
             if (output.contains("Native memory tracking is not enabled")) {
-                return new NmtResult(0, 0, List.of());
+                return NmtResult.notEnabled();
             }
             return parse(output);
         } catch (Exception e) {

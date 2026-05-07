@@ -15,6 +15,8 @@ import io.argus.core.command.CommandGroup;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -57,6 +59,8 @@ public final class GcLogCommand implements Command {
         boolean showPhases = false;
         boolean tenuring = false;
         boolean follow = false;
+        boolean showAll = false;
+        int topN = 8;
         String exportHtml = null;
         for (int i = 1; i < args.length; i++) {
             if (args[i].equals("--format=json")) json = true;
@@ -65,6 +69,10 @@ public final class GcLogCommand implements Command {
             if (args[i].equals("--phases")) showPhases = true;
             if (args[i].equals("--tenuring")) tenuring = true;
             if (args[i].equals("--follow") || args[i].equals("-f")) follow = true;
+            if (args[i].equals("--all")) showAll = true;
+            if (args[i].startsWith("--top=")) {
+                try { topN = Integer.parseInt(args[i].substring(6)); } catch (NumberFormatException ignored) {}
+            }
         }
 
         if (follow) {
@@ -116,7 +124,7 @@ public final class GcLogCommand implements Command {
             PrintStream original = System.out;
             ByteArrayOutputStream capture = new ByteArrayOutputStream();
             System.setOut(new PrintStream(capture));
-            printRich(analysis, events, phaseEvents, logFile, true);
+            printRich(analysis, events, phaseEvents, logFile, true, showAll, topN, messages);
             System.setOut(original);
             String html = HtmlExporter.toHtml(capture.toString(), "Argus GC Log Analysis — " + logFile.getFileName());
             try {
@@ -129,12 +137,13 @@ public final class GcLogCommand implements Command {
             return;
         }
 
-        printRich(analysis, events, phaseEvents, logFile, useColor);
+        printRich(analysis, events, phaseEvents, logFile, useColor, showAll, topN, messages);
     }
 
     private void printRich(GcLogAnalysis a, List<GcEvent> events,
                            List<GcPhaseEvent> phaseEvents,
-                           Path file, boolean c) {
+                           Path file, boolean c,
+                           boolean showAll, int topN, Messages messages) {
         System.out.print(RichRenderer.brandedHeader(c, "gclog",
                 "GC log analysis with tuning recommendations"));
         System.out.println(RichRenderer.boxHeader(c, "GC Log Analysis", WIDTH,
@@ -243,30 +252,59 @@ public final class GcLogCommand implements Command {
             }
         }
 
-        // Cause Breakdown
+        // GC Pause Summary (aggregated by cause)
         if (!a.causeBreakdown().isEmpty()) {
-            section(c, "GC Causes");
+            section(c, messages.get("gclog.pause.summary.title"));
             String hdr = AnsiStyle.style(c, AnsiStyle.BOLD)
-                    + RichRenderer.padRight("Cause", 35)
-                    + RichRenderer.padLeft("Count", 8)
-                    + RichRenderer.padLeft("Avg ms", 10)
-                    + RichRenderer.padLeft("Max ms", 10)
+                    + RichRenderer.padRight(messages.get("gclog.col.cause"), 38)
+                    + RichRenderer.padLeft(messages.get("gclog.col.events"), 8)
+                    + RichRenderer.padLeft(messages.get("gclog.col.total.ms"), 11)
+                    + RichRenderer.padLeft(messages.get("gclog.col.avg.ms"), 9)
+                    + RichRenderer.padLeft(messages.get("gclog.col.p99.ms"), 9)
+                    + RichRenderer.padLeft(messages.get("gclog.col.max.ms"), 9)
                     + AnsiStyle.style(c, AnsiStyle.RESET);
             System.out.println(RichRenderer.boxLine("  " + hdr, WIDTH));
             System.out.println(RichRenderer.boxSeparator(WIDTH));
 
-            for (var entry : a.causeBreakdown().values()) {
+            // Sort by totalMs descending — Map.copyOf() does not guarantee insertion order.
+            List<GcLogAnalysis.CauseStats> allCauses = new ArrayList<>(a.causeBreakdown().values());
+            allCauses.sort(Comparator.comparingLong(GcLogAnalysis.CauseStats::totalMs).reversed());
+
+            List<GcLogAnalysis.CauseStats> displayed = showAll ? allCauses
+                    : allCauses.subList(0, Math.min(topN, allCauses.size()));
+
+            for (GcLogAnalysis.CauseStats entry : displayed) {
                 boolean warn = entry.cause().toLowerCase().contains("humongous")
                         || entry.cause().toLowerCase().contains("full")
                         || entry.cause().toLowerCase().contains("metadata");
                 String causeColor = warn ? AnsiStyle.style(c, AnsiStyle.YELLOW) : "";
+                String reset = warn ? AnsiStyle.style(c, AnsiStyle.RESET) : "";
                 String line = causeColor
-                        + RichRenderer.padRight(RichRenderer.truncate(entry.cause(), 33), 35)
-                        + (warn ? AnsiStyle.style(c, AnsiStyle.RESET) : "")
+                        + RichRenderer.padRight(RichRenderer.truncate(entry.cause(), 36), 38)
+                        + reset
                         + RichRenderer.padLeft(String.valueOf(entry.count()), 8)
-                        + RichRenderer.padLeft(String.valueOf(entry.avgMs()), 10)
-                        + RichRenderer.padLeft(String.valueOf(entry.maxMs()), 10);
+                        + RichRenderer.padLeft(String.format("%.1f", (double) entry.totalMs()), 11)
+                        + RichRenderer.padLeft(String.valueOf(entry.avgMs()), 9)
+                        + RichRenderer.padLeft(String.valueOf(entry.p99Ms()), 9)
+                        + RichRenderer.padLeft(String.valueOf(entry.maxMs()), 9);
                 if (warn) line += " \u26a0";
+                System.out.println(RichRenderer.boxLine("  " + line, WIDTH));
+            }
+
+            // "Other" aggregation row when truncated
+            if (!showAll && allCauses.size() > topN) {
+                List<GcLogAnalysis.CauseStats> rest = allCauses.subList(topN, allCauses.size());
+                long otherTotal = rest.stream().mapToLong(GcLogAnalysis.CauseStats::totalMs).sum();
+                long otherMax = rest.stream().mapToLong(GcLogAnalysis.CauseStats::maxMs).max().orElse(0);
+                int otherCount = rest.stream().mapToInt(GcLogAnalysis.CauseStats::count).sum();
+                long otherAvg = otherCount > 0 ? otherTotal / otherCount : 0;
+                String otherLabel = String.format(messages.get("gclog.row.other"), rest.size());
+                String line = RichRenderer.padRight(RichRenderer.truncate(otherLabel, 36), 38)
+                        + RichRenderer.padLeft(String.valueOf(otherCount), 8)
+                        + RichRenderer.padLeft(String.format("%.1f", (double) otherTotal), 11)
+                        + RichRenderer.padLeft(String.valueOf(otherAvg), 9)
+                        + RichRenderer.padLeft("?", 9)
+                        + RichRenderer.padLeft(String.valueOf(otherMax), 9);
                 System.out.println(RichRenderer.boxLine("  " + line, WIDTH));
             }
         }

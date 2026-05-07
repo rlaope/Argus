@@ -7,6 +7,8 @@ import io.argus.cli.model.ProfileResult;
 import io.argus.cli.model.ProfileSnapshot;
 import io.argus.cli.provider.ProfileProvider;
 import io.argus.cli.provider.ProviderRegistry;
+import io.argus.cli.provider.jdk.AsProfCapabilities;
+import io.argus.cli.provider.jdk.AsProfDownloader;
 import io.argus.cli.provider.jdk.AsProfOptions;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.AsciiFlameRenderer;
@@ -60,6 +62,14 @@ public final class ProfileCommand implements Command {
         if (args.length == 0) {
             printHelp(config.color(), messages);
             return;
+        }
+
+        // --capabilities: print event table for current host, no PID required
+        for (String arg : args) {
+            if ("--capabilities".equals(arg)) {
+                printCapabilities(config.color(), messages);
+                return;
+            }
         }
 
         // Subcommand routing: if args[0] is one of start|stop|dump|status, treat as session subcommand.
@@ -1113,6 +1123,73 @@ public final class ProfileCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
 
+    /**
+     * Prints async-profiler capability table for the current host OS/arch.
+     * No PID is required — invoked via {@code argus profile --capabilities}.
+     */
+    private static void printCapabilities(boolean useColor, Messages messages) {
+        String bold  = AnsiStyle.style(useColor, AnsiStyle.BOLD);
+        String dim   = AnsiStyle.style(useColor, AnsiStyle.DIM);
+        String reset = AnsiStyle.style(useColor, AnsiStyle.RESET);
+        String green = AnsiStyle.style(useColor, AnsiStyle.GREEN);
+        String red   = AnsiStyle.style(useColor, AnsiStyle.RED);
+        String cyan  = AnsiStyle.style(useColor, AnsiStyle.CYAN);
+
+        String platform = AsProfCapabilities.displayPlatform();
+        String version  = AsProfCapabilities.ASPROF_VERSION;
+        String binary   = AsProfDownloader.asProfPath();
+
+        System.out.print(RichRenderer.brandedHeader(useColor, "profile",
+                messages.get("cmd.profile.desc")));
+
+        System.out.println(RichRenderer.boxHeader(useColor,
+                messages.get("profile.capabilities.header", version, platform), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        System.out.println(RichRenderer.boxLine(
+                dim + "  " + messages.get("profile.capabilities.binary", binary) + reset, WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        // Events table header
+        System.out.println(RichRenderer.boxLine(
+                bold + "  " + messages.get("profile.capabilities.events.header") + reset, WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        for (AsProfCapabilities.EventInfo ev : AsProfCapabilities.forCurrentHost().values()) {
+            String mark  = ev.isSupported() ? green + "✔" + reset : red + "✘" + reset;
+            String name  = bold + RichRenderer.padRight(ev.name(), 14) + reset;
+            String desc  = ev.isSupported()
+                    ? ev.description()
+                    : red + ev.unsupportedReason() + reset;
+            String line  = "  " + mark + "  " + name + "  " + desc;
+            System.out.println(RichRenderer.boxLine(line, WIDTH));
+        }
+
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        // Output formats
+        System.out.println(RichRenderer.boxLine(
+                bold + "  " + messages.get("profile.capabilities.formats.header") + reset, WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        String fmts = "  " + cyan
+                + String.join(", ", AsProfCapabilities.OUTPUT_FORMATS)
+                + reset;
+        System.out.println(RichRenderer.boxLine(fmts, WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        // Tips
+        System.out.println(RichRenderer.boxLine(
+                bold + "  " + messages.get("profile.capabilities.tips.header") + reset, WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                "  • " + messages.get("profile.capabilities.tip1"), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                "  • " + messages.get("profile.capabilities.tip2"), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
+    }
+
     private static void printHelp(boolean useColor, Messages messages) {
         System.out.print(RichRenderer.brandedHeader(useColor, "profile",
                 messages.get("cmd.profile.desc")));
@@ -1240,6 +1317,13 @@ public final class ProfileCommand implements Command {
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --exclude=PATTERN", 36)
                 + messages.get("cmd.profile.adv.exclude.desc"), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                AnsiStyle.style(useColor, AnsiStyle.BOLD) + "Info:"
+                + AnsiStyle.style(useColor, AnsiStyle.RESET), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --capabilities", 36)
+                + messages.get("cmd.profile.capabilities.desc"), WIDTH));
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
 
