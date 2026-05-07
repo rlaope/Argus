@@ -9,7 +9,12 @@ Welcome to the Project Argus documentation.
 
 ## Reference
 
-- [CLI Command Reference](cli-commands.md) — All 51 commands with usage and examples (includes `argus zgc` ZGC live health verdict)
+- [CLI Command Reference](cli-commands.md) — Index of all 55 commands with category navigation and A–Z lookup
+  - [commands/monitoring.md](commands/monitoring.md) — ps, info, env, top, watch, report, diff, alert, cluster, perfcounter, tui
+  - [commands/memory-gc.md](commands/memory-gc.md) — gc, heap, histo, nmt, buffers, metaspace, gclog, gcscore, zgc, and more
+  - [commands/profiling-tracing.md](commands/profiling-tracing.md) — profile, flame, jfr, jfranalyze, slowlog, trace, benchmark
+  - [commands/runtime-internals.md](commands/runtime-internals.md) — vmflag, vmset, doctor, suggest, ci, spring, logger, mbean, and more
+  - [commands/threads.md](commands/threads.md) — threads, threaddump, deadlock, pool
 - [Configuration](configuration.md) — Configuration options and performance tuning
 - [Architecture](architecture.md) — System design, provider architecture, and extensibility
 

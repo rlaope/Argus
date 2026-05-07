@@ -361,6 +361,20 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 - [Troubleshooting](troubleshooting.md) - Solutions for common issues
 - [Sample Project](../samples/virtual-thread-demo) - Explore the demo code
 
+## Java Version Compatibility
+
+| Feature | Java 11+ | Java 17+ | Java 21+ |
+|---------|:--------:|:--------:|:--------:|
+| CLI (65+ commands) | ✅ | ✅ | ✅ |
+| Dashboard & Web UI | — | ✅ | ✅ |
+| GC Analysis | CLI only | ✅ MXBean | ✅ JFR |
+| Virtual Thread Monitoring | — | — | ✅ JFR |
+| Flame Graph | — | — | ✅ JFR |
+| Micrometer Metrics | — | ✅ | ✅ |
+| Spring Boot Starter | — | ✅ | ✅ |
+
+---
+
 ## Native Binary (GraalVM)
 
 Pre-built native binaries are available in [Releases](https://github.com/rlaope/Argus/releases):

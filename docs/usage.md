@@ -196,6 +196,57 @@ A healthy post-tuning run shows no REGRESSION rows in the diff, and a standalone
 
 ---
 
+## CI/CD Integration
+
+Add JVM health checks to your pipeline. Exit codes are machine-readable: `0=pass`, `1=warnings`, `2=critical`.
+
+```yaml
+- name: JVM Health Check
+  uses: rlaope/Argus/action@master
+  with:
+    command: ci
+    fail-on: critical
+    format: github-annotations
+```
+
+```bash
+argus ci --pid=auto --fail-on=critical --format=summary
+```
+
+For profile regression gates between builds:
+
+```bash
+argus profile <pid> --duration=30 --save=before.json
+# ... deploy new build ...
+argus profile <pid> --duration=30 --save=after.json
+argus profile-gate before.json after.json --threshold=5 --annotate=github
+```
+
+---
+
+## Monitoring Stack (Prometheus / OTLP / Docker)
+
+Native Prometheus + Grafana integration. Deploy to Kubernetes with the included Helm chart.
+
+```bash
+# Prometheus scrape endpoint (no extra config needed)
+curl http://localhost:9202/prometheus
+
+# Export to OpenTelemetry Collector
+java -javaagent:~/.argus/argus-agent.jar \
+     -Dargus.otlp.enabled=true \
+     -Dargus.otlp.endpoint=http://localhost:4318/v1/metrics \
+     -jar your-app.jar
+
+# Docker — diagnose any JVM on the host
+docker run --pid=host ghcr.io/rlaope/argus doctor
+docker run --pid=host ghcr.io/rlaope/argus watch
+```
+
+> Helm chart, Grafana dashboard JSON, and K8s setup: [docs/kubernetes.md](kubernetes.md)
+
+---
+
 ## Continuous ZGC monitoring during a deploy
 
 Use this workflow to catch ZGC regressions introduced by a new release before declaring the deploy stable.
