@@ -302,6 +302,153 @@ java -version        # Runtime
    -Dargus.otlp.headers=Authorization=Bearer\ mytoken
    ```
 
+## CLI Diagnostic Errors
+
+### `❌ NMT not enabled on PID X.`
+
+**Symptom**: Running `argus nmt`, `argus nmt --save`, `argus nmt --diff`, or `argus nmt --watch` against a live PID prints:
+
+```
+❌ NMT not enabled on PID 12345.
+   Add -XX:NativeMemoryTracking=summary (or =detail) to the target JVM and restart.
+```
+
+Exit code: 1.
+
+**Cause**: The target JVM was started without the `-XX:NativeMemoryTracking` flag. NMT cannot be enabled at runtime — the flag must be present at JVM startup.
+
+**Fix**: Restart the target JVM with the flag:
+
+```bash
+java -XX:NativeMemoryTracking=summary -jar your-app.jar
+# or, for full category breakdown:
+java -XX:NativeMemoryTracking=detail -jar your-app.jar
+```
+
+Then re-run the `argus nmt` command against the new PID.
+
+---
+
+### `Event 'X' not supported by bundled async-profiler v4.4 on darwin-arm64.`
+
+**Symptom**: Running `argus profile --event=<name>` on macOS Apple Silicon prints:
+
+```
+Event 'cycles' not supported by bundled async-profiler v4.4 on darwin-arm64.
+Supported: cpu, alloc, lock, wall, nativemem, nativelock
+```
+
+**Cause**: The requested event is a PMU hardware counter. On macOS arm64 (Apple Silicon), async-profiler 4.4 cannot reach hardware counters via the perf backend. PMU events require Linux.
+
+**Fix**: Use a supported event, or check what is available on your host:
+
+```bash
+argus profile --capabilities
+```
+
+Supported events on darwin-arm64: `cpu`, `alloc`, `lock`, `wall`, `nativemem`, `nativelock`.
+
+---
+
+### `async-profiler collected no samples (event=lock)`
+
+**Symptom**: `argus profile` completes without error but reports:
+
+```
+async-profiler collected no samples (event=lock)
+```
+
+**Cause**: The profiling window ran to completion but captured zero events. Common reasons:
+- The workload is CPU-bound, so there are no lock-contention events to sample.
+- The `--duration` was too short for the event rate.
+- The target JVM was idle during the window.
+
+**Fix**:
+
+```bash
+# Lengthen the capture window
+argus profile <pid> --event=lock --duration=30
+
+# Or switch to a more appropriate event for the workload
+argus profile <pid> --event=cpu --duration=10
+```
+
+---
+
+### `gcscore expects a live PID or a path to a GC log file. Got: <arg>`
+
+**Symptom**: Running `argus gcscore <arg>` prints:
+
+```
+gcscore expects a live PID or a path to a GC log file. Got: myapp
+```
+
+**Cause**: The argument is not a numeric PID and is not a path to an existing file.
+
+**Fix**: Pass either a live PID or the path to a GC log file:
+
+```bash
+# Live PID
+argus gcscore 12345
+
+# GC log file
+argus gcscore /var/log/app/gc.log
+```
+
+To find running JVM PIDs:
+
+```bash
+argus ps
+```
+
+---
+
+### `com.sun.tools.attach.AttachNotSupportedException: state is not ready`
+
+**Symptom**: Commands that attach to a live JVM (e.g. `argus threads`, `argus mbean`, `argus spring`) fail immediately after the target JVM starts:
+
+```
+com.sun.tools.attach.AttachNotSupportedException: state is not ready
+```
+
+**Cause**: The JVM attach socket is not yet bound. The OS-level UNIX socket that `VirtualMachine.attach()` uses is created asynchronously during JVM startup. Connecting within the first second or two of a new process races against this initialization.
+
+**Fix**: Wait 2–5 seconds after the target JVM starts, then retry:
+
+```bash
+# Wait a moment, then attach
+sleep 3 && argus threads <pid>
+```
+
+---
+
+### `File not found: <PID>` (older builds)
+
+**Symptom**: On a Argus build older than the gcscore/gcwhy live-PID fixes, passing a numeric PID to `argus gcscore` or `argus gcwhy` prints:
+
+```
+File not found: 12345
+```
+
+instead of attaching to the live JVM.
+
+**Cause**: The build predates the live-PID path in `GcScoreCommand` and `GcWhyCommand`. Those older builds treat every argument as a file path.
+
+**Fix**: Rebuild from master and reinstall:
+
+```bash
+./gradlew :argus-cli:fatJar
+cp argus-cli/build/libs/argus-cli-*-all.jar ~/.argus/argus-cli.jar
+```
+
+Verify the installed version:
+
+```bash
+argus --version
+```
+
+---
+
 ## Getting Help
 
 If you're still experiencing issues:

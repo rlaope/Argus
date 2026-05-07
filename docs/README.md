@@ -2,15 +2,31 @@
 
 Welcome to the Project Argus documentation.
 
-## Table of Contents
+## Getting Started
 
-1. [Getting Started](getting-started.md) - Installation and quick start guide
-2. [Usage Guide](usage.md) - CLI and Agent dashboard usage
-3. [CLI Command Reference](cli-commands.md) - All 50 commands with usage and output examples
-4. [Configuration](configuration.md) - Configuration options and tuning
-5. [Architecture](architecture.md) - System architecture and design
-6. [Troubleshooting](troubleshooting.md) - Common issues and solutions
-7. [Benchmark Report](benchmark-report.md) - Performance benchmarks
+- [Getting Started](getting-started.md) — Installation, prerequisites, and first commands
+- [Usage Guide](usage.md) — CLI and Agent dashboard fundamentals
+
+## Reference
+
+- [CLI Command Reference](cli-commands.md) — All 50+ commands with usage and examples
+- [Configuration](configuration.md) — Configuration options and performance tuning
+- [Architecture](architecture.md) — System design, provider architecture, and extensibility
+
+## Operations
+
+- [Kubernetes](kubernetes.md) — Deployment, metrics scraping, and Prometheus integration
+- [Troubleshooting](troubleshooting.md) — Common issues, diagnostics, and solutions
+
+## Studies & Reports
+
+- [Comparison: Argus vs Traditional Tools](comparison-argus-vs-traditional.md) — Time-to-insight benchmark study
+- [Benchmark Report](benchmark-report.md) — Performance metrics and throughput analysis
+
+## Reference Assets
+
+- [Grafana Dashboard](grafana-dashboard.json) — Import-ready dashboard template
+- [Prometheus Config](prometheus.yml) — Example scrape configuration
 
 ## What is Argus?
 

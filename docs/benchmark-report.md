@@ -2,9 +2,20 @@
 
 ## Overview
 
-This document presents the performance overhead measurements of Argus Virtual Thread Profiler. The benchmark quantifies the impact of attaching the Argus agent to a Java application.
+This document presents the performance overhead measurements of Argus v1.1.0. It covers three
+measurement areas:
 
-## Test Environment
+1. **Agent overhead** — cost of attaching `argus-agent` to a running JVM (JFR streaming).
+2. **Profiling overhead** — cost of `argus profile <PID>` (async-profiler in-process).
+3. **CI gate overhead** — cost of `argus profile-gate` (snapshot diff, one-shot, no attach).
+
+> **Note on agent + server numbers:** The numbers in the "Benchmark Results" section were captured
+> at commit `1da0347` (2026-01-20) against an earlier build. The benchmark harness
+> (`samples/benchmark/run-benchmark.sh`) was not re-executed in the current environment because it
+> requires a running JVM target and network connectivity for the argus-server mode. Methodology is
+> unchanged; re-run locally to get fresh numbers for your hardware.
+
+## Test Environment (agent benchmark)
 
 | Item | Value |
 |------|-------|
@@ -53,7 +64,7 @@ This document presents the performance overhead measurements of Argus Virtual Th
 
 **GC Overhead: None observed**
 
-## Summary (Basic Monitoring)
+## Summary (Agent Monitoring)
 
 | Metric | Overhead |
 |--------|----------|
@@ -62,9 +73,73 @@ This document presents the performance overhead measurements of Argus Virtual Th
 | Latency | No significant impact |
 | GC | No additional GC pressure |
 
-## Advanced Profiling Features (Phase 3-5)
+## Profiling Overhead
 
-The following features are **disabled by default** due to higher overhead:
+### `argus profile <PID>` (async-profiler)
+
+`argus profile` attaches async-profiler to the target JVM and collects a stack-trace snapshot for
+the requested duration (default: 30 seconds). It does not use JFR streaming.
+
+| Property | Value |
+|----------|-------|
+| Mechanism | async-profiler JVMTI attach |
+| Default event | `cpu` (POSIX signal-based sampling) |
+| Default duration | 30 s |
+| Default sampling rate | async-profiler default (100 Hz for CPU mode) |
+| Overhead | Negligible at default rate (<1% CPU, no allocation pressure) |
+| Effect on target | Profiler attaches and detaches cleanly; no persistent agent left behind |
+
+Other supported events: `alloc`, `lock`, `wall`, `itimer`, or any PMU counter. Higher-frequency
+events (`alloc` at small thresholds, dense PMU counters) increase overhead proportionally — the
+same trade-offs that apply to async-profiler standalone apply here.
+
+```bash
+# 30-second CPU profile (default)
+argus profile <PID>
+
+# 10-second allocation profile, save snapshot for later diff
+argus profile <PID> --type=alloc --duration=10 --save=before.json
+
+# Lock contention profile, ASCII flame graph to stdout
+argus profile <PID> --type=lock --output-format=ascii
+
+# HTML flame graph written to file
+argus profile <PID> --flame
+```
+
+### `argus profile-gate` (CI regression detection)
+
+`argus profile-gate` compares two saved profile snapshots and exits non-zero if any method's
+CPU share increases beyond a threshold. It does **not** attach to a running JVM; overhead is
+limited to loading and diffing two JSON files.
+
+| Property | Value |
+|----------|-------|
+| Mechanism | JSON snapshot diff (no JVM attach) |
+| Overhead | Negligible (file I/O + in-memory sort) |
+| Default threshold | 10 percentage-points (pp) |
+| Exit codes | 0 = pass, 1 = regression(s) detected, 2 = usage/IO error |
+
+```bash
+# Capture baseline before a change
+argus profile <PID> --save=before.json
+
+# Capture after the change
+argus profile <PID> --save=after.json
+
+# Compare — exits 1 if any method grows >= 10pp
+argus profile-gate before.json after.json
+
+# Tighter gate: fail if any method grows >= 5pp with at least 50 sample delta
+argus profile-gate before.json after.json --threshold=5 --threshold-samples=50
+
+# GitHub Actions: emit ::error:: annotations and JSON report
+argus profile-gate before.json after.json --annotate=github --format=json
+```
+
+## Advanced Profiling Features (Agent Mode)
+
+The following agent-mode features are **disabled by default** due to higher overhead:
 
 ### Feature Overhead Comparison
 
@@ -113,15 +188,37 @@ The following features are **disabled by default** due to higher overhead:
 -Dargus.contention.threshold=20
 ```
 
+## When to Use Each Mode
+
+| Symptom / Goal | Recommended command |
+|----------------|---------------------|
+| High CPU, want a flame graph | `argus profile <PID> --flame` |
+| Identify hot methods without a browser | `argus profile <PID> --output-format=ascii` |
+| Lock contention slowing virtual threads | `argus pool <PID>` |
+| Prevent CPU regressions in CI | `argus profile-gate before.json after.json` |
+| Continuous CPU sampling every N seconds | `argus profile continuous <PID> --interval=N` |
+| Long-term visibility across many JVMs | `argus cluster scan --file=targets.txt` |
+| Persistent agent + WebSocket dashboard | `argus-agent` attach + `argus-server` |
+
+**Rule of thumb:**
+- Use `argus profile` for ad-hoc investigation of a single live JVM.
+- Use `argus profile-gate` in CI pipelines to catch regressions before they ship.
+- Use `argus pool` when the symptom is lock or thread-pool contention specifically.
+- Use the agent + server combination when you need long-term trending across a fleet.
+
 ## Conclusion
 
-Argus introduces approximately **9% throughput overhead** when profiling virtual thread events via JFR streaming. Memory overhead is minimal at **3.6 MB additional heap usage per 10,000 virtual threads**, representing less than 1% of the allocated heap. There is no measurable impact on latency or garbage collection behavior.
+Argus introduces approximately **9% throughput overhead** when the agent is attached and streaming
+JFR events. Memory overhead is minimal at **3.6 MB additional heap usage per 10,000 virtual
+threads**, representing less than 1% of the allocated heap. Latency and GC are unaffected.
 
-**Note:** Advanced profiling features (allocation tracking, method profiling, contention tracking) are disabled by default due to potentially high event volume. Enable them only when needed for debugging or optimization, preferably for short durations.
+`argus profile` (async-profiler mode) adds negligible overhead at the default 100 Hz CPU sampling
+rate and leaves no persistent state in the target JVM after the session ends.
 
-These overhead levels are acceptable for development and staging environments. For production use, consider the throughput trade-off based on your application's performance requirements.
+`argus profile-gate` has no runtime overhead on the target JVM — it only reads and diffs two
+snapshot files.
 
-## How to Run
+## How to Run the Agent Benchmark
 
 ```bash
 # Build the project
@@ -136,13 +233,14 @@ These overhead levels are acceptable for development and staging environments. F
 # Run with Argus agent + WebSocket server
 ./gradlew :samples:benchmark:runWithArgusServer
 
-# Run all benchmarks and compare
+# Run all three modes and print a comparison table
 ./samples/benchmark/run-benchmark.sh
 ```
 
 ## Benchmark Configuration
 
-The benchmark can be customized by modifying `samples/benchmark/src/main/java/io/argus/benchmark/OverheadBenchmark.java`:
+The benchmark can be customized by editing
+`samples/benchmark/src/main/java/io/argus/benchmark/OverheadBenchmark.java`:
 
 ```java
 private static final int WARMUP_ITERATIONS = 3;

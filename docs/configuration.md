@@ -527,6 +527,65 @@ argus init
 
 This creates `~/.argus/config.properties` with your preferred language and defaults.
 
+### Recent additions (v1.1.0+)
+
+These flags were added in the current development cycle. Each appears in the relevant per-command section below as well.
+
+| Command | Flag | Description |
+|---------|------|-------------|
+| `argus profile` | `--capabilities` | Lists supported profiling events for the host platform |
+| `argus profile` | `--event=<name>` | Selects the profiling event (cpu, alloc, lock, wall, etc.) |
+| `argus profile` | `--duration=Ns` | Sets the profiling window in seconds |
+| `argus profile` | `--save=<path>` | Saves a profile snapshot to a JSON file for later diffing |
+| `argus profile` | `--diff=<path>` | Diffs the current run against a saved snapshot |
+| `argus profile-gate` | `--threshold=X` | Fails if any method's CPU share grows by more than X percentage points |
+| `argus profile-gate` | `--threshold-samples=N` | Ignores changes with fewer than N sample delta |
+| `argus profile-gate` | `--max-regressions=K` | Fails if more than K methods regress (any amount) |
+| `argus profile-gate` | `--format=json` | Emits machine-readable JSON |
+| `argus profile-gate` | `--annotate=github` | Emits `::error::` / `::warning::` GitHub Actions annotations |
+| `argus flame` | `--duration=Ns` | Sets the one-shot flame graph capture window |
+| `argus flame` | `--output=<path>` | Saves the flame graph HTML to the given path instead of a temp file |
+| `argus nmt` | `--save <path>` | Saves an NMT baseline snapshot to a file |
+| `argus nmt` | `--diff <path>` | Compares current NMT state against a saved baseline |
+| `argus gclog` | `--top=N` | Shows the top N causes in the aggregated pause-summary table (default: 8) |
+| `argus gclog` | `--all` | Shows all causes in the pause-summary table without truncation |
+| `argus gcwhy` | `--duration=Ns` | Sets the live JFR capture window when a PID is given |
+| `argus gcscore` | *(PID form)* | `argus gcscore <PID>` now accepts a live PID in addition to a log file |
+| `argus gcscore` | `--duration=Ns` | Live JFR capture window (PID form only) |
+| `argus doctor` | `--profile` | Adds a live profile capture to the health report |
+| `argus doctor` | `--profile=<file>` | Adds profile findings from a saved snapshot file |
+| `argus doctor` | `--profile-duration=N` | Sets the live capture duration for `--profile` (seconds) |
+| `argus suggest` | `--profile` | Adds profile-driven flag recommendations to the output |
+| `argus suggest` | `--profile=<file>` | Uses a saved snapshot instead of a live capture |
+
+**Examples:**
+
+```bash
+# List supported profiling events on this machine
+argus profile --capabilities
+
+# Profile for 30 s, save snapshot, then gate against it in CI
+argus profile 12345 --duration=30 --save=before.json
+argus profile 12345 --duration=30 --save=after.json
+argus profile-gate before.json after.json --threshold=5 --annotate=github
+
+# One-shot flame graph saved to a specific file
+argus flame 12345 --duration=20 --output=./flame.html
+
+# Capture NMT baseline, then diff after a load test
+argus nmt 12345 --save baseline.json
+argus nmt 12345 --diff baseline.json
+
+# Show all GC causes instead of the default top 8
+argus gclog /var/log/gc.log --all
+
+# Diagnose a live JVM and include a CPU profile in the report
+argus doctor 12345 --profile --profile-duration=10
+
+# GC score from a live JVM (30 s JFR window)
+argus gcscore 12345 --duration=30
+```
+
 ### CLI Commands
 
 ```bash
@@ -557,6 +616,8 @@ argus top                      # Real-time monitoring (requires agent)
 | `--format=table\|json` | `table` | Output format |
 | `--host HOST` | `localhost` | Agent host (for `top` and agent source) |
 | `--port PORT` | `9202` | Agent port |
+| `--help, -h` | | Print usage and exit |
+| `--version, -v` | | Print version and exit |
 
 ### Source Auto-detection
 
@@ -575,6 +636,119 @@ argus gc 12345 --format=json | jq '.heapUsed'
 argus histo 12345 --format=json --top 10 > heap-snapshot.json
 ```
 
+### Per-command flag reference
+
+#### `argus profile`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--capabilities` | | Print supported events for the host and exit |
+| `--event=<name>` | `cpu` | Profiling event (cpu, alloc, lock, wall, or a JFR event name) |
+| `--duration=N` | `10` | Capture duration in seconds |
+| `--save=<path>` | | Persist snapshot as JSON for diffing |
+| `--diff=<path>` | | Compare this run against a saved snapshot |
+| `--diff=BEFORE:AFTER` | | Offline diff of two snapshot files (no PID required) |
+| `--top=N` | `20` | Number of methods to display |
+| `--format=json` | | Machine-readable output |
+
+#### `argus profile-gate`
+
+Compares two profile snapshots and exits non-zero on regression. Designed for CI pipelines.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--threshold=PCT` | `10` | Fail if any method's share grows by ≥ PCT percentage points |
+| `--threshold-samples=N` | `0` | Ignore changes with sample delta < N |
+| `--top=N` | `20` | Show top N regressions in the report |
+| `--format=json` | | Machine-readable JSON output |
+| `--annotate=github` | | Emit `::error::` / `::warning::` GitHub Actions annotations |
+| `--max-regressions=K` | *(unlimited)* | Fail if more than K methods regress (any amount) |
+| `--baseline-only` | | Print report but always exit 0 |
+
+Exit codes: `0` = pass, `1` = regression detected, `2` = usage / IO error.
+
+```bash
+argus profile-gate before.json after.json --threshold=5 --format=json
+```
+
+#### `argus flame`
+
+One-shot flame graph. Profiles a JVM and opens the result in the browser.
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--duration=N` | `10` | Capture duration in seconds |
+| `--type=EVENT` | `cpu` | Profiling event (aliases `--event`) |
+| `--output=PATH` | *(temp file)* | Output file path |
+| `--output-format=FMT` | `flamegraph` | Output format: `flamegraph`, `tree`, `jfr`, `collapsed`, `text` |
+| `--no-open` | | Do not open browser after profiling |
+
+#### `argus nmt`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--save <path>` | | Save current NMT state as a baseline JSON file |
+| `--diff <path>` | | Compare current state against a baseline file |
+| `--watch[=N]` | `2` | Live delta view, refreshing every N seconds |
+| `--format=json` | | Machine-readable output |
+
+Requires the target JVM to start with `-XX:NativeMemoryTracking=summary`.
+
+#### `argus gclog`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--top=N` | `8` | Show top N causes in the pause-summary table |
+| `--all` | | Show all causes without truncation |
+| `--phases` | | Include GC sub-phase breakdown |
+| `--tenuring` | | Tenuring age-table analysis (requires `-Xlog:gc+age=debug`) |
+| `--follow, -f` | | Tail the log file and refresh every 2 s |
+| `--suggest-flags` | | Print only the recommended JVM flags |
+| `--export=PATH` | | Export analysis as a self-contained HTML file |
+| `--format=json` | | Machine-readable output |
+
+#### `argus gcwhy`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--duration=N` | `30` | Live JFR capture window in seconds (PID form only) |
+| `--last=WINDOW` | `5m` | Analyse only pauses in the last window (e.g. `30s`, `5m`, `2h`) |
+| `--format=json` | | Machine-readable output |
+
+Accepts either a GC log file path or a live PID as its first argument.
+
+#### `argus gcscore`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--duration=N` | `30` | Live JFR capture window in seconds (PID form only) |
+| `--format=json` | | Machine-readable output |
+
+Accepts either a GC log file path or a live PID as its first argument.
+
+#### `argus doctor`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--profile` | | Capture a live CPU profile and include findings in the report |
+| `--profile=<file>` | | Load a saved snapshot and include profile findings |
+| `--profile-duration=N` | `5` | Live capture duration for `--profile` (seconds) |
+| `--pause-threshold-ms=N` | `200` | Flag STW pauses exceeding this value as a finding |
+| `--format=json` | | Machine-readable output |
+| `--export=PATH` | | Export report as a self-contained HTML file |
+
+Exit codes: `0` = healthy, `1` = warnings, `2` = critical issues.
+
+#### `argus suggest`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--profile` | | Run a live CPU profile and add profile-driven recommendations |
+| `--profile=<file>` | | Load a saved snapshot for profile-driven recommendations |
+| `--profile=<workload>` | | Optimise for a named workload: `web`, `batch`, `microservice`, `streaming` |
+| `--profile-duration=N` | `5` | Live capture duration when `--profile` is used without a file |
+| `--format=json` | | Machine-readable output |
+
 ### Config File
 
 Stored at `~/.argus/config.properties`:
@@ -586,6 +760,16 @@ color=true
 format=table
 default.port=9202
 ```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ARGUS_DEBUG` | Set to any non-empty value to print full stack traces on error (equivalent to `-Dargus.debug=true`) |
+| `LC_ALL` | Auto-detected for output language. Overrides `LANG` when both are set. Example: `LC_ALL=ko_KR.UTF-8` selects Korean output |
+| `LANG` | Fallback locale for output language when `LC_ALL` is unset. The CLI extracts the two-letter ISO 639-1 code (e.g. `ko` from `ko_KR.UTF-8`) |
+
+`ARGUS_DEBUG` is checked in `ArgusCli` and in commands that perform live JFR captures (e.g. `gcwhy`, `gcscore`) to decide whether to print stack traces.
 
 ## Next Steps
 

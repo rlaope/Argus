@@ -584,6 +584,86 @@ Replaced 150-line if/else chain in ArgusChannelHandler.
 - `CliConfig.resolveDefaultLang()` reads `$LC_ALL` then `$LANG`, falling back to `en`. The existing `--lang=` CLI flag overrides.
 - 19 message keys per locale migrated from MessageFormat-style `{0}` to printf `%s` to match `Messages.get`'s actual implementation.
 
+## Post-1.1.0 Additions (master)
+
+### Live GC counter source (`JdkGcProvider`)
+
+Before this change, `JdkGcProvider.getGcInfo()` returned hard-coded zeros for collection counts and cumulative pause time because `jcmd GC.heap_info` does not expose those fields. That meant `argus gc` and any live-JVM diagnostic path that consumed `GcResult` showed accurate heap sizes but always-zero event counts, making frequency-based rules and overhead calculations unreliable.
+
+Two alternatives were considered: reading PerfData counters directly (`sun.gc.*`) and querying `GarbageCollectorMXBean` via JMX. PerfData requires mapping the `/tmp/hsperfdata_<user>/<pid>` file which is fragile across container runtimes, and JMX requires an open connector port. The smallest correct change was to run `jstat -gcutil <pid>` — the same tool `JvmSnapshotCollector` already relies on — and parse its output through the existing `JdkGcUtilProvider.parseOutput()` helper. Overhead is then computed as `GCT / VM.uptime`.
+
+Source: `argus-cli/src/main/java/io/argus/cli/provider/jdk/JdkGcProvider.java`
+
+---
+
+### `GcPressureRule` — high-frequency GC doctor rule
+
+`GcOverheadRule` fires only when cumulative GC overhead exceeds 5% of elapsed time. A workload with thousands of fast young collections — allocation churn that keeps each individual pause short — stays well below that threshold while constantly interrupting the application and inflating p99 latency. The rule never fires, giving a false-healthy signal.
+
+`GcPressureRule` addresses this by looking at frequency instead of time-share. It computes young-generation GCs per minute since JVM start and applies two thresholds: WARNING at > 200/min (with an average pause of at least 0.5 ms, to filter pure JIT blips) and CRITICAL at > 500/min. The rule skips the first 60 seconds of uptime where rates are unreliable. When heap usage is below 60%, it recommends allocation profiling; when heap is already full, it recommends increasing `-Xmx` or enlarging young gen explicitly. For CRITICAL findings it also recommends ZGC.
+
+Source: `argus-cli/src/main/java/io/argus/cli/doctor/rules/GcPressureRule.java`
+
+---
+
+### `NmtCommand --diff` rendering and NMT-not-enabled sentinel
+
+`NmtBaseline.diff()` was introduced in v1.1.0 as a model-layer operation. This cycle wired it into a dedicated rendering path in `NmtCommand`. When `--diff=<baseline-file>` is passed, the command loads the saved baseline via `NmtBaseline.load()`, computes the delta list, and renders a sorted-by-committed-growth table inside a `RichRenderer` box. The banner line shows the wall-clock timestamp of the saved baseline and the signed totals for reserved and committed delta. Categories with a committed delta >= 5% of their original size, or that are newly appeared, are highlighted in red/bold to draw attention to likely leaks.
+
+NMT-not-enabled detection was also tightened at the provider boundary. `JdkNmtProvider.getNativeMemory()` now detects the `"Native memory tracking is not enabled"` string in `jcmd VM.native_memory summary` output and returns `NmtResult.notEnabled()` — a private sentinel constructor that sets the `nmtNotEnabled` flag — instead of returning an empty result that was silently rendered as if NMT had zero categories. `NmtCommand` checks `result.isNmtNotEnabled()` early and throws `CommandExitException(1)` with a clear error message and the `-XX:NativeMemoryTracking=summary` hint.
+
+Sources:
+- `argus-cli/src/main/java/io/argus/cli/command/NmtCommand.java`
+- `argus-cli/src/main/java/io/argus/cli/provider/jdk/JdkNmtProvider.java`
+- `argus-cli/src/main/java/io/argus/cli/model/NmtResult.java`
+- `argus-cli/src/main/java/io/argus/cli/model/NmtBaseline.java`
+
+---
+
+### `AsProfProvider` flame sample-count fix and `--event` routing
+
+The previous `flameGraph()` implementation called asprof twice: once to produce the HTML flame graph and once to produce collapsed output for sample-count parsing. That doubled profiling time and, worse, produced two separate recordings whose sample counts could differ. The fix is a single JFR capture followed by two cheap `jfrconv` post-processing passes: `jfrconv -o html` writes the final HTML and `jfrconv -o collapsed` writes a temporary file that is parsed for `totalSamples` and `topMethods`, then deleted. The JFR file itself is also cleaned up in a `finally` block.
+
+The `--event` routing was also corrected. Previously both `argus flame` and `argus profile` issued the event flag through different code paths and the profile command lost the event value for certain format combinations. Both paths now go through `buildExtraArgs()` for option passthrough and `resolveCollapsedFormat()` for output-format resolution. The `ascii` format is handled as a special case: it maps to `collapsed` on the asprof command line and then the collapsed output is passed to `AsciiFlameRenderer` for terminal rendering via `ProfileResult.okWithRaw()`.
+
+Event and platform capability metadata lives in `AsProfCapabilities`, a static table keyed by OS and arch that `argus doctor` consumes to show which events are available on the current host without requiring a live asprof invocation.
+
+Sources:
+- `argus-cli/src/main/java/io/argus/cli/provider/jdk/AsProfProvider.java`
+- `argus-cli/src/main/java/io/argus/cli/provider/jdk/AsProfCapabilities.java`
+
+---
+
+### `GcWhyJfrCollector` — `GCHeapSummary` correlation by `gcId`
+
+`GcWhyJfrCollector` reads a JFR recording and correlates two event types: `jdk.GarbageCollection` (pause type, cause, duration, `gcId`) and `jdk.GCHeapSummary` (heap used/committed with a `when` label of `"Before GC"` or `"After GC"`). An earlier version matched heap summary events by position in the file, which broke when concurrent GC phases interleaved summaries. The fix joins both maps on `gcId` — `heapBefore` and `heapAfter` are both keyed by `gcId` — and the `when` field match uses `contains("before")` / `contains("after")` on the lowercased string to handle the JFR `GCWhen` enum label format reliably across JDK versions.
+
+This collector is the shared data path for both `GcWhyCommand` (which uses it in its live 30-second JFR capture loop) and the `GcScoreCommand` live-PID branch described below.
+
+Source: `argus-cli/src/main/java/io/argus/cli/gcwhy/GcWhyJfrCollector.java`
+
+---
+
+### `GcScoreCommand` live-PID branch
+
+`GcScoreCommand` previously only accepted a GC log file path. The live-PID branch mirrors the capture loop that `GcWhyCommand` uses: it starts a JFR recording via `jcmd JFR.start`, sleeps for `--duration` seconds (default 30), dumps the recording to a temp file via `jcmd JFR.dump`, then parses it through `GcWhyJfrCollector.collect()`. The resulting `List<GcEvent>` is fed into the same `GcLogAnalyzer.analyze()` + `GcScoreCalculator.compute()` pipeline as the file path. The first argument is treated as a PID when it is a pure digit string with no path separator or dot characters.
+
+Source: `argus-cli/src/main/java/io/argus/cli/command/GcScoreCommand.java`
+
+---
+
+### `GcLogCommand` aggregated-summary view
+
+`GcLogCommand` gained a by-cause aggregation table. After the standard analysis pass, the cause breakdown from `GcLogAnalysis.causeBreakdown()` is rendered as a sortable table showing, per GC cause: event count, total pause time, average pause, p99 pause, and max pause. The default view shows the top 8 causes by count plus an `Other` rollup row. `--top=N` overrides the limit and `--all` suppresses the rollup entirely.
+
+The p99 value is populated by the new `p99Ms` field on `GcLogAnalysis.CauseStats`. When a cause has fewer than 100 events, the sorted-tail proxy equals `maxMs` (the full constructor delegates to the existing max for backward compatibility via the legacy constructor). When the sample size is sufficient, `GcLogAnalyzer` sorts the per-cause pause list and picks the 99th-percentile entry.
+
+Sources:
+- `argus-cli/src/main/java/io/argus/cli/command/GcLogCommand.java`
+- `argus-cli/src/main/java/io/argus/cli/gclog/GcLogAnalysis.java`
+
+---
+
 ## Next Steps
 
 - [Getting Started](getting-started.md) - Installation guide

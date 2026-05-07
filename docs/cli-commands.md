@@ -1484,3 +1484,724 @@ $ argus suggest 12345 --profile=snapshot.json
 | `RuntimeWaitHint` | HIGH | _(no flag — structural hint)_ | Wait/park methods >= 60% of all samples |
 
 When a profile rule fires for the same JVM flag area as a workload suggestion, the workload suggestion is marked `(superseded by profile evidence)` in the output.
+
+---
+
+## Monitoring
+
+### argus alert \<target\>
+
+Monitors an Argus instance via its `/prometheus` endpoint and sends webhook notifications when metric thresholds are breached.
+
+```bash
+$ argus alert localhost:9202 --gc-overhead=10 --webhook=https://hooks.slack.com/xxx
+$ argus alert localhost:9202 --leak --interval=60
+$ argus alert --config=alerts.yml
+```
+
+Options:
+- `--gc-overhead=N` — Alert when GC overhead exceeds N%
+- `--leak` — Alert when memory leak is suspected (`argus_gc_leak_suspected >= 1`)
+- `--webhook=URL` — Webhook URL for notifications
+- `--interval=N` — Poll interval in seconds (default: 30)
+- `--config=FILE` — Load rules from a config file
+
+Config file format (`key=value`, no YAML library required):
+
+```
+target=localhost:9202
+interval=30
+rule.gc-overhead.metric=argus_gc_overhead_ratio
+rule.gc-overhead.threshold=0.10
+rule.gc-overhead.severity=warning
+webhook=https://hooks.slack.com/xxx
+```
+
+---
+
+### argus cluster \<subcommand\> \<targets...\>
+
+Discovers multiple Argus-enabled JVM instances and shows aggregated health metrics. Fetches `/prometheus` endpoints in parallel.
+
+```bash
+$ argus cluster scan localhost:9202 localhost:9203 localhost:9204
+$ argus cluster scan --file=targets.txt
+$ argus cluster health localhost:9202 localhost:9203
+```
+
+```
+╭─ Cluster Health ── 3 instances ──────────────────────────────────────────────╮
+│                                                                              │
+│   Instance               Heap%   GC OH  CPU    Leak?   VThreads  Status     │
+│                                                                              │
+│   localhost:9202         42%     0.1%   12%    No      0         ✓ Healthy  │
+│   localhost:9203         78%     3.2%   55%    No      0         ⚠ Warning  │
+│   localhost:9204         N/A     N/A    N/A    N/A     N/A       ✗ DOWN     │
+│                                                                              │
+│   Aggregate              42-78%  0-3%   12-55% 0/3                          │
+│   Worst: localhost:9203 — heap pressure                                      │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Subcommands:
+- `scan` — Discover and display health of multiple JVM instances
+- `health` — Show aggregated health metrics
+
+Options:
+- `--file=FILE` — Read `host:port` targets from file (one per line)
+- `--format=json` — JSON output
+
+---
+
+### argus perfcounter \<pid\>
+
+Displays JVM internal performance counters via `jcmd PerfCounter.print`. Exposes low-level metrics not available through standard MXBeans: GC invocation counts, compiler time, class loading stats, and internal timers.
+
+```bash
+$ argus perfcounter 12345
+$ argus perfcounter 12345 --filter=gc
+$ argus perfcounter 12345 --filter=sun.gc
+```
+
+```
+╭─ Performance Counters ── pid:12345 ── filter:gc ─────────────────────────────╮
+│                                                                              │
+│ sun.gc                                                                       │
+│   collector.0.invocations                  18                                │
+│   collector.0.time                         163,412                           │
+│   collector.1.invocations                  2                                 │
+│   collector.1.time                         215,088                           │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--filter=<pattern>` — Case-insensitive filter on counter name
+- `--format=json` — JSON output grouped by category prefix
+
+---
+
+### argus tui
+
+Launches the interactive terminal UI (k9s-style). Displays a JVM process list first; selecting a process shows the command list for that PID.
+
+```bash
+$ argus tui
+```
+
+No options. Press `q` to quit, arrow keys to navigate, Enter to select.
+
+---
+
+## Memory & GC
+
+### argus buffers \<pid\>
+
+Displays NIO buffer pool statistics (direct and mapped) for a given PID. Essential for diagnosing direct buffer leaks in production.
+
+```bash
+$ argus buffers 39113
+```
+
+```
+ argus buffers
+ Shows NIO direct and mapped buffer pool usage.
+
+╭─ NIO Buffers ── pid:39113 ── source:auto ────────────────────────────────────╮
+│                                                                              │
+│ Pool                       Count      Capacity          Used     Usage       │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ direct                        24           12M           12M     98.5%       │
+│ mapped                         0             0             0        -        │
+│                                                                              │
+│ Total                         24           12M           12M                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--source=jdk|agent` — Force data source
+- `--format=json` — JSON output
+
+---
+
+### argus classleak \<pid\>
+
+Classloader-level metaspace leak attribution. Uses `jcmd VM.classloader_stats` to show class counts and metaspace usage per classloader instance. Supports save/diff for trend detection and live watch mode.
+
+```bash
+$ argus classleak 39113
+$ argus classleak 39113 --top=20
+$ argus classleak 39113 --save=/tmp/cl.json
+$ argus classleak 39113 --diff=/tmp/cl.json
+$ argus classleak 39113 --watch
+```
+
+```
+╭─ Classloader Leak ── pid:39113 ── loaders:16 ── top:10 ──────────────────────╮
+│                                                                              │
+│ Type                                          Classes   ChunkSz   BlockSz   │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ ClassLoaders.AppClassLoader                     8,432      48M       47M    │
+│ ClassLoaders.PlatformClassLoader                1,201       6M        6M    │
+│ <boot class loader>                             1,085       9M        9M    │
+│                                                                              │
+│ Total: 16 loaders, 10,718 classes, 63M metaspace                             │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--top=N` — Show top N classloaders by class count (default: 10)
+- `--save=PATH` — Persist a snapshot to JSON for later diffing
+- `--diff=PATH` — Compare current state against a saved snapshot
+- `--watch[=N]` — Live mode, refresh every N seconds (default: 5). Controls: `q` quit, `r` refresh
+
+---
+
+### argus gclogdiff \<file1\> \<file2\>
+
+Compares two GC log files and shows metric deltas with color-coded improvements (green) and regressions (red). Exits non-zero on major regressions when used with `--format=json`.
+
+```bash
+$ argus gclogdiff before.log after.log
+$ argus gclogdiff before.log after.log --format=json
+```
+
+```
+╭─ GC Log Diff ── before.log ── vs ── after.log ───────────────────────────────╮
+│                                                                              │
+│ Metric                  before.log       after.log       Delta              │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ Throughput %               98.2%            97.1%       -1.1%               │
+│ p50 Pause ms                 12ms             14ms       +2 (+17%)           │
+│ p99 Pause ms                 85ms            210ms     +125 (+147%)          │
+│ Max Pause ms                180ms            450ms     +270 (+150%)          │
+│ Full GC Count                   0                2        +2 (+inf%)         │
+│                                                                              │
+│  ✗ REGRESSION DETECTED  (4 worse, 1 unchanged)                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--format=json` — JSON output; exits `1` if any metric regresses by more than 10%
+
+---
+
+### argus gcrun \<pid\>
+
+Triggers `System.gc()` on the target JVM via `jcmd GC.run`. Optionally triggers finalization via `GC.run_finalization`.
+
+```bash
+$ argus gcrun 39113
+$ argus gcrun 39113 --finalize
+```
+
+```
+╭─ GC Run ── pid:39113 ────────────────────────────────────────────────────────╮
+│                                                                              │
+│   ✔ GC triggered successfully                                                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--finalize` — Also trigger `GC.run_finalization` after GC
+- `--format=json` — JSON output
+
+---
+
+### argus heapanalyze \<file.hprof\>
+
+Offline HPROF analysis — MAT alternative. Parses HPROF binary format in streaming mode (handles multi-GB dumps) and produces a class histogram by size, instance counts, and quick insights.
+
+```bash
+$ argus heapanalyze app.hprof
+$ argus heapanalyze app.hprof --top=30
+$ argus heapanalyze app.hprof --sort=count
+$ argus heapanalyze app.hprof --format=json
+```
+
+```
+ argus heapanalyze
+ Heap dump analysis — instant answers from HPROF binary
+
+╭─ Heap Analysis ── app.hprof ── 1.2G ─────────────────────────────────────────╮
+│                                                                              │
+│ Summary                                                                      │
+│   Objects: 4,832,100  |  Classes: 12,440  |  Shallow size: 312M             │
+│   Instances: 4,801,200 (298M)  |  Arrays: 30,900 (14M)                      │
+│   Strings: 1,204,000  |  ID size: 8 bytes  |  Parsed in 3,210ms             │
+│                                                                              │
+│ Top 20 classes by shallow size                                               │
+│                                                                              │
+│ #    Instances       Shallow Size   %     Class                              │
+│ ─────────────────────────────────────────────────────────────────            │
+│ 1    1,204,112           48M       15.4%  byte[]                             │
+│ 2      980,001           31M        9.9%  java.lang.String                   │
+│                                                                              │
+│ Insights                                                                     │
+│   ✔ No obvious anomalies detected                                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--top=N` — Show top N classes (default: 20)
+- `--sort=size|count` — Sort by shallow size (default) or instance count
+- `--format=json` — JSON output
+
+Exit codes: `0` = success, `2` = parse error.
+
+---
+
+## Profiling & Tracing
+
+### argus benchmark \<pid\> \<class.method\>
+
+Lightweight sampling-based benchmark for a specific method in a running JVM. Uses JFR recording combined with periodic thread dump sampling to estimate throughput, GC overhead, and allocation rate during the measurement window.
+
+```bash
+$ argus benchmark 12345 com.example.Serializer.serialize
+$ argus benchmark 12345 com.example.Serializer.serialize --iterations=1000 --warmup=100
+$ argus benchmark 12345 com.example.Serializer.serialize --duration=60
+```
+
+```
+╭─ Benchmark ── pid:12345 ── 30s ──────────────────────────────────────────────╮
+│                                                                              │
+│   Target               com.example.Serializer.serialize                      │
+│   Duration             30s, samples: 300                                     │
+│                                                                              │
+│   Throughput           ~12,400 ops/s                                         │
+│   (method seen in 41% of samples)                                            │
+│                                                                              │
+│   GC                                                                         │
+│   (GC stats unavailable — JFR recording did not capture GC events)           │
+│                                                                              │
+│   Allocation                                                                 │
+│   (allocation stats unavailable)                                             │
+│                                                                              │
+│   Note: throughput estimate is sampling-based, not a precise benchmark.      │
+│   Note: for accurate micro-benchmarks use JMH.                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--iterations=N` — Approximate iteration count (maps to duration; 10 iters ≈ 1s)
+- `--warmup=N` — Warmup iteration count before measurement (default: 50)
+- `--duration=N` — Measurement duration in seconds (default: 30)
+
+---
+
+### argus ci \[pid\]
+
+CI/CD health gate. Runs doctor checks against a JVM and returns machine-readable output with exit codes for build gating.
+
+```bash
+$ argus ci 12345
+$ argus ci 12345 --fail-on=warning
+$ argus ci 12345 --format=github-annotations
+$ argus ci 12345 --format=json
+$ argus ci 12345 --format=junit
+```
+
+```
+PASS: all JVM health checks passed
+```
+
+Or on failure:
+
+```
+FAIL: 1 critical, 2 warning(s)
+  [CRITICAL] Heap Pressure: heap usage at 94%
+  [WARNING]  GC Overhead: 8.2%
+  [WARNING]  Metaspace: 87%
+```
+
+Options:
+- `--fail-on=critical|warning` — Severity threshold for non-zero exit (default: `critical`)
+- `--format=summary|json|github-annotations|junit` — Output format (default: `summary`)
+
+Exit codes: `0` = pass, `1` = warnings present, `2` = critical findings.
+
+**GitHub Actions integration:**
+
+```yaml
+- name: JVM health gate
+  run: argus ci $PID --format=github-annotations
+```
+
+---
+
+### argus compare \<pid1\> \<pid2\>
+
+Compares two JVM processes side by side, or compares a live JVM against a saved baseline. Shows heap, GC, CPU, threads, loaded classes, and native memory (NMT) deltas.
+
+```bash
+$ argus compare 12345 67890
+$ argus compare 12345 --save baseline.json
+$ argus compare 12345 --load baseline.json
+```
+
+```
+╭─ JVM Comparison ── pid:12345 ── vs ── pid:67890 ─────────────────────────────╮
+│                                                                              │
+│   Metric                  pid:12345        pid:67890       Delta             │
+│   ──────────────────────────────────────────────────────────────────         │
+│   Heap Used                    41M              89M      +48M (+117%)        │
+│   Heap Max                    256M             512M     +256M (+100%)        │
+│   Heap %                     16.0%            17.4%          +1.4%          │
+│                                                                              │
+│   GC Overhead                 0.0%             2.1%          +2.1%          │
+│   Threads                       30               48            +18 (+60%)   │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--save=PATH` — Save a snapshot of the live JVM to JSON
+- `--load=PATH` — Load a saved snapshot to use as the comparison baseline
+- `--format=json` — JSON output
+
+---
+
+### argus events \<pid\>
+
+Displays the VM internal event log (safepoints, deoptimizations, GC phases) via `jcmd VM.events`. Safepoint events are highlighted yellow, deoptimizations red, GC events green.
+
+```bash
+$ argus events 39113
+$ argus events 39113 --format=json
+```
+
+```
+╭─ VM Events ── pid:39113 ────────────────────────────────────────────────────╮
+│                                                                              │
+│ Events (250 events):                                                         │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│   [12.345s] Safepoint "G1CollectForAllocation"                               │
+│   [12.312s] GC(18) Pause Young (Normal) (G1 Evacuation Pause) 12ms          │
+│   [11.001s] Deoptimization: method=com.example.App.process reason=unstable_if│
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--format=json` — JSON output (raw event text in a single field)
+
+---
+
+### argus explain \<term\>
+
+Explains JVM metrics, GC causes, and flags in plain English. Looks up the term in a built-in knowledge base; falls back to fuzzy matching when the exact term is not found.
+
+```bash
+$ argus explain "G1 Evacuation Pause"
+$ argus explain -XX:MaxGCPauseMillis
+$ argus explain throughput
+$ argus explain gc-overhead
+```
+
+```
+╭─ explain ── "gc-overhead" ───────────────────────────────────────────────────╮
+│                                                                              │
+│ gc-overhead                                                                  │
+│                                                                              │
+│ The percentage of elapsed time that the JVM spends performing garbage        │
+│ collection. Calculated as total GC pause time divided by total elapsed       │
+│ time. Values above 5% indicate the application is spending too much time     │
+│ in GC and may need heap tuning. Values above 15% are critical and may        │
+│ trigger OutOfMemoryError: GC overhead limit exceeded.                        │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--format=json` — JSON output with `term`, `found`, and `explanation` fields
+
+---
+
+### argus jfranalyze \<file.jfr\>
+
+Analyzes a JFR recording file and produces a comprehensive summary covering GC, CPU load, hot methods, top allocating classes, lock contention, exceptions, and I/O.
+
+```bash
+$ argus jfranalyze recording.jfr
+$ argus jfranalyze recording.jfr --format=json
+```
+
+```
+╭─ JFR Analysis ── file:recording.jfr ────────────────────────────────────────╮
+│                                                                              │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│   Overview                                                                   │
+│                                                                              │
+│   Duration           2m 34s                                                  │
+│   Total Events       1,482,330                                               │
+│                                                                              │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│   Garbage Collection                                                         │
+│                                                                              │
+│   GC Events          42                                                      │
+│   Total Pause        830 ms                                                  │
+│   Max Pause          210 ms                                                  │
+│   GC Overhead        0.54%                                                   │
+│                                                                              │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│   Hot Methods (CPU Samples)                                                  │
+│                                                                              │
+│     Samples       %   Method                                                 │
+│       4,210   38.1%   com.example.App.handleRequest                          │
+│       1,820   16.5%   com.example.db.Query.execute                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--format=json` — JSON output with GC, CPU, hot methods, allocations, contention, and I/O sections
+
+---
+
+### argus slowlog \<pid\>
+
+Real-time slow method detection via JFR streaming. Streams method-level events (lock contention, file I/O, socket I/O, thread sleep) that exceed a configurable threshold duration. Runs until Ctrl-C or `--duration` expires.
+
+```bash
+$ argus slowlog 12345
+$ argus slowlog 12345 --threshold=200
+$ argus slowlog 12345 --filter=com.example.*
+$ argus slowlog 12345 --duration=60
+```
+
+```
+  argus slowlog
+  Monitoring PID 12345 | threshold: 100ms | filter: com.example.*
+  Press Ctrl+C to stop
+
+  [14:32:01]  com.example.db.Query.execute                        320ms  ⚠ SQL?
+  [14:32:03]  com.example.http.Client.send                        145ms  ⚠ Network
+  [14:32:07]  com.example.OrderService.processPayment             512ms  ⚠ Lock
+```
+
+Options:
+- `--threshold=N` — Minimum duration in ms to report (default: 100)
+- `--filter=PATTERN` — Glob pattern to filter by class name (e.g. `com.example.*`)
+- `--duration=N` — Stop after N seconds (default: run until Ctrl-C)
+- `--format=json` — JSON output (one event per line)
+
+---
+
+### argus trace \<pid\> \<class.method\>
+
+Traces method execution in a running JVM by collecting rapid thread dumps (10 samples/sec) for the specified duration, then aggregates stack frames into a call tree. Shows estimated time-on-CPU and call frequency per frame.
+
+```bash
+$ argus trace 12345 com.example.OrderService.createOrder
+$ argus trace 12345 com.example.OrderService.createOrder --duration=20
+```
+
+```
+╭─ Trace ── pid:12345 ── 10s ── 100 samples ───────────────────────────────────╮
+│                                                                              │
+│   com.example.OrderService.createOrder                       840.0ms (84%)  │
+│     ├── com.example.db.OrderRepository.save            640.0ms (64%)        │
+│     │   └── com.example.db.JdbcTemplate.execute        580.0ms (58%)        │
+│     └── com.example.PaymentService.charge              200.0ms (20%)        │
+│                                                                              │
+│   100 samples, 84 hits for com.example.OrderService.createOrder             │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--duration=N` — Duration in seconds (default: 10)
+
+---
+
+## Runtime & JVM Internals
+
+### argus compilerqueue \<pid\>
+
+Shows the current JIT compilation queue via `jcmd Compiler.queue`. C2 methods are highlighted red, C1 methods yellow.
+
+```bash
+$ argus compilerqueue 39113
+$ argus compilerqueue 39113 --format=json
+```
+
+```
+╭─ JIT Compiler Queue ── pid:39113 ────────────────────────────────────────────╮
+│                                                                              │
+│ Contents of C2 compile queue:                                                │
+│   com.example.App.processRequest (3)                                         │
+│   com.example.db.Query.execute (3)                                           │
+│                                                                              │
+│ Contents of C1 compile queue:                                                │
+│   java.util.HashMap.getNode (1)                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--format=json` — JSON output with `queue` array of raw entry strings
+
+---
+
+### argus logger \<pid\>
+
+Views and changes log levels at runtime. Lists all loggers (from JVM unified logging and `java.util.logging`) and optionally sets a log level without restart.
+
+```bash
+$ argus logger 39113
+$ argus logger 39113 --filter=gc
+$ argus logger 39113 --name=gc* --level=debug
+```
+
+```
+╭─ Loggers ── pid:39113 ─────────────────────────────────────────────────────╮
+│                                                                              │
+│ Logger                                  Level        Source                  │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│ ROOT                                    INFO         jul                     │
+│ com.example                             DEBUG        jul                     │
+│ gc                                      info         vm-log                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--filter=<pattern>` — Case-insensitive filter on logger name
+- `--name=<name>` — Logger name to change (supports `*` glob via VM.log)
+- `--level=<level>` — New log level (`trace`, `debug`, `info`, `warning`, `error`, `off`)
+- `--format=json` — JSON output
+
+---
+
+### argus mbean \<pid\>
+
+MBean browser — inspect JVM MBeans via JMX attach. Connects to the local JVM process, then browses domains, lists beans, and reads attributes.
+
+```bash
+$ argus mbean 12345
+$ argus mbean 12345 --list
+$ argus mbean 12345 --domain=java.lang
+$ argus mbean 12345 --name="java.lang:type=Memory"
+$ argus mbean 12345 --name="java.lang:type=Memory" --attr=HeapMemoryUsage
+```
+
+```
+╭─ MBean Domains ── 8 domains ────────────────────────────────────────────────╮
+│                                                                              │
+│   8 total MBeans                                                             │
+│                                                                              │
+│   com.sun.management  (3 beans)                                              │
+│   java.lang           (24 beans)                                             │
+│   java.nio            (2 beans)                                              │
+│   java.util.logging   (1 beans)                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--list` — List all MBean names
+- `--domain=<name>` — List all MBeans in a domain
+- `--name=<objectName>` — Show all attributes of a specific MBean
+- `--attr=<name>` — Show only the named attribute
+- `--format=json` — JSON output
+
+Note: requires JMX attach; automatically starts the local management agent if not running. If attach fails, run `argus jmx <pid> start-local` first.
+
+---
+
+### argus sc \<pid\> \<pattern\>
+
+Searches loaded classes by pattern. Useful for diagnosing classpath conflicts and finding duplicate class loading.
+
+```bash
+$ argus sc 12345 "*.UserService"
+$ argus sc 12345 "org.slf4j.*"
+$ argus sc 12345 "*.UserService" --limit=100
+```
+
+```
+╭─ Search Classes ── pid:12345 ── pattern:*.UserService ───────────────────────╮
+│                                                                              │
+│     #    Instances         Bytes  Class                                      │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│     1          1            480B  com.example.UserService                    │
+│     2          1            480B  com.example.legacy.UserService             │
+│                                                                              │
+│ 2 match(es)                                                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--limit=N` — Maximum results to display (default: 50)
+- `--source=jdk|agent` — Force data source
+- `--format=json` — JSON output
+
+---
+
+### argus spring \<pid\>
+
+Inspects Spring Boot applications via JMX MBeans. Auto-detects Spring presence and shows application name, version, active profiles, health status, HikariCP connection pool stats, and Tomcat thread pool metrics.
+
+```bash
+$ argus spring 12345
+$ argus spring 12345 --beans
+$ argus spring 12345 --datasource
+```
+
+```
+╭─ Spring Boot ── pid:12345 ── my-service v3.2.1 ──────────────────────────────╮
+│                                                                              │
+│   Application          my-service                                            │
+│   Version              3.2.1                                                 │
+│   Profiles             [prod]                                                │
+│   Health               UP                                                    │
+│                                                                              │
+│   Datasource (HikariCP)                                                      │
+│   Active connections   8 / 20 (40%)                                          │
+│   Idle connections     12                                                    │
+│   Pending threads      0                                                     │
+│                                                                              │
+│   Tomcat                                                                     │
+│   Active threads       5 / 200                                               │
+│   Request count        128,432                                               │
+│   Error count          14                                                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--beans` — Show Spring context bean count and context list
+- `--datasource` — Show detailed HikariCP connection pool stats
+
+Note: requires Spring Boot JMX MBeans to be enabled. Automatically starts the local JMX management agent if not running.
+
+---
+
+## Threads
+
+### argus threaddump \<pid\>
+
+Captures and displays a full thread dump equivalent to `jstack`, with state grouping, lock analysis, and structured output. Shows per-thread stack traces, held/waiting lock addresses, and a state distribution summary.
+
+```bash
+$ argus threaddump 39113
+$ argus threaddump 39113 --raw
+$ argus threaddump 39113 --depth=5
+$ argus threaddump 39113 --format=json
+```
+
+```
+╭─ Thread Dump ── pid:39113 ── source:auto ────────────────────────────────────╮
+│                                                                              │
+│ Total: 30  (daemon: 18)                                                      │
+│                                                                              │
+│   RUNNABLE           11                                                      │
+│   WAITING            14                                                      │
+│   TIMED_WAITING       5                                                      │
+│                                                                              │
+│ ─────────────────────────────────────────────────────────────────────────── │
+│                                                                              │
+│   main  [RUNNABLE]                                                           │
+│     tid=0x1  nid=0x1  prio=5                                                 │
+│       at com.example.App.main(App.java:42)                                   │
+│       at java.lang.Thread.run(Thread.java:833)                               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+Options:
+- `--raw` — Print the raw jstack/jcmd output without formatting
+- `--depth=N` — Maximum stack frames per thread (default: 20)
+- `--source=jdk|agent` — Force data source
+- `--format=json` — JSON output with full thread array
