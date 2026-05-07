@@ -17,6 +17,7 @@ public final class DoctorEngine {
 
     private static final List<HealthRule> RULES = List.of(
             new GcOverheadRule(),
+            new MaxPauseRule(),
             new HeapPressureRule(),
             new MetaspaceRule(),
             new DirectBufferRule(),
@@ -27,15 +28,34 @@ public final class DoctorEngine {
     );
 
     /**
-     * Run all health checks against the given snapshot.
+     * Run all health checks against the given snapshot using default thresholds.
      *
      * @param snapshot JVM metrics snapshot
      * @return sorted list of findings (CRITICAL first)
      */
     public static List<Finding> diagnose(JvmSnapshot snapshot) {
+        return diagnose(snapshot, MaxPauseRule.DEFAULT_WARN_MS);
+    }
+
+    /**
+     * Run all health checks against the given snapshot, overriding the MaxPauseRule
+     * warning threshold (critical = warning × 4).
+     *
+     * @param snapshot         JVM metrics snapshot
+     * @param pauseThresholdMs custom warning threshold in ms for max-pause detection
+     * @return sorted list of findings (CRITICAL first)
+     */
+    public static List<Finding> diagnose(JvmSnapshot snapshot, long pauseThresholdMs) {
+        List<HealthRule> rules = new ArrayList<>(RULES);
+        if (pauseThresholdMs != MaxPauseRule.DEFAULT_WARN_MS) {
+            rules.replaceAll(r -> r instanceof MaxPauseRule
+                    ? new MaxPauseRule(pauseThresholdMs, pauseThresholdMs * 4)
+                    : r);
+        }
+
         List<Finding> allFindings = new ArrayList<>();
 
-        for (HealthRule rule : RULES) {
+        for (HealthRule rule : rules) {
             try {
                 allFindings.addAll(rule.evaluate(snapshot));
             } catch (Exception e) {

@@ -50,12 +50,20 @@ public final class JvmSnapshotCollector {
 
         List<JvmSnapshot.GcInfo> gcInfos = new ArrayList<>();
         long totalGcCount = 0, totalGcTime = 0;
+        long maxRecentPauseMs = 0;
         String rawAlgorithm = "";
         for (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
             gcInfos.add(new JvmSnapshot.GcInfo(gc.getName(), gc.getCollectionCount(), gc.getCollectionTime()));
             totalGcCount += gc.getCollectionCount();
             totalGcTime += gc.getCollectionTime();
             if (rawAlgorithm.isEmpty()) rawAlgorithm = gc.getName();
+            // Use com.sun.management extension to get duration of the last individual GC pause.
+            if (gc instanceof com.sun.management.GarbageCollectorMXBean sunGc) {
+                com.sun.management.GcInfo lastGcInfo = sunGc.getLastGcInfo();
+                if (lastGcInfo != null) {
+                    maxRecentPauseMs = Math.max(maxRecentPauseMs, lastGcInfo.getDuration());
+                }
+            }
         }
         // Doctor rules expect canonical names (G1 / ZGC / Parallel / Serial / Shenandoah).
         // MXBean names are descriptive ("G1 Young Generation"), so normalise here so local
@@ -95,7 +103,8 @@ public final class JvmSnapshotCollector {
                 cl.getLoadedClassCount(), cl.getTotalLoadedClassCount(), cl.getUnloadedClassCount(),
                 mem.getObjectPendingFinalizationCount(),
                 rt.getVmName(), rt.getVmVersion(), gcAlgorithm,
-                List.copyOf(rt.getInputArguments())
+                List.copyOf(rt.getInputArguments()),
+                maxRecentPauseMs
         );
     }
 
@@ -264,6 +273,17 @@ public final class JvmSnapshotCollector {
             }
         }
 
+        // Remote path: individual pause data is not available via jcmd/jstat.
+        // Best heuristic: take the largest per-collector average (totalTime/count).
+        // This is explicitly noted in finding detail when this path is taken.
+        long maxRecentPauseMs = 0;
+        for (JvmSnapshot.GcInfo info : gcInfos) {
+            if (info.count() > 0) {
+                long avgPause = info.timeMs() / info.count();
+                maxRecentPauseMs = Math.max(maxRecentPauseMs, avgPause);
+            }
+        }
+
         return new JvmSnapshot(
                 heapUsed, heapMax, heapCommitted, nonHeapUsed,
                 Map.copyOf(pools),
@@ -274,7 +294,8 @@ public final class JvmSnapshotCollector {
                 List.of(),
                 0, 0, 0, 0,
                 vmName, vmVersion, gcAlgorithm,
-                List.copyOf(vmFlags)
+                List.copyOf(vmFlags),
+                maxRecentPauseMs
         );
     }
 

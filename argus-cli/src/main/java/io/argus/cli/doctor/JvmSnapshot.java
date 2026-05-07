@@ -55,6 +55,9 @@ public final class JvmSnapshot {
     private final String gcAlgorithm;
     private final List<String> vmFlags;
 
+    // GC pause — populated from MXBean on local path; heuristic on remote path; 0 if unknown.
+    private final long maxRecentPauseMs;
+
     public JvmSnapshot(long heapUsed, long heapMax, long heapCommitted, long nonHeapUsed,
                        Map<String, PoolInfo> memoryPools,
                        List<GcInfo> collectors, long totalGcCount, long totalGcTimeMs, long uptimeMs,
@@ -65,6 +68,26 @@ public final class JvmSnapshot {
                        int loadedClassCount, long totalLoadedClassCount, long unloadedClassCount,
                        int pendingFinalization,
                        String vmName, String vmVersion, String gcAlgorithm, List<String> vmFlags) {
+        this(heapUsed, heapMax, heapCommitted, nonHeapUsed, memoryPools,
+                collectors, totalGcCount, totalGcTimeMs, uptimeMs,
+                processCpuLoad, systemCpuLoad, availableProcessors,
+                threadCount, daemonThreadCount, peakThreadCount,
+                threadStates, deadlockedThreads, bufferPools,
+                loadedClassCount, totalLoadedClassCount, unloadedClassCount,
+                pendingFinalization, vmName, vmVersion, gcAlgorithm, vmFlags, 0L);
+    }
+
+    public JvmSnapshot(long heapUsed, long heapMax, long heapCommitted, long nonHeapUsed,
+                       Map<String, PoolInfo> memoryPools,
+                       List<GcInfo> collectors, long totalGcCount, long totalGcTimeMs, long uptimeMs,
+                       double processCpuLoad, double systemCpuLoad, int availableProcessors,
+                       int threadCount, int daemonThreadCount, int peakThreadCount,
+                       Map<String, Integer> threadStates, int deadlockedThreads,
+                       List<BufferInfo> bufferPools,
+                       int loadedClassCount, long totalLoadedClassCount, long unloadedClassCount,
+                       int pendingFinalization,
+                       String vmName, String vmVersion, String gcAlgorithm, List<String> vmFlags,
+                       long maxRecentPauseMs) {
         this.heapUsed = heapUsed;
         this.heapMax = heapMax;
         this.heapCommitted = heapCommitted;
@@ -91,6 +114,7 @@ public final class JvmSnapshot {
         this.vmVersion = vmVersion;
         this.gcAlgorithm = gcAlgorithm;
         this.vmFlags = vmFlags;
+        this.maxRecentPauseMs = maxRecentPauseMs;
     }
 
     // Accessors
@@ -125,6 +149,8 @@ public final class JvmSnapshot {
     public String vmVersion() { return vmVersion; }
     public String gcAlgorithm() { return gcAlgorithm; }
     public List<String> vmFlags() { return vmFlags; }
+    /** Most recent STW pause in ms. 0 means unknown (remote path or no GC yet). */
+    public long maxRecentPauseMs() { return maxRecentPauseMs; }
 
     public static final class PoolInfo {
         private final String name;

@@ -54,6 +54,7 @@ public final class NmtCommand implements Command {
         boolean useColor = config.color();
         Path saveTo = null;
         Path diffWith = null;
+        int watchInterval = -1; // -1 means not in watch mode
 
         for (int i = 1; i < args.length; i++) {
             String arg = args[i];
@@ -65,12 +66,27 @@ public final class NmtCommand implements Command {
                 saveTo = Path.of(arg.substring("--save=".length()));
             } else if (arg.startsWith("--diff=")) {
                 diffWith = Path.of(arg.substring("--diff=".length()));
+            } else if (arg.equals("--watch")) {
+                watchInterval = 2;
+            } else if (arg.startsWith("--watch=")) {
+                try {
+                    watchInterval = Integer.parseInt(arg.substring("--watch=".length()));
+                    if (watchInterval < 1) watchInterval = 2;
+                } catch (NumberFormatException ignored) {
+                    watchInterval = 2;
+                }
             }
         }
 
         NmtProvider provider = registry.findNmtProvider(pid, sourceOverride);
         if (provider == null) {
             System.err.println(messages.get("error.provider.none", pid));
+            return;
+        }
+
+        // Watch mode — live delta loop, short-circuits everything else
+        if (watchInterval > 0) {
+            runWatch(pid, provider, watchInterval, useColor, messages);
             return;
         }
 
@@ -105,6 +121,181 @@ public final class NmtCommand implements Command {
             System.out.print(RichRenderer.brandedHeader(useColor, "nmt", messages.get("desc.nmt")));
             printTable(result, pid, provider.source(), useColor, messages);
         }
+    }
+
+    private static final String CLEAR_SCREEN = "\033[2J\033[H";
+    private static final String HIDE_CURSOR = "\033[?25l";
+    private static final String SHOW_CURSOR = "\033[?25h";
+
+    private static void runWatch(long pid, NmtProvider provider, int intervalSec,
+                                 boolean useColor, Messages messages) {
+        boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
+
+        Thread shutdownHook = new Thread(() -> {
+            System.out.print(SHOW_CURSOR);
+            if (!isWindows) setRawMode(false);
+            System.out.println();
+        }, "argus-nmt-watch-cleanup");
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+        System.out.print(HIDE_CURSOR);
+
+        try {
+            if (!isWindows) setRawMode(true);
+
+            // Initial snapshot
+            NmtResult previous = provider.getNativeMemory(pid);
+            long previousAtSec = System.currentTimeMillis() / 1000L;
+
+            // Check NMT enabled
+            if (previous.totalReservedKB() == 0 && previous.categories().isEmpty()) {
+                System.out.print(SHOW_CURSOR);
+                if (!isWindows) setRawMode(false);
+                System.err.println(AnsiStyle.style(useColor, AnsiStyle.YELLOW)
+                        + "NMT not enabled on this JVM."
+                        + AnsiStyle.style(useColor, AnsiStyle.RESET));
+                System.err.println(AnsiStyle.style(useColor, AnsiStyle.DIM)
+                        + "Start the JVM with: -XX:NativeMemoryTracking=summary"
+                        + AnsiStyle.style(useColor, AnsiStyle.RESET));
+                System.exit(1);
+            }
+
+            // Render initial snapshot with zero deltas
+            StringBuilder out = new StringBuilder();
+            out.append(CLEAR_SCREEN);
+            printWatchFrame(out, pid, provider.source(), previous, previous, 0, intervalSec, useColor, messages);
+            System.out.print(out);
+            System.out.flush();
+
+            while (true) {
+                // Wait intervalSec with key polling
+                long deadline = System.currentTimeMillis() + intervalSec * 1000L;
+                while (System.currentTimeMillis() < deadline) {
+                    if (System.in.available() > 0) {
+                        int key = System.in.read();
+                        if (key == 'q' || key == 'Q' || key == 3) {
+                            return;
+                        }
+                        if (key == 'r' || key == 'R') break;
+                    }
+                    Thread.sleep(100);
+                }
+
+                NmtResult current = provider.getNativeMemory(pid);
+                long currentAtSec = System.currentTimeMillis() / 1000L;
+                long elapsedSec = Math.max(1, currentAtSec - previousAtSec);
+
+                StringBuilder frame = new StringBuilder();
+                frame.append(CLEAR_SCREEN);
+                printWatchFrame(frame, pid, provider.source(), previous, current, elapsedSec, intervalSec, useColor, messages);
+                System.out.print(frame);
+                System.out.flush();
+
+                previous = current;
+                previousAtSec = currentAtSec;
+            }
+        } catch (InterruptedException | IOException e) {
+            // Normal exit
+        } finally {
+            System.out.print(SHOW_CURSOR);
+            if (!isWindows) setRawMode(false);
+            System.out.println();
+            try { Runtime.getRuntime().removeShutdownHook(shutdownHook); }
+            catch (IllegalStateException ignored) {}
+        }
+    }
+
+    private static void printWatchFrame(StringBuilder sb, long pid, String source,
+                                        NmtResult previous, NmtResult current,
+                                        long elapsedSec, int intervalSec,
+                                        boolean useColor, Messages messages) {
+        String bold  = AnsiStyle.style(useColor, AnsiStyle.BOLD);
+        String reset = AnsiStyle.style(useColor, AnsiStyle.RESET);
+        String dim   = AnsiStyle.style(useColor, AnsiStyle.DIM);
+        String cyan  = AnsiStyle.style(useColor, AnsiStyle.CYAN);
+        String yellow = AnsiStyle.style(useColor, AnsiStyle.YELLOW, AnsiStyle.BOLD);
+        String green  = AnsiStyle.style(useColor, AnsiStyle.GREEN);
+
+        // Header
+        sb.append(" ").append(bold).append(cyan).append("argus nmt --watch").append(reset)
+          .append(dim).append("  pid:").append(pid)
+          .append("  source:").append(source)
+          .append("  ").append(intervalSec).append("s refresh")
+          .append("  q:quit").append(reset).append("\n");
+        sb.append(" ").append("─".repeat(72)).append("\n");
+
+        // Total row
+        long totalDeltaKB = current.totalCommittedKB() - previous.totalCommittedKB();
+        String totalDeltaColor = totalDeltaKB > 0 ? yellow : green;
+        sb.append(bold)
+          .append(RichRenderer.padRight("Total committed", 22)).append(reset)
+          .append(RichRenderer.padLeft(RichRenderer.formatKB(previous.totalCommittedKB()), 12))
+          .append(dim).append("  →  ").append(reset)
+          .append(RichRenderer.padLeft(RichRenderer.formatKB(current.totalCommittedKB()), 12))
+          .append("  ")
+          .append(totalDeltaColor).append(RichRenderer.padLeft(signed(totalDeltaKB), 12)).append(reset)
+          .append(dim).append("  ").append(perSec(totalDeltaKB, elapsedSec)).append(reset)
+          .append("\n");
+        sb.append(" ").append("─".repeat(72)).append("\n");
+
+        // Column header
+        sb.append(bold)
+          .append(RichRenderer.padRight("Category", 22))
+          .append(RichRenderer.padLeft("Prev", 12)).append("  ")
+          .append(RichRenderer.padLeft("Now", 12)).append("  ")
+          .append(RichRenderer.padLeft("Δ committed", 14)).append("  ")
+          .append("  KB/s").append(reset).append("\n");
+        sb.append(" ").append("─".repeat(72)).append("\n");
+
+        // Per-category rows — all shown; zero-delta rows are dimmed
+        List<NmtBaseline.DiffRow> rows = NmtBaseline.diff(
+                new NmtBaseline(previousAtSec(elapsedSec), previous), current);
+        rows.sort((a, b) -> Long.compare(Math.abs(b.committedDeltaKB()), Math.abs(a.committedDeltaKB())));
+
+        for (NmtBaseline.DiffRow row : rows) {
+            long delta = row.committedDeltaKB();
+            boolean zeroDelta = delta == 0;
+            String nameStyle = zeroDelta ? dim : cyan;
+            String deltaStyle = zeroDelta ? dim
+                    : delta > 0 ? AnsiStyle.style(useColor, AnsiStyle.YELLOW)
+                    : green;
+
+            sb.append(nameStyle)
+              .append(RichRenderer.padRight(RichRenderer.truncate(row.name(), 20), 22)).append(reset)
+              .append(zeroDelta ? dim : "")
+              .append(RichRenderer.padLeft(RichRenderer.formatKB(row.baseCommittedKB()), 12)).append("  ")
+              .append(RichRenderer.padLeft(RichRenderer.formatKB(row.curCommittedKB()), 12)).append(reset)
+              .append("  ")
+              .append(deltaStyle).append(RichRenderer.padLeft(signed(delta), 14)).append(reset)
+              .append("  ")
+              .append(zeroDelta ? dim : deltaStyle)
+              .append(RichRenderer.padLeft(perSec(delta, elapsedSec), 8)).append(reset)
+              .append("\n");
+        }
+
+        sb.append(" ").append("─".repeat(72)).append("\n");
+        sb.append(dim).append(" q:quit  r:force refresh").append(reset).append("\n");
+    }
+
+    /** Returns the epoch-sec of the previous snapshot, derived from elapsed. */
+    private static long previousAtSec(long elapsedSec) {
+        return System.currentTimeMillis() / 1000L - Math.max(1, elapsedSec);
+    }
+
+    private static String perSec(long deltaKB, long elapsedSec) {
+        if (elapsedSec <= 0) return "?";
+        double rate = deltaKB / (double) elapsedSec;
+        return String.format("%+.1f KB/s", rate);
+    }
+
+    private static void setRawMode(boolean raw) {
+        try {
+            String sttyCmd = raw ? "stty raw -echo < /dev/tty" : "stty cooked echo < /dev/tty";
+            new ProcessBuilder("/bin/sh", "-c", sttyCmd)
+                    .inheritIO()
+                    .start()
+                    .waitFor();
+        } catch (Exception ignored) {}
     }
 
     private static void printDiff(NmtBaseline baseline, NmtResult current,

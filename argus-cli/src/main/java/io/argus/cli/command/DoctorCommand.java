@@ -3,6 +3,7 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.doctor.*;
+import io.argus.cli.doctor.rules.MaxPauseRule;
 import io.argus.cli.export.HtmlExporter;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
@@ -46,17 +47,21 @@ public final class DoctorCommand implements Command {
         boolean useColor = config.color();
         String exportHtml = null;
         long pid = 0; // 0 = local
+        long pauseThresholdMs = MaxPauseRule.DEFAULT_WARN_MS;
 
         for (String arg : args) {
             if (arg.startsWith("--export=")) exportHtml = arg.substring(9);
             else if (arg.equals("--format=json")) json = true;
-            else if (!arg.startsWith("--")) {
+            else if (arg.startsWith("--pause-threshold-ms=")) {
+                try { pauseThresholdMs = Long.parseLong(arg.substring(21)); }
+                catch (NumberFormatException ignored) {}
+            } else if (!arg.startsWith("--")) {
                 try { pid = Long.parseLong(arg); } catch (NumberFormatException ignored) {}
             }
         }
 
         JvmSnapshot snapshot = JvmSnapshotCollector.collect(pid);
-        List<Finding> findings = DoctorEngine.diagnose(snapshot);
+        List<Finding> findings = DoctorEngine.diagnose(snapshot, pauseThresholdMs);
         List<String> suggestedFlags = DoctorEngine.collectSuggestedFlags(findings);
         int exitCode = DoctorEngine.exitCode(findings);
 
