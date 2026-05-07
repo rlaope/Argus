@@ -11,8 +11,8 @@
   <a href="https://github.com/rlaope/Argus/stargazers"><img src="https://img.shields.io/github/stars/rlaope/Argus" alt="GitHub stars"></a>
 </p>
 
-> **One CLI for all JVM diagnostics.** 55 commands, zero agent required, works on Java 11+.
-> GC analysis, health diagnosis, flame graphs, interactive TUI — the free alternative to GCEasy + jcmd + VisualVM combined.
+> **One CLI for all JVM diagnostics.** 65 commands, zero agent required, works on Java 11+.
+> GC analysis, health diagnosis, flame graphs, async-profiler integration, CI/CD profile-gate — the free alternative to GCEasy + jcmd + VisualVM combined. **v1.1.0**: production-grade CPU profiling, ASCII flame TUI, profile-gate CI command, Korean locale auto-detection.
 
 ---
 
@@ -305,7 +305,7 @@ java -javaagent:~/.argus/argus-agent.jar \
 ```
 
 ```
-[Argus] JVM Observability Platform v1.0.0
+[Argus] JVM Observability Platform v1.1.0
 [Argus] JFR streaming started
 [Argus] Dashboard: http://localhost:9202/
 ```
@@ -367,13 +367,13 @@ Zero-configuration auto-setup for Spring Boot 3.2+ applications.
 <dependency>
   <groupId>io.argus</groupId>
   <artifactId>argus-spring-boot-starter</artifactId>
-  <version>1.0.0</version>
+  <version>1.1.0</version>
 </dependency>
 ```
 
 **Gradle:**
 ```groovy
-implementation 'io.argus:argus-spring-boot-starter:1.0.0'
+implementation 'io.argus:argus-spring-boot-starter:1.1.0'
 ```
 
 ```properties

@@ -561,6 +561,29 @@ argus-server/handler/
 
 Replaced 150-line if/else chain in ArgusChannelHandler.
 
+## v1.1.0 Architecture Additions
+
+### async-profiler integration depth (`argus profile`, `argus flame`)
+- ProfileProvider extended with start/stop/dump/status session methods plus an AsProfOptions value object for advanced flag passthrough (--cstack, --interval, --jstackdepth, --threads, --alluser, --allkernel, --alloc, --live, --include, --exclude).
+- New AsProfPermissionCheck performs Linux pre-flight (perf_event_paranoid, kptr_restrict, ptrace_scope, container detection) before invoking asprof.
+- async-profiler version pin moved 3.0 → 4.4. Real SHA-256 verification for linux-x64 / linux-arm64 / macOS. Linux musl is upstream-unsupported post-2.9, retained as fail-closed token.
+- ProfileSnapshot model: append-only JSON snapshot with diff() returning per-method DiffEntry list. Foundation for --save / --diff / profile-gate.
+- New AsciiFlameRenderer renders top-N hot stacks inline in the terminal as `--output-format=ascii`.
+- New event/format surface: PMU + hardware-counter events (cycles, cache-misses, ...) and method-trace events (`ClassName.methodName`) accepted by a relaxed validator. Output formats added: flat, traces, otlp.
+
+### New commands
+- `argus profile-gate <before> <after>`: CI/CD threshold gate (exit 0/1/2, --format=json, --annotate=github).
+- `argus profile continuous <pid>`: start + periodic dump + diff loop.
+- `argus profile <pid1>,<pid2>` / `--pids=...`: parallel fan-out across multiple JVMs.
+
+### Cross-command integration
+- DoctorCommand consumes ProfileSnapshot (via `--profile`) and runs five rules in `io.argus.cli.doctor.ProfileRules`.
+- SuggestCommand consumes ProfileSnapshot and emits flag recommendations via six rules in `io.argus.cli.suggest.ProfileSuggestions`.
+
+### i18n / locale resolution
+- `CliConfig.resolveDefaultLang()` reads `$LC_ALL` then `$LANG`, falling back to `en`. The existing `--lang=` CLI flag overrides.
+- 19 message keys per locale migrated from MessageFormat-style `{0}` to printf `%s` to match `Messages.get`'s actual implementation.
+
 ## Next Steps
 
 - [Getting Started](getting-started.md) - Installation guide
