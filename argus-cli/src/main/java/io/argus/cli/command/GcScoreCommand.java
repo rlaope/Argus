@@ -9,6 +9,7 @@ import io.argus.cli.gclog.GcLogParser;
 import io.argus.cli.gcscore.AxisScore;
 import io.argus.cli.gcscore.GcScoreCalculator;
 import io.argus.cli.gcscore.GcScoreResult;
+import io.argus.cli.gcwhy.GcWhyJfrCollector;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
@@ -20,13 +21,19 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Produces a one-page GC Health Score Card from a GC log file.
+ * Produces a one-page GC Health Score Card from a GC log file or a live JVM PID.
  *
- * <p>Usage: {@code argus gcscore <gc-log-file> [--format=json]}
+ * <p>File form: {@code argus gcscore <gc-log-file> [--format=json]}
+ * <p>Live form:  {@code argus gcscore <pid> [--duration=30] [--format=json]}
+ *
+ * <p>The first argument is treated as a PID when it consists entirely of digits
+ * (no file-separator characters). Otherwise it is treated as a GC log file path.
  */
 public final class GcScoreCommand implements Command {
 
     private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
+    private static final int DEFAULT_DURATION_SEC = 30;
+    private static final String JFR_RECORDING_NAME = "gcscore-argus";
 
     @Override public String name() { return "gcscore"; }
     @Override public CommandGroup group() { return CommandGroup.MEMORY; }
@@ -41,19 +48,53 @@ public final class GcScoreCommand implements Command {
     @Override
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
         if (args.length == 0) {
-            System.err.println("Usage: argus gcscore <gc-log-file> [--format=json]");
+            System.err.println("Usage: argus gcscore <gc-log-file|pid> [--duration=30] [--format=json]");
             return;
         }
 
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
+        int durationSec = DEFAULT_DURATION_SEC;
+
         for (int i = 1; i < args.length; i++) {
-            if (args[i].equals("--format=json")) json = true;
+            String arg = args[i];
+            if (arg.equals("--format=json")) {
+                json = true;
+            } else if (arg.startsWith("--duration=")) {
+                try { durationSec = Integer.parseInt(arg.substring(11)); } catch (NumberFormatException ignored) {}
+            }
         }
 
-        Path logFile = Path.of(args[0]);
+        String firstArg = args[0];
+        if (isPid(firstArg)) {
+            long pid = Long.parseLong(firstArg);
+            executeLive(pid, durationSec, json, useColor, messages);
+        } else {
+            executeFile(firstArg, json, useColor, messages);
+        }
+    }
+
+    // ── PID detection ────────────────────────────────────────────────────────
+
+    /**
+     * Returns true when the argument is a pure numeric token with no file-separator
+     * characters — i.e. it looks like a PID, not a path.
+     */
+    private static boolean isPid(String arg) {
+        if (arg == null || arg.isEmpty()) return false;
+        if (arg.contains("/") || arg.contains("\\") || arg.contains(".")) return false;
+        for (int i = 0; i < arg.length(); i++) {
+            if (!Character.isDigit(arg.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    // ── File form ────────────────────────────────────────────────────────────
+
+    private void executeFile(String filePath, boolean json, boolean useColor, Messages messages) {
+        Path logFile = Path.of(filePath);
         if (!Files.exists(logFile)) {
-            System.err.println("File not found: " + logFile);
+            System.err.println("gcscore expects a live PID or a path to a GC log file. Got: " + filePath);
             return;
         }
 
@@ -69,6 +110,106 @@ public final class GcScoreCommand implements Command {
             return;
         }
 
+        scoreAndRender(events, json, useColor, messages, logFile.getFileName().toString());
+    }
+
+    // ── Live JFR form ────────────────────────────────────────────────────────
+
+    private void executeLive(long pid, int durationSec, boolean json, boolean useColor, Messages messages) {
+        Path tmpFile = null;
+        try {
+            tmpFile = Files.createTempFile("argus-gcscore-" + pid + "-", ".jfr");
+            String jfrPath = tmpFile.toAbsolutePath().toString();
+
+            System.out.println("  " + messages.get("gcscore.live.capturing",
+                    String.valueOf(pid), String.valueOf(durationSec)));
+
+            String startOut = runJcmd(pid, "JFR.start",
+                    "name=" + JFR_RECORDING_NAME,
+                    "settings=default");
+            if (startOut == null) {
+                System.err.println("Failed to start JFR recording. Ensure jcmd is available and the JVM is accessible.");
+                return;
+            }
+            if (startOut.contains("Could not") || startOut.toLowerCase().contains("error")) {
+                System.err.println("JFR.start failed: " + startOut.trim());
+                return;
+            }
+
+            try {
+                Thread.sleep((long) durationSec * 1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.err.println("Interrupted while waiting for JFR recording.");
+                return;
+            }
+
+            String dumpOut = runJcmd(pid, "JFR.dump",
+                    "name=" + JFR_RECORDING_NAME,
+                    "filename=" + jfrPath);
+            if (dumpOut == null || dumpOut.contains("Could not") || dumpOut.toLowerCase().contains("error")) {
+                System.err.println("JFR.dump failed: " + (dumpOut != null ? dumpOut.trim() : "no output"));
+                return;
+            }
+            runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
+
+            if (!Files.exists(tmpFile) || Files.size(tmpFile) == 0) {
+                System.err.println("JFR file is empty or was not created. The JVM may not support JFR recording.");
+                return;
+            }
+
+            List<GcEvent> events;
+            try {
+                events = GcWhyJfrCollector.collect(tmpFile);
+            } catch (IOException e) {
+                System.err.println("Failed to parse JFR recording: " + e.getMessage());
+                return;
+            }
+
+            if (events.isEmpty()) {
+                System.err.println(messages.get("gcscore.no.events", String.valueOf(durationSec)));
+                return;
+            }
+
+            scoreAndRender(events, json, useColor, messages, "pid:" + pid);
+
+        } catch (IOException e) {
+            System.err.println("Failed to capture live GC data for PID " + pid + ": " + e.getMessage());
+            if (Boolean.getBoolean("argus.debug") || System.getenv("ARGUS_DEBUG") != null) {
+                e.printStackTrace();
+            }
+        } finally {
+            if (tmpFile != null) {
+                try { Files.deleteIfExists(tmpFile); } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    // ── jcmd execution ───────────────────────────────────────────────────────
+
+    /** Runs {@code jcmd <pid> <command> [args...]} and returns stdout, or null on failure. */
+    private static String runJcmd(long pid, String command, String... extraArgs) {
+        try {
+            String[] fullCmd = new String[3 + extraArgs.length];
+            fullCmd[0] = "jcmd";
+            fullCmd[1] = String.valueOf(pid);
+            fullCmd[2] = command;
+            System.arraycopy(extraArgs, 0, fullCmd, 3, extraArgs.length);
+            ProcessBuilder pb = new ProcessBuilder(fullCmd);
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+            String out = new String(proc.getInputStream().readAllBytes());
+            proc.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
+            return out;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    // ── Shared scoring + render path ─────────────────────────────────────────
+
+    private static void scoreAndRender(List<GcEvent> events, boolean json, boolean useColor,
+                                       Messages messages, String sourceLabel) {
         GcLogAnalysis analysis = GcLogAnalyzer.analyze(events);
         GcScoreResult result = GcScoreCalculator.compute(analysis);
 
@@ -76,15 +217,15 @@ public final class GcScoreCommand implements Command {
             printJson(result);
             return;
         }
-        printCard(result, useColor, messages, logFile);
+        printCard(result, useColor, messages, sourceLabel);
     }
 
     // ── Rendering ───────────────────────────────────────────────────────────
 
-    private static void printCard(GcScoreResult r, boolean useColor, Messages messages, Path logFile) {
+    private static void printCard(GcScoreResult r, boolean useColor, Messages messages, String sourceLabel) {
         System.out.print(RichRenderer.brandedHeader(useColor, "gcscore", messages.get("desc.gcscore")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.gcscore"),
-                WIDTH, "source:" + logFile.getFileName()));
+                WIDTH, "source:" + sourceLabel));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
         String bold = AnsiStyle.style(useColor, AnsiStyle.BOLD);

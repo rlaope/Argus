@@ -72,7 +72,7 @@ public final class GcWhyJfrCollector {
                     }
                     case "jdk.GCHeapSummary" -> {
                         long gcId = safeGetLong(event, "gcId");
-                        String when = safeGetString(event, "when"); // "Before" or "After"
+                        String when = safeGetString(event, "when"); // GCWhen enum: "Before GC" or "After GC"
                         long heapUsed = safeGetLong(event, "heapUsed"); // bytes
                         long heapCommitted = 0;
                         try {
@@ -83,9 +83,10 @@ public final class GcWhyJfrCollector {
                         } catch (Exception ignored) {}
                         long usedKB = heapUsed / 1024;
                         long committedKB = heapCommitted / 1024;
-                        if ("Before".equalsIgnoreCase(when)) {
+                        // JFR GCWhen enum labels are "Before GC" and "After GC".
+                        if (when != null && when.toLowerCase().contains("before")) {
                             heapBefore.put(gcId, new long[]{usedKB, committedKB});
-                        } else if ("After".equalsIgnoreCase(when)) {
+                        } else if (when != null && when.toLowerCase().contains("after")) {
                             heapAfter.put(gcId, new long[]{usedKB, committedKB});
                         }
                     }

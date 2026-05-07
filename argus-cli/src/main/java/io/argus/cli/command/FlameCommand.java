@@ -73,8 +73,12 @@ public final class FlameCommand implements Command {
                 try { duration = Integer.parseInt(arg.substring(11)); } catch (NumberFormatException ignored) {}
             } else if (arg.equals("--duration") && i + 1 < args.length) {
                 try { duration = Integer.parseInt(args[++i]); } catch (NumberFormatException ignored) {}
-            } else if (arg.startsWith("--type=")) {
-                type = arg.substring(7);
+            } else if (arg.startsWith("--type=") || arg.startsWith("--event=")) {
+                String raw = arg.substring(arg.indexOf('=') + 1);
+                type = raw.contains(".") ? raw : raw.toLowerCase();
+            } else if ((arg.equals("--type") || arg.equals("--event")) && i + 1 < args.length) {
+                String raw = args[++i];
+                type = raw.contains(".") ? raw : raw.toLowerCase();
             } else if (arg.startsWith("--output=")) {
                 outputPath = arg.substring(9);
             } else if (arg.equals("--output") && i + 1 < args.length) {

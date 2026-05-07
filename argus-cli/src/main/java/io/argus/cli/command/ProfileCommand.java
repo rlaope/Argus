@@ -177,10 +177,13 @@ public final class ProfileCommand implements Command {
 
         for (int i = 1; i < args.length; i++) {
             String arg = args[i];
-            if (arg.startsWith("--type=")) {
-                String raw = arg.substring(7);
+            if (arg.startsWith("--type=") || arg.startsWith("--event=")) {
+                String raw = arg.substring(arg.indexOf('=') + 1);
                 // Preserve case for method-trace events (e.g. com.example.MyClass.myMethod)
                 // but normalise built-in aliases and PMU counter names to lowercase
+                type = raw.contains(".") ? raw : raw.toLowerCase();
+            } else if ((arg.equals("--type") || arg.equals("--event")) && i + 1 < args.length) {
+                String raw = args[++i];
                 type = raw.contains(".") ? raw : raw.toLowerCase();
             } else if (arg.startsWith("--duration=")) {
                 try { durationSec = Integer.parseInt(arg.substring(11)); } catch (NumberFormatException ignored) {}
@@ -373,8 +376,8 @@ public final class ProfileCommand implements Command {
                 outputDir = a.substring(13);
             } else if (a.startsWith("--diff-against=")) {
                 diffAgainst = a.substring(15);
-            } else if (a.startsWith("--type=")) {
-                String raw = a.substring(7);
+            } else if (a.startsWith("--type=") || a.startsWith("--event=")) {
+                String raw = a.substring(a.indexOf('=') + 1);
                 type = raw.contains(".") ? raw : raw.toLowerCase();
             } else if (a.startsWith("--source=")) {
                 sourceOverride = a.substring(9);
@@ -619,8 +622,8 @@ public final class ProfileCommand implements Command {
         for (String arg : args) {
             if (arg.startsWith("--duration=")) {
                 try { durationSec = Integer.parseInt(arg.substring(11)); } catch (NumberFormatException ignored) {}
-            } else if (arg.startsWith("--type=")) {
-                String raw = arg.substring(7);
+            } else if (arg.startsWith("--type=") || arg.startsWith("--event=")) {
+                String raw = arg.substring(arg.indexOf('=') + 1);
                 type = raw.contains(".") ? raw : raw.toLowerCase();
             } else if (arg.startsWith("--output-prefix=")) {
                 outputPrefix = arg.substring(16);
@@ -800,8 +803,8 @@ public final class ProfileCommand implements Command {
 
         for (int i = 2; i < args.length; i++) {
             String arg = args[i];
-            if (arg.startsWith("--type=")) {
-                String raw = arg.substring(7);
+            if (arg.startsWith("--type=") || arg.startsWith("--event=")) {
+                String raw = arg.substring(arg.indexOf('=') + 1);
                 type = raw.contains(".") ? raw : raw.toLowerCase();
             } else if (arg.startsWith("--output=")) {
                 output = arg.substring(9);

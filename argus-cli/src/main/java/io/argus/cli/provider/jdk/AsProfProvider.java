@@ -50,6 +50,9 @@ public final class AsProfProvider implements ProfileProvider {
             System.err.println("[argus] " + w);
         }
 
+        String eventErr = checkEventSupport(type);
+        if (eventErr != null) return ProfileResult.error(eventErr);
+
         String asProfPath = ensureBinary();
         if (asProfPath == null) {
             return ProfileResult.error("async-profiler download failed. Check network access.");
@@ -71,44 +74,18 @@ public final class AsProfProvider implements ProfileProvider {
             return ProfileResult.error(msg);
         }
 
+        // asprof v4.4 may exit 0 yet emit "[INFO] No samples were collected" on stderr.
+        String noSamples = detectNoSamples(result.stderr());
+        if (noSamples != null && (result.stdout() == null || result.stdout().isBlank())) {
+            return ProfileResult.error(noSamples + " (event=" + type + ")");
+        }
+
         return parseCollapsed(result.stdout(), type, durationSec, null);
     }
 
     @Override
     public ProfileResult flameGraph(long pid, String type, int durationSec, String outputFile) {
-        AsProfPermissionCheck.Result preflight = AsProfPermissionCheck.validate(pid);
-        if (!preflight.ok) {
-            String msg = preflight.error
-                    + (preflight.fixHint != null ? "\n  hint: " + preflight.fixHint : "");
-            return ProfileResult.error(msg);
-        }
-        for (String w : preflight.warnings) {
-            System.err.println("[argus] " + w);
-        }
-
-        String asProfPath = ensureBinary();
-        if (asProfPath == null) {
-            return ProfileResult.error("async-profiler download failed. Check network access.");
-        }
-
-        String[] command = new String[]{
-            asProfPath,
-            "-d", String.valueOf(durationSec),
-            "-o", "flamegraph",
-            "-e", type,
-            "-f", outputFile,
-            String.valueOf(pid)
-        };
-
-        AsProfExecutor.Result result = executeWithShutdownHook(command, durationSec + 30);
-
-        if (result.exitCode() != 0) {
-            String msg = result.stderr().isEmpty() ? "asprof exited with code " + result.exitCode()
-                    : result.stderr();
-            return ProfileResult.error(msg);
-        }
-
-        return ProfileResult.ok(type, durationSec, 0L, Collections.emptyList(), outputFile);
+        return flameGraph(pid, type, durationSec, outputFile, null);
     }
 
     @Override
@@ -122,6 +99,9 @@ public final class AsProfProvider implements ProfileProvider {
         for (String w : preflight.warnings) {
             System.err.println("[argus] " + w);
         }
+
+        String eventErr = checkEventSupport(type);
+        if (eventErr != null) return ProfileResult.error(eventErr);
 
         String asProfPath = ensureBinary();
         if (asProfPath == null) {
@@ -238,6 +218,9 @@ public final class AsProfProvider implements ProfileProvider {
             System.err.println("[argus] " + w);
         }
 
+        String eventErr = checkEventSupport(type);
+        if (eventErr != null) return ProfileResult.error(eventErr);
+
         String asProfPath = ensureBinary();
         if (asProfPath == null) {
             return ProfileResult.error("async-profiler download failed. Check network access.");
@@ -273,6 +256,12 @@ public final class AsProfProvider implements ProfileProvider {
             return ProfileResult.error(msg);
         }
 
+        // asprof v4.4 may exit 0 yet emit "[INFO] No samples were collected" on stderr.
+        String noSamples = detectNoSamples(result.stderr());
+        if (noSamples != null && (result.stdout() == null || result.stdout().isBlank())) {
+            return ProfileResult.error(noSamples + " (event=" + type + ")");
+        }
+
         if (needsFile) {
             return ProfileResult.ok(type, durationSec, 0L, Collections.emptyList(), outputFile);
         }
@@ -298,6 +287,9 @@ public final class AsProfProvider implements ProfileProvider {
             System.err.println("[argus] " + w);
         }
 
+        String eventErr = checkEventSupport(type);
+        if (eventErr != null) return ProfileResult.error(eventErr);
+
         String asProfPath = ensureBinary();
         if (asProfPath == null) {
             return ProfileResult.error("async-profiler download failed. Check network access.");
@@ -305,25 +297,102 @@ public final class AsProfProvider implements ProfileProvider {
 
         String outputFmt = (opts != null && opts.outputFormat != null) ? opts.outputFormat : "flamegraph";
 
-        List<String> cmd = new ArrayList<>();
-        cmd.add(asProfPath);
-        cmd.add("-d"); cmd.add(String.valueOf(durationSec));
-        cmd.add("-o"); cmd.add(outputFmt);
-        cmd.add("-e"); cmd.add(type);
-        cmd.add("-f"); cmd.add(outputFile);
-        buildExtraArgs(cmd, opts);
-        cmd.add(String.valueOf(pid));
+        // Non-flamegraph formats: keep the direct asprof path (single run, no jfrconv).
+        if (!"flamegraph".equals(outputFmt)) {
+            List<String> cmd = new ArrayList<>();
+            cmd.add(asProfPath);
+            cmd.add("-d"); cmd.add(String.valueOf(durationSec));
+            cmd.add("-o"); cmd.add(outputFmt);
+            cmd.add("-e"); cmd.add(type);
+            cmd.add("-f"); cmd.add(outputFile);
+            buildExtraArgs(cmd, opts);
+            cmd.add(String.valueOf(pid));
 
-        AsProfExecutor.Result result = executeWithShutdownHook(
-                cmd.toArray(new String[0]), durationSec + 30);
-
-        if (result.exitCode() != 0) {
-            String msg = result.stderr().isEmpty() ? "asprof exited with code " + result.exitCode()
-                    : result.stderr();
-            return ProfileResult.error(msg);
+            AsProfExecutor.Result direct = executeWithShutdownHook(
+                    cmd.toArray(new String[0]), durationSec + 30);
+            if (direct.exitCode() != 0) {
+                String msg = direct.stderr().isEmpty() ? "asprof exited with code " + direct.exitCode()
+                        : direct.stderr();
+                return ProfileResult.error(msg);
+            }
+            return ProfileResult.ok(type, durationSec, 0L, Collections.emptyList(), outputFile);
         }
 
-        return ProfileResult.ok(type, durationSec, 0L, Collections.emptyList(), outputFile);
+        // flamegraph path: capture once to JFR, then convert to HTML + collapsed for accurate
+        // sample count and topMethods. Single profiling pass, two cheap conversions.
+        String jfrPath = System.getProperty("java.io.tmpdir")
+                + java.io.File.separator + "argus-flame-" + pid + "-"
+                + System.currentTimeMillis() + ".jfr";
+
+        List<String> profCmd = new ArrayList<>();
+        profCmd.add(asProfPath);
+        profCmd.add("-d"); profCmd.add(String.valueOf(durationSec));
+        profCmd.add("-o"); profCmd.add("jfr");
+        profCmd.add("-e"); profCmd.add(type);
+        profCmd.add("-f"); profCmd.add(jfrPath);
+        buildExtraArgs(profCmd, opts);
+        profCmd.add(String.valueOf(pid));
+
+        AsProfExecutor.Result profResult = executeWithShutdownHook(
+                profCmd.toArray(new String[0]), durationSec + 30);
+        if (profResult.exitCode() != 0) {
+            String msg = profResult.stderr().isEmpty() ? "asprof exited with code " + profResult.exitCode()
+                    : profResult.stderr();
+            new java.io.File(jfrPath).delete();
+            return ProfileResult.error(msg);
+        }
+        String noSamples = detectNoSamples(profResult.stderr());
+        if (noSamples != null) {
+            new java.io.File(jfrPath).delete();
+            return ProfileResult.error(noSamples + " (event=" + type + ")");
+        }
+
+        String jfrConvPath = jfrConvPath(asProfPath);
+        try {
+            // Convert JFR -> HTML
+            AsProfExecutor.Result htmlResult = AsProfExecutor.execute(
+                    new String[]{jfrConvPath, "-o", "html", jfrPath, outputFile},
+                    60, null);
+            if (htmlResult.exitCode() != 0) {
+                String msg = htmlResult.stderr().isEmpty()
+                        ? "jfrconv (html) exited with code " + htmlResult.exitCode()
+                        : htmlResult.stderr();
+                return ProfileResult.error(msg);
+            }
+
+            // Convert JFR -> collapsed (in tmp), parse for sample count + top methods
+            String collapsedPath = jfrPath + ".collapsed";
+            AsProfExecutor.Result collapsedResult = AsProfExecutor.execute(
+                    new String[]{jfrConvPath, "-o", "collapsed", jfrPath, collapsedPath},
+                    60, null);
+            long total = 0L;
+            List<MethodSample> topMethods = Collections.emptyList();
+            if (collapsedResult.exitCode() == 0) {
+                try {
+                    String collapsed = new String(java.nio.file.Files.readAllBytes(
+                            java.nio.file.Paths.get(collapsedPath)));
+                    ProfileResult parsed = parseCollapsed(collapsed, type, durationSec, outputFile);
+                    if ("ok".equals(parsed.status())) {
+                        total = parsed.totalSamples();
+                        topMethods = parsed.topMethods();
+                    }
+                } catch (java.io.IOException ignored) {
+                    // fall through with empty stats
+                } finally {
+                    new java.io.File(collapsedPath).delete();
+                }
+            }
+            return ProfileResult.ok(type, durationSec, total, topMethods, outputFile);
+        } finally {
+            new java.io.File(jfrPath).delete();
+        }
+    }
+
+    /** Returns the path to the bundled jfrconv binary alongside asprof. */
+    private static String jfrConvPath(String asProfPath) {
+        java.io.File asProfBin = new java.io.File(asProfPath);
+        java.io.File parent = asProfBin.getParentFile();
+        return new java.io.File(parent, "jfrconv").getAbsolutePath();
     }
 
     @Override
@@ -337,6 +406,9 @@ public final class AsProfProvider implements ProfileProvider {
         for (String w : preflight.warnings) {
             System.err.println("[argus] " + w);
         }
+
+        String eventErr = checkEventSupport(type);
+        if (eventErr != null) return ProfileResult.error(eventErr);
 
         String asProfPath = ensureBinary();
         if (asProfPath == null) {
@@ -551,5 +623,71 @@ public final class AsProfProvider implements ProfileProvider {
             return ProfileResult.okWithRaw(type, durationSec, total, topMethods, flameGraphPath, output);
         }
         return ProfileResult.ok(type, durationSec, total, topMethods, flameGraphPath);
+    }
+
+    // -------------------------------------------------------------------------
+    // Event support guard + asprof output diagnostics
+    // -------------------------------------------------------------------------
+
+    /**
+     * Checks whether {@code event} is supported by the bundled async-profiler v4.4
+     * on the current OS/architecture. Returns null if supported, else a
+     * fully-formed error message ready for {@link ProfileResult#error}.
+     *
+     * <p>Method-trace events (containing a dot) and PMU counter names (lowercase
+     * identifiers with hyphens) are passed through — asprof reports unknown
+     * counters with its own clear error.
+     */
+    static String checkEventSupport(String event) {
+        if (event == null || event.isBlank()) return null;
+        // Method trace pattern (Class.method) and PMU counter passthroughs are accepted.
+        if (event.contains(".")) return null;
+        String lc = event.toLowerCase();
+
+        String os   = System.getProperty("os.name",  "").toLowerCase();
+        String arch = System.getProperty("os.arch",  "").toLowerCase();
+        boolean isMac   = os.contains("mac") || os.contains("darwin");
+        boolean isLinux = os.contains("linux");
+        boolean isArm64 = arch.equals("aarch64") || arch.equals("arm64");
+
+        // Built-in events known to be honored by async-profiler 4.4.
+        // Lock event is supported on macOS arm64 but typically yields zero samples
+        // for short durations; we surface that via "no samples" detection at runtime
+        // rather than blocking it here.
+        java.util.Set<String> builtins = new java.util.HashSet<>(java.util.Arrays.asList(
+                "cpu", "alloc", "lock", "wall", "nativemem", "nativelock", "cpu-time"));
+        if (builtins.contains(lc)) return null;
+
+        // PMU / hardware counters: many require perf_event_open (Linux) and
+        // are not reachable on macOS arm64 (Apple Silicon does not expose
+        // them via async-profiler 4.4's perf backend).
+        if (lc.matches("[a-z][a-z0-9_]*(-[a-z0-9_]+)*")) {
+            if (isMac && isArm64) {
+                return "Event '" + event + "' not supported by bundled async-profiler v4.4 on darwin-arm64. "
+                        + "Supported: cpu, alloc, lock, wall, nativemem, nativelock";
+            }
+            if (!isLinux) {
+                return "Event '" + event + "' (PMU counter) requires Linux. "
+                        + "Supported on this platform: cpu, alloc, lock, wall, nativemem, nativelock";
+            }
+            return null; // Linux: defer to asprof
+        }
+        return null; // unknown shape — let asprof report
+    }
+
+    /**
+     * Returns a non-null error message if asprof's stderr indicates that no
+     * samples were collected during the run; otherwise null. This is used to
+     * convert asprof's exit-0-but-empty case into a user-visible error so we
+     * never silently report a successful profile with zero data.
+     */
+    static String detectNoSamples(String stderr) {
+        if (stderr == null) return null;
+        String lc = stderr.toLowerCase();
+        if (lc.contains("no samples were collected")
+                || lc.contains("no profiling events were recorded")) {
+            return "async-profiler collected no samples";
+        }
+        return null;
     }
 }

@@ -64,8 +64,12 @@ public final class NmtCommand implements Command {
                 json = true;
             } else if (arg.startsWith("--save=")) {
                 saveTo = Path.of(arg.substring("--save=".length()));
+            } else if (arg.equals("--save") && i + 1 < args.length) {
+                saveTo = Path.of(args[++i]);
             } else if (arg.startsWith("--diff=")) {
                 diffWith = Path.of(arg.substring("--diff=".length()));
+            } else if (arg.equals("--diff") && i + 1 < args.length) {
+                diffWith = Path.of(args[++i]);
             } else if (arg.equals("--watch")) {
                 watchInterval = 2;
             } else if (arg.startsWith("--watch=")) {
@@ -303,56 +307,94 @@ public final class NmtCommand implements Command {
                                   long pid, String source, boolean useColor, Messages messages) {
         long elapsedSec = Math.max(1, System.currentTimeMillis() / 1000L - baseline.capturedAtEpochSec());
         System.out.print(RichRenderer.brandedHeader(useColor, "nmt --diff",
-                "Native memory delta vs. saved baseline"));
-        System.out.println(RichRenderer.boxHeader(useColor, "NMT Diff",
+                messages.get("nmt.diff.subtitle")));
+        System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.nmt.diff"),
                 WIDTH, "pid:" + pid, "source:" + source,
                 "elapsed:" + RichRenderer.formatDuration(elapsedSec * 1000)));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
-        long totalDeltaKB = current.totalCommittedKB() - baseline.snapshot().totalCommittedKB();
-        String dim = AnsiStyle.style(useColor, AnsiStyle.DIM);
-        String reset = AnsiStyle.style(useColor, AnsiStyle.RESET);
-        String deltaColor = totalDeltaKB > 0
+        // Banner line: growth summary since baseline
+        long totalCommittedDeltaKB = current.totalCommittedKB() - baseline.snapshot().totalCommittedKB();
+        long totalReservedDeltaKB  = current.totalReservedKB()  - baseline.snapshot().totalReservedKB();
+        String savedAt = java.time.Instant.ofEpochSecond(baseline.capturedAtEpochSec())
+                .atZone(java.time.ZoneId.systemDefault())
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        String bannerColor = totalCommittedDeltaKB > 0
                 ? AnsiStyle.style(useColor, AnsiStyle.YELLOW, AnsiStyle.BOLD)
                 : AnsiStyle.style(useColor, AnsiStyle.GREEN);
-        System.out.println(RichRenderer.boxLine(
-                "  Total committed: " + RichRenderer.formatKB(baseline.snapshot().totalCommittedKB())
-                + dim + "  →  " + reset
-                + RichRenderer.formatKB(current.totalCommittedKB())
-                + "    " + deltaColor + signed(totalDeltaKB) + reset
-                + dim + "  (" + perMinute(totalDeltaKB, elapsedSec) + ")" + reset, WIDTH));
+        String reset = AnsiStyle.style(useColor, AnsiStyle.RESET);
+        String dim   = AnsiStyle.style(useColor, AnsiStyle.DIM);
+        String banner = bannerColor
+                + messages.get("nmt.diff.banner", savedAt,
+                        signed(totalCommittedDeltaKB), signed(totalReservedDeltaKB))
+                + reset;
+        System.out.println(RichRenderer.boxLine(banner, WIDTH));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
-        String hdr = AnsiStyle.style(useColor, AnsiStyle.BOLD)
-                + RichRenderer.padRight("Category", 22)
-                + RichRenderer.padLeft("Baseline", 12) + "  "
-                + RichRenderer.padLeft("Current", 12) + "  "
-                + RichRenderer.padLeft("Δ committed", 14) + "  "
-                + "  Δ %" + reset;
-        System.out.println(RichRenderer.boxLine(hdr, WIDTH));
-        System.out.println(RichRenderer.boxLine("─".repeat(Math.min(76, WIDTH - 4)), WIDTH));
-
-        rows.sort((a, b) -> Long.compare(Math.abs(b.committedDeltaKB()), Math.abs(a.committedDeltaKB())));
+        // Filter rows: only show where |reservedDelta| > 0 OR |committedDelta| > 0
+        List<NmtBaseline.DiffRow> nonZero = new java.util.ArrayList<>();
         for (NmtBaseline.DiffRow row : rows) {
-            long delta = row.committedDeltaKB();
-            if (delta == 0) continue; // hide noise — only growth/shrink
-            String dColor = delta > 0
+            if (Math.abs(row.reservedDeltaKB()) > 0 || Math.abs(row.committedDeltaKB()) > 0) {
+                nonZero.add(row);
+            }
+        }
+
+        if (nonZero.isEmpty()) {
+            System.out.println(RichRenderer.boxLine(
+                    AnsiStyle.style(useColor, AnsiStyle.GREEN)
+                    + messages.get("nmt.diff.no.growth")
+                    + reset, WIDTH));
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+            System.out.println(RichRenderer.boxFooter(useColor,
+                    messages.get("nmt.diff.footer", RichRenderer.formatDuration(elapsedSec * 1000)),
+                    WIDTH));
+            return;
+        }
+
+        // Sort descending by committed delta (largest growth first)
+        nonZero.sort((a, b) -> Long.compare(b.committedDeltaKB(), a.committedDeltaKB()));
+
+        // Column header: Category | Reserved Δ | Committed Δ | Reserved (now) | Committed (now)
+        String hdr = AnsiStyle.style(useColor, AnsiStyle.BOLD)
+                + RichRenderer.padRight(messages.get("nmt.diff.col.category"), 22)
+                + RichRenderer.padLeft(messages.get("nmt.diff.col.reserved.delta"), 13) + "  "
+                + RichRenderer.padLeft(messages.get("nmt.diff.col.committed.delta"), 13) + "  "
+                + RichRenderer.padLeft(messages.get("nmt.diff.col.reserved.now"), 12) + "  "
+                + RichRenderer.padLeft(messages.get("nmt.diff.col.committed.now"), 12)
+                + reset;
+        System.out.println(RichRenderer.boxLine(hdr, WIDTH));
+        System.out.println(RichRenderer.boxLine("─".repeat(Math.min(82, WIDTH - 4)), WIDTH));
+
+        for (NmtBaseline.DiffRow row : nonZero) {
+            long cDelta = row.committedDeltaKB();
+            long rDelta = row.reservedDeltaKB();
+            // Red highlight: committed delta >= 5% of original committed
+            boolean isHot = row.baseCommittedKB() > 0
+                    && row.committedDeltaPct() >= 5.0;
+            boolean isNew = row.baseCommittedKB() == 0 && row.curCommittedKB() > 0;
+            String nameStyle = (isHot || isNew)
+                    ? AnsiStyle.style(useColor, AnsiStyle.RED, AnsiStyle.BOLD)
+                    : AnsiStyle.style(useColor, AnsiStyle.CYAN);
+            String cDeltaStyle = cDelta > 0
+                    ? ((isHot || isNew)
+                            ? AnsiStyle.style(useColor, AnsiStyle.RED, AnsiStyle.BOLD)
+                            : AnsiStyle.style(useColor, AnsiStyle.YELLOW))
+                    : AnsiStyle.style(useColor, AnsiStyle.GREEN);
+            String rDeltaStyle = rDelta > 0
                     ? AnsiStyle.style(useColor, AnsiStyle.YELLOW)
                     : AnsiStyle.style(useColor, AnsiStyle.GREEN);
-            String pctStr = Double.isInfinite(row.committedDeltaPct())
-                    ? "  new"
-                    : String.format("%+5.1f%%", row.committedDeltaPct());
-            String line = AnsiStyle.style(useColor, AnsiStyle.CYAN)
+            String line = nameStyle
                     + RichRenderer.padRight(RichRenderer.truncate(row.name(), 20), 22) + reset
-                    + RichRenderer.padLeft(RichRenderer.formatKB(row.baseCommittedKB()), 12) + "  "
-                    + RichRenderer.padLeft(RichRenderer.formatKB(row.curCommittedKB()), 12) + "  "
-                    + dColor + RichRenderer.padLeft(signed(delta), 14) + reset + "  "
-                    + dColor + pctStr + reset;
+                    + rDeltaStyle + RichRenderer.padLeft(signed(rDelta), 13) + reset + "  "
+                    + cDeltaStyle + RichRenderer.padLeft(signed(cDelta), 13) + reset + "  "
+                    + dim + RichRenderer.padLeft(RichRenderer.formatKB(row.curReservedKB()), 12) + reset + "  "
+                    + dim + RichRenderer.padLeft(RichRenderer.formatKB(row.curCommittedKB()), 12) + reset;
             System.out.println(RichRenderer.boxLine(line, WIDTH));
         }
+
         System.out.println(RichRenderer.emptyLine(WIDTH));
         System.out.println(RichRenderer.boxFooter(useColor,
-                "growth shown vs. baseline taken " + RichRenderer.formatDuration(elapsedSec * 1000) + " ago",
+                messages.get("nmt.diff.footer", RichRenderer.formatDuration(elapsedSec * 1000)),
                 WIDTH));
     }
 
@@ -369,20 +411,19 @@ public final class NmtCommand implements Command {
 
     private static void printDiffJson(NmtBaseline baseline, NmtResult current,
                                       List<NmtBaseline.DiffRow> rows) {
-        long elapsed = Math.max(1, System.currentTimeMillis() / 1000L - baseline.capturedAtEpochSec());
+        long currentAtSec = System.currentTimeMillis() / 1000L;
         StringBuilder sb = new StringBuilder();
-        sb.append("{\"elapsedSec\":").append(elapsed)
-          .append(",\"baselineCommittedKB\":").append(baseline.snapshot().totalCommittedKB())
-          .append(",\"currentCommittedKB\":").append(current.totalCommittedKB())
-          .append(",\"totalDeltaKB\":").append(current.totalCommittedKB() - baseline.snapshot().totalCommittedKB())
-          .append(",\"rows\":[");
+        sb.append("{\"baseline_at\":").append(baseline.capturedAtEpochSec())
+          .append(",\"current_at\":").append(currentAtSec)
+          .append(",\"categories\":[");
         boolean first = true;
         for (NmtBaseline.DiffRow row : rows) {
             if (!first) sb.append(',');
             sb.append("{\"name\":\"").append(RichRenderer.escapeJson(row.name())).append('"')
-              .append(",\"baseCommittedKB\":").append(row.baseCommittedKB())
-              .append(",\"curCommittedKB\":").append(row.curCommittedKB())
-              .append(",\"committedDeltaKB\":").append(row.committedDeltaKB())
+              .append(",\"reservedDelta\":").append(row.reservedDeltaKB())
+              .append(",\"committedDelta\":").append(row.committedDeltaKB())
+              .append(",\"reservedNow\":").append(row.curReservedKB())
+              .append(",\"committedNow\":").append(row.curCommittedKB())
               .append('}');
             first = false;
         }

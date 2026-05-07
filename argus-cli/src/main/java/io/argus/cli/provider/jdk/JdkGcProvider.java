@@ -1,6 +1,7 @@
 package io.argus.cli.provider.jdk;
 
 import io.argus.cli.model.GcResult;
+import io.argus.cli.model.GcUtilResult;
 import io.argus.cli.provider.GcProvider;
 
 import java.util.ArrayList;
@@ -9,7 +10,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * GcProvider that uses {@code jcmd GC.heap_info} and {@code jcmd VM.info} to collect GC data.
+ * GcProvider that uses {@code jcmd GC.heap_info} for heap usage and
+ * {@code jstat -gcutil} for per-collector counts and pause times.
+ *
+ * <p>jcmd GC.heap_info does not expose collection counts or aggregate pause
+ * time, so the canonical source for those is jstat (matches the approach
+ * used by {@link io.argus.cli.doctor.JvmSnapshotCollector}).
  */
 public final class JdkGcProvider implements GcProvider {
 
@@ -20,10 +26,6 @@ public final class JdkGcProvider implements GcProvider {
     // Matches committed in lines like: "committed 51200K"
     private static final Pattern COMMITTED = Pattern.compile(
             "committed\\s+(\\d+)K", Pattern.CASE_INSENSITIVE);
-
-    // GC collector name patterns in VM.info output
-    private static final Pattern COLLECTOR_LINE = Pattern.compile(
-            "(G1|ZGC|Shenandoah|Parallel|Serial|CMS)\\s+GC", Pattern.CASE_INSENSITIVE);
 
     @Override
     public boolean isAvailable(long pid) {
@@ -44,7 +46,6 @@ public final class JdkGcProvider implements GcProvider {
     public GcResult getGcInfo(long pid) {
         long heapUsed = 0L;
         long heapCommitted = 0L;
-        List<GcResult.CollectorInfo> collectors = new ArrayList<>();
 
         // Parse GC.heap_info for heap usage
         try {
@@ -62,32 +63,47 @@ public final class JdkGcProvider implements GcProvider {
             }
         } catch (RuntimeException ignored) {}
 
-        // Parse VM.info to detect GC collector names
+        // GC counts and pause times from jstat -gcutil — the canonical source for
+        // YGC/YGCT/FGC/FGCT/GCT. jcmd GC.heap_info does not report these.
+        long totalEvents = 0L;
+        double totalPauseMs = 0.0;
+        double overheadPercent = 0.0;
+        List<GcResult.CollectorInfo> collectors = new ArrayList<>();
         try {
-            String vmInfo = JcmdExecutor.execute(pid, "VM.info");
-            for (String line : vmInfo.split("\n")) {
-                Matcher m = COLLECTOR_LINE.matcher(line);
-                if (m.find()) {
-                    String name = m.group(0).trim();
-                    // Avoid duplicates
-                    boolean found = false;
-                    for (GcResult.CollectorInfo c : collectors) {
-                        if (c.name().equalsIgnoreCase(name)) {
-                            found = true;
-                            break;
-                        }
+            ProcessBuilder pb = new ProcessBuilder("jstat", "-gcutil", String.valueOf(pid));
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            String output = new String(process.getInputStream().readAllBytes()).trim();
+            process.waitFor();
+            GcUtilResult gcutil = JdkGcUtilProvider.parseOutput(output);
+            totalEvents = gcutil.ygc() + gcutil.fgc();
+            totalPauseMs = gcutil.gct() * 1000.0;
+            collectors.add(new GcResult.CollectorInfo(
+                    "Young Generation", gcutil.ygc(), gcutil.ygct() * 1000.0));
+            collectors.add(new GcResult.CollectorInfo(
+                    "Old Generation", gcutil.fgc(), gcutil.fgct() * 1000.0));
+        } catch (Exception ignored) {}
+
+        // Compute overhead = GCT / uptime. Pull uptime from jcmd VM.uptime.
+        try {
+            String uptimeOut = JcmdExecutor.execute(pid, "VM.uptime");
+            for (String line : uptimeOut.split("\n")) {
+                String t = line.trim();
+                if (t.isEmpty()) continue;
+                try {
+                    double uptimeSec = Double.parseDouble(t.split("\\s+")[0]);
+                    if (uptimeSec > 0) {
+                        overheadPercent = (totalPauseMs / 1000.0) / uptimeSec * 100.0;
                     }
-                    if (!found) {
-                        collectors.add(new GcResult.CollectorInfo(name, 0L, 0.0));
-                    }
-                }
+                    break;
+                } catch (NumberFormatException ignored2) {}
             }
         } catch (RuntimeException ignored) {}
 
         return new GcResult(
-                0L,          // totalEvents — not available via jcmd heap_info
-                0.0,         // totalPauseMs — not available without JFR
-                0.0,         // overheadPercent — not available without JFR
+                totalEvents,
+                totalPauseMs,
+                overheadPercent,
                 "",          // lastCause — not available without JFR
                 heapUsed,
                 heapCommitted,

@@ -17,6 +17,7 @@ public final class DoctorEngine {
 
     private static final List<HealthRule> RULES = List.of(
             new GcOverheadRule(),
+            new GcPressureRule(),
             new MaxPauseRule(),
             new HeapPressureRule(),
             new MetaspaceRule(),
