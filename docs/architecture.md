@@ -801,6 +801,62 @@ Source: `argus-cli/src/main/java/io/argus/cli/gcscore/GcScoreCalculator.java`
 
 ---
 
+## v1.2.0 Architecture Additions
+
+### `argus zgc` command (`ZgcCommand`, `ZgcDiagnosis`, `ZgcJfrCollector`, `ZgcBaseline`)
+
+- **`ZgcCommand`**: JMX pre-check confirms ZGC is active; starts a `jcmd JFR.start settings=profile` capture (default 30s), dumps to temp file, passes through `ZgcJfrCollector` → `ZgcDiagnosis.compute()` → verdict + recommendations. `--save`/`--diff`/`--watch`/`--interval` flags for trend tracking and live load-test monitoring.
+- **`ZgcJfrCollector`**: Parses six event types (`jdk.ZAllocationStall`, `jdk.ZGarbageCollection`, `jdk.ZYoungGarbageCollection`, `jdk.ZOldGarbageCollection`, `jdk.GarbageCollection`, `jdk.GCHeapSummary`). Also subscribes to `jdk.ObjectAllocationInNewTLAB` and `jdk.ObjectAllocationOutsideTLAB` from the same `profile.jfc` capture; produces top-5 `AllocHotspot` records when stalls are present.
+- **`ZgcDiagnosis`**: Verdict logic — UNHEALTHY (stalls present or cycles overlap), WARNING (soft-max breached or Pause Mark End > 1 ms), HEALTHY otherwise. Carries `stallAllocHotspots` list and `totalAllocEvents` counter.
+- **`ZgcBaseline`**: Plain key=value persistence (mirrors `NmtBaseline` format). `save/load/diff` API. `diff()` emits `DiffRow(label, baseline, current, delta, severity)` with REGRESSION conditions on heap breach, new stalls, major-cycle ratio worsening, pause growth > 50%, and softMax transition.
+
+### New Doctor rules — ZGC
+
+- **`ZgcSoftMaxBreachRule`** (WARNING): fires when `heapCommitted > SoftMaxHeapSize > 0`; skipped for non-ZGC collectors.
+- **`ZgcCycleOverlapRule`** (CRITICAL): fires when `avgDurationMs > intervalMs × 0.8` with > 5 cycles.
+- **`GcAlgorithmRule`**: Generational ZGC hint — when `gcAlgorithm == "ZGC"` (not Generational) and JDK 21–23, emits INFO recommending `-XX:+ZGenerational`. No hint on JDK 24+ where generational is default.
+
+### `JvmSnapshotCollector` — Generational ZGC detection
+
+`canonicalGcAlgorithm()` returns `"ZGC (Generational)"` when MBean names include `"ZGC Major Cycles"` or `"ZGC Minor Cycles"`. All downstream consumers (`ZgcSoftMaxBreachRule`, `ZgcCycleOverlapRule`, `GcAlgorithmRule`, `GcScoreCalculator`) use `algo.contains("ZGC")` for broad matching and `algo.equals("ZGC")` for the plain non-generational case.
+
+### GC log Allocation Stall parsing
+
+- `GcLogPatterns.ALLOCATION_STALL` regex matches `Allocation Stall (<thread>)  <N>ms` lines.
+- `GcLogParser` accumulates `AllocationStallSummary` (count, totalMs, maxMs, topThread, topThreadMs).
+- `GcLogCommand` renders an **Allocation Stalls (ZGC)** section when stalls are present.
+
+### `GcScoreCalculator` — ZGC weight branch
+
+When `gcAlgorithm.toUpperCase().contains("ZGC")`: pause thresholds tightened (p99 PASS = 5 ms, tail PASS = 10 ms); new `scoreZgcAllocationPressure()` axis keyed on cycle frequency (PASS < 0.5/s, FAIL ≥ 1.0/s); ZGC weight vector `[0.12, 0.08, 0.30, 0.15, 0.10, 0.10, 0.15]`.
+
+### `SuggestCommand` — `--advanced` flag and ZGC-only flag suggestions
+
+`--advanced` unlocks a second tier of flag recommendations (experimental/non-default JVM options). ZGC-specific suggestions (`-XX:SoftMaxHeapSize`, `-XX:ConcGCThreads`, `-XX:+ZGenerational`) are emitted only when the detected collector is ZGC.
+
+### 3 quality-of-life features (earlier in the cycle)
+
+- **`AsProfCapabilities` matrix**: static event/platform table consumed by `argus doctor` to show available asprof events without a live invocation.
+- **NMT-not-enabled detection**: `JdkNmtProvider` returns `NmtResult.notEnabled()` when `jcmd VM.native_memory summary` outputs the not-enabled sentinel; `NmtCommand` exits 1 with a clear hint rather than rendering an empty table.
+- **`GcLogCommand` aggregated pause summary**: by-cause table (count, total, avg, p99, max per GC cause) with `--top=N` / `--all` controls.
+
+### 7 live-JVM diagnostic fixes
+
+- `JdkGcProvider`: replaces hard-coded zero counts with `jstat -gcutil` parsing; overhead computed as `GCT / VM.uptime`.
+- `GcPressureRule`: new doctor rule firing on young-GC frequency (WARNING > 200/min, CRITICAL > 500/min) independent of overhead percentage.
+- `NmtCommand --diff`: wires `NmtBaseline.diff()` into a rendered table with signed totals and highlighted growers.
+- `AsProfProvider`: single JFR capture + two cheap `jfrconv` post-processing passes instead of two separate recordings; `--event` routing unified through `buildExtraArgs()`.
+- `GcWhyJfrCollector`: heap summary correlation by `gcId` instead of file position; `when` field matched with `contains("before"/"after")` for cross-JDK compatibility.
+- `GcScoreCommand`: live-PID branch using `jcmd JFR.start/dump` → `GcWhyJfrCollector` → `GcLogAnalyzer` pipeline; first argument treated as PID when pure digit string.
+- `GcWhyCommand` / `GcScoreCommand` `--duration`: duration parameter now wired through to the JFR capture window.
+
+### Documentation refactor
+
+- README slimmed 469 → 107 lines; feature narrative moved to `docs/`.
+- `docs/cli-commands.md` split into 5 category files under `docs/commands/`.
+- New `docs/contributing.md` covering build, commit, i18n, and release procedures.
+- `CLAUDE.md` slimmed with a pointer table to `docs/architecture.md` for full patterns.
+
 ## Next Steps
 
 - [Getting Started](getting-started.md) - Installation guide
