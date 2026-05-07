@@ -142,7 +142,9 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         return RouteTable.builder()
                 // Health & Metrics
                 .exact("/health", (ctx, req, uri) -> {
-                    String json = String.format("{\"status\":\"healthy\",\"clients\":%d}", clients.size());
+                    long pid = ProcessHandle.current().pid();
+                    String json = String.format("{\"status\":\"healthy\",\"clients\":%d,\"pid\":%d}",
+                            clients.size(), pid);
                     HttpResponseHelper.sendJson(ctx, req, json);
                 })
                 .exact("/metrics", (ctx, req, uri) ->

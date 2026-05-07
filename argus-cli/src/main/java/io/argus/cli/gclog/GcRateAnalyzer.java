@@ -37,12 +37,27 @@ public final class GcRateAnalyzer {
             promoBuckets.add(new ArrayList<>());
         }
 
+        boolean skipNext = false;
         for (int i = 1; i < pauseEvents.size(); i++) {
             GcEvent prev = pauseEvents.get(i - 1);
             GcEvent cur = pauseEvents.get(i);
 
+            // Skip humongous events: G1 humongous allocations distort heap-delta
+            // measurements because the JVM accounts for humongous regions differently.
+            // When either boundary event is humongous, skip this interval and flag
+            // the next one too (the carry-over would otherwise pollute the next delta).
+            boolean prevHumongous = isHumongous(prev);
+            boolean curHumongous = isHumongous(cur);
+            if (skipNext || prevHumongous || curHumongous) {
+                skipNext = curHumongous; // flag next interval if cur is humongous
+                continue;
+            }
+            skipNext = false;
+
             double timeDelta = cur.timestampSec() - prev.timestampSec();
-            if (timeDelta <= 0) continue;
+            // Skip sub-millisecond intervals: these are parser artefacts (two events
+            // logged at effectively the same timestamp) and produce nonsensical rates.
+            if (timeDelta < 0.001) continue;
 
             int bucket = Math.min(NUM_WINDOWS - 1,
                     (int) ((cur.timestampSec() - firstTs) / windowSize));
@@ -50,40 +65,52 @@ public final class GcRateAnalyzer {
             // Allocation rate
             long allocatedKB = cur.heapBeforeKB() - prev.heapAfterKB();
             if (allocatedKB > 0) {
-                double rate = allocatedKB / timeDelta;
-                allocSum += rate;
-                allocCount++;
-                if (rate > allocMax) allocMax = rate;
+                double allocRate = allocatedKB / timeDelta;
                 totalAllocatedKB += allocatedKB;
-                allocBuckets.get(bucket).add(rate);
+
+                // Promotion rate (same interval, so we can clamp promo ≤ alloc here)
+                double promoRate = 0;
+                if (!prev.isFullGc() && !cur.isFullGc()) {
+                    long promotedKB = cur.heapAfterKB() - prev.heapAfterKB();
+                    if (promotedKB > 0) {
+                        // Clamp: promotion cannot exceed allocation in the same window
+                        promoRate = Math.min(promotedKB / timeDelta, allocRate);
+                    }
+                }
+
+                allocSum += allocRate;
+                allocCount++;
+                if (allocRate > allocMax) allocMax = allocRate;
+                allocBuckets.get(bucket).add(allocRate);
+
+                if (promoRate > 0) {
+                    promoSum += promoRate;
+                    promoCount++;
+                    if (promoRate > promoMax) promoMax = promoRate;
+                    promoBuckets.get(bucket).add(promoRate);
+                }
             }
 
             totalReclaimedKB += Math.max(0, cur.reclaimedKB());
-
-            // Promotion rate
-            if (!prev.isFullGc() && !cur.isFullGc()) {
-                long promotedKB = cur.heapAfterKB() - prev.heapAfterKB();
-                if (promotedKB > 0) {
-                    double rate = promotedKB / timeDelta;
-                    promoSum += rate;
-                    promoCount++;
-                    if (rate > promoMax) promoMax = rate;
-                    promoBuckets.get(bucket).add(rate);
-                }
-            }
         }
 
         double avgAlloc = allocCount > 0 ? allocSum / allocCount : 0;
         double avgPromo = promoCount > 0 ? promoSum / promoCount : 0;
         double reclaimEfficiency = totalAllocatedKB > 0
-                ? (double) totalReclaimedKB / totalAllocatedKB * 100 : 0;
-        double promoAllocRatio = avgAlloc > 0 ? avgPromo / avgAlloc * 100 : 0;
+                ? Math.min(100.0, (double) totalReclaimedKB / totalAllocatedKB * 100) : 0;
+        double promoAllocRatio = avgAlloc > 0
+                ? Math.min(100.0, avgPromo / avgAlloc * 100) : 0;
 
         double[] allocWindows = averageBuckets(allocBuckets);
         double[] promoWindows = averageBuckets(promoBuckets);
 
         return new RateAnalysis(avgAlloc, allocMax, avgPromo, promoMax,
                 reclaimEfficiency, promoAllocRatio, allocWindows, promoWindows);
+    }
+
+    private static boolean isHumongous(GcEvent event) {
+        String cause = event.cause();
+        return cause != null && cause.toLowerCase().contains("humongous");
     }
 
     private static double[] averageBuckets(List<List<Double>> buckets) {

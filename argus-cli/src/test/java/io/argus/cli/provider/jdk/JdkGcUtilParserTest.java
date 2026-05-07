@@ -63,4 +63,26 @@ class JdkGcUtilParserTest {
         assertEquals(0,   r.ygc());
         assertEquals(0,   r.fgc());
     }
+
+    /**
+     * JDK 21 with concurrent GC inserts CGC and CGCT columns between FGCT and GCT,
+     * shifting GCT from index 10 to index 12. The header-driven parser must still
+     * read GCT correctly and must not mistake CGCT for GCT.
+     */
+    @Test
+    void parseOutput_jdk21WithConcurrentGcColumns() {
+        String jdk21Output =
+                "  S0     S1     E      O      M     CCS    YGC     YGCT    FGC    FGCT    CGC    CGCT     GCT   LGCC GCC\n" +
+                "  0.00   0.00  12.34  45.67  98.10  90.11     3    0.123     1    0.045     8    0.067    0.235 Allocation Failure G1 Young Generation";
+        GcUtilResult r = JdkGcUtilProvider.parseOutput(jdk21Output);
+        assertEquals(0.00,  r.s0(),   0.001);
+        assertEquals(12.34, r.eden(), 0.001);
+        assertEquals(45.67, r.old(),  0.001);
+        assertEquals(3,     r.ygc());
+        assertEquals(0.123, r.ygct(), 0.001);
+        assertEquals(1,     r.fgc());
+        assertEquals(0.045, r.fgct(), 0.001);
+        // GCT must be 0.235, not CGCT (0.067) and not the shifted wrong value
+        assertEquals(0.235, r.gct(),  0.001);
+    }
 }

@@ -21,7 +21,14 @@ public final class AgentThreadProvider implements ThreadProvider {
 
     @Override
     public boolean isAvailable(long pid) {
-        return client.isReachable();
+        if (!client.isReachable()) return false;
+        // Agent endpoints only report on the JVM the agent is attached to.
+        // pid==0 means "local/any"; otherwise require the requested pid to match
+        // the agent's own pid. If the agent does not expose its pid, defer to
+        // JDK providers rather than risk returning the wrong process's data.
+        if (pid == 0L) return true;
+        Long agentPid = client.getAgentPid();
+        return agentPid != null && agentPid == pid;
     }
 
     @Override
@@ -56,6 +63,17 @@ public final class AgentThreadProvider implements ThreadProvider {
             totalThreads = threads.size();
             virtualThreads = (int) threads.stream().filter(ThreadResult.ThreadInfo::virtual).count();
             platformThreads = totalThreads - virtualThreads;
+        }
+
+        // Derive state distribution from thread list when the endpoint does not provide it
+        if (stateDistribution.isEmpty() && !threads.isEmpty()) {
+            Map<String, Integer> derived = new HashMap<>();
+            for (ThreadResult.ThreadInfo t : threads) {
+                if (t.state() != null && !t.state().isEmpty()) {
+                    derived.merge(t.state(), 1, Integer::sum);
+                }
+            }
+            stateDistribution = derived;
         }
 
         return new ThreadResult(
@@ -97,7 +115,7 @@ public final class AgentThreadProvider implements ThreadProvider {
 
     /**
      * Parses the {@code "threads":[...]} array from the thread-dump JSON.
-     * Each element is expected to be: {@code {"name":"...","state":"...","virtual":true/false}}.
+     * Each element is expected to be: {@code {"threadName":"...","state":"...","isVirtual":true/false}}.
      */
     private static List<ThreadResult.ThreadInfo> parseThreadInfoList(String json) {
         List<ThreadResult.ThreadInfo> list = new ArrayList<>();
@@ -118,9 +136,13 @@ public final class AgentThreadProvider implements ThreadProvider {
             if (objEnd < 0) break;
 
             String obj = arr.substring(objStart, objEnd + 1);
-            String name = AgentClient.jsonString(obj, "name");
+            // Agent endpoint uses "threadName"; fall back to "name" for forward-compat
+            String name = AgentClient.jsonString(obj, "threadName");
+            if (name == null) name = AgentClient.jsonString(obj, "name");
             String state = AgentClient.jsonString(obj, "state");
-            String virtualStr = extractJsonValue(obj, "virtual");
+            // Agent endpoint uses "isVirtual"; fall back to "virtual"
+            String virtualStr = extractJsonValue(obj, "isVirtual");
+            if (virtualStr == null) virtualStr = extractJsonValue(obj, "virtual");
             boolean virtual = "true".equalsIgnoreCase(virtualStr);
 
             if (name != null && state != null) {

@@ -109,35 +109,82 @@ public final class JdkGcCauseProvider implements GcCauseProvider {
             gct = safeDouble(values, 10);
         }
 
-        // Extract LGCC and GCC - they're at the end and may contain spaces
-        // Rejoin the data line and extract by column positions from header
-        if (lgccIdx >= 0 && lgccIdx < values.length) {
-            // Simple case: single-word causes
+        // Extract LGCC and GCC from the tail of the data line.
+        // After the last numeric column (GCT) the remainder is "<LGCC> <GCC>" where
+        // both values may be multi-word (e.g. "G1 Humongous Allocation").
+        // We cannot rely on header byte offsets because jstat pads numeric columns
+        // differently from text columns — the byte positions do not match.
+        //
+        // Strategy:
+        //  1. Slice the data line from right after the GCT value to end.
+        //  2. If the tail ends with " No GC"  →  LGCC = rest before it, GCC = "No GC"
+        //  3. Otherwise split on 2+ consecutive spaces (jstat column separator).
+        //     If that yields exactly 2 parts use them; if not, assume LGCC == GCC
+        //     (ongoing GC) and fall back to single-word values[] as safety net.
+        if (lgccIdx >= 0) {
+            // Defensive single-word fallback in case tail extraction fails.
             lgcc = values[lgccIdx];
             if (gccIdx >= 0 && gccIdx < values.length) {
                 gcc = values[gccIdx];
             }
 
-            // Handle multi-word causes by using header positions
-            int lgccStart = headerLine.indexOf("LGCC");
-            int gccStart = headerLine.indexOf(" GCC");
-            if (lgccStart >= 0 && gccStart >= 0 && dataLine.length() >= lgccStart) {
-                String causeSection = dataLine.length() > lgccStart ? dataLine.substring(lgccStart) : "";
-                if (gccStart > lgccStart) {
-                    int relativeGcc = gccStart - lgccStart;
-                    if (causeSection.length() > relativeGcc) {
-                        lgcc = causeSection.substring(0, relativeGcc).trim();
-                        gcc = causeSection.substring(relativeGcc).trim();
-                    } else {
-                        lgcc = causeSection.trim();
-                    }
+            // Locate the GCT value in the data line to find where numeric area ends.
+            int effectiveGctIdx = (gctIdx >= 0) ? gctIdx : 10;
+            String causeTail = extractCauseTail(dataLine, effectiveGctIdx);
+
+            if (causeTail != null && !causeTail.isEmpty()) {
+                // Case 1: GCC is "No GC" (no GC currently running).
+                if (causeTail.endsWith(" No GC")) {
+                    gcc = "No GC";
+                    lgcc = causeTail.substring(0, causeTail.length() - " No GC".length()).trim();
+                    if (lgcc.isEmpty()) lgcc = "No GC";
                 } else {
-                    lgcc = causeSection.trim();
+                    // Case 2: try splitting on 2+ spaces.
+                    String[] parts = causeTail.split("\\s{2,}", 2);
+                    if (parts.length == 2 && !parts[0].isBlank() && !parts[1].isBlank()) {
+                        lgcc = parts[0].trim();
+                        gcc = parts[1].trim();
+                    } else {
+                        // Case 3: LGCC == GCC (GC in progress) — whole tail is the cause.
+                        lgcc = causeTail.trim();
+                        gcc = lgcc;
+                    }
                 }
             }
         }
 
         return new GcCauseResult(s0, s1, eden, old, meta, ccs, ygc, ygct, fgc, fgct, gct, lgcc, gcc);
+    }
+
+    /**
+     * Returns the cause tail — everything after the last numeric token at position
+     * {@code gctIdx} in the data line — or {@code null} if it cannot be located.
+     *
+     * <p>jstat -gccause data lines look like:
+     * {@code  0.00  0.00  98.7  57.2  7.0  30312  4.880  0  0.000  0  0.000  4.880  G1 Humongous Allocation No GC}
+     * The numeric columns are whitespace-delimited; once we skip past {@code gctIdx}
+     * of them we read the rest of the trimmed line as the cause section.</p>
+     */
+    private static String extractCauseTail(String dataLine, int gctIdx) {
+        // Walk through the line token-by-token until we have consumed gctIdx+1 tokens.
+        int tokenCount = 0;
+        int pos = 0;
+        int len = dataLine.length();
+        while (pos < len) {
+            // Skip leading whitespace.
+            while (pos < len && Character.isWhitespace(dataLine.charAt(pos))) pos++;
+            if (pos >= len) break;
+            // Find end of this token.
+            int start = pos;
+            while (pos < len && !Character.isWhitespace(dataLine.charAt(pos))) pos++;
+            // We have consumed one token [start, pos).
+            if (tokenCount == gctIdx) {
+                // The tail begins right after this token.
+                return dataLine.substring(pos).trim();
+            }
+            tokenCount++;
+        }
+        return null;
     }
 
     private static double safeDouble(String[] arr, int idx) {

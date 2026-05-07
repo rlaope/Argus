@@ -78,8 +78,11 @@ public final class BuffersCommand implements Command {
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
         if (result.pools().isEmpty()) {
+            boolean isRemoteJdk = pid != ProcessHandle.current().pid()
+                    && "jdk".equals(provider.source());
+            String noneKey = isRemoteJdk ? "buffers.remote.unavailable" : "buffers.none";
             String msg = AnsiStyle.style(useColor, AnsiStyle.DIM)
-                    + messages.get("buffers.none")
+                    + messages.get(noneKey)
                     + AnsiStyle.style(useColor, AnsiStyle.RESET);
             System.out.println(RichRenderer.boxLine(msg, WIDTH));
         } else {

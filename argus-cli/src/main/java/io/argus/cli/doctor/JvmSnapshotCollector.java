@@ -131,6 +131,19 @@ public final class JvmSnapshotCollector {
             failures++;
         }
 
+        // GC.heap_info on G1/ZGC reports only a top-line total — no separate Eden/Old breakdown,
+        // which is what HeapPressureRule needs to detect Old-gen saturation. Synthesize generation
+        // pools from `jstat -gcutil` (E/O/M percentages → PoolInfo entries scaled to heapMax).
+        if (heapMax > 0) {
+            try {
+                String gcutil = runJstatGcutil(pid);
+                supplementGenerationPools(gcutil, pools, heapMax);
+            } catch (RuntimeException e) {
+                // Non-fatal: rule simply won't fire on Old gen alone.
+                warnings.get().add("jstat -gcutil failed: " + e.getMessage());
+            }
+        }
+
         // GC stats via jcmd — parse collector info
         List<JvmSnapshot.GcInfo> gcInfos = new ArrayList<>();
         long totalGcCount = 0, totalGcTime = 0;
@@ -285,6 +298,60 @@ public final class JvmSnapshotCollector {
         if (l.contains("ps ") || l.contains("parallel")) return "Parallel";
         if (l.contains("copy") || l.contains("marksweep") || l.contains("serial")) return "Serial";
         return raw;
+    }
+
+    /**
+     * Run {@code jstat -gcutil <pid>} and return its output, or null on failure.
+     * Wrapped here so the collector doesn't depend on the provider hierarchy.
+     */
+    private static String runJstatGcutil(long pid) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("jstat", "-gcutil", String.valueOf(pid));
+            pb.redirectErrorStream(true);
+            Process p = pb.start();
+            byte[] out = p.getInputStream().readAllBytes();
+            if (!p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) {
+                p.destroyForcibly();
+                throw new RuntimeException("jstat timeout");
+            }
+            return new String(out, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            throw new RuntimeException(e.getMessage());
+        }
+    }
+
+    /**
+     * Parse {@code jstat -gcutil} columns (E, O, M) and synthesize Eden/Old/Metaspace
+     * {@link JvmSnapshot.PoolInfo} entries scaled to {@code heapMax}. Existing entries
+     * (e.g., from GC.heap_info) are kept; we only add the generation-level breakdown
+     * that the totals view doesn't expose.
+     */
+    private static void supplementGenerationPools(String gcutil,
+                                                   Map<String, JvmSnapshot.PoolInfo> pools,
+                                                   long heapMax) {
+        if (gcutil == null) return;
+        String[] lines = gcutil.split("\n");
+        if (lines.length < 2) return;
+        String[] headers = lines[0].trim().split("\\s+");
+        String[] values = lines[lines.length - 1].trim().split("\\s+");
+        Map<String, Integer> idx = new LinkedHashMap<>();
+        for (int i = 0; i < headers.length; i++) idx.put(headers[i], i);
+
+        // Eden + Old together approximate heap usage; budget Old to (heapMax * fractional split)
+        // is brittle without knowing region sizes, so we just scale per-pool % directly.
+        addPoolFromPct("Eden", idx.get("E"), values, pools, heapMax / 4);
+        addPoolFromPct("G1 Old Gen", idx.get("O"), values, pools, heapMax * 3 / 4);
+    }
+
+    private static void addPoolFromPct(String poolName, Integer idx, String[] values,
+                                       Map<String, JvmSnapshot.PoolInfo> pools, long maxBytes) {
+        if (idx == null || idx >= values.length) return;
+        try {
+            double pct = Double.parseDouble(values[idx]);
+            long used = (long) (maxBytes * pct / 100.0);
+            pools.put(poolName, new JvmSnapshot.PoolInfo(poolName, used, maxBytes, "HEAP"));
+        } catch (NumberFormatException ignored) {
+        }
     }
 
     /** Heap-wide totals from the first summary line of GC.heap_info, if present. */

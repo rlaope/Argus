@@ -16,6 +16,32 @@ public final class HeapPressureRule implements HealthRule {
     public List<Finding> evaluate(JvmSnapshot s) {
         double heapPct = s.heapUsagePercent();
 
+        // Check Old/Tenured gen first — saturation there is the primary OOM indicator
+        // and must surface even when total heap percentage looks acceptable.
+        JvmSnapshot.PoolInfo oldPool = findOldGenPool(s);
+        if (oldPool != null) {
+            double oldPct = oldPool.usagePercent();
+            if (oldPct >= 85) {
+                boolean critical = oldPct >= 92;
+                Severity sev = critical ? Severity.CRITICAL : Severity.WARNING;
+                var b = Finding.builder(sev, "Memory",
+                        String.format("Old generation %.0f%% (%s / %s)",
+                                oldPct, formatBytes(oldPool.used()), formatBytes(oldPool.max())));
+                b.detail(String.format("Old generation at %.0f%% — Full GC risk is imminent. "
+                        + "Objects are being promoted faster than collected.", oldPct));
+                b.recommend("Take a heap dump before OOM: argus heapdump <pid>");
+                b.recommend("Check for memory leaks: argus diff <pid> 30");
+                if (critical) {
+                    b.recommend("Immediate action: increase heap or restart with larger -Xmx");
+                    b.flag("-Xmx" + suggestHeapSize(s.heapMax()));
+                } else {
+                    b.recommend("Monitor trend with: argus watch <pid>");
+                }
+                return List.of(b.build());
+            }
+        }
+
+        // Fall back to total heap percentage gate
         if (heapPct < 75) return List.of();
 
         boolean critical = heapPct >= 92;
@@ -25,18 +51,6 @@ public final class HeapPressureRule implements HealthRule {
                 String.format("Heap usage %.0f%% (%s / %s)",
                         heapPct, formatBytes(s.heapUsed()), formatBytes(s.heapMax())));
 
-        // Check for old gen specifically
-        for (var pool : s.memoryPools().values()) {
-            String name = pool.name().toLowerCase();
-            if ((name.contains("old") || name.contains("tenured")) && pool.usagePercent() > 85) {
-                b.detail(String.format("Old generation at %.0f%% — Full GC risk is imminent. "
-                        + "Objects are being promoted faster than collected.", pool.usagePercent()));
-                b.recommend("Take a heap dump before OOM: argus heapdump <pid>");
-                b.recommend("Check for memory leaks: argus diff <pid> 30");
-                break;
-            }
-        }
-
         if (critical) {
             b.recommend("Immediate action: increase heap or restart with larger -Xmx");
             b.flag("-Xmx" + suggestHeapSize(s.heapMax()));
@@ -45,6 +59,16 @@ public final class HeapPressureRule implements HealthRule {
         }
 
         return List.of(b.build());
+    }
+
+    private static JvmSnapshot.PoolInfo findOldGenPool(JvmSnapshot s) {
+        for (var pool : s.memoryPools().values()) {
+            String name = pool.name().toLowerCase();
+            if (name.contains("old") || name.contains("tenured") || name.contains("g1 old")) {
+                return pool;
+            }
+        }
+        return null;
     }
 
     private static String suggestHeapSize(long currentMax) {

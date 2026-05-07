@@ -61,23 +61,21 @@ public final class JdkBuffersProvider implements BuffersProvider {
     }
 
     private BuffersResult getFromJcmd(long pid) {
-        String output;
-        try {
-            output = JcmdExecutor.execute(pid, "VM.info");
-        } catch (RuntimeException e) {
-            return new BuffersResult(List.of(), 0, 0, 0);
-        }
-        return parseVmInfo(output);
+        // JDK 21+ no longer includes buffer pool data in VM.info output.
+        // BufferPoolMXBean data is only accessible in-process or via JMX.
+        return new BuffersResult(List.of(), 0, 0, 0);
     }
 
+    /**
+     * @deprecated VM.info does not contain buffer pool data on JDK 16+.
+     *             Kept for testability against older JDK output.
+     */
+    @Deprecated
     static BuffersResult parseVmInfo(String output) {
         if (output == null || output.isEmpty()) {
             return new BuffersResult(List.of(), 0, 0, 0);
         }
 
-        // VM.info contains a section like:
-        // Direct buffer pool: count=10, total capacity=81920, memory used=81920
-        // Mapped buffer pool: count=0, total capacity=0, memory used=0
         List<BufferPool> pools = new ArrayList<>();
         long totalCount = 0;
         long totalCapacity = 0;

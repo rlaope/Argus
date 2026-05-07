@@ -20,6 +20,8 @@ public final class AgentClient {
     private final String baseUrl;
     private final HttpClient httpClient;
     private volatile Boolean reachableCache;
+    private volatile Long agentPidCache;
+    private volatile boolean agentPidFetched;
 
     public AgentClient() {
         this(DEFAULT_HOST, DEFAULT_PORT);
@@ -55,6 +57,7 @@ public final class AgentClient {
 
     /**
      * Checks whether the Argus agent is reachable by probing {@code /health}.
+     * Also caches the agent's PID parsed from the health response body, when present.
      *
      * @return true if the agent responds with HTTP 200
      */
@@ -70,11 +73,33 @@ public final class AgentClient {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             result = response.statusCode() == 200;
+            if (result) {
+                String body = response.body();
+                if (body != null && body.contains("\"pid\"")) {
+                    long pid = jsonLong(body, "pid");
+                    agentPidCache = pid > 0 ? pid : null;
+                }
+                agentPidFetched = true;
+            }
         } catch (Exception e) {
             result = false;
         }
         reachableCache = result;
         return result;
+    }
+
+    /**
+     * Returns the PID of the JVM the agent server is running in, as reported by
+     * {@code /health}. Returns {@code null} if the agent is unreachable or if the
+     * server does not expose its PID.
+     *
+     * <p>Result is cached after the first successful fetch.
+     */
+    public Long getAgentPid() {
+        if (agentPidFetched) return agentPidCache;
+        // Trigger a /health fetch to populate the cache
+        isReachable();
+        return agentPidCache;
     }
 
     // -------------------------------------------------------------------------

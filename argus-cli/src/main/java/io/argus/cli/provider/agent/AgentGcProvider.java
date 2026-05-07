@@ -18,7 +18,14 @@ public final class AgentGcProvider implements GcProvider {
 
     @Override
     public boolean isAvailable(long pid) {
-        return client.isReachable();
+        if (!client.isReachable()) return false;
+        // Agent endpoints only report on the JVM the agent is attached to.
+        // pid==0 means "local/any"; otherwise require the requested pid to match
+        // the agent's own pid. If the agent does not expose its pid, fall back
+        // to JDK providers to avoid returning the wrong process's data.
+        if (pid == 0L) return true;
+        Long agentPid = client.getAgentPid();
+        return agentPid != null && agentPid == pid;
     }
 
     @Override
