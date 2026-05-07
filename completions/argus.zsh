@@ -91,7 +91,38 @@ _argus() {
                         '--duration=[Duration in seconds]' \
                         '--flame[Generate flame graph]' \
                         '--file=[Output file]' \
-                        '--top=[Top N methods]'
+                        '--top=[Top N methods]' \
+                        '--output=[Output path for stop/dump]' \
+                        '--output-format=[Output format]:fmt:(flamegraph collapsed jfr tree text)' \
+                        '--interval=[Sampling interval (e.g. 1ms)]' \
+                        '--jstackdepth=[Max Java stack depth 1-2048]' \
+                        '--cstack=[C-stack mode]:cstack:(fp dwarf lbr vm no)' \
+                        '--threads[Per-thread output]' \
+                        '--alluser[Count only user-space events]' \
+                        '--allkernel[Count only kernel-space events]' \
+                        '--alloc=[Allocation threshold (e.g. 128k)]' \
+                        '--live[Only count live allocations]' \
+                        '--include=[Include frames matching pattern]' \
+                        '--exclude=[Exclude frames matching pattern]' \
+                        '1:subcommand:(start stop dump status)'
+                    ;;
+                flame)
+                    _arguments \
+                        '--type=[Profiling type]:type:(cpu alloc lock wall)' \
+                        '--duration=[Duration in seconds]' \
+                        '--output=[Output file path]' \
+                        '--output-format=[Output format]:fmt:(flamegraph collapsed jfr tree text)' \
+                        '--no-open[Do not open browser]' \
+                        '--interval=[Sampling interval (e.g. 1ms)]' \
+                        '--jstackdepth=[Max Java stack depth 1-2048]' \
+                        '--cstack=[C-stack mode]:cstack:(fp dwarf lbr vm no)' \
+                        '--threads[Per-thread output]' \
+                        '--alluser[Count only user-space events]' \
+                        '--allkernel[Count only kernel-space events]' \
+                        '--alloc=[Allocation threshold (e.g. 128k)]' \
+                        '--live[Only count live allocations]' \
+                        '--include=[Include frames matching pattern]' \
+                        '--exclude=[Exclude frames matching pattern]'
                     ;;
                 heapdump)
                     _arguments \

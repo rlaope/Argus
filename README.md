@@ -257,7 +257,7 @@ All 55 commands. No agent needed. Works on any running JVM.
 
 | Command | Description |
 |---------|-------------|
-| `argus profile <pid>` | CPU/allocation/lock profiling (async-profiler) |
+| `argus profile <pid>` | CPU/allocation/lock/wall profiling (async-profiler) — supports `start`/`stop`/`dump`/`status` session subcommands and `--save`/`--diff` regression detection |
 | `argus jfr <pid> start\|stop\|check\|dump` | Flight Recorder control |
 | `argus jfranalyze <file.jfr>` | Analyze JFR recording (GC, CPU, hot methods, I/O) |
 | `argus logger <pid>` | View and change log levels at runtime |

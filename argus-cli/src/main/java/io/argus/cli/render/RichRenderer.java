@@ -88,7 +88,7 @@ public final class RichRenderer {
             int dashes = width - 2; // BL + BR
             sb.append(String.valueOf(HORIZ).repeat(Math.max(1, dashes)));
         } else {
-            String segment = HORIZ + HORIZ + ' ' + summary + ' ';
+            String segment = "" + HORIZ + HORIZ + ' ' + summary + ' ';
             int rawUsed = 2 + segment.length(); // BL + BR + segment
             int dashes = width - rawUsed;
             sb.append(segment);

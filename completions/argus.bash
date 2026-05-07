@@ -26,12 +26,16 @@ _argus_completions() {
         jfr)
             COMPREPLY=($(compgen -W "start stop check dump" -- "$cur"))
             ;;
+        profile)
+            COMPREPLY=($(compgen -W "start stop dump status" -- "$cur"))
+            ;;
         *)
             if [[ "$cur" == --* ]]; then
                 local opts="--source= --no-color --lang= --format= --help"
                 case "${COMP_WORDS[1]}" in
                     histo) opts="$opts --top=" ;;
-                    profile) opts="$opts --type= --duration= --flame --file= --top=" ;;
+                    profile) opts="$opts --type= --duration= --flame --file= --top= --output= --output-format= --interval= --jstackdepth= --cstack= --threads --alluser --allkernel --alloc= --live --include= --exclude=" ;;
+                    flame) opts="$opts --type= --duration= --output= --output-format= --no-open --interval= --jstackdepth= --cstack= --threads --alluser --allkernel --alloc= --live --include= --exclude=" ;;
                     gcprofile) opts="$opts --duration= --top= --by= --fold=" ;;
                     gcutil) opts="$opts --watch=" ;;
                     sysprops|vmflag) opts="$opts --filter=" ;;

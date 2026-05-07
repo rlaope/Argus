@@ -412,12 +412,80 @@ Options:
 - `--file NAME` — Output file for flame graph
 - `--top N` — Show top N methods (default: 20)
 - `--format=json` — JSON output
+- `--save=PATH` — Persist this run as a snapshot (JSON) for later diffing
+- `--diff=PATH` — Run profile then diff against a saved snapshot
+- `--diff=A:B` — Pure-diff of two saved snapshots (no pid required)
 
 Flame graph example:
 ```bash
 $ argus profile 12345 --flame --duration 60
 # Generates HTML flame graph and opens in browser
 ```
+
+### Session subcommands (start / stop / dump / status)
+
+For incident capture and continuous profiling — attach now, dump when something happens.
+
+```bash
+$ argus profile start 12345 --type=cpu        # attach, profile in background
+$ argus profile status 12345                  # "Profiling for 145s using cpu event"
+$ argus profile dump 12345 --output=now.html  # snapshot without stopping
+$ argus profile stop 12345 --output=final.html --output-format=flamegraph
+```
+
+`--output-format` accepts `flamegraph` (default for `.html`), `collapsed`, `jfr`, `tree`, `text`.
+The `.jfr` format is consumable by JDK Mission Control / IntelliJ Profiler.
+
+### Save and diff for regression detection
+
+Mirrors `nmt --save / --diff`. Captures all top methods (not just top-20) so deltas are accurate.
+
+```bash
+# Capture baseline before deploy
+$ argus profile 12345 --duration=30 --save=before.json
+
+# Live-vs-baseline after deploy
+$ argus profile 12345 --duration=30 --diff=before.json
+
+# Pure file-vs-file
+$ argus profile --diff=before.json:after.json
+```
+
+Output highlights regressions (red, samples increased) and improvements (green), with `(NEW)` / `(GONE)` markers for methods present in only one snapshot. JSON output supported via `--format=json`.
+
+### Advanced flags (asprof passthrough)
+
+Power-user flags forwarded directly to async-profiler. All optional; defaults preserve current behavior.
+
+| Flag | asprof | Notes |
+|------|--------|-------|
+| `--interval=N[ms\|us\|ns]` | `-i N` | Sampling interval (default 10ms is asprof default) |
+| `--jstackdepth=N` | `-j N` | Max Java stack depth, clamped 1..2048 |
+| `--cstack=fp\|dwarf\|lbr\|vm\|no` | `--cstack <mode>` | Native stack unwinding — use `dwarf` for JNI debugging |
+| `--threads` | `-t` | Per-thread output |
+| `--alluser` / `--allkernel` | `--alluser`/`--allkernel` | Mutually exclusive |
+| `--alloc=N[k\|m\|g]` | `--alloc N` | Allocation threshold (only with `--type=alloc`) |
+| `--live` | `--live` | Only count live allocations (only with `--type=alloc`) |
+| `--include=PATTERN` | `-I PATTERN` | Repeatable include filter |
+| `--exclude=PATTERN` | `-X PATTERN` | Repeatable exclude filter |
+
+```bash
+# Native stacks for JNI debugging:
+$ argus profile 12345 --duration=30 --cstack=dwarf
+
+# Tighter sampling for short-running methods:
+$ argus profile 12345 --duration=30 --interval=1ms --jstackdepth=64
+
+# Allocation profiling with custom threshold + live filter:
+$ argus profile 12345 --duration=30 --type=alloc --alloc=128k --live
+
+# JFR output for JMC analysis (one-shot path):
+$ argus profile 12345 --duration=30 --output-format=jfr --output=run.jfr
+```
+
+### Pre-flight permission checks (Linux)
+
+Argus validates `/proc/sys/kernel/perf_event_paranoid`, `kptr_restrict`, `/proc/<pid>/status` accessibility, `ptrace_scope`, and container/cgroup state before running asprof. Failures emit copy-pasteable fix commands (e.g. `sudo sysctl kernel.perf_event_paranoid=1`) instead of cryptic asprof errors. Container detection (Docker / containerd / k8s / lxc) emits a one-line warning about `--cap-add=SYS_ADMIN` and host-vs-container PID mapping.
 
 ---
 

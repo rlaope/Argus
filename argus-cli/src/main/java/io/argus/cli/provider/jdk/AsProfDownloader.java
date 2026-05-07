@@ -29,11 +29,12 @@ public final class AsProfDownloader {
 
     static {
         CHECKSUMS = new HashMap<>();
-        CHECKSUMS.put("linux-x64",       "TODO_REPLACE_WITH_ACTUAL_HASH");
-        CHECKSUMS.put("linux-arm64",     "TODO_REPLACE_WITH_ACTUAL_HASH");
-        CHECKSUMS.put("linux-musl-x64",  "TODO_REPLACE_WITH_ACTUAL_HASH");
-        CHECKSUMS.put("linux-musl-arm64","TODO_REPLACE_WITH_ACTUAL_HASH");
-        CHECKSUMS.put("macos",           "TODO_REPLACE_WITH_ACTUAL_HASH");
+        CHECKSUMS.put("linux-x64",       "2b631e8c0418e7e8a19d59a2d2eff016e87f8a4ffbac1ea395ec750b39dc3ce8");
+        CHECKSUMS.put("linux-arm64",     "8d3b407055f66756eb9525a814cbcf119951a8fb82055df9471b6559326f7607");
+        // async-profiler 3.0 does not ship musl variants; no archive exists on the release page
+        CHECKSUMS.put("linux-musl-x64",  "TODO_NO_MUSL_ARCHIVE_IN_V3_0");
+        CHECKSUMS.put("linux-musl-arm64","TODO_NO_MUSL_ARCHIVE_IN_V3_0");
+        CHECKSUMS.put("macos",           "cae4f207c33b964276385272a7cfe3750594cbcc8918f97a4bb67292bdbc43a8");
     }
 
     private AsProfDownloader() {}

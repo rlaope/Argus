@@ -14,9 +14,14 @@ public final class ProfileResult {
     private final List<MethodSample> topMethods;
     private final String flameGraphPath;
     private final String errorMessage;
+    // Human-readable status text from session subcommands (start/stop/dump/status).
+    // Null for the one-shot profile path. status() returns "ok" when a session
+    // subcommand succeeded; statusText carries the asprof message detail.
+    private final String statusText;
 
     private ProfileResult(String status, String type, int durationSec, long totalSamples,
-                          List<MethodSample> topMethods, String flameGraphPath, String errorMessage) {
+                          List<MethodSample> topMethods, String flameGraphPath, String errorMessage,
+                          String statusText) {
         this.status = status;
         this.type = type;
         this.durationSec = durationSec;
@@ -24,17 +29,26 @@ public final class ProfileResult {
         this.topMethods = topMethods;
         this.flameGraphPath = flameGraphPath;
         this.errorMessage = errorMessage;
+        this.statusText = statusText;
     }
 
     public static ProfileResult ok(String type, int durationSec, long totalSamples,
                                    List<MethodSample> topMethods, String flameGraphPath) {
         List<MethodSample> methods = topMethods != null ? Collections.unmodifiableList(topMethods)
                 : Collections.emptyList();
-        return new ProfileResult("ok", type, durationSec, totalSamples, methods, flameGraphPath, null);
+        return new ProfileResult("ok", type, durationSec, totalSamples, methods, flameGraphPath, null, null);
     }
 
     public static ProfileResult error(String message) {
-        return new ProfileResult("error", null, 0, 0L, Collections.emptyList(), null, message);
+        return new ProfileResult("error", null, 0, 0L, Collections.emptyList(), null, message, null);
+    }
+
+    /**
+     * Result for session subcommands (start/stop/dump/status). Carries
+     * a human-readable text payload alongside an "ok" status.
+     */
+    public static ProfileResult session(String type, String statusText, String flameGraphPath) {
+        return new ProfileResult("ok", type, 0, 0L, Collections.emptyList(), flameGraphPath, null, statusText);
     }
 
     public String status() { return status; }
@@ -44,4 +58,5 @@ public final class ProfileResult {
     public List<MethodSample> topMethods() { return topMethods; }
     public String flameGraphPath() { return flameGraphPath; }
     public String errorMessage() { return errorMessage; }
+    public String statusText() { return statusText; }
 }

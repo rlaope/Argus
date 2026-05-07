@@ -87,7 +87,8 @@ Register-ArgumentCompleter -CommandName argus -Native -ScriptBlock {
             'histo'   { $opts += '--top=' }
             'diff'    { $opts += '--top=' }
             'pool'    { $opts += '--top=' }
-            'profile' { $opts += @('--type=', '--duration=', '--flame', '--file=', '--top=') }
+            'profile' { $opts += @('--type=', '--duration=', '--flame', '--file=', '--top=', '--output=', '--output-format=', '--interval=', '--jstackdepth=', '--cstack=', '--threads', '--alluser', '--allkernel', '--alloc=', '--live', '--include=', '--exclude=', 'start', 'stop', 'dump', 'status') }
+            'flame'   { $opts += @('--type=', '--duration=', '--output=', '--output-format=', '--no-open', '--interval=', '--jstackdepth=', '--cstack=', '--threads', '--alluser', '--allkernel', '--alloc=', '--live', '--include=', '--exclude=') }
             'gcutil'  { $opts += '--watch=' }
             'sysprops' { $opts += '--filter=' }
             'vmflag'  { $opts += @('--filter=', '--set=') }
