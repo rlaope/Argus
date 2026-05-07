@@ -664,6 +664,79 @@ Sources:
 
 ---
 
+### ZGC command path (`ZgcCommand`)
+
+`ZgcCommand` → JMX pre-check (`VirtualMachine.attach` + `GarbageCollectorMXBean` name scan) → `jcmd JFR.start settings=profile` (capture window, default 30s) → `jcmd JFR.dump` → `ZgcJfrCollector.collect()` → `ZgcDiagnosis.compute()` → verdict + recommendations.
+
+`ZgcJfrCollector` subscribes to six JFR event types:
+
+| Event | Purpose |
+|-------|---------|
+| `jdk.ZAllocationStall` | Per-thread allocation stalls (thread name, duration) |
+| `jdk.ZGarbageCollection` | Non-generational ZGC cycles (duration, overlap detection) |
+| `jdk.ZYoungGarbageCollection` | Generational minor cycles |
+| `jdk.ZOldGarbageCollection` | Generational major cycles |
+| `jdk.GarbageCollection` | STW phase durations (Pause Mark Start / End / Relocate Start) |
+| `jdk.GCHeapSummary` | Committed heap samples for soft-max breach detection |
+
+`ZgcDiagnosis.compute()` verdict logic: UNHEALTHY when stalls are present or cycles overlap; WARNING when soft-max is breached or Pause Mark End > 1.0 ms; HEALTHY otherwise.
+
+Generational detection: `ZgcJfrCollector` sets `diagnosis.generational = true` when `jdk.ZYoungGarbageCollection` or `jdk.ZOldGarbageCollection` events are observed. `ZgcCommand.inspectTarget()` also sets this flag when MBean names contain `"ZGC Major Cycles"` or `"ZGC Minor Cycles"`.
+
+Sources:
+- `argus-cli/src/main/java/io/argus/cli/command/ZgcCommand.java`
+- `argus-cli/src/main/java/io/argus/cli/zgc/ZgcJfrCollector.java`
+- `argus-cli/src/main/java/io/argus/cli/zgc/ZgcDiagnosis.java`
+
+---
+
+### New Doctor rules — ZGC
+
+Two new rules under `argus-cli/src/main/java/io/argus/cli/doctor/rules/`:
+
+- **`ZgcSoftMaxBreachRule`** (WARNING): fires when `heapCommitted > SoftMaxHeapSize > 0`. Parses `-XX:SoftMaxHeapSize=N` from the `vmFlags` list (raw bytes). Skipped entirely for non-ZGC collectors (`gcAlgorithm().contains("ZGC")` guard).
+
+- **`ZgcCycleOverlapRule`** (CRITICAL): fires when `avgDurationMs > intervalMs * 0.8` for any ZGC collector with more than 5 cycles (MIN_CYCLE_COUNT = 5, OVERLAP_THRESHOLD = 0.8). Uses `uptimeMs / count` as the proxy for average inter-cycle interval.
+
+`GcAlgorithmRule` also gained a Generational ZGC hint: when `gcAlgorithm` equals `"ZGC"` (not `"ZGC (Generational)"`) and the JVM major version is 21–23, it emits an INFO finding recommending `-XX:+ZGenerational`. No hint is emitted on JDK 24+ where generational mode is the default.
+
+---
+
+### `JvmSnapshotCollector` — Generational ZGC detection
+
+`JvmSnapshotCollector.canonicalGcAlgorithm()` returns `"ZGC (Generational)"` when the MBean name set contains `"ZGC Major Cycles"` or `"ZGC Minor Cycles"`. Downstream consumers (`ZgcSoftMaxBreachRule`, `ZgcCycleOverlapRule`, `GcAlgorithmRule`, `GcScoreCalculator`) use `algo.contains("ZGC")` for broad ZGC matching and `algo.equals("ZGC")` for the plain non-generational case.
+
+---
+
+### GC log Allocation Stall parsing
+
+`GcLogPatterns.ALLOCATION_STALL` regex:
+
+```
+Allocation Stall \(([^)]+)\)\s+(\d+\.?\d*)ms
+```
+
+`GcLogParser` matches this pattern and accumulates `AllocationStallSummary` (count, totalMs, maxMs, topThread, topThreadMs). `GcLogAnalysis` exposes the summary via `allocationStalls()`. When `allocationStalls() != null`, `GcLogCommand` renders an **Allocation Stalls (ZGC)** section before the GC Pause Summary.
+
+Sources:
+- `argus-cli/src/main/java/io/argus/cli/gclog/GcLogPatterns.java`
+- `argus-cli/src/main/java/io/argus/cli/gclog/GcLogAnalysis.java` (`AllocationStallSummary` inner class)
+
+---
+
+### `GcScoreCalculator` — ZGC weight branch
+
+When `gcAlgorithm.toUpperCase().contains("ZGC")`:
+
+- `scorePauseP99Zgc()` — PASS threshold tightened to 5 ms (vs 200 ms standard).
+- `scorePauseTailZgc()` — PASS threshold tightened to 10 ms (vs 500 ms standard).
+- `scoreZgcAllocationPressure()` — new axis keyed on cycle frequency (`totalEvents / durationSec`); PASS < 0.5/s, FAIL ≥ 1.0/s.
+- `weightedOverall()` ZGC weight vector: `[0.12, 0.08, 0.30, 0.15, 0.10, 0.10, 0.15]` (p99, tail, throughput, fullGcFreq, allocRate, promoRatio, allocPressure).
+
+Source: `argus-cli/src/main/java/io/argus/cli/gcscore/GcScoreCalculator.java`
+
+---
+
 ## Next Steps
 
 - [Getting Started](getting-started.md) - Installation guide

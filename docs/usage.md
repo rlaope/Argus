@@ -137,3 +137,49 @@ argus:
 ```
 
 The dashboard starts automatically. Health status available at `/actuator/health/argus`. Micrometer metrics auto-registered when on classpath.
+
+---
+
+## Diagnose a ZGC Outage
+
+A step-by-step walkthrough for investigating a ZGC-related latency spike or OOM.
+
+### Step 1 — Get a verdict in 30 seconds
+
+```bash
+argus zgc <PID>
+```
+
+`argus zgc` attaches to the JVM via JMX, starts a 30-second JFR recording, and prints a HEALTHY / WARNING / UNHEALTHY verdict with allocation stall counts, cycle overlap status, SoftMax breach detection, and STW pause averages.
+
+If the target JVM is not using ZGC, the command exits immediately with a message showing the active collector. Confirm with `argus gc <PID>` and switch with `-XX:+UseZGC` (JDK 15+) or `-XX:+UseZGC -XX:+ZGenerational` (JDK 21–23).
+
+### Step 2 — Run doctor for cross-cutting findings
+
+If the verdict is WARNING or UNHEALTHY, run the full health check:
+
+```bash
+argus doctor <PID>
+```
+
+`argus doctor` fires all health rules, including the ZGC-specific `ZgcSoftMaxBreachRule` (WARNING) and `ZgcCycleOverlapRule` (CRITICAL), alongside general heap, CPU, and thread rules. Exit code `2` means critical findings require immediate action.
+
+### Step 3 — Profile allocations if stalls are present
+
+If Step 1 reported allocation stalls:
+
+```bash
+argus profile <PID> --event=alloc --duration=30
+```
+
+This shows the top allocation call sites by stack frame. Address the top allocators first — reducing allocation rate is often more effective than raising `-Xmx` alone.
+
+### Step 4 — Apply recommendations and confirm
+
+After tuning (raise `-Xmx`, set `-XX:SoftMaxHeapSize`, raise `-XX:ConcGCThreads`, or fix hot allocation sites), re-run the diagnostic to confirm the verdict improves:
+
+```bash
+argus zgc <PID>
+```
+
+A clean run returns `Verdict: HEALTHY  — ZGC is keeping up.` with no stalls and no overlap.

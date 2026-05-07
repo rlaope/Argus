@@ -55,6 +55,48 @@ public final class GcAlgorithmRule implements HealthRule {
             }
         }
 
+        // Suggest Generational ZGC on JDK 21-23 when plain ZGC is in use
+        if ("ZGC".equals(s.gcAlgorithm())) {
+            int major = parseJavaMajorVersion(s.vmVersion());
+            if (major >= 21 && major < 24) {
+                findings.add(Finding.builder(Severity.INFO, "GC",
+                                "Consider Generational ZGC")
+                        .detail("JDK 21-23 supports Generational ZGC behind a flag. "
+                                + "It improves throughput and reduces allocation stalls "
+                                + "under allocation-heavy workloads.")
+                        .recommend("-XX:+ZGenerational  (note: becomes default in JDK 24)")
+                        .flag("-XX:+ZGenerational")
+                        .build());
+            }
+            // JDK 24+: generational is default — emit nothing
+        }
+
         return findings;
+    }
+
+    /**
+     * Parse the JVM major version from a version string such as "21.0.2+13" or
+     * "17.0.8" or "OpenJDK ... build 11.0.1+13". Returns -1 on parse failure.
+     */
+    static int parseJavaMajorVersion(String vmVersion) {
+        if (vmVersion == null || vmVersion.isBlank()) return -1;
+        try {
+            // Find first run of digits possibly preceded by non-digit context
+            // e.g. "build 21.0.2+13" or "21.0.2" or "11.0.1"
+            java.util.regex.Matcher m =
+                    java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)").matcher(vmVersion);
+            if (m.find()) {
+                int first = Integer.parseInt(m.group(1));
+                // JDK 1.x era: "1.8.0_292" → major is 8
+                if (first == 1) {
+                    return Integer.parseInt(m.group(2));
+                }
+                return first;
+            }
+            // Fallback: bare integer string
+            return Integer.parseInt(vmVersion.trim().split("[^\\d]")[0]);
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
     }
 }

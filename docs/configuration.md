@@ -557,6 +557,40 @@ These flags were added in the current development cycle. Each appears in the rel
 | `argus doctor` | `--profile-duration=N` | Sets the live capture duration for `--profile` (seconds) |
 | `argus suggest` | `--profile` | Adds profile-driven flag recommendations to the output |
 | `argus suggest` | `--profile=<file>` | Uses a saved snapshot instead of a live capture |
+| `argus suggest` | `--advanced` | Includes advanced ZGC flags (e.g. `ZAllocationSpikeTolerance`) |
+| `argus zgc` | `<PID>` | One-shot ZGC health verdict via 30s live JFR capture |
+| `argus zgc` | `--duration=N` | Override the JFR capture window (5–120 seconds) |
+
+### ZGC logging setup
+
+To enable `argus gclog` allocation stall detection and ZGC cycle visibility, start the target JVM with the canonical unified GC log configuration:
+
+```bash
+java -XX:+UseZGC \
+     -Xlog:gc*:file=gc.log:time,uptime,level,tags \
+     -jar your-app.jar
+```
+
+This produces `Allocation Stall (thread) Xms` lines that `argus gclog` parses into the **Allocation Stalls (ZGC)** section. Without `gc*` (i.e. with just `gc`), stall lines are not emitted.
+
+For Generational ZGC on JDK 21–23:
+
+```bash
+java -XX:+UseZGC -XX:+ZGenerational \
+     -Xlog:gc*:file=gc.log:time,uptime,level,tags \
+     -jar your-app.jar
+```
+
+### ZGC tuning flags
+
+| Flag | Purpose |
+|------|---------|
+| `-XX:SoftMaxHeapSize=<N>g` | Soft heap ceiling; ZGC keeps committed heap below this under normal load |
+| `-XX:ZAllocationSpikeTolerance=5.0` | Tolerance for short-lived allocation spikes before proactive GC (default: 2.0) |
+| `-XX:+ZUncommit` | Return idle heap pages to the OS |
+| `-XX:ZUncommitDelay=300` | Wait N seconds before uncommitting idle memory (default: 300) |
+| `-XX:ConcGCThreads=N` | Number of concurrent GC threads; raise when cycles overlap or stalls occur |
+| `-XX:+ZGenerational` | Enable Generational ZGC (JDK 21–23; default in JDK 24+) |
 
 **Examples:**
 

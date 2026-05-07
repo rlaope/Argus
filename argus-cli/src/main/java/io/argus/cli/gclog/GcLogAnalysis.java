@@ -25,6 +25,7 @@ public final class GcLogAnalysis {
     private final List<TuningRecommendation> recommendations;
     private final GcRateAnalyzer.RateAnalysis rateAnalysis;
     private final GcLeakDetector.LeakAnalysis leakAnalysis;
+    private final AllocationStallSummary allocationStalls;
 
     public GcLogAnalysis(int totalEvents, int pauseEvents, int fullGcEvents, int concurrentEvents,
                          double durationSec, double throughputPercent,
@@ -35,7 +36,7 @@ public final class GcLogAnalysis {
         this(totalEvents, pauseEvents, fullGcEvents, concurrentEvents,
                 durationSec, throughputPercent, totalPauseMs, maxPauseMs,
                 p50PauseMs, p95PauseMs, p99PauseMs, avgPauseMs, peakHeapKB, avgHeapAfterKB,
-                causeBreakdown, recommendations, null, null);
+                causeBreakdown, recommendations, null, null, null);
     }
 
     public GcLogAnalysis(int totalEvents, int pauseEvents, int fullGcEvents, int concurrentEvents,
@@ -46,6 +47,21 @@ public final class GcLogAnalysis {
                          List<TuningRecommendation> recommendations,
                          GcRateAnalyzer.RateAnalysis rateAnalysis,
                          GcLeakDetector.LeakAnalysis leakAnalysis) {
+        this(totalEvents, pauseEvents, fullGcEvents, concurrentEvents,
+                durationSec, throughputPercent, totalPauseMs, maxPauseMs,
+                p50PauseMs, p95PauseMs, p99PauseMs, avgPauseMs, peakHeapKB, avgHeapAfterKB,
+                causeBreakdown, recommendations, rateAnalysis, leakAnalysis, null);
+    }
+
+    public GcLogAnalysis(int totalEvents, int pauseEvents, int fullGcEvents, int concurrentEvents,
+                         double durationSec, double throughputPercent,
+                         long totalPauseMs, long maxPauseMs, long p50PauseMs, long p95PauseMs,
+                         long p99PauseMs, long avgPauseMs, long peakHeapKB, long avgHeapAfterKB,
+                         Map<String, CauseStats> causeBreakdown,
+                         List<TuningRecommendation> recommendations,
+                         GcRateAnalyzer.RateAnalysis rateAnalysis,
+                         GcLeakDetector.LeakAnalysis leakAnalysis,
+                         AllocationStallSummary allocationStalls) {
         this.totalEvents = totalEvents;
         this.pauseEvents = pauseEvents;
         this.fullGcEvents = fullGcEvents;
@@ -64,6 +80,7 @@ public final class GcLogAnalysis {
         this.recommendations = recommendations;
         this.rateAnalysis = rateAnalysis;
         this.leakAnalysis = leakAnalysis;
+        this.allocationStalls = allocationStalls;
     }
 
     public int totalEvents() { return totalEvents; }
@@ -84,6 +101,8 @@ public final class GcLogAnalysis {
     public List<TuningRecommendation> recommendations() { return recommendations; }
     public GcRateAnalyzer.RateAnalysis rateAnalysis() { return rateAnalysis; }
     public GcLeakDetector.LeakAnalysis leakAnalysis() { return leakAnalysis; }
+    /** Returns the ZGC Allocation Stall summary, or null if no stalls were observed. */
+    public AllocationStallSummary allocationStalls() { return allocationStalls; }
 
     public static final class CauseStats {
         private final String cause;
@@ -111,6 +130,29 @@ public final class GcLogAnalysis {
         public long avgMs() { return avgMs; }
         /** p99 pause for this cause; equals maxMs when fewer than 100 events (sorted-tail proxy). */
         public long p99Ms() { return p99Ms; }
+    }
+
+    public static final class AllocationStallSummary {
+        private final int count;
+        private final double totalMs;
+        private final double maxMs;
+        private final String topThread;
+        private final double topThreadMs;
+
+        public AllocationStallSummary(int count, double totalMs, double maxMs,
+                                      String topThread, double topThreadMs) {
+            this.count = count;
+            this.totalMs = totalMs;
+            this.maxMs = maxMs;
+            this.topThread = topThread;
+            this.topThreadMs = topThreadMs;
+        }
+
+        public int count() { return count; }
+        public double totalMs() { return totalMs; }
+        public double maxMs() { return maxMs; }
+        public String topThread() { return topThread; }
+        public double topThreadMs() { return topThreadMs; }
     }
 
     public static final class TuningRecommendation {

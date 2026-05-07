@@ -584,6 +584,7 @@
                 <li><a href="#cli-commands" data-target="cli-commands">CLI Commands</a></li>
                 <li class="sub"><a href="#first-diagnosis" data-target="first-diagnosis">First Diagnosis</a></li>
                 <li class="sub"><a href="#command-reference" data-target="command-reference">Command Reference</a></li>
+                <li class="sub"><a href="#zgc" data-target="zgc">ZGC Diagnosis</a></li>
             </ul>
         </div>
         <div class="sidebar-section">
@@ -742,7 +743,7 @@ argus histo 12345</code></pre>
                         <tbody>
                             <tr><td>Process</td><td><code>ps</code>, <code>info</code>, <code>init</code></td><td>Find and identify JVM processes</td></tr>
                             <tr><td>Memory</td><td><code>heap</code>, <code>histo</code>, <code>heapdump</code>, <code>diff</code>, <code>nmt</code></td><td>Heap usage, object distribution, native memory</td></tr>
-                            <tr><td>GC</td><td><code>gc</code>, <code>gcutil</code>, <code>gccause</code>, <code>gcnew</code></td><td>GC frequency, pause times, causes, generation stats</td></tr>
+                            <tr><td>GC</td><td><code>gc</code>, <code>gcutil</code>, <code>gccause</code>, <code>gcnew</code>, <code>zgc</code></td><td>GC frequency, pause times, causes, generation stats; ZGC live diagnosis (allocation stalls, soft-max breach, cycle overlap)</td></tr>
                             <tr><td>Threads</td><td><code>threads</code>, <code>deadlock</code>, <code>pool</code></td><td>Thread states, deadlocks, pool analysis</td></tr>
                             <tr><td>CPU</td><td><code>profile</code>, <code>jfr</code></td><td>CPU profiling, flight recording</td></tr>
                             <tr><td>Classes</td><td><code>classloader</code>, <code>classstat</code>, <code>stringtable</code>, <code>symboltable</code></td><td>Class loading, interned strings, symbols</td></tr>
@@ -751,6 +752,32 @@ argus histo 12345</code></pre>
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <!-- ZGC DIAGNOSIS -->
+            <div class="doc-section">
+                <span class="section-anchor" id="zgc"></span>
+                <h2>ZGC Diagnosis</h2>
+
+                <div class="callout">
+                    <p><strong>ZGC monitoring in one command.</strong> <code>argus zgc &lt;PID&gt;</code> runs a 30-second live JFR capture and returns a HEALTHY/WARNING/UNHEALTHY verdict driven by allocation stalls, SoftMaxHeapSize breach, and cycle overlap — the signals JDK Mission Control surfaces with three GUI clicks, in a one-line CLI.</p>
+                </div>
+
+                <p>The command pre-checks the target JVM via JMX to confirm ZGC is the active collector, then captures a JFR profile recording, parses ZGC-specific events, and prints a verdict with concrete tuning recommendations. Use <code>--duration=N</code> to override the default 30-second window (5–120 seconds).</p>
+
+<pre><code>$ argus zgc 12345
+ZGC Diagnosis (PID 12345, JDK 21, Generational)
+Heap         committed 4.2 GB / soft 4.0 GB / max 5.0 GB
+Cycles       12 minor, 2 major (avg interval 2.5s)
+Allocation Stalls  ✘ 7 stalls in 30s (max 508.8ms)
+Verdict: UNHEALTHY  — allocation stalls + soft-max breach
+
+Recommend:
+  • Raise -Xmx (e.g. -Xmx7g)
+  • Or raise -XX:SoftMaxHeapSize toward -Xmx
+  • Profile allocations: argus profile 12345 --event=alloc</code></pre>
+
+                <p>If the JVM is not running ZGC, the command exits with a clear message and suggests <code>argus gc &lt;PID&gt;</code> instead. Requires Java 21+ on the target process.</p>
             </div>
 
             <!-- DASHBOARD -->

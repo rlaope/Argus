@@ -449,6 +449,86 @@ argus --version
 
 ---
 
+## ZGC Pathologies
+
+Common ZGC-specific symptoms surfaced by `argus zgc`, `argus doctor`, and `argus gclog`.
+
+### "argus zgc reports allocation stalls"
+
+**Symptom**: `argus zgc` shows one or more entries under **Allocation Stalls** and emits verdict UNHEALTHY.
+
+**Cause**: Mutator (application) threads were blocked waiting for ZGC to free memory pages. This means ZGC could not reclaim memory fast enough to satisfy the allocation rate. Left unresolved, stalls escalate to OutOfMemoryError.
+
+**Actions**:
+
+1. Raise `-Xmx` — give ZGC more headroom (suggested value printed in the Recommend section).
+2. Raise `-XX:ConcGCThreads` — more concurrent GC threads reclaim pages faster.
+3. Profile allocations to find the hot allocation sites:
+   ```bash
+   argus profile <PID> --event=alloc --duration=30
+   ```
+4. Check whether `-XX:SoftMaxHeapSize` is set too low — if committed heap is already near the soft max, raise it toward `-Xmx`.
+
+---
+
+### "committed heap exceeds SoftMaxHeapSize"
+
+**Symptom**: `argus doctor <PID>` fires a WARNING finding `ZGC heap committed exceeds SoftMaxHeapSize`, or `argus zgc` shows `✘` on the SoftMax line.
+
+**Cause**: ZGC overrode its own soft ceiling under allocation pressure. `SoftMaxHeapSize` is a hint, not a hard limit — when the allocation rate bursts, the JVM allows committed heap to exceed it temporarily. Sustained breaches indicate the application's steady-state heap is too large for the configured soft limit.
+
+**Actions**:
+
+1. Raise `-XX:SoftMaxHeapSize` toward `-Xmx` (e.g. 80–90% of `-Xmx`).
+2. If `-Xmx` itself is the bottleneck, increase it.
+3. Reduce allocation rate — profile with `argus profile <PID> --event=alloc`.
+
+---
+
+### "ZGC cycle overlap detected"
+
+**Symptom**: `argus zgc` shows `✘ consecutive cycles overlap` and/or `argus doctor` fires `ZgcCycleOverlapRule` CRITICAL.
+
+**Cause**: A new ZGC cycle started before the previous one finished. ZGC is designed to be fully concurrent — when cycles overlap, the GC cannot process garbage fast enough to keep ahead of the mutator. This commonly precedes allocation stalls and OOM.
+
+**Actions**:
+
+1. Raise `-Xmx` — the most direct fix; a larger heap means longer intervals between cycles.
+2. Raise `-XX:ConcGCThreads` — more threads shorten cycle duration.
+3. Use `argus profile <PID> --event=alloc` to identify and reduce top allocation sites.
+
+---
+
+### "argus zgc PID returns 'not using ZGC'"
+
+**Symptom**: `argus zgc <PID>` prints:
+```
+Target JVM (PID 12345) is not using ZGC. Current GC: G1 Old Generation, G1 Young Generation.
+Use 'argus gc 12345' instead.
+```
+
+**Cause**: The target JVM is running a different GC collector. `argus zgc` checks MBean names via JMX before starting the JFR capture and exits early when no ZGC MBean is found.
+
+**Actions**:
+
+1. Confirm the active collector:
+   ```bash
+   argus gc <PID>
+   ```
+2. To switch to ZGC, restart the target JVM with:
+   ```bash
+   # JDK 15+ (non-generational ZGC)
+   java -XX:+UseZGC ...
+
+   # JDK 21–23 (Generational ZGC — recommended)
+   java -XX:+UseZGC -XX:+ZGenerational ...
+
+   # JDK 24+ (Generational ZGC is default)
+   java -XX:+UseZGC ...
+   ```
+
+---
+
 ## Getting Help
 
 If you're still experiencing issues:

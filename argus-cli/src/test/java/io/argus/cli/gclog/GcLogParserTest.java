@@ -102,6 +102,29 @@ class GcLogParserTest {
     }
 
     @Test
+    void parseZgcAllocationStalls() throws IOException {
+        String log = """
+                [1282.654s][info][gc] Allocation Stall (http-worker-347) 508.772ms
+                [1283.100s][info][gc] Allocation Stall (http-worker-348) 123.456ms
+                [1284.200s][info][gc] Allocation Stall (http-worker-347) 200.000ms
+                """;
+        Path file = tempDir.resolve("zgc-stall.log");
+        Files.writeString(file, log);
+
+        List<GcEvent> events = GcLogParser.parse(file);
+        assertEquals(3, events.size(), "expected 3 allocation stall events");
+        for (GcEvent e : events) {
+            assertEquals("ZGC Allocation Stall", e.type());
+        }
+        assertEquals("http-worker-347", events.get(0).cause());
+        assertEquals(508.772, events.get(0).pauseMs(), 0.001);
+        assertEquals("http-worker-348", events.get(1).cause());
+        assertEquals(123.456, events.get(1).pauseMs(), 0.001);
+        assertEquals("http-worker-347", events.get(2).cause());
+        assertEquals(200.000, events.get(2).pauseMs(), 0.001);
+    }
+
+    @Test
     void emptyFile_noEvents() throws IOException {
         Path file = tempDir.resolve("empty.log");
         Files.writeString(file, "");

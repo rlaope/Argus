@@ -72,6 +72,64 @@ class GcScoreCalculatorTest {
                 "expected survivor/tenuring hint, got " + r.hints());
     }
 
+    /**
+     * ZGC weighting: a 5 ms max pause that would score PASS (100) under G1
+     * should still score PASS under ZGC's tighter thresholds (target < 10 ms),
+     * and a 50 ms max pause that scores PASS under G1 should score FAIL under ZGC.
+     * The overall ZGC score must be meaningfully higher than the G1 score for
+     * the same synthetic log that has a 5 ms max pause (a normal ZGC result).
+     */
+    @Test
+    void zgcWeightReducesPauseTailImpact() {
+        // 5 ms max pause, 3 ms p99 — perfectly normal for ZGC, mediocre for G1
+        GcLogAnalysis zgcAnalysis = analysisWithCause(3, 5, 99.0, 0, healthyRates(), "ZGC");
+        GcLogAnalysis g1Analysis  = analysisWithCause(3, 5, 99.0, 0, healthyRates(), "G1 Evacuation Pause");
+
+        GcScoreResult zgcResult = GcScoreCalculator.compute(zgcAnalysis, "ZGC");
+        GcScoreResult g1Result  = GcScoreCalculator.compute(g1Analysis, "G1GC");
+
+        // ZGC pause tail axis should score 100 (5 ms <= 10 ms target)
+        AxisScore zgcTail = zgcResult.axes().stream()
+                .filter(ax -> ax.name().equals("Pause tail (max)"))
+                .findFirst().orElseThrow();
+        assertEquals(AxisScore.Verdict.PASS, zgcTail.verdict(),
+                "5 ms max pause should be PASS under ZGC scoring");
+
+        // ZGC result should include the allocation-pressure axis
+        boolean hasAllocPressure = zgcResult.axes().stream()
+                .anyMatch(ax -> ax.name().equals("Allocation pressure (ZGC)"));
+        assertTrue(hasAllocPressure, "ZGC compute should include Allocation pressure (ZGC) axis");
+
+        // Both should produce a good overall score, but the ZGC result should not
+        // be penalised more than G1 for a 5 ms pause
+        assertTrue(zgcResult.overall() >= g1Result.overall(),
+                "ZGC overall (" + zgcResult.overall() + ") should be >= G1 overall (" + g1Result.overall() + ") for a 5 ms pause");
+    }
+
+    /**
+     * A 50 ms max pause that scores PASS under G1 (target < 500 ms) must score
+     * FAIL under ZGC (target < 10 ms), confirming that ZGC uses tighter thresholds.
+     */
+    @Test
+    void zgcPauseTailIsTighterThanG1() {
+        GcLogAnalysis analysis = analysisWithCause(30, 50, 99.0, 0, healthyRates(), "ZGC");
+
+        GcScoreResult zgcResult = GcScoreCalculator.compute(analysis, "ZGC");
+        GcScoreResult g1Result  = GcScoreCalculator.compute(analysis, "G1GC");
+
+        AxisScore zgcTail = zgcResult.axes().stream()
+                .filter(ax -> ax.name().equals("Pause tail (max)"))
+                .findFirst().orElseThrow();
+        AxisScore g1Tail = g1Result.axes().stream()
+                .filter(ax -> ax.name().equals("Pause tail (max)"))
+                .findFirst().orElseThrow();
+
+        assertEquals(AxisScore.Verdict.FAIL, zgcTail.verdict(),
+                "50 ms max pause should be FAIL under ZGC scoring (target < 10 ms)");
+        assertEquals(AxisScore.Verdict.PASS, g1Tail.verdict(),
+                "50 ms max pause should be PASS under G1 scoring (target < 500 ms)");
+    }
+
     @Test
     void gradeBandariesCorrect() {
         assertEquals("A", GcScoreCalculator.grade(95));
@@ -120,6 +178,35 @@ class GcScoreCalculatorTest {
                 1_048_576,                    // peakHeapKB
                 500_000,                      // avgHeapAfterKB
                 Map.of(),
+                List.of(),
+                rates,
+                null);
+    }
+
+    /**
+     * Like {@link #analysis} but injects a single cause entry so that
+     * {@link GcScoreCalculator#inferAlgorithm} can detect the GC type.
+     */
+    private static GcLogAnalysis analysisWithCause(
+            long p99Ms, long maxMs, double throughputPct, int fullGcCount,
+            GcRateAnalyzer.RateAnalysis rates, String causeKey) {
+        double duration = 3600;
+        return new GcLogAnalysis(
+                100,
+                90,
+                fullGcCount,
+                10,
+                duration,
+                throughputPct,
+                500,
+                maxMs,
+                Math.max(1, p99Ms / 10),
+                Math.max(1, (long) (p99Ms * 0.7)),
+                p99Ms,
+                5,
+                1_048_576,
+                500_000,
+                Map.of(causeKey, new GcLogAnalysis.CauseStats(causeKey, 10, 50, 10, 5)),
                 List.of(),
                 rates,
                 null);

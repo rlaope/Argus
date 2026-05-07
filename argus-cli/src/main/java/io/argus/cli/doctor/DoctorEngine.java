@@ -25,7 +25,9 @@ public final class DoctorEngine {
             new CpuUsageRule(),
             new ThreadContentionRule(),
             new FinalizerQueueRule(),
-            new GcAlgorithmRule()
+            new GcAlgorithmRule(),
+            new ZgcSoftMaxBreachRule(),
+            new ZgcCycleOverlapRule()
     );
 
     /**

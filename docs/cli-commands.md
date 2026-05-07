@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 50 Argus CLI commands with usage examples and actual output.
+Complete reference for all 51 Argus CLI commands with usage examples and actual output.
 
 ## Global Options
 
@@ -1195,7 +1195,7 @@ $ argus doctor
 
 Cross-correlates GC, memory, CPU, threads, and buffer metrics to produce severity-rated findings.
 
-**Health checks (8 rules):**
+**Health checks (11 rules):**
 
 | Rule | What it detects | Thresholds |
 |------|----------------|------------|
@@ -1206,7 +1206,10 @@ Cross-correlates GC, memory, CPU, threads, and buffer metrics to produce severit
 | Direct Buffers | NIO buffer leaks | warn > 200MB, critical > 800MB |
 | CPU Usage | Process CPU saturation | warn > 70%, critical > 90% |
 | Finalizer Queue | Backed-up finalization | warn > 100, critical > 1000 |
-| GC Algorithm | Suboptimal GC choice | Serial on large heap, Full GC frequency |
+| GC Algorithm | Suboptimal GC choice; Generational ZGC hint on JDK 21–23 | Serial on large heap, Full GC frequency; INFO when plain ZGC + JDK 21–23 |
+| ZgcSoftMaxBreachRule | ZGC committed heap > SoftMaxHeapSize | WARNING (ZGC only) |
+| ZgcCycleOverlapRule | ZGC avg cycle duration > 80% of avg interval | CRITICAL when ≥ 5 cycles (ZGC only) |
+| GcPressureRule | High-frequency young-gen GC | warn > 200/min, critical > 500/min |
 
 **Exit codes** for CI/CD: `0` = healthy, `1` = warnings, `2` = critical.
 
@@ -1262,12 +1265,15 @@ $ argus gclog gc.log --format=json      # CI/CD integration
 
 **Supported formats:** JDK 9+ unified logging (`-Xlog:gc*`) and JDK 8 legacy (`-XX:+PrintGCDetails`). Auto-detected.
 
+**ZGC allocation stalls:** When the log contains `Allocation Stall (thread) Xms` lines (produced by ZGC under allocation pressure), `argus gclog` parses them and renders an **Allocation Stalls (ZGC)** section above the GC Pause Summary, showing stall count, total time, max stall, and the top thread. This section only appears when at least one stall is present. Enable the stall log lines with `-Xlog:gc*:file=gc.log:time,uptime,level,tags`.
+
 **Output sections:**
-1. **Summary** — duration, event count, throughput %
-2. **Pause Distribution** — p50, p95, p99, max with ASCII histogram
-3. **Heap** — peak usage, avg after GC
-4. **Cause Breakdown** — per-cause count/avg/max table
-5. **Tuning Recommendations** — severity-rated with specific JVM flags
+1. **Allocation Stalls (ZGC)** — stall count, total/max duration, top thread (ZGC only, when stalls present)
+2. **Summary** — duration, event count, throughput %
+3. **Pause Distribution** — p50, p95, p99, max with ASCII histogram
+4. **Heap** — peak usage, avg after GC
+5. **Cause Breakdown** — per-cause count/avg/max table
+6. **Tuning Recommendations** — severity-rated with specific JVM flags
 
 **Tuning rules (7):**
 
@@ -1289,19 +1295,23 @@ One-page GC Health Score Card. Scores six KPI axes against widely-accepted thres
 
 ```bash
 $ argus gcscore /var/log/gc.log
+$ argus gcscore <PID>                   # live 30s JFR capture
 $ argus gcscore gc.log --format=json    # CI/CD integration
 ```
 
 **Axes (weighted):**
 
-| Axis | Pass target |
-|------|-------------|
-| Pause p99 | < 200 ms |
-| Pause tail (max) | < 500 ms |
-| Throughput | > 95% |
-| Full GC frequency | 0 / hour |
-| Allocation rate | < 1 GB/s |
-| Promotion ratio | < 20% of allocation |
+| Axis | Pass target | Notes |
+|------|-------------|-------|
+| Pause p99 | < 200 ms (< 5 ms for ZGC) | Threshold tightened 10× for ZGC |
+| Pause tail (max) | < 500 ms (< 10 ms for ZGC) | Threshold tightened 50× for ZGC |
+| Throughput | > 95% | Weight raised to 0.30 for ZGC |
+| Full GC frequency | 0 / hour | |
+| Allocation rate | < 1 GB/s | |
+| Promotion ratio | < 20% of allocation | |
+| Allocation pressure (ZGC) | < 0.5 cycles/s | ZGC only — added axis |
+
+**ZGC-aware scoring:** When the GC algorithm is detected as ZGC, pause-axis weights are halved (p99: 0.25→0.12, tail: 0.15→0.08) because sub-millisecond pauses are expected by design. The saved weight shifts to throughput (0.30) and a new **Allocation pressure (ZGC)** axis (cycle frequency, weight 0.15). Hints for ZGC failures point to `-Xmx`, `-XX:SoftMaxHeapSize`, and `-XX:ConcGCThreads` rather than `-XX:MaxGCPauseMillis`.
 
 **Grade:** `A` (≥ 90), `B` (≥ 75), `C` (≥ 60), `D` (≥ 40), `F` (< 40). Up to 3 improvement hints selected from a rule base when axes fail. Missing rate data marks axes as N/A and excludes them from the weighted average.
 
@@ -1435,6 +1445,7 @@ $ argus suggest --profile=web          # optimize for web server
 $ argus suggest --profile=batch        # optimize for batch processing
 $ argus suggest --profile=microservice # optimize for microservice
 $ argus suggest --profile=streaming    # optimize for streaming
+$ argus suggest --advanced             # include advanced ZGC flags
 $ argus suggest --format=json          # JSON output
 ```
 
@@ -1448,6 +1459,18 @@ $ argus suggest --format=json          # JSON output
 | `streaming` | Steady allocation rate | G1GC, TLAB sizing |
 
 Includes a copy-paste ready flag summary at the bottom of output.
+
+**ZGC-specific suggestions:** When the current GC is ZGC, `argus suggest` emits the following additional recommendations:
+
+| Suggestion | Condition | Flag |
+|-----------|-----------|------|
+| Set SoftMaxHeapSize | Heap usage < 80% of `-Xmx` | `-XX:SoftMaxHeapSize=<N>g` |
+| Raise ZAllocationSpikeTolerance | `--advanced` flag **or** detected spike behavior (GC overhead > 3% and max recent pause > 10 ms) | `-XX:ZAllocationSpikeTolerance=5.0` |
+| Enable ZUncommit | Committed heap > 4 GB **and** uptime > 1 hour | `-XX:+ZUncommit -XX:ZUncommitDelay=300` |
+
+`-XX:MaxGCPauseMillis` is suppressed for ZGC (it is a no-op on that collector).
+
+**`--advanced` flag:** Gates the `ZAllocationSpikeTolerance` suggestion so it only appears when explicitly requested or when spike behavior is auto-detected.
 
 ### Profile-driven suggestions
 
@@ -1594,6 +1617,58 @@ No options. Press `q` to quit, arrow keys to navigate, Enter to select.
 ---
 
 ## Memory & GC
+
+### argus zgc \<pid\>
+
+One-shot ZGC health verdict from a 30-second live JFR capture. Pre-checks via JMX that the target JVM is using ZGC, then starts a `JFR.start` recording, waits for the capture window, dumps and parses the recording, and prints a structured report with a HEALTHY / WARNING / UNHEALTHY verdict.
+
+```bash
+$ argus zgc <PID>
+$ argus zgc <PID> --duration=60    # extend capture to 60s (5–120 range)
+```
+
+**Sample output (UNHEALTHY):**
+
+```
+ZGC Diagnosis (PID 18420, JDK 21, Non-generational)
+════════════════════════════════════════════════════
+  Heap         committed 3.8 GiB / soft 4.0 GiB / max 8.0 GiB
+  Cycles       0 minor, 14 major (avg interval 2.1s, duration 1.8s)
+  STW pauses   Mark Start 0.42ms · Mark End 2.31ms · Relocate Start 0.38ms
+  Allocation Stalls
+               ✘ 7 stalls in window (max 84.3ms in "http-nio-8080-exec-3")
+  SoftMax      ✓ within budget
+  Overlap      ✘ consecutive cycles overlap
+
+Verdict: UNHEALTHY  — allocation stalls + cycle overlap.
+Recommend:
+  • Raise -Xmx (e.g. -Xmx10g)
+  • Or raise -XX:SoftMaxHeapSize toward -Xmx
+  • Profile allocations: argus profile <PID> --event=alloc
+```
+
+**Verdict table:**
+
+| Verdict | Condition |
+|---------|-----------|
+| UNHEALTHY | Allocation stalls present **or** consecutive cycles overlap |
+| WARNING | Committed heap > SoftMaxHeapSize **or** avg Pause Mark End > 1.0 ms |
+| HEALTHY | None of the above |
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--duration=N` | 30 | JFR capture window in seconds (clamped to 5–120) |
+
+**When to use:**
+
+- Use `argus zgc <PID>` as a first-line ZGC health check. It gives a verdict in one command without pre-existing GC logs.
+- Use `argus doctor <PID>` afterward for cross-cutting findings (heap, threads, CPU) and the ZGC doctor rules (`ZgcSoftMaxBreachRule`, `ZgcCycleOverlapRule`).
+- Use `argus gclog <file>` when you have an existing GC log and want pause histograms, cause breakdowns, and allocation stall counts over a longer window.
+- If `argus zgc` reports allocation stalls, follow up with `argus profile <PID> --event=alloc` to find the hot allocation call sites.
+
+---
 
 ### argus buffers \<pid\>
 

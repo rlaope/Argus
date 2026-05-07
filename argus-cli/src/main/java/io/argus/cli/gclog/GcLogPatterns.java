@@ -21,6 +21,9 @@ public final class GcLogPatterns {
     public static final Pattern ZGC_CYCLE = Pattern.compile(
             "GC\\(\\d+\\)\\s+Garbage Collection\\s+\\(([^)]+)\\)\\s+(\\d+)([MKG])\\([^)]*\\)->(\\d+)([MKG])");
 
+    public static final Pattern ALLOCATION_STALL = Pattern.compile(
+            "Allocation Stall \\(([^)]+)\\)\\s+(\\d+\\.?\\d*)ms");
+
     public static final Pattern SHENANDOAH_PAUSE = Pattern.compile(
             "GC\\(\\d+\\)\\s+Pause\\s+(Init Mark|Final Mark|Init Update|Final Update|Full).*?(\\d+\\.?\\d*)ms");
 

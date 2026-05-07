@@ -53,12 +53,14 @@ public final class JvmSnapshotCollector {
         List<JvmSnapshot.GcInfo> gcInfos = new ArrayList<>();
         long totalGcCount = 0, totalGcTime = 0;
         long maxRecentPauseMs = 0;
-        String rawAlgorithm = "";
+        // Accumulate all collector names so canonicalGcAlgorithm can detect
+        // generational ZGC ("ZGC Major" / "ZGC Minor") without re-querying MXBeans.
+        List<String> gcBeanNames = new ArrayList<>();
         for (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
             gcInfos.add(new JvmSnapshot.GcInfo(gc.getName(), gc.getCollectionCount(), gc.getCollectionTime()));
             totalGcCount += gc.getCollectionCount();
             totalGcTime += gc.getCollectionTime();
-            if (rawAlgorithm.isEmpty()) rawAlgorithm = gc.getName();
+            gcBeanNames.add(gc.getName());
             // Use com.sun.management extension to get duration of the last individual GC pause.
             if (gc instanceof com.sun.management.GarbageCollectorMXBean sunGc) {
                 com.sun.management.GcInfo lastGcInfo = sunGc.getLastGcInfo();
@@ -70,7 +72,8 @@ public final class JvmSnapshotCollector {
         // Doctor rules expect canonical names (G1 / ZGC / Parallel / Serial / Shenandoah).
         // MXBean names are descriptive ("G1 Young Generation"), so normalise here so local
         // and remote paths agree.
-        String gcAlgorithm = canonicalGcAlgorithm(rawAlgorithm, rt.getInputArguments());
+        String rawAlgorithm = gcBeanNames.isEmpty() ? "" : gcBeanNames.get(0);
+        String gcAlgorithm = canonicalGcAlgorithm(rawAlgorithm, rt.getInputArguments(), gcBeanNames);
 
         double processCpu = -1, systemCpu = -1;
         int processors = Runtime.getRuntime().availableProcessors();
@@ -294,11 +297,23 @@ public final class JvmSnapshotCollector {
 
     /**
      * Map raw collector / flag info to canonical algorithm name expected by Doctor rules.
+     *
+     * <p>For ZGC, detects Generational ZGC by checking the full list of collector
+     * MBean names passed from the caller (already collected during iteration).
+     * If any name contains {@code "ZGC Major"} or {@code "ZGC Minor"}, returns
+     * {@code "ZGC (Generational)"}; otherwise returns {@code "ZGC"}.
+     * All downstream code uses {@code gcAlgorithm.contains("ZGC")} so both values work.
+     *
+     * @param raw          first GC collector name (or flag-derived name for remote path)
+     * @param vmArgs       JVM input arguments (used to detect GC flags)
+     * @param allGcNames   all GC collector names; may be empty for the remote path
      */
-    private static String canonicalGcAlgorithm(String raw, List<String> vmArgs) {
-        // Prefer explicit user flags
+    private static String canonicalGcAlgorithm(String raw, List<String> vmArgs,
+                                                List<String> allGcNames) {
+        // Prefer explicit user flags, but for ZGC fall through so we can detect generational.
+        boolean flagIsZgc = false;
         for (String a : vmArgs) {
-            if (a.contains("UseZGC")) return "ZGC";
+            if (a.contains("UseZGC")) { flagIsZgc = true; break; }
             if (a.contains("UseG1GC")) return "G1";
             if (a.contains("UseShenandoahGC")) return "Shenandoah";
             if (a.contains("UseParallelGC") || a.contains("UseParallelOldGC")) return "Parallel";
@@ -306,7 +321,15 @@ public final class JvmSnapshotCollector {
         }
         if (raw == null) return "unknown";
         String l = raw.toLowerCase();
-        if (l.contains("zgc") || l.contains("z gc")) return "ZGC";
+        if (flagIsZgc || l.contains("zgc") || l.contains("z gc")) {
+            // Detect generational ZGC: collector MBean names contain "ZGC Major" / "ZGC Minor"
+            for (String name : allGcNames) {
+                if (name.contains("ZGC Major") || name.contains("ZGC Minor")) {
+                    return "ZGC (Generational)";
+                }
+            }
+            return "ZGC";
+        }
         if (l.contains("g1")) return "G1";
         if (l.contains("shenandoah")) return "Shenandoah";
         if (l.contains("ps ") || l.contains("parallel")) return "Parallel";

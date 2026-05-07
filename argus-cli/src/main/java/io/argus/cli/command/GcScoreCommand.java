@@ -211,7 +211,8 @@ public final class GcScoreCommand implements Command {
     private static void scoreAndRender(List<GcEvent> events, boolean json, boolean useColor,
                                        Messages messages, String sourceLabel) {
         GcLogAnalysis analysis = GcLogAnalyzer.analyze(events);
-        GcScoreResult result = GcScoreCalculator.compute(analysis);
+        String gcAlgo = GcScoreCalculator.inferAlgorithm(analysis);
+        GcScoreResult result = GcScoreCalculator.compute(analysis, gcAlgo);
 
         if (json) {
             printJson(result);
@@ -274,7 +275,7 @@ public final class GcScoreCommand implements Command {
             case "Pause p99", "Pause tail (max)" -> String.format("%.0f %s", ax.value(), ax.unit());
             case "Throughput", "Promotion ratio" -> String.format("%.1f%s", ax.value(), ax.unit());
             case "Allocation rate" -> String.format("%.0f %s", ax.value(), ax.unit());
-            case "Full GC frequency" -> String.format("%.1f %s", ax.value(), ax.unit());
+            case "Full GC frequency", "Allocation pressure (ZGC)" -> String.format("%.2f %s", ax.value(), ax.unit());
             default -> String.format("%.2f %s", ax.value(), ax.unit());
         };
     }

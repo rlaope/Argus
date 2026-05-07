@@ -9,7 +9,7 @@ Welcome to the Project Argus documentation.
 
 ## Reference
 
-- [CLI Command Reference](cli-commands.md) — All 50+ commands with usage and examples
+- [CLI Command Reference](cli-commands.md) — All 51 commands with usage and examples (includes `argus zgc` ZGC live health verdict)
 - [Configuration](configuration.md) — Configuration options and performance tuning
 - [Architecture](architecture.md) — System design, provider architecture, and extensibility
 
@@ -32,7 +32,7 @@ Welcome to the Project Argus documentation.
 
 Argus is a lightweight, zero-dependency JVM diagnostic toolkit. CLI works on Java 11+, Dashboard on Java 17+, full features on Java 21+. It provides:
 
-- **42 CLI Commands** — process info, memory, GC, threads, profiling, class search, JFR analysis, log level control, and more
+- **51 CLI Commands** — process info, memory, GC (including ZGC live diagnosis), threads, profiling, class search, JFR analysis, log level control, and more
 - **Real-time Dashboard** with interactive charts, flame graphs, and interactive console
 - **No Agent Required** — diagnose any running JVM via `jcmd` (agent optional for richer data)
 - **Java Version Adaptive** — MXBean polling on Java 17-20, JFR streaming on Java 21+

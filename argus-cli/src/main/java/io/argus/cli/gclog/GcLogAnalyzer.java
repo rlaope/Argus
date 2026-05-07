@@ -107,10 +107,33 @@ public final class GcLogAnalyzer {
                     "-XX:NewRatio=2"));
         }
 
+        // Allocation Stall summary (ZGC only)
+        List<GcEvent> stallEvents = events.stream()
+                .filter(e -> "ZGC Allocation Stall".equals(e.type()))
+                .toList();
+        GcLogAnalysis.AllocationStallSummary stallSummary = null;
+        if (!stallEvents.isEmpty()) {
+            double stallTotal = stallEvents.stream().mapToDouble(GcEvent::pauseMs).sum();
+            double stallMax = stallEvents.stream().mapToDouble(GcEvent::pauseMs).max().orElse(0);
+            // Group by thread (cause field) to find the top contributor
+            Map<String, Double> byThread = new LinkedHashMap<>();
+            for (GcEvent e : stallEvents) {
+                byThread.merge(e.cause(), e.pauseMs(), Double::sum);
+            }
+            String topThread = byThread.entrySet().stream()
+                    .max(Map.Entry.comparingByValue())
+                    .map(Map.Entry::getKey)
+                    .orElse("");
+            double topThreadMs = byThread.getOrDefault(topThread, 0.0);
+            stallSummary = new GcLogAnalysis.AllocationStallSummary(
+                    stallEvents.size(), stallTotal, stallMax, topThread, topThreadMs);
+        }
+
         return new GcLogAnalysis(
                 events.size(), pauseEvents.size(), fullGcEvents.size(), concurrentEvents.size(),
                 durationSec, throughput, totalPauseMs, maxPauseMs, p50, p95, p99, avgPauseMs,
-                peakHeap, avgHeapAfter, Map.copyOf(causeStats), List.copyOf(recs), rates, leak);
+                peakHeap, avgHeapAfter, Map.copyOf(causeStats), List.copyOf(recs), rates, leak,
+                stallSummary);
     }
 
     private static List<GcLogAnalysis.TuningRecommendation> generateRecommendations(

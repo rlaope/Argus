@@ -136,6 +136,12 @@ public final class GcLogFollower {
             return new GcEvent(timestamp, "ZGC Cycle", zcm.group(1), 0, heapBefore, heapAfter, 0);
         }
 
+        java.util.regex.Matcher am = GcLogPatterns.ALLOCATION_STALL.matcher(line);
+        if (am.find() && line.contains("Allocation Stall")) {
+            return new GcEvent(timestamp, "ZGC Allocation Stall", am.group(1),
+                    Double.parseDouble(am.group(2)), 0, 0, 0);
+        }
+
         java.util.regex.Matcher sm = GcLogPatterns.SHENANDOAH_PAUSE.matcher(line);
         if (sm.find()) {
             return new GcEvent(timestamp, "Shenandoah " + sm.group(1), "Shenandoah",

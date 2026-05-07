@@ -51,10 +51,13 @@ public final class SuggestCommand implements Command {
         boolean runProfile = false;
         String profileSnapshotPath = null;
         int profileDurationSec = 5;
+        boolean advanced = false;
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
-            if (arg.startsWith("--profile=")) {
+            if (arg.equals("--advanced")) {
+                advanced = true;
+            } else if (arg.startsWith("--profile=")) {
                 String val = arg.substring(10);
                 // If the value looks like a file path, treat it as a snapshot file;
                 // otherwise it's a workload profile name (legacy behaviour).
@@ -83,7 +86,7 @@ public final class SuggestCommand implements Command {
             workloadProfile = detectProfile(s);
         }
 
-        List<Suggestion> suggestions = generateSuggestions(s, workloadProfile);
+        List<Suggestion> suggestions = generateSuggestions(s, workloadProfile, advanced, messages);
 
         // --- Profile-driven suggestions ------------------------------------------
         List<ProfileRecommendation> profileRecs = new ArrayList<>();
@@ -203,7 +206,7 @@ public final class SuggestCommand implements Command {
         return "general";
     }
 
-    private List<Suggestion> generateSuggestions(JvmSnapshot s, String profile) {
+    private List<Suggestion> generateSuggestions(JvmSnapshot s, String profile, boolean advanced, Messages messages) {
         List<Suggestion> suggestions = new ArrayList<>();
 
         String gc = s.gcAlgorithm().toLowerCase();
@@ -217,9 +220,12 @@ public final class SuggestCommand implements Command {
                             "Switch to G1GC for balanced latency/throughput",
                             "-XX:+UseG1GC", "Current: " + s.gcAlgorithm()));
                 }
-                suggestions.add(new Suggestion("GC Pause Target",
-                        "Set max pause target for web workloads",
-                        "-XX:MaxGCPauseMillis=200", "Balances latency vs throughput"));
+                // -XX:MaxGCPauseMillis is a no-op on ZGC; suppress it when ZGC is active
+                if (!gc.contains("zgc")) {
+                    suggestions.add(new Suggestion("GC Pause Target",
+                            "Set max pause target for web workloads",
+                            "-XX:MaxGCPauseMillis=200", "Balances latency vs throughput"));
+                }
                 if (heapMB >= 8192 && !gc.contains("zgc")) {
                     suggestions.add(new Suggestion("Consider ZGC",
                             "For heaps > 8GB, ZGC provides sub-ms pauses",
@@ -292,7 +298,60 @@ public final class SuggestCommand implements Command {
             }
         }
 
+        // ── ZGC-specific suggestions ─────────────────────────────────────────
+        if (gc.contains("zgc")) {
+            addZgcSuggestions(suggestions, s, heapMB, advanced, messages);
+        }
+
         return suggestions;
+    }
+
+    /**
+     * ZGC-specific suggestions. Only called when the current GC algorithm contains "zgc".
+     *
+     * @param advanced  true when the user passed {@code --advanced}; gates the
+     *                  spike-tolerance suggestion.
+     */
+    private void addZgcSuggestions(List<Suggestion> suggestions, JvmSnapshot s,
+                                   long heapMB, boolean advanced, Messages messages) {
+        double heapPct = s.heapUsagePercent();
+
+        // 1. SoftMaxHeapSize — suggest when heap usage is consistently below 80% of -Xmx
+        if (heapPct < 80.0 && heapMB > 0) {
+            long softMaxMB = Math.round(heapMB * 1.2);
+            // Round up to nearest GB
+            long softMaxGB = (softMaxMB + 1023) / 1024;
+            if (softMaxGB < 1) softMaxGB = 1;
+            suggestions.add(new Suggestion(
+                    messages.get("suggest.zgc.softmax.area"),
+                    messages.get("suggest.zgc.softmax.reason"),
+                    "-XX:SoftMaxHeapSize=" + softMaxGB + "g",
+                    "Current heap usage: " + String.format("%.0f%%", heapPct) + " of " + heapMB + "MB -Xmx"));
+        }
+
+        // 2. ZAllocationSpikeTolerance — ADVANCED, or when pause variance is high
+        //    Heuristic for spike behavior: maxRecentPauseMs >> avgPauseMs proxy using
+        //    gcOverheadPercent as a secondary signal (high overhead = bursty).
+        boolean spikyBehavior = s.gcOverheadPercent() > 3.0 && s.maxRecentPauseMs() > 10;
+        if (advanced || spikyBehavior) {
+            String advancedNote = advanced ? "ADVANCED" : "detected spike behavior";
+            suggestions.add(new Suggestion(
+                    messages.get("suggest.zgc.spike.area"),
+                    messages.get("suggest.zgc.spike.reason"),
+                    "-XX:ZAllocationSpikeTolerance=5.0",
+                    advancedNote + "; default is 2.0"));
+        }
+
+        // 3. ZUncommit — when heap committed > 4 GB and uptime > 1 hour
+        long heapCommittedMB = s.heapCommitted() / (1024 * 1024);
+        long uptimeSec = s.uptimeMs() / 1000;
+        if (heapCommittedMB > 4096 && uptimeSec > 3600) {
+            suggestions.add(new Suggestion(
+                    messages.get("suggest.zgc.uncommit.area"),
+                    messages.get("suggest.zgc.uncommit.reason"),
+                    "-XX:+ZUncommit -XX:ZUncommitDelay=300",
+                    "Committed heap: " + heapCommittedMB + "MB; uptime: " + (uptimeSec / 3600) + "h"));
+        }
     }
 
     private void printRich(List<Suggestion> suggestions, JvmSnapshot s, String profile,

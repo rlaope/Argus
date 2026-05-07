@@ -252,6 +252,15 @@ public final class GcLogCommand implements Command {
             }
         }
 
+        // Allocation Stalls (ZGC)
+        GcLogAnalysis.AllocationStallSummary stalls = a.allocationStalls();
+        if (stalls != null && stalls.count() > 0) {
+            section(c, "Allocation Stalls (ZGC)");
+            kv(c, messages.get("cli.gclog.allocation.stall.count"), String.valueOf(stalls.count()));
+            kv(c, messages.get("cli.gclog.allocation.stall.total"), String.format("%,.1f ms", stalls.totalMs()));
+            kv(c, messages.get("cli.gclog.allocation.stall.max"), String.format("%.1f ms (in thread \"%s\")", stalls.maxMs(), stalls.topThread()));
+        }
+
         // GC Pause Summary (aggregated by cause)
         if (!a.causeBreakdown().isEmpty()) {
             section(c, messages.get("gclog.pause.summary.title"));

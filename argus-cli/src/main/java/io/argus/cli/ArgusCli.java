@@ -67,6 +67,7 @@ import io.argus.cli.command.TuiCommand;
 import io.argus.cli.command.VmFlagCommand;
 import io.argus.cli.command.VmLogCommand;
 import io.argus.cli.command.VmSetCommand;
+import io.argus.cli.command.ZgcCommand;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;
@@ -189,6 +190,7 @@ public final class ArgusCli {
         register(commands, new GcProfileCommand());
         register(commands, new GcScoreCommand());
         register(commands, new GcWhyCommand());
+        register(commands, new ZgcCommand());
         register(commands, new FlameCommand());
         register(commands, new SuggestCommand());
         register(commands, new InfoCommand());
