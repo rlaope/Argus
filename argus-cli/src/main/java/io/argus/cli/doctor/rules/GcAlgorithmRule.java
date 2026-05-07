@@ -4,11 +4,15 @@ import io.argus.cli.doctor.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Analyzes GC algorithm choice and suggests improvements based on workload signals.
  */
 public final class GcAlgorithmRule implements HealthRule {
+
+    private static final Pattern JAVA_VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)");
 
     @Override
     public List<Finding> evaluate(JvmSnapshot s) {
@@ -83,8 +87,7 @@ public final class GcAlgorithmRule implements HealthRule {
         try {
             // Find first run of digits possibly preceded by non-digit context
             // e.g. "build 21.0.2+13" or "21.0.2" or "11.0.1"
-            java.util.regex.Matcher m =
-                    java.util.regex.Pattern.compile("(\\d+)\\.(\\d+)").matcher(vmVersion);
+            Matcher m = JAVA_VERSION_PATTERN.matcher(vmVersion);
             if (m.find()) {
                 int first = Integer.parseInt(m.group(1));
                 // JDK 1.x era: "1.8.0_292" → major is 8

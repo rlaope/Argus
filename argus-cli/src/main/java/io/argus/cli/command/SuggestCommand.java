@@ -300,20 +300,21 @@ public final class SuggestCommand implements Command {
 
         // ── ZGC-specific suggestions ─────────────────────────────────────────
         if (gc.contains("zgc")) {
-            addZgcSuggestions(suggestions, s, heapMB, advanced, messages);
+            addZgcSuggestions(suggestions, s, heapMB, messages);
+            boolean spikyBehavior = s.gcOverheadPercent() > 3.0 && s.maxRecentPauseMs() > 10;
+            if (advanced || spikyBehavior) {
+                addAdvancedZgcSuggestions(suggestions, advanced, messages);
+            }
         }
 
         return suggestions;
     }
 
     /**
-     * ZGC-specific suggestions. Only called when the current GC algorithm contains "zgc".
-     *
-     * @param advanced  true when the user passed {@code --advanced}; gates the
-     *                  spike-tolerance suggestion.
+     * ZGC-specific suggestions that always apply. Only called when the current GC algorithm contains "zgc".
      */
     private void addZgcSuggestions(List<Suggestion> suggestions, JvmSnapshot s,
-                                   long heapMB, boolean advanced, Messages messages) {
+                                   long heapMB, Messages messages) {
         double heapPct = s.heapUsagePercent();
 
         // 1. SoftMaxHeapSize — suggest when heap usage is consistently below 80% of -Xmx
@@ -329,20 +330,7 @@ public final class SuggestCommand implements Command {
                     "Current heap usage: " + String.format("%.0f%%", heapPct) + " of " + heapMB + "MB -Xmx"));
         }
 
-        // 2. ZAllocationSpikeTolerance — ADVANCED, or when pause variance is high
-        //    Heuristic for spike behavior: maxRecentPauseMs >> avgPauseMs proxy using
-        //    gcOverheadPercent as a secondary signal (high overhead = bursty).
-        boolean spikyBehavior = s.gcOverheadPercent() > 3.0 && s.maxRecentPauseMs() > 10;
-        if (advanced || spikyBehavior) {
-            String advancedNote = advanced ? "ADVANCED" : "detected spike behavior";
-            suggestions.add(new Suggestion(
-                    messages.get("suggest.zgc.spike.area"),
-                    messages.get("suggest.zgc.spike.reason"),
-                    "-XX:ZAllocationSpikeTolerance=5.0",
-                    advancedNote + "; default is 2.0"));
-        }
-
-        // 3. ZUncommit — when heap committed > 4 GB and uptime > 1 hour
+        // 2. ZUncommit — when heap committed > 4 GB and uptime > 1 hour
         long heapCommittedMB = s.heapCommitted() / (1024 * 1024);
         long uptimeSec = s.uptimeMs() / 1000;
         if (heapCommittedMB > 4096 && uptimeSec > 3600) {
@@ -352,6 +340,20 @@ public final class SuggestCommand implements Command {
                     "-XX:+ZUncommit -XX:ZUncommitDelay=300",
                     "Committed heap: " + heapCommittedMB + "MB; uptime: " + (uptimeSec / 3600) + "h"));
         }
+    }
+
+    /**
+     * Advanced ZGC suggestions — only emitted when the user passes {@code --advanced} or
+     * pause-variance heuristics suggest bursty allocation behavior.
+     */
+    private void addAdvancedZgcSuggestions(List<Suggestion> suggestions,
+                                           boolean userAskedAdvanced, Messages messages) {
+        String note = userAskedAdvanced ? "ADVANCED" : "detected spike behavior";
+        suggestions.add(new Suggestion(
+                messages.get("suggest.zgc.spike.area"),
+                messages.get("suggest.zgc.spike.reason"),
+                "-XX:ZAllocationSpikeTolerance=5.0",
+                note + "; default is 2.0"));
     }
 
     private void printRich(List<Suggestion> suggestions, JvmSnapshot s, String profile,

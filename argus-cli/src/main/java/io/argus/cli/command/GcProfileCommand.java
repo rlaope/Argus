@@ -8,6 +8,7 @@ import io.argus.cli.profiler.AllocationProfiler.AllocationByClass;
 import io.argus.cli.profiler.AllocationProfiler.AllocationProfile;
 import io.argus.cli.profiler.AllocationProfiler.AllocationSite;
 import io.argus.cli.provider.ProviderRegistry;
+import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
@@ -103,7 +104,7 @@ public final class GcProfileCommand implements Command {
 
             // Step 1: Start JFR recording
             System.out.println("  Starting JFR recording on PID " + pid + " for " + durationSec + "s...");
-            String startOut = runJcmd(pid, "JFR.start",
+            String startOut = JcmdExecutor.runJcmd(pid, "JFR.start",
                     "name=" + JFR_RECORDING_NAME,
                     "duration=" + durationSec + "s",
                     "settings=profile");
@@ -127,7 +128,7 @@ public final class GcProfileCommand implements Command {
             }
 
             // Step 3: Dump the recording
-            String dumpOut = runJcmd(pid, "JFR.dump",
+            String dumpOut = JcmdExecutor.runJcmd(pid, "JFR.dump",
                     "name=" + JFR_RECORDING_NAME,
                     "filename=" + jfrPath);
             if (dumpOut == null || dumpOut.contains("Could not") || dumpOut.contains("error")) {
@@ -136,7 +137,7 @@ public final class GcProfileCommand implements Command {
             }
 
             // Step 4: Stop the recording
-            runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
+            JcmdExecutor.runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
 
             // Step 5: Parse and display
             if (!Files.exists(tmpFile) || Files.size(tmpFile) == 0) {
@@ -179,38 +180,6 @@ public final class GcProfileCommand implements Command {
             if (tmpFile != null) {
                 try { Files.deleteIfExists(tmpFile); } catch (IOException ignored) {}
             }
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // jcmd execution
-    // -------------------------------------------------------------------------
-
-    /**
-     * Runs {@code jcmd <pid> <command> [args...]} and returns stdout, or null on failure.
-     */
-    private static String runJcmd(long pid, String command, String... extraArgs) {
-        try {
-            String[] cmd = new String[2 + extraArgs.length];
-            cmd[0] = "jcmd";
-            cmd[1] = String.valueOf(pid);
-            cmd[2] = command;
-            // pack extra args - jcmd expects them as a single space-joined argument for JFR commands
-            // actually jcmd takes them space-separated on the command line
-            String[] fullCmd = new String[2 + 1 + extraArgs.length];
-            fullCmd[0] = "jcmd";
-            fullCmd[1] = String.valueOf(pid);
-            fullCmd[2] = command;
-            System.arraycopy(extraArgs, 0, fullCmd, 3, extraArgs.length);
-
-            ProcessBuilder pb = new ProcessBuilder(fullCmd);
-            pb.redirectErrorStream(true);
-            Process proc = pb.start();
-            String out = new String(proc.getInputStream().readAllBytes());
-            proc.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
-            return out;
-        } catch (Exception e) {
-            return null;
         }
     }
 

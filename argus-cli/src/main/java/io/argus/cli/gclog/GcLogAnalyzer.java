@@ -62,14 +62,19 @@ public final class GcLogAnalyzer {
         for (GcEvent e : pauseEvents) {
             byCause.computeIfAbsent(e.cause(), k -> new ArrayList<>()).add(e);
         }
+        // Pre-compute totals once — the previous comparator inlined this sum and recomputed
+        // it on every comparator call (O(N log N) sort × O(K) sum per call).
+        Map<String, Double> causeTotalMs = new LinkedHashMap<>();
+        for (Map.Entry<String, List<GcEvent>> entry : byCause.entrySet()) {
+            causeTotalMs.put(entry.getKey(),
+                    entry.getValue().stream().mapToDouble(GcEvent::pauseMs).sum());
+        }
         Map<String, GcLogAnalysis.CauseStats> causeStats = new LinkedHashMap<>();
         byCause.entrySet().stream()
-                .sorted((a, b) -> Long.compare(
-                        Math.round(b.getValue().stream().mapToDouble(GcEvent::pauseMs).sum()),
-                        Math.round(a.getValue().stream().mapToDouble(GcEvent::pauseMs).sum())))
+                .sorted((a, b) -> Double.compare(causeTotalMs.get(b.getKey()), causeTotalMs.get(a.getKey())))
                 .forEach(entry -> {
                     List<GcEvent> ces = entry.getValue();
-                    double totalD = ces.stream().mapToDouble(GcEvent::pauseMs).sum();
+                    double totalD = causeTotalMs.get(entry.getKey());
                     double maxD = ces.stream().mapToDouble(GcEvent::pauseMs).max().orElse(0);
                     long total = Math.round(totalD);
                     long max = Math.round(maxD);

@@ -39,6 +39,34 @@ public final class JcmdExecutor {
     }
 
     /**
+     * Runs {@code jcmd <pid> <subCommand> [extraArgs...]} with a 30-second timeout
+     * and returns stdout, or {@code null} on any failure. This is a fire-and-forget
+     * helper used by commands that start, dump, and stop JFR recordings.
+     *
+     * @param pid        the target JVM process ID
+     * @param subCommand the jcmd sub-command (e.g. "JFR.start")
+     * @param extraArgs  additional key=value arguments passed to the sub-command
+     * @return stdout of the command, or {@code null} if execution fails
+     */
+    public static String runJcmd(long pid, String subCommand, String... extraArgs) {
+        try {
+            String[] fullCmd = new String[3 + extraArgs.length];
+            fullCmd[0] = "jcmd";
+            fullCmd[1] = String.valueOf(pid);
+            fullCmd[2] = subCommand;
+            System.arraycopy(extraArgs, 0, fullCmd, 3, extraArgs.length);
+            ProcessBuilder pb = new ProcessBuilder(fullCmd);
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+            String out = new String(proc.getInputStream().readAllBytes());
+            proc.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
+            return out;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * Checks whether jcmd is available on this system.
      *
      * @return true if jcmd exits successfully

@@ -3,8 +3,10 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;
+import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.cli.util.CommandUtils;
 import io.argus.cli.zgc.ZgcBaseline;
 import io.argus.cli.zgc.ZgcDiagnosis;
 import io.argus.cli.zgc.ZgcJfrCollector;
@@ -130,8 +132,7 @@ public final class ZgcCommand implements Command {
         }
 
         // Single-shot capture
-        int captureDuration = diffWith != null ? duration : duration;
-        ZgcDiagnosis d = captureOnce(pid, info, captureDuration, messages);
+        ZgcDiagnosis d = captureOnce(pid, info, duration, messages);
 
         // Save mode (write-through; still render the snapshot)
         if (saveTo != null) {
@@ -184,7 +185,7 @@ public final class ZgcCommand implements Command {
             // Stop any existing recording with the same name to avoid conflicts
             stopExistingRecording(pid);
 
-            String startOut = runJcmd(pid, "JFR.start",
+            String startOut = JcmdExecutor.runJcmd(pid, "JFR.start",
                     "name=" + JFR_RECORDING_NAME,
                     "settings=profile");
             if (startOut == null
@@ -192,7 +193,7 @@ public final class ZgcCommand implements Command {
                     || startOut.toLowerCase().contains("error")) {
                 // Retry once after stopping any existing recording
                 stopExistingRecording(pid);
-                startOut = runJcmd(pid, "JFR.start",
+                startOut = JcmdExecutor.runJcmd(pid, "JFR.start",
                         "name=" + JFR_RECORDING_NAME,
                         "settings=profile");
                 if (startOut == null
@@ -205,14 +206,14 @@ public final class ZgcCommand implements Command {
             }
 
             try {
-                Thread.sleep((long) durationSec * 1000L + 1000L);
+                Thread.sleep((long) durationSec * 1000L);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 System.err.println("Interrupted while waiting for JFR recording.");
                 throw new CommandExitException(2);
             }
 
-            String dumpOut = runJcmd(pid, "JFR.dump",
+            String dumpOut = JcmdExecutor.runJcmd(pid, "JFR.dump",
                     "name=" + JFR_RECORDING_NAME,
                     "filename=" + jfrPath);
             if (dumpOut == null
@@ -222,7 +223,7 @@ public final class ZgcCommand implements Command {
                         + (dumpOut != null ? dumpOut.trim() : "no output"));
                 throw new CommandExitException(2);
             }
-            runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
+            JcmdExecutor.runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
 
             if (!Files.exists(tmpFile) || Files.size(tmpFile) == 0) {
                 System.err.println("JFR file is empty. The JVM may not support JFR recording.");
@@ -250,7 +251,7 @@ public final class ZgcCommand implements Command {
 
     /** Attempts to stop an existing JFR recording named argus-zgc; silently ignores failure. */
     private static void stopExistingRecording(long pid) {
-        runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
+        JcmdExecutor.runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
     }
 
     // ── Watch mode ───────────────────────────────────────────────────────────
@@ -314,9 +315,7 @@ public final class ZgcCommand implements Command {
                 finalStalls[0]   = totalStalls;
                 finalBreaches[0] = totalBreaches;
 
-                // Sleep between iterations (interval includes JFR capture duration, so
-                // we sleep the remaining time; if capture took longer, skip sleep)
-                // Since captureOnce already slept intervalSec inside, we just continue.
+                // captureOnce sleeps exactly intervalSec for the JFR recording; no additional sleep needed.
             }
         } finally {
             try { Runtime.getRuntime().removeShutdownHook(shutdownHook); }
@@ -342,7 +341,7 @@ public final class ZgcCommand implements Command {
         String timestamp = TIME_FMT.format(Instant.now());
 
         // Heap committed
-        String heapStr = ZgcBaseline.formatBytes(current.heapCommittedBytes);
+        String heapStr = RichRenderer.formatBytes(current.heapCommittedBytes);
         String heapDelta = "";
         String heapColor = reset;
         if (previous != null) {
@@ -731,21 +730,4 @@ public final class ZgcCommand implements Command {
         return true;
     }
 
-    private static String runJcmd(long pid, String command, String... extraArgs) {
-        try {
-            String[] fullCmd = new String[3 + extraArgs.length];
-            fullCmd[0] = "jcmd";
-            fullCmd[1] = String.valueOf(pid);
-            fullCmd[2] = command;
-            System.arraycopy(extraArgs, 0, fullCmd, 3, extraArgs.length);
-            ProcessBuilder pb = new ProcessBuilder(fullCmd);
-            pb.redirectErrorStream(true);
-            Process proc = pb.start();
-            String out = new String(proc.getInputStream().readAllBytes());
-            proc.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
-            return out;
-        } catch (Exception e) {
-            return null;
-        }
-    }
 }

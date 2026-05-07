@@ -8,6 +8,7 @@ import io.argus.cli.gcwhy.GcWhyAnalyzer;
 import io.argus.cli.gcwhy.GcWhyJfrCollector;
 import io.argus.cli.gcwhy.GcWhyResult;
 import io.argus.cli.provider.ProviderRegistry;
+import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
@@ -131,7 +132,7 @@ public final class GcWhyCommand implements Command {
             // Start JFR recording on the target JVM. Do NOT pass `duration=`: with that flag
             // the JVM auto-stops + finalises the recording at the deadline, racing our explicit
             // JFR.dump and yielding an empty file. We control timing by sleeping then stopping.
-            String startOut = runJcmd(pid, "JFR.start",
+            String startOut = JcmdExecutor.runJcmd(pid, "JFR.start",
                     "name=" + JFR_RECORDING_NAME,
                     "settings=default");
             if (startOut == null) {
@@ -153,14 +154,14 @@ public final class GcWhyCommand implements Command {
             }
 
             // Dump and stop.
-            String dumpOut = runJcmd(pid, "JFR.dump",
+            String dumpOut = JcmdExecutor.runJcmd(pid, "JFR.dump",
                     "name=" + JFR_RECORDING_NAME,
                     "filename=" + jfrPath);
             if (dumpOut == null || dumpOut.contains("Could not") || dumpOut.toLowerCase().contains("error")) {
                 System.err.println("JFR.dump failed: " + (dumpOut != null ? dumpOut.trim() : "no output"));
                 return;
             }
-            runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
+            JcmdExecutor.runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
 
             if (!Files.exists(tmpFile) || Files.size(tmpFile) == 0) {
                 System.err.println("JFR file is empty or was not created. The JVM may not support JFR recording.");
@@ -209,27 +210,6 @@ public final class GcWhyCommand implements Command {
             printJson(result);
         } else {
             printReport(result, useColor, messages, windowSec);
-        }
-    }
-
-    // ── jcmd execution ───────────────────────────────────────────────────────
-
-    /** Runs {@code jcmd <pid> <command> [args...]} and returns stdout, or null on failure. */
-    private static String runJcmd(long pid, String command, String... extraArgs) {
-        try {
-            String[] fullCmd = new String[3 + extraArgs.length];
-            fullCmd[0] = "jcmd";
-            fullCmd[1] = String.valueOf(pid);
-            fullCmd[2] = command;
-            System.arraycopy(extraArgs, 0, fullCmd, 3, extraArgs.length);
-            ProcessBuilder pb = new ProcessBuilder(fullCmd);
-            pb.redirectErrorStream(true);
-            Process proc = pb.start();
-            String out = new String(proc.getInputStream().readAllBytes());
-            proc.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
-            return out;
-        } catch (Exception e) {
-            return null;
         }
     }
 

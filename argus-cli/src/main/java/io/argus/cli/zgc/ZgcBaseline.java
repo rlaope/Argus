@@ -1,5 +1,7 @@
 package io.argus.cli.zgc;
 
+import io.argus.cli.render.RichRenderer;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -212,7 +214,7 @@ public final class ZgcBaseline {
             commitSeverity = WARN;
         }
         rows.add(new DiffRow("heapCommitted",
-                formatBytes(baseCommit), formatBytes(curCommit),
+                RichRenderer.formatBytes(baseCommit), RichRenderer.formatBytes(curCommit),
                 formatBytesDelta(commitDelta), commitSeverity));
 
         // Minor cycles
@@ -291,18 +293,10 @@ public final class ZgcBaseline {
     private static final Severity WARN       = Severity.WARN;
     private static final Severity REGRESSION = Severity.REGRESSION;
 
-    public static String formatBytes(long bytes) {
-        if (bytes <= 0) return "0 B";
-        if (bytes >= 1L << 30) return String.format("%.1f GB", bytes / (double)(1L << 30));
-        if (bytes >= 1L << 20) return String.format("%.1f MB", bytes / (double)(1L << 20));
-        if (bytes >= 1L << 10) return String.format("%.1f KB", bytes / (double)(1L << 10));
-        return bytes + " B";
-    }
-
     public static String formatBytesDelta(long delta) {
         if (delta == 0) return "0";
         String sign = delta > 0 ? "+" : "-";
-        return sign + formatBytes(Math.abs(delta));
+        return sign + RichRenderer.formatBytes(Math.abs(delta));
     }
 
     private static String escapeField(String s) {

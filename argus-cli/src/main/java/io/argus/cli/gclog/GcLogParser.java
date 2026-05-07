@@ -144,11 +144,13 @@ public final class GcLogParser {
         }
 
         // ZGC Allocation Stall — thread name is the "cause"
-        Matcher am = GcLogPatterns.ALLOCATION_STALL.matcher(line);
-        if (am.find() && lineMentions(line, "Allocation Stall")) {
-            String thread = am.group(1);
-            double stallMs = Double.parseDouble(am.group(2));
-            return new GcEvent(timestamp, "ZGC Allocation Stall", thread, stallMs, 0, 0, 0);
+        if (line.contains("Allocation Stall")) {
+            Matcher am = GcLogPatterns.ALLOCATION_STALL.matcher(line);
+            if (am.find()) {
+                String thread = am.group(1);
+                double stallMs = Double.parseDouble(am.group(2));
+                return new GcEvent(timestamp, "ZGC Allocation Stall", thread, stallMs, 0, 0, 0);
+            }
         }
 
         // Shenandoah pause — gated; otherwise generic G1 phases like "Pause Init Mark" misclassify.
