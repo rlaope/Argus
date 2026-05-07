@@ -560,6 +560,10 @@ These flags were added in the current development cycle. Each appears in the rel
 | `argus suggest` | `--advanced` | Includes advanced ZGC flags (e.g. `ZAllocationSpikeTolerance`) |
 | `argus zgc` | `<PID>` | One-shot ZGC health verdict via 30s live JFR capture |
 | `argus zgc` | `--duration=N` | Override the JFR capture window (5–120 seconds) |
+| `argus zgc` | `--save=PATH` | Capture once and persist a baseline snapshot to PATH |
+| `argus zgc` | `--diff=PATH` | Capture once and compare against baseline at PATH; renders diff table instead of normal verdict |
+| `argus zgc` | `--watch[=N]` | Loop: unlimited (`--watch`) or N iterations (`--watch=N`); 1-line summary per iteration, full table every 5th |
+| `argus zgc` | `--interval=N` | JFR capture duration and watch loop period in seconds (default: 30, range: 10–300) |
 
 ### ZGC logging setup
 
@@ -782,6 +786,16 @@ Exit codes: `0` = healthy, `1` = warnings, `2` = critical issues.
 | `--profile=<workload>` | | Optimise for a named workload: `web`, `batch`, `microservice`, `streaming` |
 | `--profile-duration=N` | `5` | Live capture duration when `--profile` is used without a file |
 | `--format=json` | | Machine-readable output |
+
+#### `argus zgc`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--duration=N` | `30` | JFR capture window in seconds (clamped to 5–120) |
+| `--save=PATH` | | Capture once, render normally, and persist baseline to PATH |
+| `--diff=PATH` | | Capture once, compare against baseline at PATH, render diff table (suppresses normal verdict) |
+| `--watch[=N]` | | Loop indefinitely (`--watch`) or for N iterations (`--watch=N`); 1-line summary per iteration, full table every 5th |
+| `--interval=N` | `30` | JFR capture duration and watch loop period in seconds (clamped to 10–300) |
 
 ### Config File
 

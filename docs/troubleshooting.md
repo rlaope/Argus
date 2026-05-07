@@ -499,6 +499,65 @@ Common ZGC-specific symptoms surfaced by `argus zgc`, `argus doctor`, and `argus
 
 ---
 
+### "Allocation stalls without obvious code change"
+
+**Symptom**: `argus zgc` shows allocation stalls (UNHEALTHY verdict) but no recent change in application code is apparent. You want to identify which code is causing the pressure.
+
+**Cause**: The stall itself means ZGC could not reclaim pages fast enough to satisfy the allocation rate. Identifying the hot allocation site is the first step to resolution.
+
+**Actions**:
+
+`argus zgc` now surfaces the top allocation call sites directly in the output. When stalls are detected and `jdk.ObjectAllocationInNewTLAB` / `jdk.ObjectAllocationOutsideTLAB` events are present in the same JFR capture (enabled automatically by `profile.jfc`), a **Top alloc sources during capture** block appears under the Allocation Stalls section:
+
+```
+  Allocation Stalls
+               ✘ 7 stalls in window (max 84.3ms in "http-nio-8080-exec-3")
+               Top alloc sources during capture (n=84,321 events)
+                1. com.example.service.OrderService.processOrder(OrderService.java:142)  38.2%
+                2. java.util.HashMap.resize(HashMap.java:704)                            14.7%
+                ...
+```
+
+Interpret the table:
+
+- **Own code at the top** (e.g. `com.example.*`) → the method is allocating excessively. Consider object pooling, caching, or reducing intermediate object creation.
+- **Library internals at the top** (e.g. `HashMap.resize`) → collections are growing past initial capacity. Pre-size them: `new HashMap<>(expectedSize * 2)`.
+- **No table printed** → `profile.jfc` allocation events were not recorded in this JVM build or version; fall back to `argus profile <PID> --event=alloc --duration=30`.
+
+---
+
+### "How do I track ZGC health over a deploy"
+
+**Symptom**: You want to know whether a new deploy made ZGC behaviour better or worse, not just whether it is healthy right now.
+
+**Actions**:
+
+1. Before the deploy, capture a baseline from a known-good window:
+   ```bash
+   argus zgc <PID> --save=/tmp/before.txt
+   ```
+
+2. After the deploy (allow the JVM a minute to warm up), diff against the baseline:
+   ```bash
+   argus zgc <PID> --diff=/tmp/before.txt
+   ```
+
+3. Read the diff table. REGRESSION rows (marked ✘) are the most actionable:
+   - **New stalls** (baseline=0 → current>0) — allocation pressure introduced by the new code.
+   - **SoftMax breach** (no → yes) — heap working set grew; raise `-XX:SoftMaxHeapSize` or investigate new leaks.
+   - **Minor:major ratio worsened >50%** — generational balance degraded.
+   - **Pause Mark End grew >50%** — marking load increased, often from more live objects.
+
+   WARN rows (⚠) indicate degradation worth watching but not yet critical.
+
+4. For continuous monitoring during a rolling deploy, use watch mode:
+   ```bash
+   argus zgc <PID> --watch=10 --interval=60
+   ```
+   This runs 10 iterations at 60-second intervals. Each line shows heap delta and stall count relative to the previous iteration. Ctrl-C at any point prints a final summary and cleans up the JFR recording.
+
+---
+
 ### "argus zgc PID returns 'not using ZGC'"
 
 **Symptom**: `argus zgc <PID>` prints:

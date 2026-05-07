@@ -144,13 +144,23 @@ The dashboard starts automatically. Health status available at `/actuator/health
 
 A step-by-step walkthrough for investigating a ZGC-related latency spike or OOM.
 
+### Step 0 — Capture a healthy baseline (pre-incident)
+
+During a known-good window, capture a baseline snapshot so you have something to diff against later:
+
+```bash
+argus zgc <PID> --save=baseline.txt
+```
+
+Store this file somewhere accessible (e.g. `/tmp/zgc-baseline.txt` or a shared volume). If you already have a baseline from a previous incident window, skip this step.
+
 ### Step 1 — Get a verdict in 30 seconds
 
 ```bash
 argus zgc <PID>
 ```
 
-`argus zgc` attaches to the JVM via JMX, starts a 30-second JFR recording, and prints a HEALTHY / WARNING / UNHEALTHY verdict with allocation stall counts, cycle overlap status, SoftMax breach detection, and STW pause averages.
+`argus zgc` attaches to the JVM via JMX, starts a 30-second JFR recording with `settings=profile`, and prints a HEALTHY / WARNING / UNHEALTHY verdict with allocation stall counts, cycle overlap status, SoftMax breach detection, and STW pause averages. When stalls are present, the output also shows a **Top alloc sources during capture** block with the top-5 allocation call sites from the same JFR recording — no separate profile step needed in most cases.
 
 If the target JVM is not using ZGC, the command exits immediately with a message showing the active collector. Confirm with `argus gc <PID>` and switch with `-XX:+UseZGC` (JDK 15+) or `-XX:+UseZGC -XX:+ZGenerational` (JDK 21–23).
 
@@ -166,7 +176,7 @@ argus doctor <PID>
 
 ### Step 3 — Profile allocations if stalls are present
 
-If Step 1 reported allocation stalls:
+If Step 1 reported allocation stalls, review the **Top alloc sources** block first. If the hot site is your own code, investigate it directly. If you need a longer or more detailed profile:
 
 ```bash
 argus profile <PID> --event=alloc --duration=30
@@ -176,10 +186,33 @@ This shows the top allocation call sites by stack frame. Address the top allocat
 
 ### Step 4 — Apply recommendations and confirm
 
-After tuning (raise `-Xmx`, set `-XX:SoftMaxHeapSize`, raise `-XX:ConcGCThreads`, or fix hot allocation sites), re-run the diagnostic to confirm the verdict improves:
+After tuning (raise `-Xmx`, set `-XX:SoftMaxHeapSize`, raise `-XX:ConcGCThreads`, or fix hot allocation sites), confirm the verdict improved. If you captured a baseline in Step 0, use diff for a precise comparison:
 
 ```bash
-argus zgc <PID>
+argus zgc <PID> --diff=baseline.txt
 ```
 
-A clean run returns `Verdict: HEALTHY  — ZGC is keeping up.` with no stalls and no overlap.
+A healthy post-tuning run shows no REGRESSION rows in the diff, and a standalone run returns `Verdict: HEALTHY  — ZGC is keeping up.` with no stalls and no overlap.
+
+---
+
+## Continuous ZGC monitoring during a deploy
+
+Use this workflow to catch ZGC regressions introduced by a new release before declaring the deploy stable.
+
+1. **Before the deploy**, capture a pre-deploy baseline:
+   ```bash
+   argus zgc <PID> --save=pre-deploy.txt
+   ```
+
+2. **After the deploy** (allow 1–2 minutes for JVM warm-up), run 10 minutes of continuous monitoring at 60-second intervals:
+   ```bash
+   argus zgc <PID> --watch=10 --interval=60
+   ```
+   Each iteration prints a 1-line summary showing heap, cycles, stalls, and mark-end delta from the previous iteration. Every 5th iteration prints the full diagnosis table. Ctrl-C at any point stops the loop, cleans up the JFR recording, and prints a final summary.
+
+3. **If any iteration shows ✘ stalls or ⚠ committed heap growth**, diff against the pre-deploy baseline before declaring success:
+   ```bash
+   argus zgc <PID> --diff=pre-deploy.txt
+   ```
+   Any REGRESSION row (✘) needs investigation. New stalls and softMax breaches are the most critical signals and should block the deploy from going fully live.

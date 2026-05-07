@@ -5,6 +5,7 @@ import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.cli.zgc.ZgcBaseline;
 import io.argus.cli.zgc.ZgcDiagnosis;
 import io.argus.cli.zgc.ZgcJfrCollector;
 import io.argus.core.command.CommandGroup;
@@ -18,17 +19,24 @@ import javax.management.openmbean.CompositeData;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Set;
 
 /**
- * One-shot ZGC health verdict from a single 30-second live JFR capture.
+ * One-shot ZGC health verdict from a single live JFR capture, with optional
+ * {@code --save}, {@code --diff}, and {@code --watch} modes for trend tracking.
  *
- * <p>Usage: {@code argus zgc <PID> [--duration=N]} where {@code N} is between 5 and 120 seconds.
- *
- * <p>Pre-checks the target JVM via JMX to confirm ZGC is the active GC, captures
- * a JFR profile recording, parses ZGC-specific events, and prints a verdict
- * (HEALTHY / WARNING / UNHEALTHY) with concrete tuning recommendations.
+ * <p>Usage:
+ * <pre>
+ *   argus zgc &lt;PID&gt; [--duration=N]
+ *   argus zgc &lt;PID&gt; --save=PATH
+ *   argus zgc &lt;PID&gt; --diff=PATH
+ *   argus zgc &lt;PID&gt; --watch[=N] [--interval=N]
+ * </pre>
  */
 public final class ZgcCommand implements Command {
 
@@ -36,7 +44,14 @@ public final class ZgcCommand implements Command {
     private static final int DEFAULT_DURATION_SEC = 30;
     private static final int MIN_DURATION_SEC = 5;
     private static final int MAX_DURATION_SEC = 120;
+    private static final int MIN_INTERVAL_SEC = 10;
+    private static final int MAX_INTERVAL_SEC = 300;
     private static final String JFR_RECORDING_NAME = "argus-zgc";
+
+    private static final DateTimeFormatter TIME_FMT =
+            DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault());
+    private static final DateTimeFormatter ISO_FMT =
+            DateTimeFormatter.ISO_INSTANT;
 
     @Override public String name() { return "zgc"; }
     @Override public CommandGroup group() { return CommandGroup.MEMORY; }
@@ -51,21 +66,50 @@ public final class ZgcCommand implements Command {
     @Override
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
         if (args.length == 0 || !isPid(args[0])) {
-            System.err.println("Usage: argus zgc <PID> [--duration=N]");
+            System.err.println("Usage: argus zgc <PID> [--duration=N] [--save=PATH] [--diff=PATH] [--watch[=N]] [--interval=N]");
             throw new CommandExitException(1);
         }
 
         long pid = Long.parseLong(args[0]);
-        int duration = DEFAULT_DURATION_SEC;
+        int  duration = DEFAULT_DURATION_SEC;
+        Path saveTo   = null;
+        Path diffWith = null;
+        int  watchIterations = -1; // -1 = not in watch mode; 0 = unlimited
+        int  interval = DEFAULT_DURATION_SEC;
+
         for (int i = 1; i < args.length; i++) {
             String a = args[i];
             if (a.startsWith("--duration=")) {
                 try { duration = Integer.parseInt(a.substring(11)); }
                 catch (NumberFormatException ignored) {}
+            } else if (a.startsWith("--save=")) {
+                saveTo = Path.of(a.substring("--save=".length()));
+            } else if (a.equals("--save") && i + 1 < args.length) {
+                saveTo = Path.of(args[++i]);
+            } else if (a.startsWith("--diff=")) {
+                diffWith = Path.of(a.substring("--diff=".length()));
+            } else if (a.equals("--diff") && i + 1 < args.length) {
+                diffWith = Path.of(args[++i]);
+            } else if (a.equals("--watch")) {
+                watchIterations = 0; // unlimited
+            } else if (a.startsWith("--watch=")) {
+                try {
+                    watchIterations = Integer.parseInt(a.substring("--watch=".length()));
+                    if (watchIterations < 1) watchIterations = 0;
+                } catch (NumberFormatException ignored) {
+                    watchIterations = 0;
+                }
+            } else if (a.startsWith("--interval=")) {
+                try { interval = Integer.parseInt(a.substring("--interval=".length())); }
+                catch (NumberFormatException ignored) {}
             }
         }
+
+        // Clamp duration and interval
         if (duration < MIN_DURATION_SEC) duration = MIN_DURATION_SEC;
         if (duration > MAX_DURATION_SEC) duration = MAX_DURATION_SEC;
+        if (interval < MIN_INTERVAL_SEC) interval = MIN_INTERVAL_SEC;
+        if (interval > MAX_INTERVAL_SEC) interval = MAX_INTERVAL_SEC;
 
         boolean useColor = config.color();
 
@@ -79,20 +123,66 @@ public final class ZgcCommand implements Command {
             throw new CommandExitException(1);
         }
 
+        // Watch mode — loop N (or unlimited) iterations
+        if (watchIterations >= 0) {
+            runWatch(pid, info, watchIterations, interval, useColor, messages);
+            return;
+        }
+
+        // Single-shot capture
+        int captureDuration = diffWith != null ? duration : duration;
+        ZgcDiagnosis d = captureOnce(pid, info, captureDuration, messages);
+
+        // Save mode (write-through; still render the snapshot)
+        if (saveTo != null) {
+            try {
+                ZgcBaseline.save(saveTo, d, (int) pid);
+                System.out.println(messages.get("cli.zgc.save.success", saveTo.toAbsolutePath()));
+            } catch (IOException e) {
+                System.err.println(messages.get("cli.zgc.save.failed", e.getMessage()));
+            }
+        }
+
+        // Diff mode: load baseline → compute diff → render → exit (no normal verdict)
+        if (diffWith != null) {
+            try {
+                ZgcBaseline baseline = ZgcBaseline.load(diffWith);
+                List<ZgcBaseline.DiffRow> rows = ZgcBaseline.diff(baseline, d);
+                printDiff(baseline, d, rows, useColor, messages);
+            } catch (IOException e) {
+                System.err.println(messages.get("cli.zgc.diff.failed", e.getMessage()));
+                throw new CommandExitException(1);
+            }
+            return;
+        }
+
+        printReport(pid, d, useColor, messages);
+    }
+
+    // ── Capture ──────────────────────────────────────────────────────────────
+
+    /**
+     * Runs a full JFR capture and returns a populated {@link ZgcDiagnosis}.
+     * Prints the "capturing" message to stdout. Throws {@link CommandExitException} on failure.
+     */
+    private static ZgcDiagnosis captureOnce(long pid, TargetInfo info, int durationSec,
+                                             Messages messages) {
         ZgcDiagnosis d = new ZgcDiagnosis();
-        d.usingZgc        = true;
-        d.generational    = info.generational;
-        d.jvmVersion      = info.jvmVersion;
-        d.maxHeapBytes    = info.maxHeapBytes;
+        d.usingZgc         = true;
+        d.generational     = info.generational;
+        d.jvmVersion       = info.jvmVersion;
+        d.maxHeapBytes     = info.maxHeapBytes;
         d.softMaxHeapBytes = info.softMaxHeapBytes;
 
-        // ── Capture JFR ─────────────────────────────────────────────────────
         Path tmpFile = null;
         try {
             tmpFile = Files.createTempFile("argus-zgc-" + pid + "-", ".jfr");
             String jfrPath = tmpFile.toAbsolutePath().toString();
 
-            System.out.println(messages.get("cli.zgc.capturing", String.valueOf(duration)));
+            System.out.println(messages.get("cli.zgc.capturing", String.valueOf(durationSec)));
+
+            // Stop any existing recording with the same name to avoid conflicts
+            stopExistingRecording(pid);
 
             String startOut = runJcmd(pid, "JFR.start",
                     "name=" + JFR_RECORDING_NAME,
@@ -100,13 +190,22 @@ public final class ZgcCommand implements Command {
             if (startOut == null
                     || startOut.contains("Could not")
                     || startOut.toLowerCase().contains("error")) {
-                System.err.println("JFR.start failed: "
-                        + (startOut != null ? startOut.trim() : "no output"));
-                throw new CommandExitException(2);
+                // Retry once after stopping any existing recording
+                stopExistingRecording(pid);
+                startOut = runJcmd(pid, "JFR.start",
+                        "name=" + JFR_RECORDING_NAME,
+                        "settings=profile");
+                if (startOut == null
+                        || startOut.contains("Could not")
+                        || startOut.toLowerCase().contains("error")) {
+                    System.err.println("JFR.start failed: "
+                            + (startOut != null ? startOut.trim() : "no output"));
+                    throw new CommandExitException(2);
+                }
             }
 
             try {
-                Thread.sleep((long) duration * 1000L + 1000L);
+                Thread.sleep((long) durationSec * 1000L + 1000L);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 System.err.println("Interrupted while waiting for JFR recording.");
@@ -137,8 +236,6 @@ public final class ZgcCommand implements Command {
                 throw new CommandExitException(2);
             }
 
-            printReport(pid, d, useColor, messages);
-
         } catch (IOException e) {
             System.err.println("Failed to capture live ZGC data for PID " + pid + ": " + e.getMessage());
             throw new CommandExitException(2);
@@ -147,6 +244,223 @@ public final class ZgcCommand implements Command {
                 try { Files.deleteIfExists(tmpFile); } catch (IOException ignored) {}
             }
         }
+
+        return d;
+    }
+
+    /** Attempts to stop an existing JFR recording named argus-zgc; silently ignores failure. */
+    private static void stopExistingRecording(long pid) {
+        runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
+    }
+
+    // ── Watch mode ───────────────────────────────────────────────────────────
+
+    private static void runWatch(long pid, TargetInfo info, int maxIterations,
+                                 int intervalSec, boolean useColor, Messages messages) {
+        System.out.println(messages.get("cli.zgc.watch.banner", String.valueOf(intervalSec)));
+
+        int    iterationCount  = 0;
+        int    totalStalls     = 0;
+        int    totalBreaches   = 0;
+        ZgcDiagnosis previous  = null;
+
+        // Shutdown hook: clean up JFR and print summary
+        final int[] finalCount    = {0};
+        final int[] finalStalls   = {0};
+        final int[] finalBreaches = {0};
+
+        Thread shutdownHook = new Thread(() -> {
+            stopExistingRecording(pid);
+            System.out.println();
+            System.out.println(messages.get("cli.zgc.watch.summary",
+                    String.valueOf(finalCount[0]),
+                    String.valueOf(finalStalls[0]),
+                    String.valueOf(finalBreaches[0])));
+        }, "argus-zgc-watch-cleanup");
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+        try {
+            while (maxIterations == 0 || iterationCount < maxIterations) {
+                ZgcDiagnosis current;
+                try {
+                    current = captureOnce(pid, info, intervalSec, messages);
+                } catch (CommandExitException e) {
+                    // JFR failure — print warning and retry next iteration
+                    System.err.println("  [warn] JFR capture failed for iteration "
+                            + (iterationCount + 1) + ", skipping.");
+                    try { Thread.sleep(intervalSec * 1000L); }
+                    catch (InterruptedException ie) { Thread.currentThread().interrupt(); break; }
+                    continue;
+                }
+
+                iterationCount++;
+                totalStalls   += current.stalls.size();
+                totalBreaches += current.softMaxBreached ? 1 : 0;
+
+                // Print per-iteration summary line
+                printWatchLine(current, previous, iterationCount, intervalSec, useColor, messages);
+
+                // Every 5th iteration print the full diagnosis table
+                if (iterationCount % 5 == 0) {
+                    System.out.println();
+                    printReport(pid, current, useColor, messages);
+                    System.out.println();
+                }
+
+                previous = current;
+
+                // Update shutdown hook counters
+                finalCount[0]    = iterationCount;
+                finalStalls[0]   = totalStalls;
+                finalBreaches[0] = totalBreaches;
+
+                // Sleep between iterations (interval includes JFR capture duration, so
+                // we sleep the remaining time; if capture took longer, skip sleep)
+                // Since captureOnce already slept intervalSec inside, we just continue.
+            }
+        } finally {
+            try { Runtime.getRuntime().removeShutdownHook(shutdownHook); }
+            catch (IllegalStateException ignored) {}
+            stopExistingRecording(pid);
+            System.out.println();
+            System.out.println(messages.get("cli.zgc.watch.summary",
+                    String.valueOf(iterationCount),
+                    String.valueOf(totalStalls),
+                    String.valueOf(totalBreaches)));
+        }
+    }
+
+    private static void printWatchLine(ZgcDiagnosis current, ZgcDiagnosis previous,
+                                       int iteration, int intervalSec,
+                                       boolean useColor, Messages messages) {
+        String reset  = AnsiStyle.style(useColor, AnsiStyle.RESET);
+        String dim    = AnsiStyle.style(useColor, AnsiStyle.DIM);
+        String yellow = AnsiStyle.style(useColor, AnsiStyle.YELLOW);
+        String red    = AnsiStyle.style(useColor, AnsiStyle.RED);
+        String green  = AnsiStyle.style(useColor, AnsiStyle.GREEN);
+
+        String timestamp = TIME_FMT.format(Instant.now());
+
+        // Heap committed
+        String heapStr = ZgcBaseline.formatBytes(current.heapCommittedBytes);
+        String heapDelta = "";
+        String heapColor = reset;
+        if (previous != null) {
+            long delta = current.heapCommittedBytes - previous.heapCommittedBytes;
+            if (delta != 0) {
+                heapDelta = " (" + ZgcBaseline.formatBytesDelta(delta) + ")";
+                heapColor = delta > 0 ? yellow : green;
+                if (current.softMaxHeapBytes > 0
+                        && current.heapCommittedBytes > current.softMaxHeapBytes) {
+                    heapColor = yellow;
+                    heapDelta += " ⚠";
+                }
+            }
+        }
+
+        // Cycles: "Nm/NM" (minor/major)
+        String cyclesStr = current.minorCycles + "m/" + current.majorCycles + "M";
+
+        // Stalls
+        String stallStr;
+        String stallColor = reset;
+        int stallCount = current.stalls.size();
+        if (stallCount == 0) {
+            stallStr = "0";
+        } else {
+            stallColor = red;
+            ZgcDiagnosis.Stall worst = current.stalls.stream()
+                    .max(java.util.Comparator.comparingDouble(ZgcDiagnosis.Stall::durationMs))
+                    .orElse(null);
+            String workerLabel = (worst != null && worst.thread() != null && !worst.thread().isEmpty())
+                    ? worst.thread() : "?";
+            double maxMs = worst != null ? worst.durationMs() : 0.0;
+            stallStr = stallCount + " ✘ (max " + String.format("%.0fms", maxMs)
+                    + " in \"" + workerLabel + "\")";
+        }
+
+        // Mark End pause
+        String markEndStr = String.format("%.2fms", current.pauseMarkEndMs);
+        String markEndColor = reset;
+        if (previous != null && previous.pauseMarkEndMs > 0) {
+            double delta = current.pauseMarkEndMs - previous.pauseMarkEndMs;
+            if (delta / previous.pauseMarkEndMs > 0.20) {
+                markEndColor = yellow;
+                markEndStr += " ⚠";
+            }
+        }
+
+        // Assemble line
+        StringBuilder sb = new StringBuilder();
+        sb.append(dim).append('[').append(timestamp).append(']').append(reset);
+        sb.append(" ZGC | committed ");
+        sb.append(heapColor).append(heapStr).append(heapDelta).append(reset);
+        sb.append(" | cycles ").append(dim).append(cyclesStr).append(reset);
+        sb.append(" | stalls ").append(stallColor).append(stallStr).append(reset);
+        sb.append(" | mark-end ").append(markEndColor).append(markEndStr).append(reset);
+
+        System.out.println(sb);
+    }
+
+    // ── Diff rendering ───────────────────────────────────────────────────────
+
+    private static void printDiff(ZgcBaseline baseline, ZgcDiagnosis current,
+                                   List<ZgcBaseline.DiffRow> rows,
+                                   boolean useColor, Messages messages) {
+        String reset  = AnsiStyle.style(useColor, AnsiStyle.RESET);
+        String dim    = AnsiStyle.style(useColor, AnsiStyle.DIM);
+        String bold   = AnsiStyle.style(useColor, AnsiStyle.BOLD);
+        String yellow = AnsiStyle.style(useColor, AnsiStyle.YELLOW, AnsiStyle.BOLD);
+        String red    = AnsiStyle.style(useColor, AnsiStyle.RED, AnsiStyle.BOLD);
+
+        // Header
+        Instant now = Instant.now();
+        long elapsedMinutes = Duration.between(baseline.capturedAt, now).toMinutes();
+        String elapsedLabel = elapsedMinutes >= 60
+                ? String.format("%.1f hr", elapsedMinutes / 60.0)
+                : elapsedMinutes + " min";
+        System.out.println(bold + messages.get("cli.zgc.diff.header",
+                ISO_FMT.format(baseline.capturedAt),
+                ISO_FMT.format(now),
+                "+" + elapsedLabel) + reset);
+        System.out.println(dim + "═".repeat(63) + reset);
+
+        for (ZgcBaseline.DiffRow row : rows) {
+            String label = rowLabel(row.label(), messages);
+            String severityMarker;
+            String rowColor;
+            switch (row.severity()) {
+                case REGRESSION -> { severityMarker = " ✘"; rowColor = red;    }
+                case WARN       -> { severityMarker = " ⚠"; rowColor = yellow; }
+                default         -> { severityMarker = "";   rowColor = reset;   }
+            }
+
+            String deltaDisplay = row.delta();
+            if ("NEW".equals(deltaDisplay)) {
+                deltaDisplay = "(" + messages.get("cli.zgc.diff.regression.new") + ")";
+            }
+
+            String line = String.format("  %-22s %12s → %-12s  %s%s",
+                    label,
+                    row.baselineValue(),
+                    row.currentValue(),
+                    deltaDisplay,
+                    severityMarker);
+            System.out.println(rowColor + line + reset);
+        }
+        System.out.println();
+    }
+
+    private static String rowLabel(String key, Messages messages) {
+        return switch (key) {
+            case "heapCommitted"  -> messages.get("cli.zgc.diff.row.committed");
+            case "minorCycles"    -> messages.get("cli.zgc.diff.row.cycles.minor");
+            case "majorCycles"    -> messages.get("cli.zgc.diff.row.cycles.major");
+            case "stallCount"     -> messages.get("cli.zgc.diff.row.stalls");
+            case "pauseMarkEnd"   -> messages.get("cli.zgc.diff.row.markend");
+            case "softMaxBreached"-> messages.get("cli.zgc.diff.row.softmax");
+            default               -> key;
+        };
     }
 
     // ── Target inspection (JMX) ─────────────────────────────────────────────
@@ -182,7 +496,6 @@ public final class ZgcCommand implements Command {
                 vm.detach();
             }
         } catch (Exception e) {
-            // Cannot attach — the user will see "not using ZGC" with empty algo.
             return new TargetInfo(false, false, "", "", 0, -1);
         }
 
@@ -193,7 +506,6 @@ public final class ZgcCommand implements Command {
         try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(connectorAddr))) {
             MBeanServerConnection mbs = connector.getMBeanServerConnection();
 
-            // Active GC collectors → name pattern "java.lang:type=GarbageCollector,name=*".
             Set<ObjectName> gcs = mbs.queryNames(
                     new ObjectName("java.lang:type=GarbageCollector,*"), null);
             StringBuilder algoNames = new StringBuilder();
@@ -209,14 +521,12 @@ public final class ZgcCommand implements Command {
             }
             gcAlgo = algoNames.toString();
 
-            // Runtime → spec/version.
             try {
                 ObjectName runtime = new ObjectName("java.lang:type=Runtime");
                 Object spec = mbs.getAttribute(runtime, "SpecVersion");
                 if (spec != null) jvmVersion = spec.toString();
             } catch (Exception ignored) {}
 
-            // Heap max from MemoryMXBean.
             try {
                 ObjectName mem = new ObjectName("java.lang:type=Memory");
                 Object usage = mbs.getAttribute(mem, "HeapMemoryUsage");
@@ -226,7 +536,6 @@ public final class ZgcCommand implements Command {
                 }
             } catch (Exception ignored) {}
 
-            // SoftMaxHeapSize via HotSpotDiagnostic.getVMOption (returns CompositeData).
             try {
                 ObjectName diag = new ObjectName("com.sun.management:type=HotSpotDiagnostic");
                 Object res = mbs.invoke(diag, "getVMOption",
@@ -254,7 +563,7 @@ public final class ZgcCommand implements Command {
 
     // ── Render ──────────────────────────────────────────────────────────────
 
-    private static void printReport(long pid, ZgcDiagnosis d, boolean c, Messages messages) {
+    static void printReport(long pid, ZgcDiagnosis d, boolean c, Messages messages) {
         ZgcDiagnosis.Verdict verdict = d.compute();
 
         String bold  = AnsiStyle.style(c, AnsiStyle.BOLD);
@@ -309,6 +618,21 @@ public final class ZgcCommand implements Command {
                             String.valueOf(d.stalls.size()),
                             worst.durationMs(),
                             workerLabel));
+        }
+
+        // Allocation hotspots (only when stalls detected AND alloc events present)
+        if (!d.stallAllocHotspots.isEmpty()) {
+            System.out.println("               "
+                    + messages.get("cli.zgc.stall.alloc.header",
+                            String.format("%,d", d.totalAllocEvents)));
+            for (int i = 0; i < d.stallAllocHotspots.size(); i++) {
+                ZgcDiagnosis.AllocHotspot h = d.stallAllocHotspots.get(i);
+                System.out.printf("               %2d. %-70s %5.1f%%%n",
+                        i + 1, h.frame(), h.pct());
+            }
+        } else if (!d.stalls.isEmpty()) {
+            System.out.println("               " + dim
+                    + messages.get("cli.zgc.stall.alloc.empty") + reset);
         }
 
         // SoftMax line
@@ -394,7 +718,6 @@ public final class ZgcCommand implements Command {
     private static long suggestedXmxGb(ZgcDiagnosis d) {
         long curMaxBytes = d.maxHeapBytes > 0 ? d.maxHeapBytes : d.heapCommittedBytes;
         long curGb = Math.max(1, (curMaxBytes + (1L << 30) - 1) / (1L << 30));
-        // Suggest +25% rounded up.
         return Math.max(curGb + 1, (long) Math.ceil(curGb * 1.25));
     }
 
@@ -408,7 +731,6 @@ public final class ZgcCommand implements Command {
         return true;
     }
 
-    /** Runs {@code jcmd <pid> <command> [args...]} and returns stdout, or null on failure. */
     private static String runJcmd(long pid, String command, String... extraArgs) {
         try {
             String[] fullCmd = new String[3 + extraArgs.length];

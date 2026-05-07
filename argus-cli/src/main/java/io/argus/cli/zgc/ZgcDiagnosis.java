@@ -9,7 +9,8 @@ import java.util.List;
  * <p>Populated by {@link ZgcJfrCollector} from the following JFR events:
  * {@code jdk.ZAllocationStall}, {@code jdk.ZYoungGarbageCollection},
  * {@code jdk.ZOldGarbageCollection}, {@code jdk.ZGarbageCollection},
- * {@code jdk.GarbageCollection}, {@code jdk.GCHeapSummary}.
+ * {@code jdk.GarbageCollection}, {@code jdk.GCHeapSummary},
+ * {@code jdk.ObjectAllocationInNewTLAB}, {@code jdk.ObjectAllocationOutsideTLAB}.
  *
  * <p>Verdict logic ({@link #compute()}):
  * <ul>
@@ -24,6 +25,12 @@ public final class ZgcDiagnosis {
 
     /** Allocation stall captured from {@code jdk.ZAllocationStall}. */
     public record Stall(String thread, double durationMs) {}
+
+    /**
+     * Top allocation call site correlated with stalls, derived from
+     * {@code jdk.ObjectAllocationInNewTLAB} / {@code jdk.ObjectAllocationOutsideTLAB} events.
+     */
+    public record AllocHotspot(String frame, long count, double pct) {}
 
     // ── Process / GC identity ───────────────────────────────────────────────
     public boolean usingZgc;
@@ -49,6 +56,15 @@ public final class ZgcDiagnosis {
 
     // ── Allocation stalls ───────────────────────────────────────────────────
     public final List<Stall> stalls = new ArrayList<>();
+
+    /**
+     * Top allocation hotspots from the same JFR capture, populated only when stalls
+     * are present and allocation events were recorded. Empty otherwise.
+     */
+    public final List<AllocHotspot> stallAllocHotspots = new ArrayList<>();
+
+    /** Total number of allocation events seen in the JFR capture (for the header n= label). */
+    public long totalAllocEvents;
 
     // ── Derived booleans ────────────────────────────────────────────────────
     /** True when any GCHeapSummary sample shows committed > softMaxHeapBytes. */

@@ -690,6 +690,70 @@ Sources:
 
 ---
 
+### ZGC trend tracking — `ZgcBaseline`, `--save`, `--diff`, `--watch`, `--interval`
+
+`ZgcBaseline` is a new plain-text persistence layer (key=value, one per line) that mirrors `NmtBaseline`'s format. It stores all `ZgcDiagnosis` fields as well as derived stall aggregates (count, totalMs, maxMs, maxThread) and the top allocation frame list encoded as `frame|pct` entries separated by semicolons.
+
+`ZgcBaseline.save(path, diagnosis, pid)` serialises the current `ZgcDiagnosis` to a file. `ZgcBaseline.load(path)` deserialises it back. `ZgcBaseline.diff(baseline, current)` produces a `List<DiffRow>`, one row per tracked metric:
+
+```
+DiffRow(label, baselineValue, currentValue, delta, severity)
+```
+
+`severity` is drawn from `ZgcBaseline.Severity` which has three values: `INFO`, `WARN`, `REGRESSION`. REGRESSION conditions:
+
+| Metric | REGRESSION trigger |
+|--------|--------------------|
+| `heapCommitted` | committed crossed above SoftMaxHeapSize (baseline was under, current is over) |
+| `stallCount` | baseline=0 → current>0 (new stalls) |
+| `majorCycles` | minor:major ratio worsened by >50% |
+| `pauseMarkEnd` | grew by >50% relative to baseline |
+| `softMaxBreached` | false → true |
+
+`ZgcCommand` dispatch logic:
+
+- `--save=PATH` — runs `captureOnce()`, renders the normal report, then calls `ZgcBaseline.save()`.
+- `--diff=PATH` — runs `captureOnce()`, calls `ZgcBaseline.load()` + `ZgcBaseline.diff()`, renders the diff table (suppresses normal verdict).
+- `--watch[=N]` — calls `runWatch()`, which loops `captureOnce()` for N iterations (0 = unlimited). Each iteration calls `printWatchLine()` for a 1-line delta summary; every 5th iteration calls `printReport()` for the full table.
+- `--interval=N` — sets both the JFR capture duration inside `captureOnce()` and the watch loop period (clamped to 10–300 s, default 30).
+
+`runWatch()` registers a JVM shutdown hook that stops any live JFR recording and prints a final summary line (total iterations, total stalls seen, total softMax breaches). The same cleanup runs in the `finally` block on normal loop exit.
+
+Sources:
+- `argus-cli/src/main/java/io/argus/cli/command/ZgcCommand.java`
+- `argus-cli/src/main/java/io/argus/cli/zgc/ZgcBaseline.java`
+
+---
+
+### ZGC allocation hotspot cross-reference (`ZgcJfrCollector`, `ZgcDiagnosis`)
+
+`ZgcJfrCollector` now subscribes to two additional JFR event types: `jdk.ObjectAllocationInNewTLAB` and `jdk.ObjectAllocationOutsideTLAB`. Both are emitted by the `profile.jfc` settings profile that `ZgcCommand` already uses, so no additional JFR configuration is required.
+
+For each allocation event the collector calls `extractTopUserFrame()` to obtain a formatted stack-frame string and increments a `Map<String, Long> allocCounts` counter for that frame. After reading the full recording:
+
+1. `d.totalAllocEvents` is set to the sum of all allocation event counts.
+2. If `d.stalls` is non-empty **and** `totalAlloc > 0`, the top-5 frames by count are converted to `AllocHotspot(frame, count, pct)` records and stored in `d.stallAllocHotspots`. If either condition is false, the list remains empty.
+
+`ZgcDiagnosis` carries two new fields:
+
+```java
+public final List<AllocHotspot> stallAllocHotspots = new ArrayList<>();
+public long totalAllocEvents;
+```
+
+`AllocHotspot` is a record: `AllocHotspot(String frame, long count, double pct)`.
+
+`extractTopUserFrame()` walks the event stack trace and returns the first frame whose class name does not start with `java.`, `jdk.`, `sun.`, or `com.sun.`. When all frames belong to JDK-internal packages, it falls back to the first frame. Returns `null` when no stack trace is present.
+
+`ZgcCommand.printReport()` renders the hotspot list under the Allocation Stalls section when `stallAllocHotspots` is non-empty, or prints a dim "no alloc events recorded" note when stalls were detected but no allocation events were present.
+
+Sources:
+- `argus-cli/src/main/java/io/argus/cli/zgc/ZgcJfrCollector.java`
+- `argus-cli/src/main/java/io/argus/cli/zgc/ZgcDiagnosis.java`
+- `argus-cli/src/main/java/io/argus/cli/command/ZgcCommand.java`
+
+---
+
 ### New Doctor rules — ZGC
 
 Two new rules under `argus-cli/src/main/java/io/argus/cli/doctor/rules/`:

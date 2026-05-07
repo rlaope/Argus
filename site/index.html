@@ -743,7 +743,7 @@ argus histo 12345</code></pre>
                         <tbody>
                             <tr><td>Process</td><td><code>ps</code>, <code>info</code>, <code>init</code></td><td>Find and identify JVM processes</td></tr>
                             <tr><td>Memory</td><td><code>heap</code>, <code>histo</code>, <code>heapdump</code>, <code>diff</code>, <code>nmt</code></td><td>Heap usage, object distribution, native memory</td></tr>
-                            <tr><td>GC</td><td><code>gc</code>, <code>gcutil</code>, <code>gccause</code>, <code>gcnew</code>, <code>zgc</code></td><td>GC frequency, pause times, causes, generation stats; ZGC live diagnosis (allocation stalls, soft-max breach, cycle overlap)</td></tr>
+                            <tr><td>GC</td><td><code>gc</code>, <code>gcutil</code>, <code>gccause</code>, <code>gcnew</code>, <code>zgc</code></td><td>GC frequency, pause times, causes, generation stats; ZGC live diagnosis (allocation stalls, soft-max breach, cycle overlap) + trend tracking</td></tr>
                             <tr><td>Threads</td><td><code>threads</code>, <code>deadlock</code>, <code>pool</code></td><td>Thread states, deadlocks, pool analysis</td></tr>
                             <tr><td>CPU</td><td><code>profile</code>, <code>jfr</code></td><td>CPU profiling, flight recording</td></tr>
                             <tr><td>Classes</td><td><code>classloader</code>, <code>classstat</code>, <code>stringtable</code>, <code>symboltable</code></td><td>Class loading, interned strings, symbols</td></tr>
@@ -763,7 +763,7 @@ argus histo 12345</code></pre>
                     <p><strong>ZGC monitoring in one command.</strong> <code>argus zgc &lt;PID&gt;</code> runs a 30-second live JFR capture and returns a HEALTHY/WARNING/UNHEALTHY verdict driven by allocation stalls, SoftMaxHeapSize breach, and cycle overlap — the signals JDK Mission Control surfaces with three GUI clicks, in a one-line CLI.</p>
                 </div>
 
-                <p>The command pre-checks the target JVM via JMX to confirm ZGC is the active collector, then captures a JFR profile recording, parses ZGC-specific events, and prints a verdict with concrete tuning recommendations. Use <code>--duration=N</code> to override the default 30-second window (5–120 seconds).</p>
+                <p>The command pre-checks the target JVM via JMX to confirm ZGC is the active collector, then captures a JFR profile recording, parses ZGC-specific events, and prints a verdict with concrete tuning recommendations. Use <code>--duration=N</code> to override the default 30-second window (5–120 seconds). Allocation stalls now ship with the top-5 allocator call sites from the same JFR capture, so you see <em>what</em> allocated and <em>who</em> stalled in one shot. Use <code>--save</code>/<code>--diff</code> to track ZGC health across deploys, or <code>--watch</code> for live load tests.</p>
 
 <pre><code>$ argus zgc 12345
 ZGC Diagnosis (PID 12345, JDK 21, Generational)
@@ -778,6 +778,21 @@ Recommend:
   • Profile allocations: argus profile 12345 --event=alloc</code></pre>
 
                 <p>If the JVM is not running ZGC, the command exits with a clear message and suggests <code>argus gc &lt;PID&gt;</code> instead. Requires Java 21+ on the target process.</p>
+
+<pre><code># Save a healthy baseline before a deploy
+$ argus zgc 12345 --save=/tmp/zgc-pre.txt
+Saved ZGC baseline to: /tmp/zgc-pre.txt
+
+# After the deploy, see what changed
+$ argus zgc 12345 --diff=/tmp/zgc-pre.txt
+ZGC Diff (baseline 2026-05-08T12:00:00Z → now 2026-05-08T12:30:00Z, +30 min)
+  Heap committed     4.0 GB → 4.5 GB    (+512 MB) ⚠
+  Allocation stalls  0     → 7         (NEW) ✘
+  Pause Mark End     0.30ms → 0.42ms   (+0.12ms ⚠)
+
+# Or watch live during a load test
+$ argus zgc 12345 --watch=10 --interval=60</code></pre>
+
             </div>
 
             <!-- DASHBOARD -->

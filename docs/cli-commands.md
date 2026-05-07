@@ -1620,14 +1620,22 @@ No options. Press `q` to quit, arrow keys to navigate, Enter to select.
 
 ### argus zgc \<pid\>
 
-One-shot ZGC health verdict from a 30-second live JFR capture. Pre-checks via JMX that the target JVM is using ZGC, then starts a `JFR.start` recording, waits for the capture window, dumps and parses the recording, and prints a structured report with a HEALTHY / WARNING / UNHEALTHY verdict.
+One-shot ZGC health verdict from a live JFR capture. Pre-checks via JMX that the target JVM is using ZGC, then starts a `JFR.start` recording with `settings=profile`, waits for the capture window, dumps and parses the recording, and prints a structured report with a HEALTHY / WARNING / UNHEALTHY verdict.
+
+```
+argus zgc <PID> [--duration=N] [--save=PATH] [--diff=PATH] [--watch[=N]] [--interval=N]
+```
 
 ```bash
 $ argus zgc <PID>
 $ argus zgc <PID> --duration=60    # extend capture to 60s (5–120 range)
+$ argus zgc <PID> --save=/tmp/zgc-baseline.txt
+$ argus zgc <PID> --diff=/tmp/zgc-baseline.txt
+$ argus zgc <PID> --watch --interval=60
+$ argus zgc <PID> --watch=10 --interval=60
 ```
 
-**Sample output (UNHEALTHY):**
+**Sample output (UNHEALTHY with allocation hotspots):**
 
 ```
 ZGC Diagnosis (PID 18420, JDK 21, Non-generational)
@@ -1637,6 +1645,12 @@ ZGC Diagnosis (PID 18420, JDK 21, Non-generational)
   STW pauses   Mark Start 0.42ms · Mark End 2.31ms · Relocate Start 0.38ms
   Allocation Stalls
                ✘ 7 stalls in window (max 84.3ms in "http-nio-8080-exec-3")
+               Top alloc sources during capture (n=84,321 events)
+                1. com.example.service.OrderService.processOrder(OrderService.java:142)  38.2%
+                2. java.util.HashMap.resize(HashMap.java:704)                            14.7%
+                3. com.example.model.Item.<init>(Item.java:23)                            9.1%
+                4. com.example.cache.LocalCache.put(LocalCache.java:88)                   6.4%
+                5. com.example.util.JsonMapper.toJson(JsonMapper.java:61)                 4.3%
   SoftMax      ✓ within budget
   Overlap      ✘ consecutive cycles overlap
 
@@ -1646,6 +1660,8 @@ Recommend:
   • Or raise -XX:SoftMaxHeapSize toward -Xmx
   • Profile allocations: argus profile <PID> --event=alloc
 ```
+
+The **Top alloc sources** block appears only when stalls are detected and `jdk.ObjectAllocationInNewTLAB` / `jdk.ObjectAllocationOutsideTLAB` events were recorded by the `profile.jfc` settings. The top-5 call sites are ranked by event count. Stack-frame extraction skips `java.`, `jdk.`, `sun.`, and `com.sun.` prefixes and falls back to the first frame when all frames are JDK-internal. When no allocation events are present and stalls were detected, a note is printed instead.
 
 **Verdict table:**
 
@@ -1660,13 +1676,60 @@ Recommend:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--duration=N` | 30 | JFR capture window in seconds (clamped to 5–120) |
+| `--save=PATH` | | Capture once, render normally, and persist a baseline to PATH |
+| `--diff=PATH` | | Capture once, compare against baseline at PATH, render diff table (suppresses normal verdict) |
+| `--watch[=N]` | | Loop indefinitely (`--watch`) or for N iterations (`--watch=N`). Each iteration captures using `--interval`, prints a 1-line summary with delta from the prior iteration. Every 5th iteration prints the full diagnosis table. Ctrl-C prints a final summary and cleans up JFR. |
+| `--interval=N` | 30 | JFR capture duration and watch loop period in seconds (clamped to 10–300) |
+
+**Trend tracking:**
+
+Save a baseline during a known-good window:
+
+```bash
+argus zgc 12345 --save=/tmp/zgc-baseline.txt
+```
+
+After a deploy or config change, diff against the baseline:
+
+```bash
+argus zgc 12345 --diff=/tmp/zgc-baseline.txt
+```
+
+Sample diff output (REGRESSION rows marked with ✘):
+
+```
+Baseline: 2026-05-08T09:00:00Z → Now: 2026-05-08T11:34:21Z  (+2.6 hr)
+═══════════════════════════════════════════════════════════════
+  Heap committed       3.2 GB → 4.1 GB       +0.9 GB  ✘
+  Minor cycles            240 → 241              +1
+  Major cycles             20 → 24               +4
+  Allocation stalls          0 → 7               +7  ✘
+  Pause Mark End         0.31ms → 0.82ms      +0.51ms  ⚠
+  SoftMax breached           no → no            none
+```
+
+REGRESSION conditions: new stalls (baseline=0 → current>0), committed heap grew past SoftMaxHeapSize, minor:major ratio worsened >50%, Pause Mark End grew >50%, or cycleOverlap newly true.
+
+Continuous watch for 10 iterations at 60-second intervals:
+
+```bash
+argus zgc 12345 --watch --interval=60
+```
+
+Sample watch output:
+
+```
+[10:01:00] ZGC | committed 3.2 GB | cycles 240m/20M | stalls 0 | mark-end 0.31ms
+[10:02:01] ZGC | committed 3.3 GB (+0.1 GB) | cycles 243m/20M | stalls 0 | mark-end 0.33ms
+[10:03:02] ZGC | committed 3.8 GB (+0.5 GB) ⚠ | cycles 248m/21M | stalls 3 ✘ (max 22ms in "exec-5") | mark-end 0.41ms ⚠
+```
 
 **When to use:**
 
 - Use `argus zgc <PID>` as a first-line ZGC health check. It gives a verdict in one command without pre-existing GC logs.
 - Use `argus doctor <PID>` afterward for cross-cutting findings (heap, threads, CPU) and the ZGC doctor rules (`ZgcSoftMaxBreachRule`, `ZgcCycleOverlapRule`).
 - Use `argus gclog <file>` when you have an existing GC log and want pause histograms, cause breakdowns, and allocation stall counts over a longer window.
-- If `argus zgc` reports allocation stalls, follow up with `argus profile <PID> --event=alloc` to find the hot allocation call sites.
+- If `argus zgc` reports allocation stalls, check the **Top alloc sources** block in the output before reaching for `argus profile`.
 
 ---
 
