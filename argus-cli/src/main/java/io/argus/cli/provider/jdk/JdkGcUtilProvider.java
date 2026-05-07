@@ -47,7 +47,7 @@ public final class JdkGcUtilProvider implements GcUtilProvider {
      * the GCT index and produce a wrong value.
      * Package-private for testing.
      */
-    static GcUtilResult parseOutput(String output) {
+    public static GcUtilResult parseOutput(String output) {
         if (output == null || output.isBlank()) {
             return empty();
         }

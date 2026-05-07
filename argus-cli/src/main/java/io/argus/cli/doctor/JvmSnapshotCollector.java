@@ -1,6 +1,8 @@
 package io.argus.cli.doctor;
 
+import io.argus.cli.model.GcUtilResult;
 import io.argus.cli.provider.jdk.JcmdExecutor;
+import io.argus.cli.provider.jdk.JdkGcUtilProvider;
 
 import java.lang.management.*;
 import java.util.*;
@@ -140,43 +142,34 @@ public final class JvmSnapshotCollector {
             failures++;
         }
 
-        // GC.heap_info on G1/ZGC reports only a top-line total — no separate Eden/Old breakdown,
-        // which is what HeapPressureRule needs to detect Old-gen saturation. Synthesize generation
-        // pools from `jstat -gcutil` (E/O/M percentages → PoolInfo entries scaled to heapMax).
-        if (heapMax > 0) {
-            try {
-                String gcutil = runJstatGcutil(pid);
-                supplementGenerationPools(gcutil, pools, heapMax);
-            } catch (RuntimeException e) {
-                // Non-fatal: rule simply won't fire on Old gen alone.
-                warnings.get().add("jstat -gcutil failed: " + e.getMessage());
+        // jstat -gcutil: supplies both generation-pool breakdown (E/O percentages) AND
+        // GC count/time totals (YGC, YGCT, FGC, FGCT, GCT). Run it once here and reuse
+        // the result for both purposes. Modern JVMs do not emit invocation/ms lines in
+        // VM.info, so that approach is dead; jstat is the canonical source.
+        GcUtilResult gcutil = null;
+        try {
+            String gcutilOut = runJstatGcutil(pid);
+            gcutil = JdkGcUtilProvider.parseOutput(gcutilOut);
+            if (heapMax > 0) {
+                supplementGenerationPools(gcutilOut, pools, heapMax);
             }
+        } catch (RuntimeException e) {
+            // Non-fatal: pool breakdown and GC stats will be absent/zeroed.
+            warnings.get().add("jstat -gcutil failed: " + e.getMessage());
         }
 
-        // GC stats via jcmd — parse collector info
+        // GC stats derived from jstat -gcutil columns.
         List<JvmSnapshot.GcInfo> gcInfos = new ArrayList<>();
         long totalGcCount = 0, totalGcTime = 0;
         String gcAlgorithm = "unknown";
-        try {
-            // Use VM.info which contains GC collector stats
-            String vmInfo = JcmdExecutor.execute(pid, "VM.info");
-            for (String line : vmInfo.split("\n")) {
-                String t = line.trim();
-                // Parse: "garbage-first heap" or "PS Young Generation" etc.
-                if (t.contains("invocations") && t.contains("ms")) {
-                    // Try to parse GC invocation lines from VM.info
-                    var matcher = Pattern.compile("(\\d+)\\s+invocations.*?(\\d+)\\s*ms").matcher(t);
-                    if (matcher.find()) {
-                        long count = Long.parseLong(matcher.group(1));
-                        long time = Long.parseLong(matcher.group(2));
-                        totalGcCount += count;
-                        totalGcTime += time;
-                    }
-                }
-            }
-        } catch (RuntimeException e) {
-            warnings.get().add("VM.info failed (GC stats unavailable): " + e.getMessage());
-            failures++;
+        if (gcutil != null) {
+            totalGcCount = gcutil.ygc() + gcutil.fgc();
+            totalGcTime = Math.round(gcutil.gct() * 1000.0);  // GCT is seconds → ms
+            // Synthesize two logical collector entries for rules that iterate gcInfos.
+            gcInfos.add(new JvmSnapshot.GcInfo(
+                    "Young Generation", gcutil.ygc(), Math.round(gcutil.ygct() * 1000.0)));
+            gcInfos.add(new JvmSnapshot.GcInfo(
+                    "Old Generation", gcutil.fgc(), Math.round(gcutil.fgct() * 1000.0)));
         }
 
         // VM version

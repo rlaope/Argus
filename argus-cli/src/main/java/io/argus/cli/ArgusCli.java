@@ -6,6 +6,7 @@ import io.argus.cli.command.CommandExitException;
 import io.argus.cli.command.ClusterCommand;
 import io.argus.cli.command.BuffersCommand;
 import io.argus.cli.command.CiCommand;
+import io.argus.cli.command.ClassLeakCommand;
 import io.argus.cli.command.ClassStatCommand;
 import io.argus.cli.command.CompareCommand;
 import io.argus.cli.command.CompilerCommand;
@@ -210,6 +211,7 @@ public final class ArgusCli {
         register(commands, new VmSetCommand());
         register(commands, new VmLogCommand());
         register(commands, new JmxCommand());
+        register(commands, new ClassLeakCommand());
         register(commands, new ClassStatCommand());
         register(commands, new GcNewCommand());
         register(commands, new SymbolTableCommand());
