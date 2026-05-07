@@ -20,21 +20,21 @@ import java.util.concurrent.TimeUnit;
  */
 public final class AsProfDownloader {
 
-    private static final String ASPROF_VERSION = "3.0";
+    private static final String ASPROF_VERSION = "4.4";
     private static final String BASE_URL =
             "https://github.com/async-profiler/async-profiler/releases/download/v" + ASPROF_VERSION;
 
-    // SHA-256 checksums per platform (placeholder — replace with real values before release)
+    // SHA-256 checksums per platform (verified against async-profiler 4.4 release assets)
     private static final Map<String, String> CHECKSUMS;
 
     static {
         CHECKSUMS = new HashMap<>();
-        CHECKSUMS.put("linux-x64",       "2b631e8c0418e7e8a19d59a2d2eff016e87f8a4ffbac1ea395ec750b39dc3ce8");
-        CHECKSUMS.put("linux-arm64",     "8d3b407055f66756eb9525a814cbcf119951a8fb82055df9471b6559326f7607");
-        // async-profiler 3.0 does not ship musl variants; no archive exists on the release page
-        CHECKSUMS.put("linux-musl-x64",  "TODO_NO_MUSL_ARCHIVE_IN_V3_0");
-        CHECKSUMS.put("linux-musl-arm64","TODO_NO_MUSL_ARCHIVE_IN_V3_0");
-        CHECKSUMS.put("macos",           "cae4f207c33b964276385272a7cfe3750594cbcc8918f97a4bb67292bdbc43a8");
+        CHECKSUMS.put("linux-x64",       "1233f26fc95753e75ce32733bbcaf8f0bedc2c098b0e798af87935b08a63b24e");
+        CHECKSUMS.put("linux-arm64",     "86ff97b4436accdb6d7bb65c1cf6e38a756f2037a921994d8fa1dcb97d1dc53c");
+        // async-profiler 4.4 does not ship musl variants; no archive exists on the release page
+        CHECKSUMS.put("linux-musl-x64",  "TODO_NO_MUSL_ARCHIVE_IN_V4_4");
+        CHECKSUMS.put("linux-musl-arm64","TODO_NO_MUSL_ARCHIVE_IN_V4_4");
+        CHECKSUMS.put("macos",           "6177ebe56d088d116e1b436618f18b3316b9e41885fe743539f6bc297a487239");
     }
 
     private AsProfDownloader() {}
@@ -194,7 +194,7 @@ public final class AsProfDownloader {
                 return null;
             }
 
-            // Find the extracted directory (e.g., async-profiler-3.0-macos/) and move to destDir
+            // Find the extracted directory (e.g., async-profiler-4.4-macos/) and move to destDir
             File[] extracted = extractDir.toFile().listFiles();
             if (extracted != null && extracted.length > 0) {
                 // Remove old destDir if exists, then rename extracted dir

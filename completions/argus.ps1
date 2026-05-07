@@ -51,7 +51,8 @@ $ArgusCommands = @(
     @{ Name = 'classstat';   Desc = 'Class loading statistics' }
     @{ Name = 'gcnew';       Desc = 'Young generation GC detail' }
     @{ Name = 'symboltable'; Desc = 'Symbol table statistics' }
-    @{ Name = 'top';         Desc = 'Real-time monitoring' }
+    @{ Name = 'top';          Desc = 'Real-time monitoring' }
+    @{ Name = 'profile-gate'; Desc = 'CI/CD gate — compare two profile snapshots, exit non-zero on regression' }
 )
 
 Register-ArgumentCompleter -CommandName argus -Native -ScriptBlock {
@@ -87,7 +88,7 @@ Register-ArgumentCompleter -CommandName argus -Native -ScriptBlock {
             'histo'   { $opts += '--top=' }
             'diff'    { $opts += '--top=' }
             'pool'    { $opts += '--top=' }
-            'profile' { $opts += @('--type=', '--duration=', '--flame', '--file=', '--top=', '--output=', '--output-format=', '--interval=', '--jstackdepth=', '--cstack=', '--threads', '--alluser', '--allkernel', '--alloc=', '--live', '--include=', '--exclude=', 'start', 'stop', 'dump', 'status') }
+            'profile' { $opts += @('--type=', '--duration=', '--flame', '--file=', '--top=', '--output=', '--output-format=ascii', '--output-format=flamegraph', '--output-format=collapsed', '--output-format=jfr', '--interval=', '--jstackdepth=', '--cstack=', '--threads', '--alluser', '--allkernel', '--alloc=', '--live', '--include=', '--exclude=', '--pids=', '--window=', '--output-dir=', '--diff-against=', '--output-prefix=', 'start', 'stop', 'dump', 'status', 'continuous') }
             'flame'   { $opts += @('--type=', '--duration=', '--output=', '--output-format=', '--no-open', '--interval=', '--jstackdepth=', '--cstack=', '--threads', '--alluser', '--allkernel', '--alloc=', '--live', '--include=', '--exclude=') }
             'gcutil'  { $opts += '--watch=' }
             'sysprops' { $opts += '--filter=' }
@@ -95,7 +96,8 @@ Register-ArgumentCompleter -CommandName argus -Native -ScriptBlock {
             'dynlibs' { $opts += '--filter=' }
             'heapdump' { $opts += @('--file=', '--live', '--all', '--yes') }
             'vmset'   { $opts += '--yes' }
-            'top'     { $opts += @('--host=', '--port=', '--interval=') }
+            'top'          { $opts += @('--host=', '--port=', '--interval=') }
+            'profile-gate' { $opts += @('--before=', '--after=', '--threshold=', '--threshold-samples=', '--top=', '--format=json', '--annotate=github', '--max-regressions=', '--baseline-only') }
         }
 
         $opts | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {

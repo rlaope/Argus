@@ -257,15 +257,16 @@ All 55 commands. No agent needed. Works on any running JVM.
 
 | Command | Description |
 |---------|-------------|
-| `argus profile <pid>` | CPU/allocation/lock/wall profiling (async-profiler) — supports `start`/`stop`/`dump`/`status` session subcommands and `--save`/`--diff` regression detection |
+| `argus profile <pid>` | CPU/allocation/lock/wall profiling (async-profiler) — `start`/`stop`/`dump`/`status` session subcommands; `continuous <pid>` loop mode; multi-pid (`12345,67890`); `--save`/`--diff` regression detection; `--output-format=flamegraph\|collapsed\|jfr\|tree\|text\|flat\|traces\|otlp\|ascii`; PMU and method-trace `--type=` events |
+| `argus profile-gate <before> <after>` | CI/CD profile regression gate — compares two `--save` snapshots, exits 1 on regression; `--threshold`, `--annotate=github`, `--format=json` |
 | `argus jfr <pid> start\|stop\|check\|dump` | Flight Recorder control |
 | `argus jfranalyze <file.jfr>` | Analyze JFR recording (GC, CPU, hot methods, I/O) |
 | `argus logger <pid>` | View and change log levels at runtime |
 | `argus events <pid>` | VM internal event log (safepoints, deopt, GC) |
 | `argus report <pid>` | Comprehensive diagnostic report |
-| `argus doctor <pid>` | One-click JVM health diagnosis with tuning recommendations |
+| `argus doctor <pid>` | One-click JVM health diagnosis with tuning recommendations; `--profile` / `--profile=<file>` adds profile-based findings (5 rules: HotWait, HotJitBarrier, HotGcBarrier, HotAllocationLeaf, DominantMethod) |
 | `argus flame <pid>` | One-shot flame graph — profiles, generates HTML, opens browser |
-| `argus suggest <pid>` | JVM flag optimization based on workload analysis |
+| `argus suggest <pid>` | JVM flag optimization based on workload analysis; `--profile` / `--profile=<file>` adds profile-driven suggestions (6 rules: StringDeduplication, TieredCompilation, EscapeAnalysis, YoungGenSizing, LockContentionHint, RuntimeWaitHint) |
 | `argus ci` | CI/CD health gate — exit codes + GitHub annotations |
 | `argus compare <pid1> <pid2>` | Side-by-side JVM comparison (live or baseline) |
 | `argus slowlog <pid>` | Real-time slow method detection via JFR streaming |

@@ -1,6 +1,6 @@
 # Fish completions for argus
 
-set -l commands alert init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile gcscore gcwhy flame suggest watch info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top explain
+set -l commands alert init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile profile-gate jfr jfranalyze diff report doctor gclog gclogdiff gcprofile gcscore gcwhy flame suggest watch info heapdump deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top explain
 
 # Disable file completions for argus
 complete -c argus -f
@@ -57,6 +57,7 @@ complete -c argus -n "not __fish_seen_subcommand_from $commands" -a classstat -d
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a gcnew -d 'Young generation GC detail'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a symboltable -d 'Symbol table statistics'
 complete -c argus -n "not __fish_seen_subcommand_from $commands" -a top -d 'Real-time monitoring'
+complete -c argus -n "not __fish_seen_subcommand_from $commands" -a profile-gate -d 'CI/CD gate — compare two profile snapshots, exit non-zero on regression'
 
 # Global options
 complete -c argus -l help -d 'Show help'
@@ -70,12 +71,17 @@ complete -c argus -l port -d 'Agent port'
 
 # Subcommand-specific options
 complete -c argus -n "__fish_seen_subcommand_from jfr" -a 'start stop check dump' -d 'JFR subcommand'
-complete -c argus -n "__fish_seen_subcommand_from profile" -a 'start stop dump status' -d 'Profile session subcommand'
+complete -c argus -n "__fish_seen_subcommand_from profile" -a 'start stop dump status continuous' -d 'Profile session subcommand or mode'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l pids -d 'Comma-separated PID list for parallel profiling'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l window -d 'Snapshot retention window in minutes (continuous mode, default: 5)'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l output-dir -d 'Directory for continuous mode snapshots'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l diff-against -d 'Fixed baseline snapshot for continuous mode diffs'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l output-prefix -d 'Output file prefix for multi-pid mode'
 complete -c argus -n "__fish_seen_subcommand_from profile" -l type -xa 'cpu alloc lock wall' -d 'Profiling type'
 complete -c argus -n "__fish_seen_subcommand_from profile" -l duration -d 'Duration in seconds'
 complete -c argus -n "__fish_seen_subcommand_from profile" -l flame -d 'Generate flame graph'
 complete -c argus -n "__fish_seen_subcommand_from profile" -l output -d 'Output path for stop/dump'
-complete -c argus -n "__fish_seen_subcommand_from profile" -l output-format -xa 'flamegraph collapsed jfr tree text' -d 'Output format'
+complete -c argus -n "__fish_seen_subcommand_from profile" -l output-format -xa 'flamegraph collapsed jfr tree text ascii' -d 'Output format (ascii: terminal preview)'
 complete -c argus -n "__fish_seen_subcommand_from profile flame" -l interval -d 'Sampling interval (e.g. 1ms)'
 complete -c argus -n "__fish_seen_subcommand_from profile flame" -l jstackdepth -d 'Max Java stack depth 1-2048'
 complete -c argus -n "__fish_seen_subcommand_from profile flame" -l cstack -xa 'fp dwarf lbr vm no' -d 'C-stack unwinding mode'
@@ -100,3 +106,12 @@ complete -c argus -n "not __fish_seen_subcommand_from $commands" -a explain -d '
 
 complete -c argus -n "__fish_seen_subcommand_from top" -l interval -d 'Refresh interval'
 complete -c argus -n "__fish_seen_subcommand_from gcutil" -l watch -d 'Watch interval'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l before -d 'Before snapshot path'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l after -d 'After snapshot path'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l threshold -d 'Fail threshold in pp (default: 10)'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l threshold-samples -d 'Min sample delta to consider (default: 0)'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l top -d 'Top N regressions to show (default: 20)'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l format -xa 'json' -d 'Output format'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l annotate -xa 'github' -d 'Emit CI annotations'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l max-regressions -d 'Fail if more than N methods regress'
+complete -c argus -n "__fish_seen_subcommand_from profile-gate" -l baseline-only -d 'Print report but always exit 0'

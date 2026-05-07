@@ -9,12 +9,29 @@ import io.argus.cli.provider.ProfileProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.AsProfOptions;
 import io.argus.cli.render.AnsiStyle;
+import io.argus.cli.render.AsciiFlameRenderer;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Profiles a target JVM process using async-profiler.
@@ -48,6 +65,44 @@ public final class ProfileCommand implements Command {
         // Subcommand routing: if args[0] is one of start|stop|dump|status, treat as session subcommand.
         if (isSessionSubcommand(args[0])) {
             executeSubcommand(args, config, registry, messages);
+            return;
+        }
+
+        // Continuous profiling mode: args[0] == "continuous" and args[1] is a numeric pid
+        if ("continuous".equals(args[0])) {
+            if (args.length < 2) {
+                System.err.println(messages.get("error.pid.required"));
+                return;
+            }
+            long contPid;
+            try {
+                contPid = Long.parseLong(args[1]);
+            } catch (NumberFormatException e) {
+                System.err.println(messages.get("error.pid.invalid", args[1]));
+                return;
+            }
+            executeContinuous(contPid, args, 2, config, registry, messages);
+            return;
+        }
+
+        // Multi-PID mode: --pids=... flag present anywhere in args
+        String pidsFlag = null;
+        for (String arg : args) {
+            if (arg.startsWith("--pids=")) {
+                pidsFlag = arg.substring("--pids=".length());
+                break;
+            }
+        }
+        if (pidsFlag != null) {
+            String[] pidTokens = pidsFlag.split(",");
+            executeMultiPid(pidTokens, args, config, registry, messages);
+            return;
+        }
+
+        // Multi-PID mode: args[0] matches <digits>(,<digits>)+ pattern
+        if (args[0].matches("\\d+(,\\d+)+")) {
+            String[] pidTokens = args[0].split(",");
+            executeMultiPid(pidTokens, args, config, registry, messages);
             return;
         }
 
@@ -86,6 +141,17 @@ public final class ProfileCommand implements Command {
             return;
         }
 
+        // Reject flag-shaped args that were not caught by earlier routing blocks
+        if (args[0].startsWith("--save=")) {
+            System.err.println(messages.get("error.profile.save.no.pid"));
+            return;
+        }
+        if (args[0].startsWith("--diff=")) {
+            // --diff=VALUE with no ':' separator (pure diff path without a pid)
+            System.err.println(messages.get("error.profile.diff.no.pid"));
+            return;
+        }
+
         long pid;
         try {
             pid = Long.parseLong(args[0]);
@@ -112,7 +178,10 @@ public final class ProfileCommand implements Command {
         for (int i = 1; i < args.length; i++) {
             String arg = args[i];
             if (arg.startsWith("--type=")) {
-                type = arg.substring(7).toLowerCase();
+                String raw = arg.substring(7);
+                // Preserve case for method-trace events (e.g. com.example.MyClass.myMethod)
+                // but normalise built-in aliases and PMU counter names to lowercase
+                type = raw.contains(".") ? raw : raw.toLowerCase();
             } else if (arg.startsWith("--duration=")) {
                 try { durationSec = Integer.parseInt(arg.substring(11)); } catch (NumberFormatException ignored) {}
             } else if (arg.equals("--duration") && i + 1 < args.length) {
@@ -184,6 +253,20 @@ public final class ProfileCommand implements Command {
         }
 
         boolean useColor = config.color();
+
+        if ("ascii".equals(outputFormat)) {
+            // ASCII flame graph: run collapsed profile then render to stdout — no file written
+            System.out.println(messages.get("status.profiling", pid, durationSec, type));
+            ProfileResult result = provider.profile(pid, type, durationSec, opts);
+            if (result == null) return;
+            if ("error".equals(result.status())) {
+                System.err.println(messages.get("error.profile.asprof.failed",
+                        result.errorMessage() != null ? result.errorMessage() : "unknown error"));
+                return;
+            }
+            System.out.print(AsciiFlameRenderer.render(result, top, useColor));
+            return;
+        }
 
         if (flame || outputFormat != null) {
             // Determine the actual output file and format
@@ -267,6 +350,424 @@ public final class ProfileCommand implements Command {
     }
 
     // -------------------------------------------------------------------------
+    // Continuous profiling mode
+    // -------------------------------------------------------------------------
+
+    private static void executeContinuous(long pid, String[] args, int optStart,
+                                          CliConfig config, ProviderRegistry registry,
+                                          Messages messages) {
+        int intervalSec = 30;
+        int windowMin   = 5;
+        String outputDir    = null;
+        String diffAgainst  = null;
+        String type         = "cpu";
+        String sourceOverride = null;
+
+        for (int i = optStart; i < args.length; i++) {
+            String a = args[i];
+            if (a.startsWith("--interval=")) {
+                try { intervalSec = Integer.parseInt(a.substring(11)); } catch (NumberFormatException ignored) {}
+            } else if (a.startsWith("--window=")) {
+                try { windowMin = Integer.parseInt(a.substring(9)); } catch (NumberFormatException ignored) {}
+            } else if (a.startsWith("--output-dir=")) {
+                outputDir = a.substring(13);
+            } else if (a.startsWith("--diff-against=")) {
+                diffAgainst = a.substring(15);
+            } else if (a.startsWith("--type=")) {
+                String raw = a.substring(7);
+                type = raw.contains(".") ? raw : raw.toLowerCase();
+            } else if (a.startsWith("--source=")) {
+                sourceOverride = a.substring(9);
+            }
+        }
+
+        ProfileProvider provider = registry.findProfileProvider(pid, sourceOverride);
+        if (provider == null) {
+            System.err.println(messages.get("error.provider.none", pid));
+            return;
+        }
+
+        // Create output dir if needed
+        final String snapDir = outputDir;
+        if (snapDir != null) {
+            new File(snapDir).mkdirs();
+        }
+
+        // Load fixed baseline if --diff-against provided
+        ProfileSnapshot baseline = null;
+        if (diffAgainst != null) {
+            try {
+                baseline = ProfileSnapshot.load(Path.of(diffAgainst));
+            } catch (IOException e) {
+                System.err.println(messages.get("error.profile.continuous.baseline.load", e.getMessage()));
+                return;
+            }
+        }
+
+        // Start profiling session
+        ProfileResult startResult = provider.start(pid, type, AsProfOptions.builder().build());
+        if ("error".equals(startResult.status())) {
+            System.err.println(messages.get("error.profile.asprof.failed",
+                    startResult.errorMessage() != null ? startResult.errorMessage() : "unknown error"));
+            return;
+        }
+        System.out.println(messages.get("status.profile.continuous.started", pid, type, intervalSec));
+
+        final AtomicBoolean running = new AtomicBoolean(true);
+        final ProfileProvider providerRef = provider;
+        final long pidRef = pid;
+
+        // Ctrl-C shutdown hook: stop profiling cleanly
+        Thread shutdownHook = new Thread(() -> {
+            running.set(false);
+            try {
+                providerRef.stop(pidRef, "/dev/null", "collapsed");
+            } catch (Exception ignored) {}
+            System.out.println(messages.get("status.profile.continuous.stopped"));
+        });
+        shutdownHook.setName("argus-continuous-shutdown");
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+
+        final DateTimeFormatter hhmmss = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneOffset.UTC);
+
+        ProfileSnapshot[] prevHolder = new ProfileSnapshot[1];
+        if (baseline != null) {
+            prevHolder[0] = baseline;
+        }
+
+        final int finalIntervalSec = intervalSec;
+        final int finalWindowMin   = windowMin;
+        final boolean useBaseline  = (baseline != null);
+
+        try {
+            while (running.get()) {
+                Thread.sleep(finalIntervalSec * 1000L);
+                if (!running.get()) break;
+
+                // Dump current state to a snapshot file
+                String snapPath = (snapDir != null)
+                        ? snapDir + "/snap-" + Instant.now().getEpochSecond() + ".collapsed.txt"
+                        : null;
+
+                // Use a temp file if no output-dir
+                String dumpTarget = snapPath != null ? snapPath
+                        : System.getProperty("java.io.tmpdir") + "/argus-snap-" + pid
+                          + "-" + Instant.now().getEpochSecond() + ".collapsed.txt";
+
+                ProfileResult dumpResult = provider.dump(pidRef, dumpTarget, "collapsed");
+                if ("error".equals(dumpResult.status())) {
+                    System.err.println(messages.get("error.profile.continuous.dump.failed",
+                            dumpResult.errorMessage() != null ? dumpResult.errorMessage() : "?"));
+                    continue;
+                }
+
+                // Parse collapsed dump into snapshot
+                ProfileSnapshot curr;
+                try {
+                    curr = loadCollapsedAsSnapshot(Path.of(dumpTarget), pidRef, type, finalIntervalSec);
+                } catch (IOException e) {
+                    System.err.println(messages.get("error.profile.continuous.parse.failed", e.getMessage()));
+                    continue;
+                }
+
+                // Print one-line status
+                String ts = hhmmss.format(Instant.now());
+                String topMethod = curr.methods().isEmpty() ? "-"
+                        : curr.methods().get(0).method();
+                double topPct = curr.methods().isEmpty() ? 0.0
+                        : curr.methods().get(0).percentage();
+
+                if (prevHolder[0] != null) {
+                    List<ProfileSnapshot.DiffEntry> deltas = ProfileSnapshot.diff(prevHolder[0], curr);
+                    double deltaPp = 0.0;
+                    String sign = "+";
+                    if (!deltas.isEmpty()) {
+                        ProfileSnapshot.DiffEntry topDelta = deltas.get(0);
+                        if (topDelta.method().equals(topMethod)) {
+                            deltaPp = topDelta.deltaPct();
+                            sign = deltaPp >= 0 ? "+" : "";
+                        }
+                    }
+                    System.out.printf(messages.get("status.profile.continuous.line"),
+                            ts,
+                            formatWithCommas(curr.totalSamples()),
+                            topMethod,
+                            topPct,
+                            sign,
+                            deltaPp);
+                    System.out.println();
+                } else {
+                    System.out.printf(messages.get("status.profile.continuous.line.first"),
+                            ts,
+                            formatWithCommas(curr.totalSamples()),
+                            topMethod,
+                            topPct);
+                    System.out.println();
+                }
+
+                // Update prev (not the baseline in fixed-baseline mode)
+                if (!useBaseline) {
+                    prevHolder[0] = curr;
+                }
+
+                // Prune old snapshots from output-dir
+                if (snapDir != null) {
+                    pruneOldSnapshots(snapDir, finalWindowMin);
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            running.set(false);
+            try {
+                Runtime.getRuntime().removeShutdownHook(shutdownHook);
+            } catch (IllegalStateException ignored) {}
+            // Stop the profiling session
+            provider.stop(pidRef, "/dev/null", "collapsed");
+            System.out.println(messages.get("status.profile.continuous.stopped"));
+        }
+    }
+
+    /**
+     * Loads a collapsed-format dump file written by asprof dump into a ProfileSnapshot.
+     */
+    private static ProfileSnapshot loadCollapsedAsSnapshot(Path file, long pid, String type,
+                                                            int durationSec) throws IOException {
+        String content = Files.readString(file);
+        // Re-use AsProfProvider's parseCollapsed logic by parsing inline
+        long total = 0L;
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (String line : content.split("\n")) {
+            if (line.isEmpty()) continue;
+            int sp = line.lastIndexOf(' ');
+            if (sp < 0) continue;
+            String countStr = line.substring(sp + 1).trim();
+            long cnt;
+            try { cnt = Long.parseLong(countStr); } catch (NumberFormatException e) { continue; }
+            total += cnt;
+            String stack = line.substring(0, sp);
+            int semi = stack.lastIndexOf(';');
+            String leaf = semi >= 0 ? stack.substring(semi + 1) : stack;
+            if (leaf.isEmpty()) continue;
+            counts.merge(leaf, cnt, Long::sum);
+        }
+        List<Map.Entry<String, Long>> entries = new ArrayList<>(counts.entrySet());
+        entries.sort((a, b) -> Long.compare(b.getValue(), a.getValue()));
+        List<MethodSample> methods = new ArrayList<>();
+        for (Map.Entry<String, Long> e : entries) {
+            double pct = total > 0 ? (e.getValue() * 100.0) / total : 0.0;
+            methods.add(new MethodSample(e.getKey(), e.getValue(), pct));
+        }
+        Instant now = Instant.now();
+        String ver = ProfileSnapshot.class.getPackage() != null
+                && ProfileSnapshot.class.getPackage().getImplementationVersion() != null
+                ? ProfileSnapshot.class.getPackage().getImplementationVersion() : "dev";
+        DateTimeFormatter iso = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+                .withZone(ZoneOffset.UTC);
+        return new ProfileSnapshot(ver, iso.format(now), now.getEpochSecond(),
+                pid, type, durationSec, total, methods);
+    }
+
+    /**
+     * Deletes snapshot files from outputDir older than windowMinutes.
+     * Only deletes files matching snap-*.collapsed.txt pattern.
+     */
+    private static void pruneOldSnapshots(String outputDir, int windowMinutes) {
+        long cutoff = Instant.now().getEpochSecond() - (windowMinutes * 60L);
+        File dir = new File(outputDir);
+        File[] files = dir.listFiles((d, n) -> n.startsWith("snap-") && n.endsWith(".collapsed.txt"));
+        if (files == null) return;
+        for (File f : files) {
+            String name = f.getName();
+            // extract epoch from snap-<epoch>.collapsed.txt
+            try {
+                String epochStr = name.substring(5, name.indexOf(".collapsed.txt"));
+                long epoch = Long.parseLong(epochStr);
+                if (epoch < cutoff) {
+                    f.delete();
+                }
+            } catch (Exception ignored) {}
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Multi-PID parallel profiling
+    // -------------------------------------------------------------------------
+
+    /** Result container for one pid in a multi-pid run. */
+    private static final class PidOutcome {
+        final long pid;
+        final ProfileResult result;
+        final String outputFile;
+        PidOutcome(long pid, ProfileResult result, String outputFile) {
+            this.pid = pid;
+            this.result = result;
+            this.outputFile = outputFile;
+        }
+    }
+
+    private static void executeMultiPid(String[] pidTokens, String[] args,
+                                        CliConfig config, ProviderRegistry registry,
+                                        Messages messages) {
+        // Parse shared options
+        int durationSec = 30;
+        String type = "cpu";
+        String outputPrefix = null;
+        String sourceOverride = null;
+        AsProfOptions.Builder optsBuilder = AsProfOptions.builder();
+
+        for (String arg : args) {
+            if (arg.startsWith("--duration=")) {
+                try { durationSec = Integer.parseInt(arg.substring(11)); } catch (NumberFormatException ignored) {}
+            } else if (arg.startsWith("--type=")) {
+                String raw = arg.substring(7);
+                type = raw.contains(".") ? raw : raw.toLowerCase();
+            } else if (arg.startsWith("--output-prefix=")) {
+                outputPrefix = arg.substring(16);
+            } else if (arg.startsWith("--source=")) {
+                sourceOverride = arg.substring(9);
+            }
+        }
+
+        final String finalType = type;
+        final int finalDuration = durationSec;
+        final String finalPrefix = outputPrefix;
+        final String finalSource = sourceOverride;
+        final AsProfOptions opts = optsBuilder.build();
+
+        boolean useColor = config.color();
+
+        // Validate and deduplicate pids
+        List<Long> pids = new ArrayList<>();
+        for (String tok : pidTokens) {
+            tok = tok.trim();
+            if (tok.isEmpty()) continue;
+            try {
+                long p = Long.parseLong(tok);
+                if (!pids.contains(p)) pids.add(p);
+            } catch (NumberFormatException e) {
+                System.err.println(messages.get("error.pid.invalid", tok));
+            }
+        }
+        if (pids.isEmpty()) {
+            System.err.println(messages.get("error.pid.required"));
+            return;
+        }
+
+        int poolSize = Math.min(pids.size(), Runtime.getRuntime().availableProcessors());
+        ExecutorService pool = Executors.newFixedThreadPool(poolSize);
+
+        List<Future<PidOutcome>> futures = new ArrayList<>();
+        for (long p : pids) {
+            final long fp = p;
+            futures.add(pool.submit(new Callable<PidOutcome>() {
+                @Override
+                public PidOutcome call() {
+                    ProfileProvider prov = registry.findProfileProvider(fp, finalSource);
+                    if (prov == null) {
+                        return new PidOutcome(fp,
+                                ProfileResult.error(messages.get("error.provider.none", fp)), null);
+                    }
+                    long epoch = System.currentTimeMillis() / 1000L;
+                    String outFile = finalPrefix != null
+                            ? finalPrefix + "-" + fp + ".html"
+                            : "argus-profile-" + fp + "-" + epoch + ".html";
+                    ProfileResult r = prov.profile(fp, finalType, finalDuration, opts);
+                    return new PidOutcome(fp, r, outFile);
+                }
+            }));
+        }
+
+        pool.shutdown();
+
+        List<PidOutcome> outcomes = new ArrayList<>();
+        int timeoutSec = finalDuration + 30;
+        for (int i = 0; i < futures.size(); i++) {
+            Future<PidOutcome> f = futures.get(i);
+            long pid = pids.get(i);
+            try {
+                PidOutcome out = f.get(timeoutSec, TimeUnit.SECONDS);
+                outcomes.add(out);
+            } catch (TimeoutException e) {
+                outcomes.add(new PidOutcome(pid,
+                        ProfileResult.error(messages.get("error.profile.multipid.timeout", pid)), null));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                outcomes.add(new PidOutcome(pid,
+                        ProfileResult.error("interrupted"), null));
+            } catch (ExecutionException e) {
+                String msg = e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
+                outcomes.add(new PidOutcome(pid,
+                        ProfileResult.error(msg != null ? msg : "unknown error"), null));
+            }
+        }
+
+        printMultiPidTable(outcomes, useColor, messages);
+    }
+
+    private static void printMultiPidTable(List<PidOutcome> outcomes, boolean useColor,
+                                           Messages messages) {
+        String bold  = AnsiStyle.style(useColor, AnsiStyle.BOLD);
+        String dim   = AnsiStyle.style(useColor, AnsiStyle.DIM);
+        String reset = AnsiStyle.style(useColor, AnsiStyle.RESET);
+        String red   = AnsiStyle.style(useColor, AnsiStyle.RED);
+        String green = AnsiStyle.style(useColor, AnsiStyle.GREEN);
+
+        int n = outcomes.size();
+        String title = messages.get("header.profile.multipid", n);
+
+        // Box width matching the rest of the profile output
+        int w = WIDTH;
+        System.out.println(RichRenderer.boxHeader(useColor, title, w));
+        System.out.println(RichRenderer.emptyLine(w));
+
+        // Column header
+        String hdr = bold
+                + "  " + RichRenderer.padRight("pid", 8)
+                + RichRenderer.padLeft("samples", 10)
+                + "   " + RichRenderer.padRight("top method", 42)
+                + "   " + RichRenderer.padRight("status", 14)
+                + reset;
+        System.out.println(RichRenderer.boxLine(hdr, w));
+
+        String sep = dim + "  " + "─".repeat(6)
+                + "  " + "─".repeat(9)
+                + "   " + "─".repeat(42)
+                + "   " + "─".repeat(14) + reset;
+        System.out.println(RichRenderer.boxLine(sep, w));
+
+        for (PidOutcome o : outcomes) {
+            boolean ok = !"error".equals(o.result.status());
+            String pidStr    = String.valueOf(o.pid);
+            String samplesStr, topStr, statusStr, statusColor;
+            if (ok) {
+                samplesStr  = formatWithCommas(o.result.totalSamples());
+                List<MethodSample> ms = o.result.topMethods();
+                topStr = ms.isEmpty() ? "-"
+                        : RichRenderer.truncate(ms.get(0).method()
+                            + " (" + String.format("%.0f", ms.get(0).percentage()) + "%)", 42);
+                statusStr   = "ok";
+                statusColor = green;
+            } else {
+                samplesStr  = "-";
+                topStr      = "-";
+                String err  = o.result.errorMessage();
+                statusStr   = err != null ? RichRenderer.truncate(err, 14) : messages.get("error.profile.multipid.failed");
+                statusColor = red;
+            }
+
+            String row = "  " + RichRenderer.padRight(pidStr, 8)
+                    + RichRenderer.padLeft(samplesStr, 10)
+                    + "   " + RichRenderer.padRight(topStr, 42)
+                    + "   " + statusColor + RichRenderer.padRight(statusStr, 14) + reset;
+            System.out.println(RichRenderer.boxLine(row, w));
+        }
+
+        System.out.println(RichRenderer.emptyLine(w));
+        System.out.println(RichRenderer.boxFooter(useColor, null, w));
+    }
+
+    // -------------------------------------------------------------------------
     // Session subcommands (start/stop/dump/status)
     // -------------------------------------------------------------------------
 
@@ -300,7 +801,8 @@ public final class ProfileCommand implements Command {
         for (int i = 2; i < args.length; i++) {
             String arg = args[i];
             if (arg.startsWith("--type=")) {
-                type = arg.substring(7).toLowerCase();
+                String raw = arg.substring(7);
+                type = raw.contains(".") ? raw : raw.toLowerCase();
             } else if (arg.startsWith("--output=")) {
                 output = arg.substring(9);
             } else if (arg.startsWith("--output-format=")) {
@@ -428,7 +930,9 @@ public final class ProfileCommand implements Command {
         String lower = path.toLowerCase();
         if (lower.endsWith(".html")) return "flamegraph";
         if (lower.endsWith(".jfr")) return "jfr";
-        if (lower.endsWith(".txt") || lower.endsWith(".collapsed")) return "collapsed";
+        if (lower.endsWith(".collapsed.txt") || lower.endsWith(".collapsed")) return "collapsed";
+        if (lower.endsWith(".otlp.json")) return "otlp";
+        if (lower.endsWith(".txt")) return "flat";
         return "flamegraph";
     }
 
@@ -615,6 +1119,42 @@ public final class ProfileCommand implements Command {
         System.out.println(RichRenderer.boxLine("argus profile --diff=before.json:after.json", WIDTH));
         System.out.println(RichRenderer.emptyLine(WIDTH));
         System.out.println(RichRenderer.boxLine(
+                AnsiStyle.style(useColor, AnsiStyle.BOLD) + "Modes:"
+                + AnsiStyle.style(useColor, AnsiStyle.RESET), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  continuous <pid>", 36)
+                + messages.get("cmd.profile.continuous.desc"), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  <pid1>,<pid2>,...", 36)
+                + messages.get("cmd.profile.multipid.desc"), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --pids=<pid1>,<pid2>", 36)
+                + messages.get("cmd.profile.multipid.flag.desc"), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                AnsiStyle.style(useColor, AnsiStyle.BOLD) + "Continuous options:"
+                + AnsiStyle.style(useColor, AnsiStyle.RESET), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --interval=N", 36)
+                + messages.get("cmd.profile.continuous.interval.desc"), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --window=N", 36)
+                + messages.get("cmd.profile.continuous.window.desc"), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --output-dir=PATH", 36)
+                + messages.get("cmd.profile.continuous.output.dir.desc"), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --diff-against=PATH", 36)
+                + messages.get("cmd.profile.continuous.diff.against.desc"), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                AnsiStyle.style(useColor, AnsiStyle.BOLD) + "Multi-PID options:"
+                + AnsiStyle.style(useColor, AnsiStyle.RESET), WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                RichRenderer.padRight("  --output-prefix=PATH", 36)
+                + messages.get("cmd.profile.multipid.output.prefix.desc"), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
                 AnsiStyle.style(useColor, AnsiStyle.BOLD) + "Subcommands:"
                 + AnsiStyle.style(useColor, AnsiStyle.RESET), WIDTH));
         System.out.println(RichRenderer.boxLine(
@@ -634,8 +1174,8 @@ public final class ProfileCommand implements Command {
                 AnsiStyle.style(useColor, AnsiStyle.BOLD) + "Options:"
                 + AnsiStyle.style(useColor, AnsiStyle.RESET), WIDTH));
         System.out.println(RichRenderer.boxLine(
-                RichRenderer.padRight("  --type=cpu|alloc|lock|wall", 36)
-                + "Profiling type (default: cpu)", WIDTH));
+                RichRenderer.padRight("  --type=EVENT", 36)
+                + messages.get("cmd.profile.event.type.desc"), WIDTH));
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --duration=N", 36)
                 + "Duration in seconds (default: 30)", WIDTH));
@@ -650,7 +1190,7 @@ public final class ProfileCommand implements Command {
                 + "Output path for stop/dump", WIDTH));
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --output-format=FMT", 36)
-                + "flamegraph|collapsed|jfr (auto from extension)", WIDTH));
+                + messages.get("cmd.profile.event.output.format.desc"), WIDTH));
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --top=N", 36)
                 + "Show top N methods (default: 20)", WIDTH));
@@ -727,8 +1267,25 @@ public final class ProfileCommand implements Command {
     // Utilities
     // -------------------------------------------------------------------------
 
+    /**
+     * Validates an event/type token before passing it to asprof.
+     *
+     * <p>Accepts:
+     * <ul>
+     *   <li>Built-in aliases: cpu, alloc, lock, wall
+     *   <li>PMU / hardware counter names: lowercase identifiers with hyphens (e.g. cache-misses)
+     *   <li>Method-trace pattern: FQ ClassName.methodName (e.g. java.lang.String.intern)
+     *   <li>Any other valid identifier — unknown events are passed through to asprof which
+     *       surfaces a clear "unknown event" error message to the user
+     * </ul>
+     * Rejects flag-shaped values (starting with '-') to prevent argument injection.
+     */
     private static boolean isValidType(String type) {
-        return "cpu".equals(type) || "alloc".equals(type) || "lock".equals(type) || "wall".equals(type);
+        if (type == null || type.isEmpty()) return false;
+        // Reject anything that looks like a flag (prevents argument injection)
+        if (type.startsWith("-")) return false;
+        // Accept: letters, digits, underscores, dollar signs, dots (method trace), hyphens (PMU events)
+        return type.matches("[a-zA-Z_$][a-zA-Z0-9_$.\\-]*");
     }
 
     /** Returns null if valid, else an i18n error string. */
@@ -772,6 +1329,9 @@ public final class ProfileCommand implements Command {
             case "collapsed": return ".collapsed.txt";
             case "tree":      return ".html";
             case "text":      return ".txt";
+            case "flat":      return ".txt";
+            case "traces":    return ".txt";
+            case "otlp":      return ".otlp.json";
             default:          return ".html";
         }
     }

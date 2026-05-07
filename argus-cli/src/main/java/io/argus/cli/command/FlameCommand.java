@@ -206,8 +206,8 @@ public final class FlameCommand implements Command {
                 AnsiStyle.style(useColor, AnsiStyle.BOLD) + "Options:"
                 + AnsiStyle.style(useColor, AnsiStyle.RESET), RichRenderer.DEFAULT_WIDTH));
         System.out.println(RichRenderer.boxLine(
-                RichRenderer.padRight("  --type=cpu|alloc|lock|wall", 36)
-                + "Profiling type (default: cpu)", RichRenderer.DEFAULT_WIDTH));
+                RichRenderer.padRight("  --type=EVENT", 36)
+                + messages.get("cmd.profile.event.type.desc"), RichRenderer.DEFAULT_WIDTH));
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --duration=N", 36)
                 + "Duration in seconds (default: 10)", RichRenderer.DEFAULT_WIDTH));
@@ -216,7 +216,7 @@ public final class FlameCommand implements Command {
                 + "Output file path", RichRenderer.DEFAULT_WIDTH));
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --output-format=FMT", 36)
-                + "flamegraph|collapsed|jfr|tree|text", RichRenderer.DEFAULT_WIDTH));
+                + messages.get("cmd.profile.event.output.format.desc"), RichRenderer.DEFAULT_WIDTH));
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --no-open", 36)
                 + "Do not open browser after profiling", RichRenderer.DEFAULT_WIDTH));
@@ -294,6 +294,9 @@ public final class FlameCommand implements Command {
             case "collapsed": return ".collapsed.txt";
             case "tree":      return ".html";
             case "text":      return ".txt";
+            case "flat":      return ".txt";
+            case "traces":    return ".txt";
+            case "otlp":      return ".otlp.json";
             default:          return ".html";
         }
     }

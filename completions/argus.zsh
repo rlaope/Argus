@@ -58,6 +58,7 @@ _argus() {
         'perfcounter:JVM internal performance counters'
         'mbean:Browse JMX MBeans'
         'ci:CI/CD health gate'
+        'profile-gate:CI/CD gate — compare two profile snapshots, exit non-zero on regression'
         'compare:Compare two JVM snapshots'
         'slowlog:Real-time slow method detection'
         'explain:Explain JVM metrics, GC causes, and flags in plain English'
@@ -93,7 +94,7 @@ _argus() {
                         '--file=[Output file]' \
                         '--top=[Top N methods]' \
                         '--output=[Output path for stop/dump]' \
-                        '--output-format=[Output format]:fmt:(flamegraph collapsed jfr tree text)' \
+                        '--output-format=[Output format]:fmt:(flamegraph collapsed jfr tree text ascii)' \
                         '--interval=[Sampling interval (e.g. 1ms)]' \
                         '--jstackdepth=[Max Java stack depth 1-2048]' \
                         '--cstack=[C-stack mode]:cstack:(fp dwarf lbr vm no)' \
@@ -102,6 +103,11 @@ _argus() {
                         '--allkernel[Count only kernel-space events]' \
                         '--alloc=[Allocation threshold (e.g. 128k)]' \
                         '--live[Only count live allocations]' \
+                        '--pids=[Comma-separated PID list for parallel profiling]' \
+                        '--window=[Snapshot retention window in minutes (continuous mode)]' \
+                        '--output-dir=[Directory for continuous mode snapshots]' \
+                        '--diff-against=[Fixed baseline snapshot for continuous mode diffs]' \
+                        '--output-prefix=[Output file prefix for multi-pid mode]' \
                         '--include=[Include frames matching pattern]' \
                         '--exclude=[Exclude frames matching pattern]' \
                         '1:subcommand:(start stop dump status)'
@@ -140,8 +146,21 @@ _argus() {
                 gcutil)
                     _arguments '--watch=[Refresh interval]'
                     ;;
-trace)
+                profile-gate)
+                    _arguments \
+                        '--before=[Before snapshot path]' \
+                        '--after=[After snapshot path]' \
+                        '--threshold=[Fail threshold in percentage points (default: 10)]' \
+                        '--threshold-samples=[Min sample delta to consider (default: 0)]' \
+                        '--top=[Top N regressions to show (default: 20)]' \
+                        '--format=[Output format]:fmt:(json)' \
+                        '--annotate=[Emit CI annotations]:ci:(github)' \
+                        '--max-regressions=[Fail if more than N methods regress]' \
+                        '--baseline-only[Print report but always exit 0]'
+                    ;;
+                trace)
                     _arguments '--duration=[Duration in seconds]'
+                    ;;
 spring)
                     _arguments \
                         '--beans[List Spring beans with count]' \

@@ -3,7 +3,7 @@ _argus_completions() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    commands="alert cluster init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile jfr jfranalyze diff report doctor gclog gclogdiff gcprofile gcscore gcwhy flame suggest watch tui info heapdump heapanalyze deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top perfcounter mbean ci compare slowlog explain trace spring benchmark"
+    commands="alert cluster init ps histo threads gc gcutil heap sysprops vmflag nmt classloader profile profile-gate jfr jfranalyze diff report doctor gclog gclogdiff gcprofile gcscore gcwhy flame suggest watch tui info heapdump heapanalyze deadlock threaddump buffers gcrun logger events compilerqueue sc env compiler finalizer stringtable pool gccause metaspace dynlibs vmset vmlog jmx classstat gcnew symboltable top perfcounter mbean ci compare slowlog explain trace spring benchmark"
 
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=($(compgen -W "$commands --help --version" -- "$cur"))
@@ -27,14 +27,14 @@ _argus_completions() {
             COMPREPLY=($(compgen -W "start stop check dump" -- "$cur"))
             ;;
         profile)
-            COMPREPLY=($(compgen -W "start stop dump status" -- "$cur"))
+            COMPREPLY=($(compgen -W "start stop dump status continuous" -- "$cur"))
             ;;
         *)
             if [[ "$cur" == --* ]]; then
                 local opts="--source= --no-color --lang= --format= --help"
                 case "${COMP_WORDS[1]}" in
                     histo) opts="$opts --top=" ;;
-                    profile) opts="$opts --type= --duration= --flame --file= --top= --output= --output-format= --interval= --jstackdepth= --cstack= --threads --alluser --allkernel --alloc= --live --include= --exclude=" ;;
+                    profile) opts="$opts --type= --duration= --flame --file= --top= --output= --output-format=ascii --output-format=flamegraph --output-format=collapsed --output-format=jfr --interval= --jstackdepth= --cstack= --threads --alluser --allkernel --alloc= --live --include= --exclude= --pids= --window= --output-dir= --diff-against= --output-prefix=" ;;
                     flame) opts="$opts --type= --duration= --output= --output-format= --no-open --interval= --jstackdepth= --cstack= --threads --alluser --allkernel --alloc= --live --include= --exclude=" ;;
                     gcprofile) opts="$opts --duration= --top= --by= --fold=" ;;
                     gcutil) opts="$opts --watch=" ;;
@@ -51,6 +51,7 @@ _argus_completions() {
                     alert) opts="$opts --config= --gc-overhead= --leak --webhook= --interval=" ;;
                     top) opts="$opts --host= --port= --interval=" ;;
                     trace) opts="$opts --duration=" ;;
+                    profile-gate) opts="$opts --before= --after= --threshold= --threshold-samples= --top= --format=json --annotate=github --max-regressions= --baseline-only" ;;
                 esac
                 COMPREPLY=($(compgen -W "$opts" -- "$cur"))
             fi

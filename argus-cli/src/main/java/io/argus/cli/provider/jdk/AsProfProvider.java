@@ -253,8 +253,10 @@ public final class AsProfProvider implements ProfileProvider {
         cmd.add("-d"); cmd.add(String.valueOf(durationSec));
         cmd.add("-o"); cmd.add(outputFmt);
         cmd.add("-e"); cmd.add(type);
-        if ("jfr".equals(outputFmt) || "tree".equals(outputFmt) || "text".equals(outputFmt)) {
-            // Non-collapsed formats need a file
+        // Formats that require a -f output path (cannot emit to stdout)
+        boolean needsFile = "jfr".equals(outputFmt) || "tree".equals(outputFmt)
+                || "text".equals(outputFmt) || "otlp".equals(outputFmt);
+        if (needsFile) {
             outputFile = "argus-profile-" + pid + "-" + (System.currentTimeMillis() / 1000L)
                     + formatExtension(outputFmt);
             cmd.add("-f"); cmd.add(outputFile);
@@ -271,10 +273,16 @@ public final class AsProfProvider implements ProfileProvider {
             return ProfileResult.error(msg);
         }
 
-        if ("jfr".equals(outputFmt) || "tree".equals(outputFmt) || "text".equals(outputFmt)) {
+        if (needsFile) {
             return ProfileResult.ok(type, durationSec, 0L, Collections.emptyList(), outputFile);
         }
-        return parseCollapsed(result.stdout(), type, durationSec, null);
+        // flat and traces emit human-readable text to stdout; treat like collapsed for sample counting
+        boolean captureRaw = "ascii".equals(opts != null ? opts.outputFormat : null);
+        if ("flat".equals(outputFmt) || "traces".equals(outputFmt)) {
+            // These formats are not collapsed stacks — return as file-less result with status text
+            return ProfileResult.ok(type, durationSec, 0L, Collections.emptyList(), null);
+        }
+        return parseCollapsed(result.stdout(), type, durationSec, null, captureRaw);
     }
 
     @Override
@@ -381,17 +389,24 @@ public final class AsProfProvider implements ProfileProvider {
             case "jfr":       return "jfr";
             case "tree":      return "tree";
             case "text":      return "text";
+            case "flat":      return "flat";
+            case "traces":    return "traces";
+            case "otlp":      return "otlp";
             case "collapsed": return "collapsed";
+            case "ascii":     return "collapsed"; // ascii = collapsed data + terminal render
             default:          return "collapsed";
         }
     }
 
     private static String formatExtension(String fmt) {
         switch (fmt) {
-            case "jfr":  return ".jfr";
-            case "tree": return ".html";
-            case "text": return ".txt";
-            default:     return ".collapsed.txt";
+            case "jfr":    return ".jfr";
+            case "tree":   return ".html";
+            case "text":   return ".txt";
+            case "flat":   return ".txt";
+            case "traces": return ".txt";
+            case "otlp":   return ".otlp.json";
+            default:       return ".collapsed.txt";
         }
     }
 
@@ -471,6 +486,18 @@ public final class AsProfProvider implements ProfileProvider {
      */
     private static ProfileResult parseCollapsed(String output, String type, int durationSec,
                                                 String flameGraphPath) {
+        return parseCollapsed(output, type, durationSec, flameGraphPath, false);
+    }
+
+    /**
+     * Parses async-profiler collapsed stack output into a {@link ProfileResult}.
+     *
+     * @param captureRaw when {@code true}, stores the raw collapsed text in the result
+     *                   via {@link ProfileResult#okWithRaw} for use by ASCII flame rendering.
+     *                   Has no effect on the existing callers that pass {@code false}.
+     */
+    static ProfileResult parseCollapsed(String output, String type, int durationSec,
+                                        String flameGraphPath, boolean captureRaw) {
         if (output == null || output.isEmpty()) {
             return ProfileResult.error("asprof produced no output");
         }
@@ -520,6 +547,9 @@ public final class AsProfProvider implements ProfileProvider {
             topMethods.add(new MethodSample(entry.getKey(), entry.getValue(), pct));
         }
 
+        if (captureRaw) {
+            return ProfileResult.okWithRaw(type, durationSec, total, topMethods, flameGraphPath, output);
+        }
         return ProfileResult.ok(type, durationSec, total, topMethods, flameGraphPath);
     }
 }

@@ -49,6 +49,7 @@ import io.argus.cli.command.PerfCounterCommand;
 import io.argus.cli.command.NmtCommand;
 import io.argus.cli.command.PoolCommand;
 import io.argus.cli.command.ProfileCommand;
+import io.argus.cli.command.ProfileGateCommand;
 import io.argus.cli.command.PsCommand;
 import io.argus.cli.command.ReportCommand;
 import io.argus.cli.command.SearchClassCommand;
@@ -175,6 +176,7 @@ public final class ArgusCli {
         register(commands, new NmtCommand());
         register(commands, new ClassLoaderCommand());
         register(commands, new ProfileCommand());
+        register(commands, new ProfileGateCommand());
         register(commands, new JfrCommand());
         register(commands, new DiffCommand());
         register(commands, new ReportCommand());

@@ -5,6 +5,9 @@ import io.argus.cli.config.Messages;
 import io.argus.cli.doctor.*;
 import io.argus.cli.doctor.rules.MaxPauseRule;
 import io.argus.cli.export.HtmlExporter;
+import io.argus.cli.model.ProfileSnapshot;
+import io.argus.cli.model.ProfileResult;
+import io.argus.cli.provider.ProfileProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
@@ -49,11 +52,23 @@ public final class DoctorCommand implements Command {
         long pid = 0; // 0 = local
         long pauseThresholdMs = MaxPauseRule.DEFAULT_WARN_MS;
 
+        // Profile flags
+        boolean profileLive = false;
+        String profileSnapshotPath = null;  // non-null → load from file
+        int profileDurationSec = 5;
+
         for (String arg : args) {
             if (arg.startsWith("--export=")) exportHtml = arg.substring(9);
             else if (arg.equals("--format=json")) json = true;
             else if (arg.startsWith("--pause-threshold-ms=")) {
                 try { pauseThresholdMs = Long.parseLong(arg.substring(21)); }
+                catch (NumberFormatException ignored) {}
+            } else if (arg.equals("--profile")) {
+                profileLive = true;
+            } else if (arg.startsWith("--profile=")) {
+                profileSnapshotPath = arg.substring(10);
+            } else if (arg.startsWith("--profile-duration=")) {
+                try { profileDurationSec = Integer.parseInt(arg.substring(19)); }
                 catch (NumberFormatException ignored) {}
             } else if (!arg.startsWith("--")) {
                 try { pid = Long.parseLong(arg); } catch (NumberFormatException ignored) {}
@@ -65,8 +80,43 @@ public final class DoctorCommand implements Command {
         List<String> suggestedFlags = DoctorEngine.collectSuggestedFlags(findings);
         int exitCode = DoctorEngine.exitCode(findings);
 
+        // Collect profile findings (if requested)
+        List<Finding> profileFindings = List.of();
+        String profileError = null;
+
+        if (profileSnapshotPath != null) {
+            try {
+                ProfileSnapshot ps = ProfileSnapshot.load(Path.of(profileSnapshotPath));
+                profileFindings = ProfileRules.diagnose(ps);
+            } catch (Exception e) {
+                profileError = "Could not load snapshot '" + profileSnapshotPath + "': " + e.getMessage();
+            }
+        } else if (profileLive) {
+            final long targetPid = pid > 0 ? pid : ProcessHandle.current().pid();
+            try {
+                ProfileProvider pp = registry.findProfileProvider(targetPid, null);
+                if (pp == null) {
+                    profileError = "No profile provider available for pid " + targetPid;
+                } else {
+                    ProfileResult pr = pp.profile(targetPid, "cpu", profileDurationSec);
+                    if (!"ok".equals(pr.status())) {
+                        profileError = "Profile capture failed: " + pr.errorMessage();
+                    } else {
+                        // Convert ProfileResult → ProfileSnapshot in-memory
+                        ProfileSnapshot ps = new ProfileSnapshot(
+                                "live", java.time.Instant.now().toString(), java.time.Instant.now().getEpochSecond(),
+                                targetPid, pr.type() != null ? pr.type() : "cpu",
+                                pr.durationSec(), pr.totalSamples(), pr.topMethods());
+                        profileFindings = ProfileRules.diagnose(ps);
+                    }
+                }
+            } catch (Exception e) {
+                profileError = "Profile analysis skipped: " + e.getMessage();
+            }
+        }
+
         if (json) {
-            printJson(findings, suggestedFlags, snapshot, exitCode);
+            printJson(findings, suggestedFlags, snapshot, exitCode, profileFindings, profileError);
             return;
         }
 
@@ -75,7 +125,8 @@ public final class DoctorCommand implements Command {
             PrintStream original = System.out;
             ByteArrayOutputStream capture = new ByteArrayOutputStream();
             System.setOut(new PrintStream(capture));
-            printRich(findings, suggestedFlags, snapshot, true, exitCode, pid);
+            printRich(findings, suggestedFlags, snapshot, true, exitCode, pid,
+                      profileFindings, profileError, profileSnapshotPath != null || profileLive);
             System.setOut(original);
             String html = HtmlExporter.toHtml(capture.toString(), "Argus Doctor Report");
             try {
@@ -88,13 +139,15 @@ public final class DoctorCommand implements Command {
             return;
         }
 
-        printRich(findings, suggestedFlags, snapshot, useColor, exitCode, pid);
+        printRich(findings, suggestedFlags, snapshot, useColor, exitCode, pid,
+                  profileFindings, profileError, profileSnapshotPath != null || profileLive);
 
         if (exitCode > 0) throw new CommandExitException(exitCode);
     }
 
     private void printRich(List<Finding> findings, List<String> flags,
-                           JvmSnapshot s, boolean c, int exitCode, long targetPid) {
+                           JvmSnapshot s, boolean c, int exitCode, long targetPid,
+                           List<Finding> profileFindings, String profileError, boolean profileRequested) {
         System.out.print(RichRenderer.brandedHeader(c, "doctor",
                 "One-click JVM health diagnosis with actionable recommendations"));
 
@@ -202,6 +255,53 @@ public final class DoctorCommand implements Command {
             }
         }
 
+        // \u2500\u2500 Profile Findings section \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        if (profileRequested) {
+            System.out.println(RichRenderer.boxSeparator(WIDTH));
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+            System.out.println(RichRenderer.boxLine(
+                    "  " + AnsiStyle.style(c, AnsiStyle.BOLD, AnsiStyle.CYAN)
+                            + "\ud83d\udd0d Profile Findings"
+                            + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+
+            if (profileError != null) {
+                System.out.println(RichRenderer.boxLine(
+                        "  " + AnsiStyle.style(c, AnsiStyle.YELLOW)
+                                + "\u26a0 Profile analysis skipped: " + profileError
+                                + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+            } else if (profileFindings.isEmpty()) {
+                System.out.println(RichRenderer.boxLine(
+                        "  " + AnsiStyle.style(c, AnsiStyle.GREEN)
+                                + "\u2714 No notable hot-method patterns found"
+                                + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+            } else {
+                for (Finding f : profileFindings) {
+                    String sevColor = switch (f.severity()) {
+                        case CRITICAL -> AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);
+                        case WARNING  -> AnsiStyle.style(c, AnsiStyle.YELLOW, AnsiStyle.BOLD);
+                        case INFO     -> AnsiStyle.style(c, AnsiStyle.CYAN);
+                    };
+                    System.out.println(RichRenderer.boxLine(
+                            "  " + sevColor + f.severity().icon() + " " + f.severity().label()
+                                    + ": " + f.title()
+                                    + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+                    if (!f.detail().isEmpty()) {
+                        for (String line : wordWrap(f.detail(), WIDTH - 12)) {
+                            System.out.println(RichRenderer.boxLine(
+                                    "     " + AnsiStyle.style(c, AnsiStyle.DIM) + line
+                                            + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+                        }
+                    }
+                    for (String rec : f.recommendations()) {
+                        System.out.println(RichRenderer.boxLine("     \u2192 " + rec, WIDTH));
+                    }
+                    System.out.println(RichRenderer.emptyLine(WIDTH));
+                }
+            }
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+        }
+
         String footerStatus = exitCode == 0 ? "\u2714 healthy"
                 : exitCode == 1 ? "\u26a0 warnings" : "\u2718 critical";
         System.out.println(RichRenderer.boxFooter(c, footerStatus, WIDTH));
@@ -247,7 +347,8 @@ public final class DoctorCommand implements Command {
     }
 
     private static void printJson(List<Finding> findings, List<String> flags,
-                                  JvmSnapshot s, int exitCode) {
+                                  JvmSnapshot s, int exitCode,
+                                  List<Finding> profileFindings, String profileError) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"exitCode\":").append(exitCode);
         sb.append(",\"summary\":{");
@@ -278,7 +379,28 @@ public final class DoctorCommand implements Command {
             if (i > 0) sb.append(',');
             sb.append('"').append(RichRenderer.escapeJson(flags.get(i))).append('"');
         }
-        sb.append("]}");
+        sb.append("]");
+        // Profile findings array
+        sb.append(",\"profileFindings\":[");
+        for (int i = 0; i < profileFindings.size(); i++) {
+            Finding f = profileFindings.get(i);
+            if (i > 0) sb.append(',');
+            sb.append("{\"severity\":\"").append(f.severity().label()).append('"');
+            sb.append(",\"category\":\"").append(RichRenderer.escapeJson(f.category())).append('"');
+            sb.append(",\"title\":\"").append(RichRenderer.escapeJson(f.title())).append('"');
+            sb.append(",\"detail\":\"").append(RichRenderer.escapeJson(f.detail())).append('"');
+            sb.append(",\"recommendations\":[");
+            for (int j = 0; j < f.recommendations().size(); j++) {
+                if (j > 0) sb.append(',');
+                sb.append('"').append(RichRenderer.escapeJson(f.recommendations().get(j))).append('"');
+            }
+            sb.append("]}");
+        }
+        sb.append("]");
+        if (profileError != null) {
+            sb.append(",\"profileError\":\"").append(RichRenderer.escapeJson(profileError)).append('"');
+        }
+        sb.append("}");
         System.out.println(sb);
     }
 }

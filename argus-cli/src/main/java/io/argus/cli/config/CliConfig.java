@@ -38,13 +38,15 @@ public final class CliConfig {
     /**
      * Loads configuration from ~/.argus/config.properties.
      * Returns defaults() if the file does not exist or cannot be read.
+     * When the config file is present but has no "lang" key, the env-based
+     * default is used as the fallback (same as when no file exists).
      */
     public static CliConfig load() {
         try (InputStream in = Files.newInputStream(CONFIG_FILE)) {
             Properties props = new Properties();
             props.load(in);
             return new CliConfig(
-                    props.getProperty("lang", "en"),
+                    props.getProperty("lang", resolveDefaultLang()),
                     props.getProperty("defaultSource", "auto"),
                     Boolean.parseBoolean(props.getProperty("color", "true")),
                     props.getProperty("format", "table"),
@@ -75,9 +77,32 @@ public final class CliConfig {
 
     /**
      * Returns the default configuration.
+     * The language is resolved from $LC_ALL / $LANG environment variables
+     * so that shell locale settings are honoured without requiring a config file.
      */
     public static CliConfig defaults() {
-        return new CliConfig("en", "auto", true, "table", 9202);
+        return new CliConfig(resolveDefaultLang(), "auto", true, "table", 9202);
+    }
+
+    /**
+     * Resolves the display language from the environment.
+     * Checks $LC_ALL first, then $LANG, extracting the two-letter ISO 639-1
+     * language code (e.g. "ko" from "ko_KR.UTF-8"). Falls back to "en".
+     */
+    static String resolveDefaultLang() {
+        for (String envVar : new String[]{"LC_ALL", "LANG"}) {
+            String val = System.getenv(envVar);
+            if (val != null && !val.isEmpty()
+                    && !val.equalsIgnoreCase("C")
+                    && !val.equalsIgnoreCase("POSIX")) {
+                // Extract the 2-letter language code before '_' or '.'
+                String lang = val.split("[_.]")[0].toLowerCase();
+                if (lang.length() == 2) {
+                    return lang;
+                }
+            }
+        }
+        return "en";
     }
 
     /**

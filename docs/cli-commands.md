@@ -15,6 +15,8 @@ Complete reference for all 50 Argus CLI commands with usage examples and actual 
 --version, -v             Show version
 ```
 
+**Locale resolution order:** `--lang=<code>` flag > `$LC_ALL` environment variable > `$LANG` environment variable > `~/.argus/config.properties` (set by `argus init`) > `en` fallback.
+
 ---
 
 ## argus ps
@@ -483,9 +485,189 @@ $ argus profile 12345 --duration=30 --type=alloc --alloc=128k --live
 $ argus profile 12345 --duration=30 --output-format=jfr --output=run.jfr
 ```
 
+### Output formats
+
+Full list of values accepted by `--output-format=` on `profile`, `profile stop`, `profile dump`, and `flame`:
+
+| Format | Extension | Description |
+|--------|-----------|-------------|
+| `flamegraph` | `.html` | Interactive SVG flame graph (default for `.html` output) |
+| `collapsed` | `.collapsed.txt` | Folded stacks — compatible with `flamegraph.pl` |
+| `jfr` | `.jfr` | JDK Flight Recorder file — open in JDK Mission Control or IntelliJ Profiler |
+| `tree` | `.html` | Call-tree HTML (top-down, expandable) |
+| `text` | `.txt` | Plain-text top-methods table |
+| `flat` | `.txt` | Flat list of all leaf frames with sample counts |
+| `traces` | `.txt` | Full stack traces, one block per sample |
+| `otlp` | `.otlp.json` | OpenTelemetry-compatible JSON payload |
+| `ascii` | stdout | Inline ASCII flame graph rendered directly in the terminal — no file written |
+
+**ASCII flame graph example:**
+
+```bash
+$ argus profile 12345 --duration=10 --output-format=ascii
+```
+
+```
+  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ com.example.App.handleRequest (42%)
+    ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓ com.example.db.Query.execute (21%)
+      ▓▓▓▓▓▓▓▓▓▓ java.sql.PreparedStatement.executeQuery (10%)
+```
+
+### Event types (PMU + method trace)
+
+`--type=` accepts three categories of event:
+
+| Category | Examples | Notes |
+|----------|----------|-------|
+| Built-in aliases | `cpu`, `alloc`, `lock`, `wall` | Default; portable across platforms |
+| PMU hardware counters | `cycles`, `cache-misses`, `branch-misses`, `instructions`, `bus-cycles` | Linux perf events; requires `perf_event_paranoid <= 1` |
+| Method-trace events | `java.lang.String.intern`, `com.example.MyClass.myMethod` | Fully-qualified `ClassName.methodName`; case-sensitive |
+
+Unknown event names are forwarded to asprof, which surfaces a clear "unknown event" error if the kernel does not support the counter.
+
+```bash
+# PMU counter: instructions retired
+$ argus profile 12345 --duration=10 --type=cycles
+
+# Method-trace: count invocations of String.intern
+$ argus profile 12345 --duration=10 --type=java.lang.String.intern
+```
+
+### Continuous profiling mode
+
+Attaches a background profiling session and dumps a snapshot every `--interval=N` seconds. Ctrl-C stops cleanly. Useful for catching intermittent spikes without a fixed capture window.
+
+```bash
+$ argus profile continuous 12345
+$ argus profile continuous 12345 --interval=60 --output-dir=./snapshots
+$ argus profile continuous 12345 --diff-against=baseline.json
+```
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--interval=N` | 30 | Dump interval in seconds |
+| `--window=N` | 5 | Retain snapshots for the last N minutes; older files are pruned from `--output-dir` |
+| `--output-dir=PATH` | — | Directory to write per-interval snapshot files (`snap-<epoch>.collapsed.txt`) |
+| `--diff-against=PATH` | — | Fixed baseline snapshot; each interval prints a delta against it instead of the previous interval |
+| `--type=EVENT` | cpu | Profiling event type (same values as one-shot mode) |
+
+Each interval prints a one-line status:
+
+```
+[12:04:01]  8,432 samples  top: com.example.App.handleRequest (38.2%)  Δ+2.1pp
+```
+
+### Multi-PID parallel profiling
+
+Profile multiple JVM processes simultaneously. All PIDs run in parallel (thread pool sized to available CPUs). Results are collected into a per-PID summary table; a failure on one PID does not abort the others.
+
+```bash
+# Comma-separated PIDs as first argument
+$ argus profile 12345,67890,11111 --duration=20
+
+# --pids flag form (interchangeable)
+$ argus profile --pids=12345,67890,11111 --duration=20 --type=alloc
+```
+
+```
+╭─ Multi-PID Profile ── 3 processes ───────────────────────────────────────────╮
+│                                                                              │
+│  pid        samples   top method                                   status   │
+│  ────────  ─────────  ──────────────────────────────────────────  ──────── │
+│  12345       8,432    com.example.App.handleRequest (38%)          ok       │
+│  67890       6,100    java.lang.Thread.sleep (62%)                 ok       │
+│  11111           -    -                                            timeout  │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+**Additional option:** `--output-prefix=PATH` — write per-pid flame graph HTML as `<PATH>-<pid>.html`.
+
 ### Pre-flight permission checks (Linux)
 
 Argus validates `/proc/sys/kernel/perf_event_paranoid`, `kptr_restrict`, `/proc/<pid>/status` accessibility, `ptrace_scope`, and container/cgroup state before running asprof. Failures emit copy-pasteable fix commands (e.g. `sudo sysctl kernel.perf_event_paranoid=1`) instead of cryptic asprof errors. Container detection (Docker / containerd / k8s / lxc) emits a one-line warning about `--cap-add=SYS_ADMIN` and host-vs-container PID mapping.
+
+---
+
+## argus profile-gate \<before\> \<after\>
+
+CI/CD regression gate. Compares two profile snapshots produced by `--save=PATH` and exits non-zero if any method's CPU share increased beyond a configurable threshold.
+
+```bash
+# Capture baseline before deploy
+$ argus profile 12345 --duration=30 --save=before.json
+
+# Capture after deploy
+$ argus profile 12345 --duration=30 --save=after.json
+
+# Gate: fail if any method grew >= 10 percentage points
+$ argus profile-gate before.json after.json
+```
+
+```
+╭─ Profile Gate ── before ── after ────────────────────────────────────────────╮
+│  before: before.json                                                         │
+│  after:  after.json                                                          │
+│  threshold: 10.0pp                                                           │
+│                                                                              │
+│  #    method                                       before%   after%  Δ samp  Δ % │
+│  ──  ─────────────────────────────────────────────  ───────  ──────  ──────  ──── │
+│  1   com.example.App.processRequest                  12.3%   24.1%  +2,840  +11.8% │
+│                                                                              │
+│  2 regressions, 1 improvements; gate: FAIL (threshold=10.0%)                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--threshold=PCT` | 10.0 | Fail if any method's CPU share grows by >= PCT percentage points |
+| `--threshold-samples=N` | 0 | Ignore changes with an absolute sample delta below N |
+| `--top=N` | 20 | Show top N regressions in output |
+| `--format=json` | — | Machine-readable JSON output |
+| `--annotate=github` | — | Emit `::error::` / `::warning::` annotations for GitHub Actions |
+| `--max-regressions=N` | — | Fail if more than N methods regress by any amount |
+| `--baseline-only` | — | Print the report but always exit 0 (dry-run mode) |
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | No regressions exceed the threshold |
+| `1` | At least one method exceeds the threshold |
+| `2` | Usage or I/O error (missing file, bad path) |
+
+**JSON output shape:**
+
+```json
+{
+  "status": "fail",
+  "threshold": 10.0,
+  "before": "before.json",
+  "after": "after.json",
+  "regressions": [
+    {"method": "com.example.App.processRequest", "beforePct": 12.30, "afterPct": 24.10, "deltaPct": 11.80, "deltaSamples": 2840}
+  ],
+  "improvements": [],
+  "newMethods": [],
+  "goneMethods": [],
+  "verdict": {"failed": 1, "reason": "1 regression(s) exceed threshold (10.0pp)"}
+}
+```
+
+**GitHub Actions integration:**
+
+```yaml
+- name: Profile regression gate
+  run: |
+    argus profile $PID --duration=30 --save=after.json
+    argus profile-gate baseline.json after.json \
+      --threshold=5 \
+      --annotate=github
+```
 
 ---
 
@@ -1033,6 +1215,39 @@ Cross-correlates GC, memory, CPU, threads, and buffer metrics to produce severit
 argus doctor --format=json || alert "JVM unhealthy"
 ```
 
+### Profile-aware mode
+
+Appends a **Profile Findings** section to the normal health report by running a short CPU profile and analysing the hot-method distribution.
+
+```bash
+# Live capture (default 5s)
+$ argus doctor 12345 --profile
+
+# Longer capture
+$ argus doctor 12345 --profile --profile-duration=15
+
+# Load from a previously saved snapshot
+$ argus doctor 12345 --profile=snapshot.json
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--profile` | Capture a live CPU profile (default duration: 5s) |
+| `--profile=<file>` | Load a saved snapshot instead of capturing live |
+| `--profile-duration=N` | Override the live capture duration in seconds (default: 5) |
+
+**Profile rules (5):**
+
+| Rule | Severity | Fires when |
+|------|----------|------------|
+| `HotWaitRule` | WARNING | Blocking/wait methods (`Object.wait`, `Thread.sleep`, `LockSupport.park`) exceed 50% of samples |
+| `HotJitBarrierRule` | WARNING | JIT internals (`c2_runtime`, `OptoRuntime`, `CompileBroker`) exceed 10% of samples |
+| `HotGcBarrierRule` | WARNING | GC code paths (`G1`, `ZHeap`, `GenCollect`, etc.) exceed 15% of samples |
+| `HotAllocationLeafRule` | INFO | Top-3 allocation hot leaves surfaced (alloc-type snapshots only) |
+| `DominantMethodRule` | CRITICAL | A single method exceeds 60% of samples (tight loop / runaway computation) |
+
 ---
 
 ## argus gclog
@@ -1172,9 +1387,18 @@ $ argus flame 12345 --no-open            # don't open browser
 | Option | Default | Description |
 |--------|---------|-------------|
 | `--duration N` | 10 | Profiling duration in seconds |
-| `--type` | cpu | Profile type: `cpu`, `alloc`, `lock`, `wall` |
-| `--output` | `/tmp/argus-flame-<pid>.html` | Output file path |
-| `--no-open` | false | Skip browser auto-open |
+| `--type` | cpu | Profile type: `cpu`, `alloc`, `lock`, `wall`, PMU counters, or method-trace events |
+| `--output` | `/tmp/argus-flame-<pid>.<ext>` | Output file path |
+| `--output-format=FMT` | `flamegraph` | Output format — same values as `argus profile`: `flamegraph`, `collapsed`, `jfr`, `tree`, `text`, `flat`, `traces`, `otlp` |
+| `--no-open` | false | Skip browser auto-open (auto-skipped for non-HTML formats) |
+
+```bash
+# Write JFR file instead of HTML
+$ argus flame 12345 --output-format=jfr --output=profile.jfr
+
+# Folded stacks for flamegraph.pl
+$ argus flame 12345 --output-format=collapsed --output=stacks.txt
+```
 
 Uses async-profiler under the hood. Auto-downloads if not present.
 
@@ -1224,3 +1448,39 @@ $ argus suggest --format=json          # JSON output
 | `streaming` | Steady allocation rate | G1GC, TLAB sizing |
 
 Includes a copy-paste ready flag summary at the bottom of output.
+
+### Profile-driven suggestions
+
+Appends a **Profile-Driven Suggestions** section backed by hot-method analysis. Pass `--profile` to capture a live CPU profile, or `--profile=<file>` to load a saved snapshot.
+
+```bash
+# Live capture (default 5s)
+$ argus suggest 12345 --profile
+
+# Longer capture
+$ argus suggest 12345 --profile --profile-duration=15
+
+# From saved snapshot
+$ argus suggest 12345 --profile=snapshot.json
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--profile` | Capture a live CPU profile (default duration: 5s) |
+| `--profile=<file>` | Load a saved snapshot instead of capturing live |
+| `--profile-duration=N` | Override the live capture duration in seconds (default: 5) |
+
+**Profile suggestion rules (6):**
+
+| Rule | Confidence | Flag suggested | Fires when |
+|------|-----------|----------------|------------|
+| `StringDeduplicationSuggestion` | MED | `-XX:+UseStringDeduplication` | `String.intern` / HashMap hash activity >= 5% of samples |
+| `TieredCompilationSuggestion` | MED | `-XX:+TieredCompilation -XX:TieredStopAtLevel=4` | JIT compiler CPU (`c2_compile`, `OptoRuntime`) >= 5% of samples |
+| `EscapeAnalysisSuggestion` | LOW | `-XX:+DoEscapeAnalysis -XX:+EliminateAllocations` | Short-lived wrapper objects (`Long`, `Integer`, `ArrayList$Itr`) >= 2% of alloc samples |
+| `YoungGenSizingSuggestion` | LOW | `-XX:NewRatio=2` | Alloc snapshot with >= 10,000 samples (high allocation pressure) |
+| `LockContentionHint` | HIGH | _(no flag — structural hint)_ | Single monitor >= 30% of lock-type snapshot samples |
+| `RuntimeWaitHint` | HIGH | _(no flag — structural hint)_ | Wait/park methods >= 60% of all samples |
+
+When a profile rule fires for the same JVM flag area as a workload suggestion, the workload suggestion is marked `(superseded by profile evidence)` in the output.

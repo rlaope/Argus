@@ -4,11 +4,17 @@ import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.doctor.JvmSnapshot;
 import io.argus.cli.doctor.JvmSnapshotCollector;
+import io.argus.cli.model.ProfileResult;
+import io.argus.cli.model.ProfileSnapshot;
+import io.argus.cli.provider.ProfileProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.cli.suggest.ProfileSuggestions;
+import io.argus.cli.suggest.ProfileSuggestions.ProfileRecommendation;
 import io.argus.core.command.CommandGroup;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,32 +46,131 @@ public final class SuggestCommand implements Command {
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
-        String profile = null;
+        String workloadProfile = null;
         long pid = 0;
+        boolean runProfile = false;
+        String profileSnapshotPath = null;
+        int profileDurationSec = 5;
 
         for (int i = 0; i < args.length; i++) {
-            if (args[i].startsWith("--profile=")) profile = args[i].substring(10);
-            else if (args[i].equals("--format=json")) json = true;
-            else if (!args[i].startsWith("--")) {
-                try { pid = Long.parseLong(args[i]); } catch (NumberFormatException ignored) {}
+            String arg = args[i];
+            if (arg.startsWith("--profile=")) {
+                String val = arg.substring(10);
+                // If the value looks like a file path, treat it as a snapshot file;
+                // otherwise it's a workload profile name (legacy behaviour).
+                if (val.startsWith("/") || val.startsWith(".") || val.endsWith(".json")) {
+                    profileSnapshotPath = val;
+                    runProfile = true;
+                } else {
+                    workloadProfile = val;
+                }
+            } else if (arg.equals("--profile")) {
+                runProfile = true;
+            } else if (arg.startsWith("--profile-duration=")) {
+                try { profileDurationSec = Integer.parseInt(arg.substring(19)); }
+                catch (NumberFormatException ignored) {}
+            } else if (arg.equals("--format=json")) {
+                json = true;
+            } else if (!arg.startsWith("--")) {
+                try { pid = Long.parseLong(arg); } catch (NumberFormatException ignored) {}
             }
         }
 
         JvmSnapshot s = JvmSnapshotCollector.collect(pid);
 
-        // Auto-detect profile if not specified
-        if (profile == null) {
-            profile = detectProfile(s);
+        // Auto-detect workload profile if not specified
+        if (workloadProfile == null) {
+            workloadProfile = detectProfile(s);
         }
 
-        List<Suggestion> suggestions = generateSuggestions(s, profile);
+        List<Suggestion> suggestions = generateSuggestions(s, workloadProfile);
+
+        // --- Profile-driven suggestions ------------------------------------------
+        List<ProfileRecommendation> profileRecs = new ArrayList<>();
+        String profileWarning = null;
+
+        if (runProfile) {
+            try {
+                ProfileSnapshot snapshot;
+                if (profileSnapshotPath != null) {
+                    snapshot = ProfileSnapshot.load(Path.of(profileSnapshotPath));
+                } else {
+                    ProfileProvider provider = registry.findProfileProvider(pid, null);
+                    if (provider == null) {
+                        profileWarning = messages.get("suggest.profile.no.snapshot");
+                        snapshot = null;
+                    } else {
+                        ProfileResult result = provider.profile(pid, "cpu", profileDurationSec);
+                        if ("ok".equals(result.status()) && !result.topMethods().isEmpty()) {
+                            // Build a transient snapshot from the live result
+                            snapshot = new ProfileSnapshot(
+                                    "live", "", System.currentTimeMillis() / 1000L,
+                                    pid, result.type() != null ? result.type() : "cpu",
+                                    result.durationSec(), result.totalSamples(),
+                                    result.topMethods());
+                        } else {
+                            profileWarning = result.errorMessage() != null
+                                    ? result.errorMessage()
+                                    : messages.get("suggest.profile.no.snapshot");
+                            snapshot = null;
+                        }
+                    }
+                }
+                if (snapshot != null) {
+                    profileRecs = ProfileSuggestions.analyze(snapshot);
+                }
+            } catch (Exception e) {
+                profileWarning = e.getMessage() != null ? e.getMessage()
+                        : messages.get("suggest.profile.no.snapshot");
+            }
+
+            // Supersede conflicting workload suggestions with profile-based ones
+            if (!profileRecs.isEmpty()) {
+                markSuperseded(suggestions, profileRecs);
+            }
+        }
+        // -------------------------------------------------------------------------
 
         if (json) {
-            printJson(suggestions, profile);
+            printJson(suggestions, workloadProfile, profileRecs, runProfile);
             return;
         }
 
-        printRich(suggestions, s, profile, useColor);
+        printRich(suggestions, s, workloadProfile, useColor, profileRecs, profileWarning, runProfile, messages);
+    }
+
+    /**
+     * Tags workload suggestions that are superseded by a profile-based recommendation
+     * covering the same JVM flag area (e.g. NewRatio vs NewRatio).
+     */
+    private void markSuperseded(List<Suggestion> workload, List<ProfileRecommendation> profileRecs) {
+        for (int i = 0; i < workload.size(); i++) {
+            Suggestion sg = workload.get(i);
+            for (ProfileRecommendation pr : profileRecs) {
+                if (!pr.flag().isEmpty() && !sg.flag().isEmpty()
+                        && sharesFlag(sg.flag(), pr.flag())) {
+                    workload.set(i, new Suggestion(sg.area(), sg.reason(), sg.flag(),
+                            sg.note() + " (superseded by profile evidence)"));
+                    break;
+                }
+            }
+        }
+    }
+
+    /** Returns true if the two flag strings share the same primary flag token. */
+    private boolean sharesFlag(String a, String b) {
+        String keyA = primaryFlagKey(a);
+        String keyB = primaryFlagKey(b);
+        return !keyA.isEmpty() && keyA.equalsIgnoreCase(keyB);
+    }
+
+    private String primaryFlagKey(String flags) {
+        // Take first token, strip -XX:+/- prefix, keep up to '=' sign
+        String[] tokens = flags.trim().split("\\s+");
+        if (tokens.length == 0) return "";
+        String t = tokens[0].replaceFirst("^-XX:[+-]?", "").replaceFirst("^-X", "");
+        int eq = t.indexOf('=');
+        return eq > 0 ? t.substring(0, eq) : t;
     }
 
     private String detectProfile(JvmSnapshot s) {
@@ -190,7 +295,9 @@ public final class SuggestCommand implements Command {
         return suggestions;
     }
 
-    private void printRich(List<Suggestion> suggestions, JvmSnapshot s, String profile, boolean c) {
+    private void printRich(List<Suggestion> suggestions, JvmSnapshot s, String profile,
+                           boolean c, List<ProfileRecommendation> profileRecs,
+                           String profileWarning, boolean profileRequested, Messages messages) {
         System.out.print(RichRenderer.brandedHeader(c, "suggest",
                 "JVM flag optimization based on workload analysis"));
         System.out.println(RichRenderer.boxHeader(c, "JVM Optimization", WIDTH,
@@ -207,14 +314,14 @@ public final class SuggestCommand implements Command {
         for (int i = 0; i < suggestions.size(); i++) {
             Suggestion sg = suggestions.get(i);
             System.out.println(RichRenderer.boxLine(
-                    "  " + AnsiStyle.style(c, AnsiStyle.BOLD) + (i + 1) + ". " + sg.area
+                    "  " + AnsiStyle.style(c, AnsiStyle.BOLD) + (i + 1) + ". " + sg.area()
                             + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
-            System.out.println(RichRenderer.boxLine("     " + sg.reason, WIDTH));
+            System.out.println(RichRenderer.boxLine("     " + sg.reason(), WIDTH));
             System.out.println(RichRenderer.boxLine(
-                    "     " + AnsiStyle.style(c, AnsiStyle.GREEN) + sg.flag
+                    "     " + AnsiStyle.style(c, AnsiStyle.GREEN) + sg.flag()
                             + AnsiStyle.style(c, AnsiStyle.RESET)
-                            + (sg.note.isEmpty() ? "" : "  " + AnsiStyle.style(c, AnsiStyle.DIM)
-                            + "(" + sg.note + ")" + AnsiStyle.style(c, AnsiStyle.RESET)), WIDTH));
+                            + (sg.note().isEmpty() ? "" : "  " + AnsiStyle.style(c, AnsiStyle.DIM)
+                            + "(" + sg.note() + ")" + AnsiStyle.style(c, AnsiStyle.RESET)), WIDTH));
             System.out.println(RichRenderer.emptyLine(WIDTH));
         }
 
@@ -226,7 +333,7 @@ public final class SuggestCommand implements Command {
                         + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
         StringBuilder allFlags = new StringBuilder("  ");
         for (Suggestion sg : suggestions) {
-            allFlags.append(sg.flag).append(" ");
+            if (!sg.flag().isEmpty()) allFlags.append(sg.flag()).append(" ");
         }
         System.out.println(RichRenderer.boxLine(
                 AnsiStyle.style(c, AnsiStyle.GREEN) + allFlags.toString().trim()
@@ -234,25 +341,103 @@ public final class SuggestCommand implements Command {
 
         System.out.println(RichRenderer.emptyLine(WIDTH));
         System.out.println(RichRenderer.boxFooter(c, suggestions.size() + " suggestions", WIDTH));
+
+        // ---- Profile-Driven Suggestions section --------------------------------
+        if (profileRequested) {
+            System.out.println();
+            printProfileSection(c, profileRecs, profileWarning, messages);
+        }
     }
 
-    private static void printJson(List<Suggestion> suggestions, String profile) {
+    private void printProfileSection(boolean c, List<ProfileRecommendation> recs,
+                                     String warning, Messages messages) {
+        System.out.println(RichRenderer.boxHeader(c,
+                messages.get("suggest.profile.section.title"), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        if (warning != null) {
+            System.out.println(RichRenderer.boxLine(
+                    "  " + AnsiStyle.style(c, AnsiStyle.YELLOW) + "[!] " + warning
+                            + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+        }
+
+        if (recs.isEmpty()) {
+            System.out.println(RichRenderer.boxLine(
+                    "  " + AnsiStyle.style(c, AnsiStyle.DIM)
+                            + messages.get("suggest.profile.no.suggestions")
+                            + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+        } else {
+            for (int i = 0; i < recs.size(); i++) {
+                ProfileRecommendation r = recs.get(i);
+                String confColor = switch (r.confidence()) {
+                    case HIGH -> AnsiStyle.GREEN;
+                    case MED  -> AnsiStyle.YELLOW;
+                    case LOW  -> AnsiStyle.DIM;
+                };
+                System.out.println(RichRenderer.boxLine(
+                        "  " + AnsiStyle.style(c, AnsiStyle.BOLD) + (i + 1) + ". "
+                                + r.ruleName() + AnsiStyle.style(c, AnsiStyle.RESET)
+                                + "  " + AnsiStyle.style(c, confColor)
+                                + "[" + r.confidence().name().toLowerCase() + "]"
+                                + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+                System.out.println(RichRenderer.boxLine("     " + r.rationale(), WIDTH));
+                if (!r.flag().isEmpty()) {
+                    System.out.println(RichRenderer.boxLine(
+                            "     " + AnsiStyle.style(c, AnsiStyle.GREEN) + r.flag()
+                                    + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+                }
+                if (!r.evidence().isEmpty()) {
+                    System.out.println(RichRenderer.boxLine(
+                            "     " + AnsiStyle.style(c, AnsiStyle.DIM)
+                                    + String.format("evidence: %s (%.1f%%)",
+                                            r.evidence(), r.evidencePct())
+                                    + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+                }
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+            }
+        }
+
+        System.out.println(RichRenderer.boxFooter(c, recs.size() + " profile suggestion(s)", WIDTH));
+    }
+
+    private static void printJson(List<Suggestion> suggestions, String profile,
+                                  List<ProfileRecommendation> profileRecs, boolean profileRequested) {
         StringBuilder sb = new StringBuilder();
         sb.append("{\"profile\":\"").append(profile).append('"');
         sb.append(",\"suggestions\":[");
         for (int i = 0; i < suggestions.size(); i++) {
             Suggestion sg = suggestions.get(i);
             if (i > 0) sb.append(',');
-            sb.append("{\"area\":\"").append(RichRenderer.escapeJson(sg.area)).append('"');
-            sb.append(",\"reason\":\"").append(RichRenderer.escapeJson(sg.reason)).append('"');
-            sb.append(",\"flag\":\"").append(RichRenderer.escapeJson(sg.flag)).append("\"}");
+            sb.append("{\"area\":\"").append(RichRenderer.escapeJson(sg.area())).append('"');
+            sb.append(",\"reason\":\"").append(RichRenderer.escapeJson(sg.reason())).append('"');
+            sb.append(",\"flag\":\"").append(RichRenderer.escapeJson(sg.flag())).append('"');
+            sb.append(",\"source\":\"workload\"}");
         }
         sb.append("],\"flags\":[");
         for (int i = 0; i < suggestions.size(); i++) {
             if (i > 0) sb.append(',');
-            sb.append('"').append(suggestions.get(i).flag).append('"');
+            sb.append('"').append(suggestions.get(i).flag()).append('"');
         }
-        sb.append("]}");
+        sb.append(']');
+
+        if (profileRequested) {
+            sb.append(",\"profileSuggestions\":[");
+            for (int i = 0; i < profileRecs.size(); i++) {
+                ProfileRecommendation r = profileRecs.get(i);
+                if (i > 0) sb.append(',');
+                sb.append("{\"rule\":\"").append(RichRenderer.escapeJson(r.ruleName())).append('"');
+                sb.append(",\"confidence\":\"").append(r.confidence().name().toLowerCase()).append('"');
+                sb.append(",\"flag\":\"").append(RichRenderer.escapeJson(r.flag())).append('"');
+                sb.append(",\"rationale\":\"").append(RichRenderer.escapeJson(r.rationale())).append('"');
+                sb.append(",\"evidence\":\"").append(RichRenderer.escapeJson(r.evidence())).append('"');
+                sb.append(",\"evidencePct\":").append(String.format("%.2f", r.evidencePct()));
+                sb.append(",\"source\":\"profile\"}");
+            }
+            sb.append(']');
+        }
+
+        sb.append('}');
         System.out.println(sb);
     }
 
