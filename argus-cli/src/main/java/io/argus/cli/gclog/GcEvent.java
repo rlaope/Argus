@@ -24,8 +24,10 @@ public final class GcEvent {
         this.heapAfterKB = heapAfterKB;
         this.heapTotalKB = heapTotalKB;
         String lower = type.toLowerCase();
-        this.fullGc = lower.contains("full");
-        this.concurrent = lower.contains("concurrent");
+        // Concurrent and Full are mutually exclusive: Full GCs are STW pauses.
+        // A "Concurrent Full Mark" phase log is concurrent, not a Full GC.
+        this.concurrent = lower.startsWith("concurrent");
+        this.fullGc = !this.concurrent && lower.contains("full");
     }
 
     public double timestampSec() { return timestampSec; }

@@ -110,16 +110,23 @@ public final class GcScoreCalculator {
     // ── Overall grade ───────────────────────────────────────────────────────
 
     static int weightedOverall(List<AxisScore> axes) {
+        // Weights sum to 1.00; keep divisor fixed so missing data does NOT renormalise the
+        // remaining axes upward. N/A axes contribute their nominal weight at the average of
+        // available scores — neither rewarding nor punishing the user for missing data.
         double[] weights = {0.25, 0.15, 0.25, 0.15, 0.10, 0.10};
-        double sum = 0, wUsed = 0;
+        double sum = 0, wAvail = 0;
         for (int i = 0; i < axes.size(); i++) {
             AxisScore ax = axes.get(i);
             if (!ax.available()) continue;
             double w = i < weights.length ? weights[i] : 0;
             sum += ax.score() * w;
-            wUsed += w;
+            wAvail += w;
         }
-        return wUsed > 0 ? (int) Math.round(sum / wUsed * 1.0) : 0;
+        if (wAvail <= 0) return 0;
+        double availableAvg = sum / wAvail;
+        // Missing axes inherit the available average → preserves total-weight=1.00 semantics
+        // while remaining honest about uncertainty.
+        return (int) Math.round(sum + availableAvg * (1.0 - wAvail));
     }
 
     static String grade(int overall) {

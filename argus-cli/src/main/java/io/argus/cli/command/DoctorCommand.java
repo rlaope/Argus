@@ -70,7 +70,7 @@ public final class DoctorCommand implements Command {
             PrintStream original = System.out;
             ByteArrayOutputStream capture = new ByteArrayOutputStream();
             System.setOut(new PrintStream(capture));
-            printRich(findings, suggestedFlags, snapshot, true, exitCode);
+            printRich(findings, suggestedFlags, snapshot, true, exitCode, pid);
             System.setOut(original);
             String html = HtmlExporter.toHtml(capture.toString(), "Argus Doctor Report");
             try {
@@ -83,19 +83,20 @@ public final class DoctorCommand implements Command {
             return;
         }
 
-        printRich(findings, suggestedFlags, snapshot, useColor, exitCode);
+        printRich(findings, suggestedFlags, snapshot, useColor, exitCode, pid);
 
         if (exitCode > 0) throw new CommandExitException(exitCode);
     }
 
     private void printRich(List<Finding> findings, List<String> flags,
-                           JvmSnapshot s, boolean c, int exitCode) {
+                           JvmSnapshot s, boolean c, int exitCode, long targetPid) {
         System.out.print(RichRenderer.brandedHeader(c, "doctor",
                 "One-click JVM health diagnosis with actionable recommendations"));
 
-        // Header with VM info
+        // Header with VM info — show the PID the user actually asked about, not the CLI process.
+        long displayPid = targetPid > 0 ? targetPid : ProcessHandle.current().pid();
         System.out.println(RichRenderer.boxHeader(c, "JVM Health Report", WIDTH,
-                "pid:" + ProcessHandle.current().pid(),
+                "pid:" + displayPid,
                 s.vmName().contains("HotSpot") ? "HotSpot" : s.vmName(),
                 "uptime:" + RichRenderer.formatDuration(s.uptimeMs())));
         System.out.println(RichRenderer.emptyLine(WIDTH));

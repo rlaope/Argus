@@ -3,10 +3,17 @@ package io.argus.cli.provider.jdk;
 import io.argus.cli.model.GcCauseResult;
 import io.argus.cli.provider.GcCauseProvider;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
+
 /**
  * GcCauseProvider that uses {@code jstat -gccause} to get GC cause info.
  */
 public final class JdkGcCauseProvider implements GcCauseProvider {
+
+    private static final long TIMEOUT_SECONDS = 10;
 
     @Override
     public boolean isAvailable(long pid) {
@@ -21,14 +28,36 @@ public final class JdkGcCauseProvider implements GcCauseProvider {
 
     @Override
     public GcCauseResult getGcCause(long pid) {
+        Process process = null;
         try {
             ProcessBuilder pb = new ProcessBuilder("jstat", "-gccause", String.valueOf(pid));
             pb.redirectErrorStream(true);
-            Process process = pb.start();
-            String output = new String(process.getInputStream().readAllBytes()).trim();
-            process.waitFor();
-            return parseOutput(output);
+            process = pb.start();
+            // Read stdout on a daemon thread so a stuck child can't block the reader thread
+            // forever. Bound the wait with a timeout.
+            StringBuilder out = new StringBuilder();
+            Process p = process;
+            Thread reader = new Thread(() -> {
+                try (BufferedReader br = new BufferedReader(
+                        new InputStreamReader(p.getInputStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        out.append(line).append('\n');
+                    }
+                } catch (Exception ignored) {
+                }
+            }, "jstat-reader");
+            reader.setDaemon(true);
+            reader.start();
+
+            if (!process.waitFor(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return empty();
+            }
+            reader.join(500);
+            return parseOutput(out.toString().trim());
         } catch (Exception e) {
+            if (process != null) process.destroyForcibly();
             return empty();
         }
     }

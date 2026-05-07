@@ -91,14 +91,15 @@ public final class JdkNmtProvider implements NmtProvider {
             if (s.endsWith("KB")) {
                 return Long.parseLong(s.substring(0, s.length() - 2).replace(",", "").trim());
             } else if (s.endsWith("MB")) {
-                return Long.parseLong(s.substring(0, s.length() - 2).replace(",", "").trim()) * 1024;
+                return Long.parseLong(s.substring(0, s.length() - 2).replace(",", "").trim()) * 1024L;
             } else if (s.endsWith("GB")) {
                 // May be decimal: "4GB"
                 double gb = Double.parseDouble(s.substring(0, s.length() - 2).replace(",", "").trim());
-                return (long) (gb * 1024 * 1024);
+                return (long) (gb * 1024.0 * 1024.0);
             } else if (s.endsWith("TB")) {
                 double tb = Double.parseDouble(s.substring(0, s.length() - 2).replace(",", "").trim());
-                return (long) (tb * 1024 * 1024 * 1024);
+                // Force long arithmetic — `1024 * 1024 * 1024` overflows int to a negative value.
+                return (long) (tb * 1024.0 * 1024.0 * 1024.0);
             } else {
                 // plain bytes
                 long bytes = Long.parseLong(s.replace(",", "").trim());

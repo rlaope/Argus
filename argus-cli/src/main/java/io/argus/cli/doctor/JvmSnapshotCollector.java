@@ -50,13 +50,17 @@ public final class JvmSnapshotCollector {
 
         List<JvmSnapshot.GcInfo> gcInfos = new ArrayList<>();
         long totalGcCount = 0, totalGcTime = 0;
-        String gcAlgorithm = "";
+        String rawAlgorithm = "";
         for (GarbageCollectorMXBean gc : ManagementFactory.getGarbageCollectorMXBeans()) {
             gcInfos.add(new JvmSnapshot.GcInfo(gc.getName(), gc.getCollectionCount(), gc.getCollectionTime()));
             totalGcCount += gc.getCollectionCount();
             totalGcTime += gc.getCollectionTime();
-            if (gcAlgorithm.isEmpty()) gcAlgorithm = gc.getName();
+            if (rawAlgorithm.isEmpty()) rawAlgorithm = gc.getName();
         }
+        // Doctor rules expect canonical names (G1 / ZGC / Parallel / Serial / Shenandoah).
+        // MXBean names are descriptive ("G1 Young Generation"), so normalise here so local
+        // and remote paths agree.
+        String gcAlgorithm = canonicalGcAlgorithm(rawAlgorithm, rt.getInputArguments());
 
         double processCpu = -1, systemCpu = -1;
         int processors = Runtime.getRuntime().availableProcessors();
@@ -108,9 +112,19 @@ public final class JvmSnapshotCollector {
         try {
             String heapInfo = JcmdExecutor.execute(pid, "GC.heap_info");
             parseHeapInfo(heapInfo, pools);
+            // Total heap is the sum of pool-used, but capacity is summed too (G1 region max
+            // is per-region, not heap-wide — Math.max would have given < 1% of true capacity).
             for (var p : pools.values()) {
                 heapUsed += p.used();
-                if (p.max() > 0) heapMax = Math.max(heapMax, p.max());
+                if (p.max() > 0) heapMax += p.max();
+            }
+            // GC.heap_info also reports a top-line "garbage-first heap   total NK, used NK"; if
+            // present, prefer it (more accurate for ZGC where individual pools may not be exposed).
+            HeapTotals tt = parseHeapTotals(heapInfo);
+            if (tt != null) {
+                heapUsed = tt.usedBytes;
+                heapMax = tt.totalBytes;
+                heapCommitted = tt.totalBytes;
             }
         } catch (RuntimeException e) {
             warnings.get().add("GC.heap_info failed: " + e.getMessage());
@@ -211,7 +225,12 @@ public final class JvmSnapshotCollector {
                     String state = t.split(":\\s*")[1].split("\\s+")[0];
                     threadStates.merge(state, 1, Integer::sum);
                 }
-                if (t.contains("Found") && t.contains("deadlock")) {
+                // jstack/Thread.print emits one banner line per deadlock chain:
+                // "Found one Java-level deadlock:" — only the *header* line is signal.
+                // Per-thread "...waiting to lock..." entries below the header are NOT
+                // independent deadlocks. The chains within each banner all use the same
+                // sentence start, so we anchor on it.
+                if (t.startsWith("Found ") && t.contains("Java-level deadlock")) {
                     deadlockCount++;
                 }
             }
@@ -244,6 +263,45 @@ public final class JvmSnapshotCollector {
                 vmName, vmVersion, gcAlgorithm,
                 List.copyOf(vmFlags)
         );
+    }
+
+    /**
+     * Map raw collector / flag info to canonical algorithm name expected by Doctor rules.
+     */
+    private static String canonicalGcAlgorithm(String raw, List<String> vmArgs) {
+        // Prefer explicit user flags
+        for (String a : vmArgs) {
+            if (a.contains("UseZGC")) return "ZGC";
+            if (a.contains("UseG1GC")) return "G1";
+            if (a.contains("UseShenandoahGC")) return "Shenandoah";
+            if (a.contains("UseParallelGC") || a.contains("UseParallelOldGC")) return "Parallel";
+            if (a.contains("UseSerialGC")) return "Serial";
+        }
+        if (raw == null) return "unknown";
+        String l = raw.toLowerCase();
+        if (l.contains("zgc") || l.contains("z gc")) return "ZGC";
+        if (l.contains("g1")) return "G1";
+        if (l.contains("shenandoah")) return "Shenandoah";
+        if (l.contains("ps ") || l.contains("parallel")) return "Parallel";
+        if (l.contains("copy") || l.contains("marksweep") || l.contains("serial")) return "Serial";
+        return raw;
+    }
+
+    /** Heap-wide totals from the first summary line of GC.heap_info, if present. */
+    private record HeapTotals(long totalBytes, long usedBytes) {}
+
+    private static HeapTotals parseHeapTotals(String output) {
+        if (output == null) return null;
+        // e.g.: "garbage-first heap   total 524288K, used 65536K [0x..., 0x..., 0x...)"
+        Pattern total = Pattern.compile("total\\s+(\\d+)K.*used\\s+(\\d+)K");
+        for (String line : output.split("\n")) {
+            Matcher m = total.matcher(line.trim());
+            if (m.find()) {
+                return new HeapTotals(Long.parseLong(m.group(1)) * 1024L,
+                        Long.parseLong(m.group(2)) * 1024L);
+            }
+        }
+        return null;
     }
 
     private static void parseHeapInfo(String output, Map<String, JvmSnapshot.PoolInfo> pools) {

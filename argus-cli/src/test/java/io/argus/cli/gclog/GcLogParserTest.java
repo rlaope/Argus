@@ -66,19 +66,32 @@ class GcLogParserTest {
 
     @Test
     void parseDecoratedTimestamp() throws IOException {
-        String log = "[2024-01-15T10:30:45.123+0000][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 3.456ms\n";
+        // Two events 5s apart across an ISO baseline. The first event's relative time is 0
+        // (it IS the baseline); subsequent events are deltas. This semantics replaces the old
+        // seconds-of-day extraction which silently wrapped at midnight.
+        String log = """
+                [2024-01-15T10:30:45.123+0000][info][gc] GC(0) Pause Young (G1 Evacuation Pause) 24M->8M(256M) 3.456ms
+                [2024-01-15T10:30:50.123+0000][info][gc] GC(1) Pause Young (G1 Evacuation Pause) 32M->12M(256M) 5.123ms
+                """;
         Path file = tempDir.resolve("decorated.log");
         Files.writeString(file, log);
 
         List<GcEvent> events = GcLogParser.parse(file);
-        assertEquals(1, events.size());
-        assertTrue(events.getFirst().timestampSec() > 0);
+        assertEquals(2, events.size());
+        assertEquals(0.0, events.getFirst().timestampSec(), 0.001,
+                "first ISO event sets baseline → relative timestamp is zero");
+        assertEquals(5.0, events.getLast().timestampSec(), 0.5,
+                "second event is ~5s after the baseline");
     }
 
     @Test
     void parseShenandoahPause() throws IOException {
-        String log = "[0.500s][info][gc] GC(0) Pause Init Mark 0.123ms\n" +
-                     "[0.600s][info][gc] GC(1) Pause Final Mark 0.456ms\n";
+        // Real Shenandoah unified logs carry the [gc,shenandoah] tag; without that gate, a
+        // bare "Pause Init Mark" line (which G1 also emits in some configs) would misclassify.
+        String log = """
+                [0.500s][info][gc,shenandoah] GC(0) Pause Init Mark 0.123ms
+                [0.600s][info][gc,shenandoah] GC(1) Pause Final Mark 0.456ms
+                """;
         Path file = tempDir.resolve("shenandoah.log");
         Files.writeString(file, log);
 

@@ -4,10 +4,11 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Parses GC log files in multiple formats using streaming (no full-file load).
@@ -16,38 +17,8 @@ import java.util.regex.Pattern;
  */
 public final class GcLogParser {
 
-    // JDK 9+ unified with uptime: [0.234s] or decorated: [2024-01-15T10:30:45.123+0000]
-    private static final Pattern TIMESTAMP_UPTIME = Pattern.compile("\\[(\\d+\\.\\d+)s\\]");
-    private static final Pattern TIMESTAMP_ISO = Pattern.compile("\\[(\\d{4}-\\d{2}-\\d{2}T[\\d:.+]+)\\]");
-
-    // G1/Parallel/Serial pause: Pause Young|Mixed|Full (...) 24M->8M(256M) 3.456ms
-    private static final Pattern UNIFIED_PAUSE = Pattern.compile(
-            "GC\\(\\d+\\)\\s+Pause\\s+(\\S+(?:\\s+\\([^)]*\\))*)\\s+(\\d+)([MKG])->(\\d+)([MKG])\\((\\d+)([MKG])\\)\\s+(\\d+\\.?\\d*)ms");
-
-    // Unified pause with cause in parens: Pause Young (Normal) (G1 Evacuation Pause) ...
-    private static final Pattern UNIFIED_CAUSE = Pattern.compile("\\(([^)]+)\\)\\s+\\d+[MKG]->");
-
-    // ZGC: GC(0) Garbage Collection (Warmup) 128M(50%)->64M(25%)
-    private static final Pattern ZGC_PAUSE = Pattern.compile(
-            "GC\\(\\d+\\)\\s+Pause\\s+(\\w+)\\s+(\\d+\\.?\\d*)ms");
-    private static final Pattern ZGC_CYCLE = Pattern.compile(
-            "GC\\(\\d+\\)\\s+Garbage Collection\\s+\\(([^)]+)\\)\\s+(\\d+)([MKG])\\([^)]*\\)->(\\d+)([MKG])");
-
-    // Shenandoah: GC(0) Pause Init Mark 0.123ms | Pause Final Mark 0.456ms
-    private static final Pattern SHENANDOAH_PAUSE = Pattern.compile(
-            "GC\\(\\d+\\)\\s+Pause\\s+(Init Mark|Final Mark|Init Update|Final Update|Full).*?(\\d+\\.?\\d*)ms");
-
-    // JDK 8 legacy: 1.234: [GC (Allocation Failure) ... 65536K->8200K(251392K), 0.0123456 secs]
-    private static final Pattern LEGACY_GC = Pattern.compile(
-            "(\\d+\\.\\d+):\\s+\\[(Full )?GC\\s*\\(([^)]+)\\).*?(\\d+)K->(\\d+)K\\((\\d+)K\\),?\\s+(\\d+\\.\\d+)\\s+secs");
-
-    // JDK 9+ concurrent: GC(1) Concurrent Mark 12.345ms
-    private static final Pattern UNIFIED_CONCURRENT = Pattern.compile(
-            "GC\\(\\d+\\)\\s+Concurrent\\s+(\\S+)\\s+(\\d+\\.?\\d*)ms");
-
-    // JDK 17+ debug phase: [debug][gc,phases] GC(0) Pre Evacuate Collection Set: 0.1ms
-    private static final Pattern GC_PHASE = Pattern.compile(
-            "GC\\((\\d+)\\)\\s+(.+?):\\s+(\\d+\\.?\\d*)ms");
+    /** Sentinel returned when ISO timestamp is unparseable; events still get a relative position. */
+    private static final double TS_UNKNOWN = -1;
 
     /**
      * Result container for phase-aware parsing.
@@ -61,19 +32,13 @@ public final class GcLogParser {
     public static ParseResult parseWithPhases(Path logFile) throws IOException {
         List<GcEvent> events = new ArrayList<>();
         List<GcPhaseEvent> phases = new ArrayList<>();
-        boolean unified = false;
-        boolean formatDetected = false;
+        FormatState state = new FormatState();
 
         try (BufferedReader reader = Files.newBufferedReader(logFile)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (!formatDetected && !line.isBlank()) {
-                    unified = line.contains("[gc") || line.contains("[info]")
-                            || line.startsWith("[") && (line.contains("s]") || line.contains("T"));
-                    formatDetected = true;
-                }
+                state.detect(line);
 
-                // Phase lines: must contain gc,phases tag
                 if (line.contains("gc,phases")) {
                     GcPhaseEvent phase = parsePhraseLine(line);
                     if (phase != null) {
@@ -82,7 +47,7 @@ public final class GcLogParser {
                     }
                 }
 
-                GcEvent event = unified ? parseUnifiedLine(line) : parseLegacyLine(line);
+                GcEvent event = state.unified ? parseUnifiedLine(line, state) : parseLegacyLine(line);
                 if (event != null) events.add(event);
             }
         }
@@ -90,7 +55,7 @@ public final class GcLogParser {
     }
 
     private static GcPhaseEvent parsePhraseLine(String line) {
-        Matcher m = GC_PHASE.matcher(line);
+        Matcher m = GcLogPatterns.GC_PHASE.matcher(line);
         if (!m.find()) return null;
         int gcId = Integer.parseInt(m.group(1));
         String phase = m.group(2).trim();
@@ -103,33 +68,47 @@ public final class GcLogParser {
      */
     public static List<GcEvent> parse(Path logFile) throws IOException {
         List<GcEvent> events = new ArrayList<>();
-        boolean unified = false;
-        boolean formatDetected = false;
+        FormatState state = new FormatState();
 
         try (BufferedReader reader = Files.newBufferedReader(logFile)) {
             String line;
             while ((line = reader.readLine()) != null) {
-                // Auto-detect format from first non-empty line
-                if (!formatDetected && !line.isBlank()) {
-                    unified = line.contains("[gc") || line.contains("[info]")
-                            || line.startsWith("[") && (line.contains("s]") || line.contains("T"));
-                    formatDetected = true;
-                }
-
-                GcEvent event = unified ? parseUnifiedLine(line) : parseLegacyLine(line);
+                state.detect(line);
+                GcEvent event = state.unified ? parseUnifiedLine(line, state) : parseLegacyLine(line);
                 if (event != null) events.add(event);
             }
         }
         return events;
     }
 
-    private static GcEvent parseUnifiedLine(String line) {
-        // Extract timestamp
-        double timestamp = extractTimestamp(line);
-        if (timestamp < 0) return null;
+    /** Tracks per-file format detection plus monotonic timestamp baseline for ISO logs. */
+    static final class FormatState {
+        boolean unified;
+        boolean detected;
+        // ISO baseline: first parsed ISO Instant (epoch seconds, double); used to keep timestamps monotonic
+        // across midnight boundaries.
+        double isoEpochBaseline = Double.NaN;
+
+        void detect(String line) {
+            if (detected || line.isBlank()) return;
+            // Concrete features only — bracketed [info] or [gc,XXX] tag, or `[N.NNNs]` uptime, or `Ns]` legacy suffix.
+            // Avoid the false-positive "[info]" alone (JDK 8 wrappers may include it).
+            String s = line;
+            boolean hasUnifiedTag = s.contains("[gc]") || s.contains("[gc,") || s.contains("[gc ");
+            boolean hasUptimeBracket = GcLogPatterns.TIMESTAMP_UPTIME.matcher(s).find();
+            boolean hasIsoBracket = GcLogPatterns.TIMESTAMP_ISO.matcher(s).find();
+            boolean looksLegacy = s.matches(".*\\d+\\.\\d+:\\s+\\[(Full )?GC.*");
+            unified = (hasUnifiedTag || hasUptimeBracket || hasIsoBracket) && !looksLegacy;
+            detected = true;
+        }
+    }
+
+    private static GcEvent parseUnifiedLine(String line, FormatState state) {
+        double timestamp = extractTimestamp(line, state);
+        if (timestamp == TS_UNKNOWN) return null;
 
         // Try G1/Parallel/Serial pause
-        Matcher m = UNIFIED_PAUSE.matcher(line);
+        Matcher m = GcLogPatterns.UNIFIED_PAUSE.matcher(line);
         if (m.find()) {
             String type = m.group(1).trim();
             long heapBefore = toKB(Long.parseLong(m.group(2)), m.group(3));
@@ -137,41 +116,43 @@ public final class GcLogParser {
             long heapTotal = toKB(Long.parseLong(m.group(6)), m.group(7));
             double pauseMs = Double.parseDouble(m.group(8));
 
-            // Extract cause from parenthesized groups
-            String cause = "";
-            Matcher cm = UNIFIED_CAUSE.matcher(line);
-            if (cm.find()) cause = cm.group(1).trim();
+            // The greedy `type` capture often eats embedded "(Normal)" qualifiers.
+            // Pull the LAST parenthesised group before the heap delta as the cause —
+            // that's the GC trigger (e.g. "G1 Evacuation Pause", "Humongous Allocation").
+            String cause = extractLastCause(line, m.start(2));
+            // Strip trailing parenthesised modifiers from the type once we have the cause.
+            type = stripParens(type);
 
             return new GcEvent(timestamp, type, cause, pauseMs, heapBefore, heapAfter, heapTotal);
         }
 
-        // Try ZGC pause
-        Matcher zm = ZGC_PAUSE.matcher(line);
-        if (zm.find() && line.contains("ZGC")) {
+        // ZGC pause — gated to actual ZGC logs
+        Matcher zm = GcLogPatterns.ZGC_PAUSE.matcher(line);
+        if (zm.find() && lineMentions(line, "ZGC")) {
             String type = "ZGC Pause " + zm.group(1);
             double pauseMs = Double.parseDouble(zm.group(2));
             return new GcEvent(timestamp, type, "ZGC", pauseMs, 0, 0, 0);
         }
 
-        // Try ZGC cycle (not a pause but useful for analysis)
-        Matcher zcm = ZGC_CYCLE.matcher(line);
-        if (zcm.find()) {
+        // ZGC cycle (informational, no pause)
+        Matcher zcm = GcLogPatterns.ZGC_CYCLE.matcher(line);
+        if (zcm.find() && lineMentions(line, "ZGC", "Garbage Collection")) {
             String cause = zcm.group(1);
             long heapBefore = toKB(Long.parseLong(zcm.group(2)), zcm.group(3));
             long heapAfter = toKB(Long.parseLong(zcm.group(4)), zcm.group(5));
             return new GcEvent(timestamp, "ZGC Cycle", cause, 0, heapBefore, heapAfter, 0);
         }
 
-        // Try Shenandoah pause
-        Matcher sm = SHENANDOAH_PAUSE.matcher(line);
-        if (sm.find()) {
+        // Shenandoah pause — gated; otherwise generic G1 phases like "Pause Init Mark" misclassify.
+        Matcher sm = GcLogPatterns.SHENANDOAH_PAUSE.matcher(line);
+        if (sm.find() && lineMentions(line, "shenandoah")) {
             String type = "Shenandoah " + sm.group(1);
             double pauseMs = Double.parseDouble(sm.group(2));
             return new GcEvent(timestamp, type, "Shenandoah", pauseMs, 0, 0, 0);
         }
 
-        // Try concurrent phase
-        Matcher cm = UNIFIED_CONCURRENT.matcher(line);
+        // Concurrent phase
+        Matcher cm = GcLogPatterns.UNIFIED_CONCURRENT.matcher(line);
         if (cm.find()) {
             double durationMs = Double.parseDouble(cm.group(2));
             return new GcEvent(timestamp, "Concurrent " + cm.group(1), "Concurrent", durationMs, 0, 0, 0);
@@ -181,12 +162,12 @@ public final class GcLogParser {
     }
 
     private static GcEvent parseLegacyLine(String line) {
-        Matcher m = LEGACY_GC.matcher(line);
+        Matcher m = GcLogPatterns.LEGACY_GC.matcher(line);
         if (!m.find()) return null;
 
         double timestamp = Double.parseDouble(m.group(1));
         boolean full = m.group(2) != null;
-        String cause = m.group(3).trim();
+        String cause = m.group(3) != null ? m.group(3).trim() : "";
         long heapBefore = Long.parseLong(m.group(4));
         long heapAfter = Long.parseLong(m.group(5));
         long heapTotal = Long.parseLong(m.group(6));
@@ -195,36 +176,64 @@ public final class GcLogParser {
         return new GcEvent(timestamp, full ? "Full" : "Young", cause, pauseMs, heapBefore, heapAfter, heapTotal);
     }
 
-    private static double extractTimestamp(String line) {
-        Matcher m = TIMESTAMP_UPTIME.matcher(line);
+    /**
+     * ISO timestamps are converted to seconds since the first event in the log
+     * (relative time), preventing midnight wrap. Uptime stays as-is (it's already relative).
+     */
+    private static double extractTimestamp(String line, FormatState state) {
+        Matcher m = GcLogPatterns.TIMESTAMP_UPTIME.matcher(line);
         if (m.find()) return Double.parseDouble(m.group(1));
 
-        // ISO timestamp — convert to seconds since epoch (approximate, relative is fine)
-        Matcher im = TIMESTAMP_ISO.matcher(line);
+        Matcher im = GcLogPatterns.TIMESTAMP_ISO.matcher(line);
         if (im.find()) {
             try {
-                // Use simple heuristic: parse hours+minutes+seconds from ISO
-                String iso = im.group(1);
-                int tIdx = iso.indexOf('T');
-                if (tIdx > 0) {
-                    String timePart = iso.substring(tIdx + 1);
-                    String[] parts = timePart.split("[:+]");
-                    if (parts.length >= 3) {
-                        return Double.parseDouble(parts[0]) * 3600
-                                + Double.parseDouble(parts[1]) * 60
-                                + Double.parseDouble(parts[2]);
-                    }
+                // OffsetDateTime requires the offset's colon ("+00:00"). Many JVM logs emit
+                // RFC 822-style "+0000". Normalise both forms here.
+                String iso = im.group(1).replaceAll("([+-]\\d{2})(\\d{2})$", "$1:$2");
+                double epochSec = OffsetDateTime.parse(iso).toInstant().toEpochMilli() / 1000.0;
+                if (Double.isNaN(state.isoEpochBaseline)) {
+                    state.isoEpochBaseline = epochSec;
                 }
-            } catch (Exception ignored) {}
+                return epochSec - state.isoEpochBaseline;
+            } catch (DateTimeParseException ignored) {
+                return 0; // unparseable but still ordered relative to other events
+            }
         }
-        return -1;
+        return TS_UNKNOWN;
+    }
+
+    /**
+     * Pull the cause group: the last parenthesised group before the byte delta.
+     * Returns "" if none present.
+     */
+    private static String extractLastCause(String line, int beforeIndex) {
+        int searchEnd = Math.min(line.length(), beforeIndex);
+        int lastClose = line.lastIndexOf(')', searchEnd - 1);
+        if (lastClose < 0) return "";
+        int matching = line.lastIndexOf('(', lastClose - 1);
+        if (matching < 0) return "";
+        return line.substring(matching + 1, lastClose).trim();
+    }
+
+    private static String stripParens(String type) {
+        int paren = type.indexOf('(');
+        return paren > 0 ? type.substring(0, paren).trim() : type.trim();
+    }
+
+    private static boolean lineMentions(String line, String... tokens) {
+        String lower = line.toLowerCase();
+        for (String t : tokens) {
+            if (!lower.contains(t.toLowerCase())) return false;
+        }
+        return true;
     }
 
     private static long toKB(long value, String unit) {
         return switch (unit) {
             case "K" -> value;
-            case "M" -> value * 1024;
-            case "G" -> value * 1024 * 1024;
+            case "M" -> value * 1024L;
+            case "G" -> value * 1024L * 1024L;
+            case "T" -> value * 1024L * 1024L * 1024L;
             default -> value;
         };
     }

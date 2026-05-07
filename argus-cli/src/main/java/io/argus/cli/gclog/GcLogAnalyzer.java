@@ -28,15 +28,18 @@ public final class GcLogAnalyzer {
             }
         }
 
-        // Duration
-        double firstTs = events.getFirst().timestampSec();
-        double lastTs = events.getLast().timestampSec();
+        // Duration — derive from min/max so out-of-order events (or wrapped ISO baselines) don't fold to 0.
+        double firstTs = events.stream().mapToDouble(GcEvent::timestampSec).min().orElse(0);
+        double lastTs = events.stream().mapToDouble(GcEvent::timestampSec).max().orElse(0);
         double durationSec = Math.max(lastTs - firstTs, 0.001);
 
-        // Pause stats
-        long totalPauseMs = (long) pauseEvents.stream().mapToDouble(GcEvent::pauseMs).sum();
-        long maxPauseMs = (long) pauseEvents.stream().mapToDouble(GcEvent::pauseMs).max().orElse(0);
-        long avgPauseMs = pauseEvents.isEmpty() ? 0 : totalPauseMs / pauseEvents.size();
+        // Pause stats — keep totals as double; sub-millisecond pauses (ZGC/Shenandoah)
+        // would otherwise truncate to 0 in long arithmetic.
+        double totalPauseMsD = pauseEvents.stream().mapToDouble(GcEvent::pauseMs).sum();
+        double maxPauseMsD = pauseEvents.stream().mapToDouble(GcEvent::pauseMs).max().orElse(0);
+        long totalPauseMs = Math.round(totalPauseMsD);
+        long maxPauseMs = Math.round(maxPauseMsD);
+        long avgPauseMs = pauseEvents.isEmpty() ? 0 : Math.round(totalPauseMsD / pauseEvents.size());
 
         // Percentiles
         double[] sortedPauses = pauseEvents.stream().mapToDouble(GcEvent::pauseMs).sorted().toArray();
@@ -64,9 +67,11 @@ public final class GcLogAnalyzer {
                 .sorted((a, b) -> Integer.compare(b.getValue().size(), a.getValue().size()))
                 .forEach(entry -> {
                     List<GcEvent> ces = entry.getValue();
-                    long total = (long) ces.stream().mapToDouble(GcEvent::pauseMs).sum();
-                    long max = (long) ces.stream().mapToDouble(GcEvent::pauseMs).max().orElse(0);
-                    long avg = total / ces.size();
+                    double totalD = ces.stream().mapToDouble(GcEvent::pauseMs).sum();
+                    double maxD = ces.stream().mapToDouble(GcEvent::pauseMs).max().orElse(0);
+                    long total = Math.round(totalD);
+                    long max = Math.round(maxD);
+                    long avg = Math.round(totalD / ces.size());
                     causeStats.put(entry.getKey(), new GcLogAnalysis.CauseStats(
                             entry.getKey(), ces.size(), total, max, avg));
                 });
