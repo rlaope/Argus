@@ -5,6 +5,7 @@ import io.argus.cli.config.Messages;
 import io.argus.cli.gclog.GcEvent;
 import io.argus.cli.gclog.GcLogParser;
 import io.argus.cli.gcwhy.GcWhyAnalyzer;
+import io.argus.cli.gcwhy.GcWhyJfrCollector;
 import io.argus.cli.gcwhy.GcWhyResult;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
@@ -20,12 +21,18 @@ import java.util.Map;
 /**
  * Narrates why the worst GC pause in a time window happened.
  *
- * <p>Usage: {@code argus gcwhy <gc-log-file> [--last=5m] [--format=json]}
+ * <p>File form: {@code argus gcwhy <gc-log-file> [--last=5m] [--format=json]}
+ * <p>Live form:  {@code argus gcwhy <pid> [--duration=30] [--last=Ns] [--format=json]}
+ *
+ * <p>The first argument is treated as a PID when it consists entirely of digits
+ * (no file-separator characters). Otherwise it is treated as a GC log file path.
  */
 public final class GcWhyCommand implements Command {
 
     private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
     private static final double DEFAULT_WINDOW_SEC = 5 * 60.0;
+    private static final int DEFAULT_DURATION_SEC = 30;
+    private static final String JFR_RECORDING_NAME = "gcwhy-argus";
 
     @Override public String name() { return "gcwhy"; }
     @Override public CommandGroup group() { return CommandGroup.MEMORY; }
@@ -40,23 +47,56 @@ public final class GcWhyCommand implements Command {
     @Override
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
         if (args.length == 0) {
-            System.err.println("Usage: argus gcwhy <gc-log-file> [--last=5m] [--format=json]");
+            System.err.println("Usage: argus gcwhy <gc-log-file|pid> [--duration=30] [--last=5m] [--format=json]");
             return;
         }
 
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
         double windowSec = DEFAULT_WINDOW_SEC;
+        int durationSec = DEFAULT_DURATION_SEC;
 
         for (int i = 1; i < args.length; i++) {
-            if (args[i].equals("--format=json")) json = true;
-            else if (args[i].startsWith("--last=")) {
-                Double parsed = parseDuration(args[i].substring(7));
+            String arg = args[i];
+            if (arg.equals("--format=json")) {
+                json = true;
+            } else if (arg.startsWith("--last=")) {
+                Double parsed = parseDuration(arg.substring(7));
                 if (parsed != null) windowSec = parsed;
+            } else if (arg.startsWith("--duration=")) {
+                try { durationSec = Integer.parseInt(arg.substring(11)); } catch (NumberFormatException ignored) {}
             }
         }
 
-        Path logFile = Path.of(args[0]);
+        String firstArg = args[0];
+        if (isPid(firstArg)) {
+            long pid = Long.parseLong(firstArg);
+            executeLive(pid, durationSec, windowSec, json, useColor, messages);
+        } else {
+            executeFile(firstArg, windowSec, json, useColor, messages);
+        }
+    }
+
+    // ── PID detection ────────────────────────────────────────────────────────
+
+    /**
+     * Returns true when the argument is a pure numeric token with no file-separator
+     * characters — i.e. it looks like a PID, not a path.
+     */
+    private static boolean isPid(String arg) {
+        if (arg == null || arg.isEmpty()) return false;
+        if (arg.contains("/") || arg.contains("\\") || arg.contains(".")) return false;
+        for (int i = 0; i < arg.length(); i++) {
+            if (!Character.isDigit(arg.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    // ── File form ────────────────────────────────────────────────────────────
+
+    private void executeFile(String filePath, double windowSec, boolean json,
+                             boolean useColor, Messages messages) {
+        Path logFile = Path.of(filePath);
         if (!Files.exists(logFile)) {
             System.err.println("File not found: " + logFile);
             return;
@@ -74,6 +114,91 @@ public final class GcWhyCommand implements Command {
             return;
         }
 
+        renderResult(events, windowSec, json, useColor, messages);
+    }
+
+    // ── Live JFR form ────────────────────────────────────────────────────────
+
+    private void executeLive(long pid, int durationSec, double windowSec,
+                             boolean json, boolean useColor, Messages messages) {
+        Path tmpFile = null;
+        try {
+            tmpFile = Files.createTempFile("argus-gcwhy-" + pid + "-", ".jfr");
+            String jfrPath = tmpFile.toAbsolutePath().toString();
+
+            System.out.println("  " + messages.get("gcwhy.live.capturing", String.valueOf(pid), String.valueOf(durationSec)));
+
+            // Start JFR recording on the target JVM. Do NOT pass `duration=`: with that flag
+            // the JVM auto-stops + finalises the recording at the deadline, racing our explicit
+            // JFR.dump and yielding an empty file. We control timing by sleeping then stopping.
+            String startOut = runJcmd(pid, "JFR.start",
+                    "name=" + JFR_RECORDING_NAME,
+                    "settings=default");
+            if (startOut == null) {
+                System.err.println("Failed to start JFR recording. Ensure jcmd is available and the JVM is accessible.");
+                return;
+            }
+            if (startOut.contains("Could not") || startOut.toLowerCase().contains("error")) {
+                System.err.println("JFR.start failed: " + startOut.trim());
+                return;
+            }
+
+            // Wait for the recording to complete.
+            try {
+                Thread.sleep((long) durationSec * 1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                System.err.println("Interrupted while waiting for JFR recording.");
+                return;
+            }
+
+            // Dump and stop.
+            String dumpOut = runJcmd(pid, "JFR.dump",
+                    "name=" + JFR_RECORDING_NAME,
+                    "filename=" + jfrPath);
+            if (dumpOut == null || dumpOut.contains("Could not") || dumpOut.toLowerCase().contains("error")) {
+                System.err.println("JFR.dump failed: " + (dumpOut != null ? dumpOut.trim() : "no output"));
+                return;
+            }
+            runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
+
+            if (!Files.exists(tmpFile) || Files.size(tmpFile) == 0) {
+                System.err.println("JFR file is empty or was not created. The JVM may not support JFR recording.");
+                return;
+            }
+
+            // Parse JFR into GcEvent list using the same window that applies to file form.
+            List<GcEvent> events;
+            try {
+                events = GcWhyJfrCollector.collect(tmpFile);
+            } catch (IOException e) {
+                System.err.println("Failed to parse JFR recording: " + e.getMessage());
+                return;
+            }
+
+            if (events.isEmpty()) {
+                System.err.println("No GC events captured in the " + durationSec + "s recording window.");
+                return;
+            }
+
+            renderResult(events, windowSec, json, useColor, messages);
+
+        } catch (IOException e) {
+            System.err.println("Failed to capture live GC data for PID " + pid + ": " + e.getMessage());
+            if (Boolean.getBoolean("argus.debug") || System.getenv("ARGUS_DEBUG") != null) {
+                e.printStackTrace();
+            }
+        } finally {
+            if (tmpFile != null) {
+                try { Files.deleteIfExists(tmpFile); } catch (IOException ignored) {}
+            }
+        }
+    }
+
+    // ── Shared render path ───────────────────────────────────────────────────
+
+    private static void renderResult(List<GcEvent> events, double windowSec,
+                                     boolean json, boolean useColor, Messages messages) {
         GcWhyResult result = GcWhyAnalyzer.analyze(events, windowSec);
         if (result.cause().isEmpty() && result.pauseMs() == 0) {
             System.err.println("No qualifying pause event found in the last " + formatWindow(windowSec));
@@ -82,9 +207,30 @@ public final class GcWhyCommand implements Command {
 
         if (json) {
             printJson(result);
-            return;
+        } else {
+            printReport(result, useColor, messages, windowSec);
         }
-        printReport(result, useColor, messages, windowSec);
+    }
+
+    // ── jcmd execution ───────────────────────────────────────────────────────
+
+    /** Runs {@code jcmd <pid> <command> [args...]} and returns stdout, or null on failure. */
+    private static String runJcmd(long pid, String command, String... extraArgs) {
+        try {
+            String[] fullCmd = new String[3 + extraArgs.length];
+            fullCmd[0] = "jcmd";
+            fullCmd[1] = String.valueOf(pid);
+            fullCmd[2] = command;
+            System.arraycopy(extraArgs, 0, fullCmd, 3, extraArgs.length);
+            ProcessBuilder pb = new ProcessBuilder(fullCmd);
+            pb.redirectErrorStream(true);
+            Process proc = pb.start();
+            String out = new String(proc.getInputStream().readAllBytes());
+            proc.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
+            return out;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     // ── Rendering ───────────────────────────────────────────────────────────

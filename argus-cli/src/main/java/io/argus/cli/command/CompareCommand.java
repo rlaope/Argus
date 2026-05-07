@@ -4,6 +4,8 @@ import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.doctor.JvmSnapshot;
 import io.argus.cli.doctor.JvmSnapshotCollector;
+import io.argus.cli.model.NmtBaseline;
+import io.argus.cli.model.NmtResult;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
@@ -12,6 +14,7 @@ import io.argus.core.command.CommandGroup;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 /**
  * Compare two JVM processes side by side, or compare against a saved baseline.
@@ -70,7 +73,8 @@ public final class CompareCommand implements Command {
         // Save mode
         if (savePath != null && pid1 > 0) {
             JvmSnapshot snap = JvmSnapshotCollector.collect(pid1);
-            String jsonStr = snapshotToJson(snap);
+            NmtResult nmtSnap = collectNmt(pid1, registry);
+            String jsonStr = snapshotToJson(snap, nmtSnap);
             try {
                 Files.writeString(Path.of(savePath), jsonStr);
                 System.out.println("Saved baseline to: " + savePath);
@@ -85,12 +89,23 @@ public final class CompareCommand implements Command {
         JvmSnapshot snapB;
         String labelA, labelB;
 
+        NmtResult liveNmt = null;
+        NmtResult baselineNmt = null;
+
         if (loadPath != null) {
             snapA = JvmSnapshotCollector.collect(pid1);
             snapB = loadBaseline(loadPath);
             labelA = "Live (pid:" + pid1 + ")";
             labelB = "Baseline";
             if (snapB == null) return;
+            baselineNmt = loadBaselineNmt(loadPath);
+            if (baselineNmt != null) {
+                liveNmt = collectNmt(pid1, registry);
+                if (liveNmt != null && liveNmt.totalReservedKB() == 0 && liveNmt.categories().isEmpty()) {
+                    System.err.println("Warning: NMT disabled on live JVM — skipping native memory diff.");
+                    liveNmt = null;
+                }
+            }
         } else if (pid1 > 0 && pid2 > 0) {
             snapA = JvmSnapshotCollector.collect(pid1);
             snapB = JvmSnapshotCollector.collect(pid2);
@@ -106,10 +121,11 @@ public final class CompareCommand implements Command {
             return;
         }
 
-        printRich(snapA, snapB, labelA, labelB, useColor);
+        printRich(snapA, snapB, labelA, labelB, useColor, baselineNmt, liveNmt);
     }
 
-    private void printRich(JvmSnapshot a, JvmSnapshot b, String labelA, String labelB, boolean c) {
+    private void printRich(JvmSnapshot a, JvmSnapshot b, String labelA, String labelB, boolean c,
+                           NmtResult baselineNmt, NmtResult liveNmt) {
         System.out.print(RichRenderer.brandedHeader(c, "compare",
                 "Side-by-side JVM comparison"));
         System.out.println(RichRenderer.boxHeader(c, "JVM Comparison", WIDTH,
@@ -168,6 +184,34 @@ public final class CompareCommand implements Command {
         row(c, "Loaded Classes", String.valueOf(a.loadedClassCount()), String.valueOf(b.loadedClassCount()),
                 delta(a.loadedClassCount(), b.loadedClassCount()));
 
+        // NMT diff section — only when both baseline and current have NMT data
+        if (baselineNmt != null && liveNmt != null) {
+            System.out.println(RichRenderer.emptyLine(WIDTH));
+            System.out.println(RichRenderer.boxLine(
+                    "  " + AnsiStyle.style(c, AnsiStyle.BOLD) + "Native Memory (NMT)"
+                    + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+            System.out.println(RichRenderer.boxSeparator(WIDTH));
+
+            NmtBaseline nmtBase = new NmtBaseline(0, baselineNmt);
+            List<NmtBaseline.DiffRow> nmtRows = NmtBaseline.diff(nmtBase, liveNmt);
+            nmtRows.sort((x, y) -> Long.compare(Math.abs(y.committedDeltaKB()), Math.abs(x.committedDeltaKB())));
+
+            // Total row
+            long totalDelta = liveNmt.totalCommittedKB() - baselineNmt.totalCommittedKB();
+            row(c, "Total Reserved", fmtKB(liveNmt.totalReservedKB()), fmtKB(baselineNmt.totalReservedKB()),
+                    deltaKB(liveNmt.totalReservedKB(), baselineNmt.totalReservedKB()));
+            row(c, "Total Committed", fmtKB(liveNmt.totalCommittedKB()), fmtKB(baselineNmt.totalCommittedKB()),
+                    deltaKBSigned(totalDelta));
+
+            // Per-category rows (only changed)
+            for (NmtBaseline.DiffRow dr : nmtRows) {
+                if (dr.committedDeltaKB() == 0) continue;
+                row(c, "  " + RichRenderer.truncate(dr.name(), 18),
+                        fmtKB(dr.curCommittedKB()), fmtKB(dr.baseCommittedKB()),
+                        deltaKBSigned(dr.committedDeltaKB()));
+            }
+        }
+
         System.out.println(RichRenderer.emptyLine(WIDTH));
         System.out.println(RichRenderer.boxFooter(c, null, WIDTH));
     }
@@ -209,18 +253,120 @@ public final class CompareCommand implements Command {
 
     private static String pct(double v) { return String.format("%.1f%%", v); }
 
-    private String snapshotToJson(JvmSnapshot s) {
-        return "{\"heapUsed\":" + s.heapUsed()
-                + ",\"heapMax\":" + s.heapMax()
-                + ",\"gcOverhead\":" + s.gcOverheadPercent()
-                + ",\"gcCount\":" + s.totalGcCount()
-                + ",\"gcAlgorithm\":\"" + s.gcAlgorithm() + "\""
-                + ",\"cpuLoad\":" + s.processCpuLoad()
-                + ",\"threadCount\":" + s.threadCount()
-                + ",\"blockedThreads\":" + s.blockedThreads()
-                + ",\"deadlockedThreads\":" + s.deadlockedThreads()
-                + ",\"loadedClasses\":" + s.loadedClassCount()
-                + "}";
+    String snapshotToJson(JvmSnapshot s, NmtResult nmt) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("{\"heapUsed\":").append(s.heapUsed())
+          .append(",\"heapMax\":").append(s.heapMax())
+          .append(",\"gcOverhead\":").append(s.gcOverheadPercent())
+          .append(",\"gcCount\":").append(s.totalGcCount())
+          .append(",\"gcAlgorithm\":\"").append(s.gcAlgorithm()).append('"')
+          .append(",\"cpuLoad\":").append(s.processCpuLoad())
+          .append(",\"threadCount\":").append(s.threadCount())
+          .append(",\"blockedThreads\":").append(s.blockedThreads())
+          .append(",\"deadlockedThreads\":").append(s.deadlockedThreads())
+          .append(",\"loadedClasses\":").append(s.loadedClassCount());
+        if (nmt != null) {
+            sb.append(",\"nmt\":{")
+              .append("\"totalReservedKB\":").append(nmt.totalReservedKB())
+              .append(",\"totalCommittedKB\":").append(nmt.totalCommittedKB())
+              .append(",\"categories\":[");
+            boolean first = true;
+            for (NmtResult.NmtCategory cat : nmt.categories()) {
+                if (!first) sb.append(',');
+                sb.append("{\"name\":\"").append(escapeJson(cat.name())).append('"')
+                  .append(",\"reservedKB\":").append(cat.reservedKB())
+                  .append(",\"committedKB\":").append(cat.committedKB())
+                  .append('}');
+                first = false;
+            }
+            sb.append("]}");
+        }
+        sb.append('}');
+        return sb.toString();
+    }
+
+    /** Parse the "nmt" block from a saved baseline JSON, or null if absent. */
+    static NmtResult loadBaselineNmt(String path) {
+        try {
+            String json = Files.readString(Path.of(path));
+            int nmtIdx = json.indexOf("\"nmt\":");
+            if (nmtIdx < 0) return null;
+            int objStart = json.indexOf('{', nmtIdx + 6);
+            if (objStart < 0) return null;
+            // Find matching closing brace for the nmt object
+            int depth = 0;
+            int objEnd = -1;
+            for (int i = objStart; i < json.length(); i++) {
+                char ch = json.charAt(i);
+                if (ch == '{') depth++;
+                else if (ch == '}' && --depth == 0) { objEnd = i; break; }
+            }
+            if (objEnd < 0) return null;
+            String nmtJson = json.substring(objStart, objEnd + 1);
+            long totalRes = jsonLong(nmtJson, "totalReservedKB");
+            long totalCom = jsonLong(nmtJson, "totalCommittedKB");
+            java.util.List<NmtResult.NmtCategory> cats = parseNmtCategories(nmtJson);
+            return new NmtResult(totalRes, totalCom, cats);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static java.util.List<NmtResult.NmtCategory> parseNmtCategories(String nmtJson) {
+        java.util.List<NmtResult.NmtCategory> out = new java.util.ArrayList<>();
+        java.util.regex.Pattern obj = java.util.regex.Pattern.compile(
+                "\\{\\s*\"name\"\\s*:\\s*\"([^\"]*)\"\\s*,\\s*\"reservedKB\"\\s*:\\s*(\\d+)\\s*,\\s*\"committedKB\"\\s*:\\s*(\\d+)\\s*}");
+        java.util.regex.Matcher m = obj.matcher(nmtJson);
+        while (m.find()) {
+            out.add(new NmtResult.NmtCategory(m.group(1),
+                    Long.parseLong(m.group(2)), Long.parseLong(m.group(3))));
+        }
+        return out;
+    }
+
+    /** Collect NMT from live JVM; returns null if no NMT provider available. */
+    private static NmtResult collectNmt(long pid, ProviderRegistry registry) {
+        var provider = registry.findNmtProvider(pid, null);
+        if (provider == null) return null;
+        try {
+            return provider.getNativeMemory(pid);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String fmtKB(long kb) {
+        if (kb <= 0) return "0K";
+        if (kb < 1024) return kb + "K";
+        if (kb < 1024 * 1024) return String.format("%.1fM", kb / 1024.0);
+        return String.format("%.1fG", kb / (1024.0 * 1024));
+    }
+
+    private static String deltaKB(long a, long b) {
+        if (a == b) return "—";
+        long diff = a - b;
+        return (diff > 0 ? "+" : "") + diff + "K";
+    }
+
+    private static String deltaKBSigned(long deltaKB) {
+        if (deltaKB == 0) return "—";
+        return (deltaKB > 0 ? "+" : "") + deltaKB + "K";
+    }
+
+    private static String escapeJson(String s) {
+        StringBuilder sb = new StringBuilder(s.length());
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"' -> sb.append("\\\"");
+                case '\\' -> sb.append("\\\\");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                default -> { if (c < 0x20) sb.append(String.format("\\u%04x", (int) c)); else sb.append(c); }
+            }
+        }
+        return sb.toString();
     }
 
     private JvmSnapshot loadBaseline(String path) {
