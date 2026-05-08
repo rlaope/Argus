@@ -215,7 +215,7 @@ public final class CorrelationAnalyzer {
 
     private void trimList(List<?> list) {
         while (list.size() > MAX_CORRELATIONS) {
-            list.removeFirst();
+            list.remove(0);
         }
     }
 

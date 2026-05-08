@@ -51,7 +51,7 @@ public final class ThreadEventsBuffer {
 
         // Limit events per thread
         while (events.size() > maxEventsPerThread) {
-            events.removeFirst();
+            events.remove(0);
         }
 
         // Limit total threads tracked (remove oldest if needed)

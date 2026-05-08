@@ -114,19 +114,18 @@ public class ArgusAutoConfiguration implements DisposableBean {
                 config.isCorrelationEnabled(),
                 config
         );
-        Thread.ofPlatform()
-                .name("argus-server")
-                .daemon(true)
-                .start(() -> {
-                    try {
-                        server.start();
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    } catch (Exception e) {
-                        System.getLogger(ArgusAutoConfiguration.class.getName())
-                                .log(System.Logger.Level.ERROR, "Argus server failed to start", e);
-                    }
-                });
+        Thread serverThread = new Thread(() -> {
+            try {
+                server.start();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                System.getLogger(ArgusAutoConfiguration.class.getName())
+                        .log(System.Logger.Level.ERROR, "Argus server failed to start", e);
+            }
+        }, "argus-server");
+        serverThread.setDaemon(true);
+        serverThread.start();
         return server;
     }
 

@@ -41,7 +41,7 @@ public final class RecentEventsBuffer {
     public void add(String eventJson) {
         recentEvents.addLast(eventJson);
         while (recentEvents.size() > maxSize) {
-            recentEvents.removeFirst();
+            recentEvents.remove(0);
         }
     }
 
