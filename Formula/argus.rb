@@ -2,7 +2,7 @@ class Argus < Formula
   desc "JVM diagnostic toolkit — 66 commands, health diagnosis, GC analysis, profiling, interactive TUI"
   homepage "https://github.com/rlaope/Argus"
   url "https://github.com/rlaope/Argus/releases/download/v1.2.1/argus-cli-1.2.1-all.jar"
-  sha256 "5f83e90741a7c191636cd6a7089ae7f95a0d86f6b79d0ea8b3068d5ef63b1f6f"
+  sha256 "f0bb79ef3a599c206fa26a86012b9e0f4236d7750a2b789652472ea8aaf3d0ee"
   license "Apache-2.0"
 
   depends_on "openjdk@21"
