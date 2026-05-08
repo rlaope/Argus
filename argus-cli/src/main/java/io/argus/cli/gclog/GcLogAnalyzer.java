@@ -3,6 +3,7 @@ package io.argus.cli.gclog;
 import io.argus.cli.render.RichRenderer;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Analyzes parsed GC events and produces statistics, cause breakdown,
@@ -115,7 +116,7 @@ public final class GcLogAnalyzer {
         // Allocation Stall summary (ZGC only)
         List<GcEvent> stallEvents = events.stream()
                 .filter(e -> "ZGC Allocation Stall".equals(e.type()))
-                .toList();
+                .collect(Collectors.toList());
         GcLogAnalysis.AllocationStallSummary stallSummary = null;
         if (!stallEvents.isEmpty()) {
             double stallTotal = stallEvents.stream().mapToDouble(GcEvent::pauseMs).sum();

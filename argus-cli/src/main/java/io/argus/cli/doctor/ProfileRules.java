@@ -6,6 +6,7 @@ import io.argus.cli.model.ProfileSnapshot;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Profile-based diagnostic rules that analyse a {@link ProfileSnapshot} and produce
@@ -161,7 +162,7 @@ public final class ProfileRules {
             List<MethodSample> top = snap.methods().stream()
                     .sorted((a, b) -> Double.compare(b.percentage(), a.percentage()))
                     .limit(TOP_N)
-                    .toList();
+                    .collect(Collectors.toList());
 
             List<Finding> findings = new ArrayList<>();
             for (MethodSample m : top) {

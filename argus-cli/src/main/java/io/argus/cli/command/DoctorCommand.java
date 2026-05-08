@@ -207,11 +207,12 @@ public final class DoctorCommand implements Command {
 
             // Each finding
             for (Finding f : findings) {
-                String sevColor = switch (f.severity()) {
-                    case CRITICAL -> AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);
-                    case WARNING -> AnsiStyle.style(c, AnsiStyle.YELLOW, AnsiStyle.BOLD);
-                    case INFO -> AnsiStyle.style(c, AnsiStyle.CYAN);
-                };
+                String sevColor;
+                switch (f.severity()) {
+                    case CRITICAL: sevColor = AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);    break;
+                    case WARNING:  sevColor = AnsiStyle.style(c, AnsiStyle.YELLOW, AnsiStyle.BOLD); break;
+                    default:       sevColor = AnsiStyle.style(c, AnsiStyle.CYAN);                   break;
+                }
 
                 // Title line with icon
                 System.out.println(RichRenderer.boxLine(
@@ -278,11 +279,12 @@ public final class DoctorCommand implements Command {
                                 + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
             } else {
                 for (Finding f : profileFindings) {
-                    String sevColor = switch (f.severity()) {
-                        case CRITICAL -> AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);
-                        case WARNING  -> AnsiStyle.style(c, AnsiStyle.YELLOW, AnsiStyle.BOLD);
-                        case INFO     -> AnsiStyle.style(c, AnsiStyle.CYAN);
-                    };
+                    String sevColor;
+                    switch (f.severity()) {
+                        case CRITICAL: sevColor = AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);    break;
+                        case WARNING:  sevColor = AnsiStyle.style(c, AnsiStyle.YELLOW, AnsiStyle.BOLD); break;
+                        default:       sevColor = AnsiStyle.style(c, AnsiStyle.CYAN);                   break;
+                    }
                     System.out.println(RichRenderer.boxLine(
                             "  " + sevColor + f.severity().icon() + " " + f.severity().label()
                                     + ": " + f.title()
@@ -349,11 +351,11 @@ public final class DoctorCommand implements Command {
                 lines.add(current.toString());
                 current = new StringBuilder(word);
             } else {
-                if (!current.isEmpty()) current.append(' ');
+                if (current.length() > 0) current.append(' ');
                 current.append(word);
             }
         }
-        if (!current.isEmpty()) lines.add(current.toString());
+        if (current.length() > 0) lines.add(current.toString());
         return lines;
     }
 

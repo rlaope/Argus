@@ -62,7 +62,8 @@ public final class JvmSnapshotCollector {
             totalGcTime += gc.getCollectionTime();
             gcBeanNames.add(gc.getName());
             // Use com.sun.management extension to get duration of the last individual GC pause.
-            if (gc instanceof com.sun.management.GarbageCollectorMXBean sunGc) {
+            if (gc instanceof com.sun.management.GarbageCollectorMXBean) {
+                com.sun.management.GarbageCollectorMXBean sunGc = (com.sun.management.GarbageCollectorMXBean) gc;
                 com.sun.management.GcInfo lastGcInfo = sunGc.getLastGcInfo();
                 if (lastGcInfo != null) {
                     maxRecentPauseMs = Math.max(maxRecentPauseMs, lastGcInfo.getDuration());
@@ -78,9 +79,10 @@ public final class JvmSnapshotCollector {
         double processCpu = -1, systemCpu = -1;
         int processors = Runtime.getRuntime().availableProcessors();
         OperatingSystemMXBean os = ManagementFactory.getOperatingSystemMXBean();
-        if (os instanceof com.sun.management.OperatingSystemMXBean sunOs) {
+        if (os instanceof com.sun.management.OperatingSystemMXBean) {
+            com.sun.management.OperatingSystemMXBean sunOs = (com.sun.management.OperatingSystemMXBean) os;
             processCpu = sunOs.getProcessCpuLoad();
-            systemCpu = sunOs.getCpuLoad();
+            systemCpu = sunOs.getSystemCpuLoad();
         }
 
         Map<String, Integer> threadStates = new LinkedHashMap<>();
@@ -392,7 +394,14 @@ public final class JvmSnapshotCollector {
     }
 
     /** Heap-wide totals from the first summary line of GC.heap_info, if present. */
-    private record HeapTotals(long totalBytes, long usedBytes) {}
+    private static final class HeapTotals {
+        final long totalBytes;
+        final long usedBytes;
+        HeapTotals(long totalBytes, long usedBytes) {
+            this.totalBytes = totalBytes;
+            this.usedBytes = usedBytes;
+        }
+    }
 
     private static HeapTotals parseHeapTotals(String output) {
         if (output == null) return null;

@@ -92,8 +92,8 @@ public final class RollingGcAnalysis {
         double[] sorted = pauses.stream().mapToDouble(GcEvent::pauseMs).sorted().toArray();
         long totalPauseMs = (long) Arrays.stream(sorted).sum();
 
-        double firstTs = events.getFirst().timestampSec();
-        double lastTs  = events.getLast().timestampSec();
+        double firstTs = events.get(0).timestampSec();
+        double lastTs  = events.get(events.size() - 1).timestampSec();
         double durationSec = Math.max(lastTs - firstTs, 0.001);
         double throughput = Math.max(0, Math.min(100,
                 (1.0 - totalPauseMs / (durationSec * 1000)) * 100));
@@ -121,18 +121,87 @@ public final class RollingGcAnalysis {
         return sorted[Math.max(0, Math.min(idx, sorted.length - 1))];
     }
 
-    public record Snapshot(
-            long p50PauseMs,
-            long p95PauseMs,
-            long p99PauseMs,
-            long maxPauseMs,
-            long avgPauseMs,
-            long totalPauseMs,
-            double throughputPercent,
-            int fullGcCount,
-            long peakHeapKB,
-            double eventsPerSec,
-            double secsSinceLastFullGc,
-            int totalEventsEver
-    ) {}
+    public static final class Snapshot {
+        private final long p50PauseMs;
+        private final long p95PauseMs;
+        private final long p99PauseMs;
+        private final long maxPauseMs;
+        private final long avgPauseMs;
+        private final long totalPauseMs;
+        private final double throughputPercent;
+        private final int fullGcCount;
+        private final long peakHeapKB;
+        private final double eventsPerSec;
+        private final double secsSinceLastFullGc;
+        private final int totalEventsEver;
+
+        public Snapshot(long p50PauseMs, long p95PauseMs, long p99PauseMs,
+                        long maxPauseMs, long avgPauseMs, long totalPauseMs,
+                        double throughputPercent, int fullGcCount, long peakHeapKB,
+                        double eventsPerSec, double secsSinceLastFullGc,
+                        int totalEventsEver) {
+            this.p50PauseMs = p50PauseMs;
+            this.p95PauseMs = p95PauseMs;
+            this.p99PauseMs = p99PauseMs;
+            this.maxPauseMs = maxPauseMs;
+            this.avgPauseMs = avgPauseMs;
+            this.totalPauseMs = totalPauseMs;
+            this.throughputPercent = throughputPercent;
+            this.fullGcCount = fullGcCount;
+            this.peakHeapKB = peakHeapKB;
+            this.eventsPerSec = eventsPerSec;
+            this.secsSinceLastFullGc = secsSinceLastFullGc;
+            this.totalEventsEver = totalEventsEver;
+        }
+
+        public long p50PauseMs() { return p50PauseMs; }
+        public long p95PauseMs() { return p95PauseMs; }
+        public long p99PauseMs() { return p99PauseMs; }
+        public long maxPauseMs() { return maxPauseMs; }
+        public long avgPauseMs() { return avgPauseMs; }
+        public long totalPauseMs() { return totalPauseMs; }
+        public double throughputPercent() { return throughputPercent; }
+        public int fullGcCount() { return fullGcCount; }
+        public long peakHeapKB() { return peakHeapKB; }
+        public double eventsPerSec() { return eventsPerSec; }
+        public double secsSinceLastFullGc() { return secsSinceLastFullGc; }
+        public int totalEventsEver() { return totalEventsEver; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Snapshot)) return false;
+            Snapshot that = (Snapshot) o;
+            return p50PauseMs == that.p50PauseMs
+                    && p95PauseMs == that.p95PauseMs
+                    && p99PauseMs == that.p99PauseMs
+                    && maxPauseMs == that.maxPauseMs
+                    && avgPauseMs == that.avgPauseMs
+                    && totalPauseMs == that.totalPauseMs
+                    && Double.compare(that.throughputPercent, throughputPercent) == 0
+                    && fullGcCount == that.fullGcCount
+                    && peakHeapKB == that.peakHeapKB
+                    && Double.compare(that.eventsPerSec, eventsPerSec) == 0
+                    && Double.compare(that.secsSinceLastFullGc, secsSinceLastFullGc) == 0
+                    && totalEventsEver == that.totalEventsEver;
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(p50PauseMs, p95PauseMs, p99PauseMs, maxPauseMs,
+                    avgPauseMs, totalPauseMs, throughputPercent, fullGcCount, peakHeapKB,
+                    eventsPerSec, secsSinceLastFullGc, totalEventsEver);
+        }
+
+        @Override
+        public String toString() {
+            return "Snapshot[p50PauseMs=" + p50PauseMs + ", p95PauseMs=" + p95PauseMs
+                    + ", p99PauseMs=" + p99PauseMs + ", maxPauseMs=" + maxPauseMs
+                    + ", avgPauseMs=" + avgPauseMs + ", totalPauseMs=" + totalPauseMs
+                    + ", throughputPercent=" + throughputPercent + ", fullGcCount=" + fullGcCount
+                    + ", peakHeapKB=" + peakHeapKB + ", eventsPerSec=" + eventsPerSec
+                    + ", secsSinceLastFullGc=" + secsSinceLastFullGc
+                    + ", totalEventsEver=" + totalEventsEver + "]";
+        }
+    }
 }

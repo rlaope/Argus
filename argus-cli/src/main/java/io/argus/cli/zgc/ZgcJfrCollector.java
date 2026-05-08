@@ -69,7 +69,7 @@ public final class ZgcJfrCollector {
                 String typeName = event.getEventType().getName();
 
                 switch (typeName) {
-                    case "jdk.ZAllocationStall" -> {
+                    case "jdk.ZAllocationStall": {
                         String threadName = "";
                         try {
                             RecordedObject thread = event.getValue("thread");
@@ -83,9 +83,9 @@ public final class ZgcJfrCollector {
                         double durMs = event.getDuration().toNanos() / 1_000_000.0;
                         d.stalls.add(new ZgcDiagnosis.Stall(
                                 threadName == null ? "" : threadName, durMs));
+                        break;
                     }
-
-                    case "jdk.ZYoungGarbageCollection" -> {
+                    case "jdk.ZYoungGarbageCollection": {
                         d.generational = true;
                         d.minorCycles++;
                         Instant start = event.getStartTime();
@@ -98,9 +98,9 @@ public final class ZgcJfrCollector {
                             d.cycleOverlap = true;
                         }
                         prevZEnd = end;
+                        break;
                     }
-
-                    case "jdk.ZOldGarbageCollection" -> {
+                    case "jdk.ZOldGarbageCollection": {
                         d.generational = true;
                         d.majorCycles++;
                         Instant start = event.getStartTime();
@@ -113,9 +113,9 @@ public final class ZgcJfrCollector {
                             d.cycleOverlap = true;
                         }
                         prevZEnd = end;
+                        break;
                     }
-
-                    case "jdk.ZGarbageCollection" -> {
+                    case "jdk.ZGarbageCollection": {
                         // Non-generational cycle: counts toward majorCycles only when
                         // generational events haven't been observed; treat as cycle-count
                         // input so we still report something.
@@ -132,9 +132,9 @@ public final class ZgcJfrCollector {
                             d.cycleOverlap = true;
                         }
                         prevZEnd = end;
+                        break;
                     }
-
-                    case "jdk.GarbageCollection" -> {
+                    case "jdk.GarbageCollection": {
                         // The "name" field carries the pause label for ZGC STW phases.
                         String name = safeGetString(event, "name");
                         long durNs = event.getDuration().toNanos();
@@ -146,9 +146,9 @@ public final class ZgcJfrCollector {
                         } else if (name.contains("Pause Relocate Start")) {
                             relocStartNs += durNs; relocStartCount++;
                         }
+                        break;
                     }
-
-                    case "jdk.GCHeapSummary" -> {
+                    case "jdk.GCHeapSummary": {
                         try {
                             RecordedObject heapSpace = event.getValue("heapSpace");
                             if (heapSpace != null) {
@@ -161,14 +161,18 @@ public final class ZgcJfrCollector {
                                 }
                             }
                         } catch (Exception ignored) {}
+                        break;
                     }
-
-                    case "jdk.ObjectAllocationInNewTLAB", "jdk.ObjectAllocationOutsideTLAB" -> {
+                    case "jdk.ObjectAllocationInNewTLAB":
+                    case "jdk.ObjectAllocationOutsideTLAB": {
                         String topFrame = extractTopUserFrame(event);
                         if (topFrame != null) {
                             allocCounts.merge(topFrame, 1L, Long::sum);
                         }
+                        break;
                     }
+                    default:
+                        break;
                 }
             }
         }

@@ -112,12 +112,57 @@ public final class ProfileSnapshot {
     // Diff
     // -------------------------------------------------------------------------
 
-    public record DiffEntry(String method,
-                            long beforeSamples,
-                            long afterSamples,
-                            long deltaSamples,
-                            double deltaPct,
-                            String state) {}   // "changed" | "new" | "gone"
+    public static final class DiffEntry {
+        private final String method;
+        private final long beforeSamples;
+        private final long afterSamples;
+        private final long deltaSamples;
+        private final double deltaPct;
+        private final String state;   // "changed" | "new" | "gone"
+
+        public DiffEntry(String method, long beforeSamples, long afterSamples,
+                         long deltaSamples, double deltaPct, String state) {
+            this.method = method;
+            this.beforeSamples = beforeSamples;
+            this.afterSamples = afterSamples;
+            this.deltaSamples = deltaSamples;
+            this.deltaPct = deltaPct;
+            this.state = state;
+        }
+
+        public String method() { return method; }
+        public long beforeSamples() { return beforeSamples; }
+        public long afterSamples() { return afterSamples; }
+        public long deltaSamples() { return deltaSamples; }
+        public double deltaPct() { return deltaPct; }
+        public String state() { return state; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof DiffEntry)) return false;
+            DiffEntry that = (DiffEntry) o;
+            return beforeSamples == that.beforeSamples
+                    && afterSamples == that.afterSamples
+                    && deltaSamples == that.deltaSamples
+                    && Double.compare(that.deltaPct, deltaPct) == 0
+                    && java.util.Objects.equals(method, that.method)
+                    && java.util.Objects.equals(state, that.state);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(method, beforeSamples, afterSamples,
+                    deltaSamples, deltaPct, state);
+        }
+
+        @Override
+        public String toString() {
+            return "DiffEntry[method=" + method + ", beforeSamples=" + beforeSamples
+                    + ", afterSamples=" + afterSamples + ", deltaSamples=" + deltaSamples
+                    + ", deltaPct=" + deltaPct + ", state=" + state + "]";
+        }
+    }
 
     /**
      * Computes a diff between two snapshots, sorted by |delta| descending.
@@ -214,15 +259,15 @@ public final class ProfileSnapshot {
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             switch (c) {
-                case '"'  -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default   -> {
+                case '"': sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                default:
                     if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
                     else sb.append(c);
-                }
+                    break;
             }
         }
         return sb.toString();

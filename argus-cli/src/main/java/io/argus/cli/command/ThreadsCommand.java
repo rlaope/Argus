@@ -285,12 +285,14 @@ public final class ThreadsCommand implements Command {
                 else if (cpuPct > 20) cpuColor = AnsiStyle.style(c, AnsiStyle.YELLOW);
                 else cpuColor = AnsiStyle.style(c, AnsiStyle.GREEN);
 
-                String stateColor = switch (e.state) {
-                    case "RUNNABLE" -> AnsiStyle.style(c, AnsiStyle.GREEN);
-                    case "BLOCKED" -> AnsiStyle.style(c, AnsiStyle.RED);
-                    case "WAITING", "TIMED_WAITING" -> AnsiStyle.style(c, AnsiStyle.YELLOW);
-                    default -> AnsiStyle.style(c, AnsiStyle.DIM);
-                };
+                String stateColor;
+                switch (e.state) {
+                    case "RUNNABLE": stateColor = AnsiStyle.style(c, AnsiStyle.GREEN);  break;
+                    case "BLOCKED":  stateColor = AnsiStyle.style(c, AnsiStyle.RED);    break;
+                    case "WAITING":
+                    case "TIMED_WAITING": stateColor = AnsiStyle.style(c, AnsiStyle.YELLOW); break;
+                    default:         stateColor = AnsiStyle.style(c, AnsiStyle.DIM);    break;
+                }
 
                 String line = RichRenderer.padRight(String.valueOf(e.id), 8)
                         + cpuColor + RichRenderer.padRight(String.format("%.1f%%", cpuPct), 8)
@@ -353,7 +355,25 @@ public final class ThreadsCommand implements Command {
         System.out.println(sb);
     }
 
-    private record ThreadCpuEntry(long id, String name, String state, long cpuDelta, long totalCpu) {}
+    private static final class ThreadCpuEntry {
+        final long id;
+        final String name;
+        final String state;
+        final long cpuDelta;
+        final long totalCpu;
+        ThreadCpuEntry(long id, String name, String state, long cpuDelta, long totalCpu) {
+            this.id = id;
+            this.name = name;
+            this.state = state;
+            this.cpuDelta = cpuDelta;
+            this.totalCpu = totalCpu;
+        }
+        long id() { return id; }
+        String name() { return name; }
+        String state() { return state; }
+        long cpuDelta() { return cpuDelta; }
+        long totalCpu() { return totalCpu; }
+    }
 
     private static void printJson(ThreadResult result) {
         StringBuilder sb = new StringBuilder();

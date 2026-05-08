@@ -188,5 +188,14 @@ public final class PerfCounterCommand implements Command {
         System.out.println(sb);
     }
 
-    private record Counter(String name, String value) {}
+    private static final class Counter {
+        final String name;
+        final String value;
+        Counter(String name, String value) {
+            this.name = name;
+            this.value = value;
+        }
+        String name() { return name; }
+        String value() { return value; }
+    }
 }

@@ -28,7 +28,7 @@ class ZgcCycleOverlapRuleTest {
 
         List<Finding> findings = new ZgcCycleOverlapRule().evaluate(s);
         assertEquals(1, findings.size());
-        Finding f = findings.getFirst();
+        Finding f = findings.get(0);
         assertEquals(Severity.CRITICAL, f.severity());
         assertEquals("GC", f.category());
         assertTrue(f.title().contains("overlap"), "Title should mention overlap risk");
@@ -113,7 +113,7 @@ class ZgcCycleOverlapRuleTest {
 
         List<Finding> findings = new ZgcCycleOverlapRule().evaluate(s);
         assertEquals(1, findings.size());
-        assertEquals(Severity.CRITICAL, findings.getFirst().severity());
+        assertEquals(Severity.CRITICAL, findings.get(0).severity());
     }
 
     // --- helpers ---

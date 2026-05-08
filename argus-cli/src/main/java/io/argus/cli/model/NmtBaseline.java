@@ -88,14 +88,59 @@ public final class NmtBaseline {
         return new ArrayList<>(rows.values());
     }
 
-    public record DiffRow(String name,
-                          long baseReservedKB, long curReservedKB,
-                          long baseCommittedKB, long curCommittedKB) {
+    public static final class DiffRow {
+        private final String name;
+        private final long baseReservedKB;
+        private final long curReservedKB;
+        private final long baseCommittedKB;
+        private final long curCommittedKB;
+
+        public DiffRow(String name,
+                       long baseReservedKB, long curReservedKB,
+                       long baseCommittedKB, long curCommittedKB) {
+            this.name = name;
+            this.baseReservedKB = baseReservedKB;
+            this.curReservedKB = curReservedKB;
+            this.baseCommittedKB = baseCommittedKB;
+            this.curCommittedKB = curCommittedKB;
+        }
+
+        public String name() { return name; }
+        public long baseReservedKB() { return baseReservedKB; }
+        public long curReservedKB() { return curReservedKB; }
+        public long baseCommittedKB() { return baseCommittedKB; }
+        public long curCommittedKB() { return curCommittedKB; }
+
         public long reservedDeltaKB() { return curReservedKB - baseReservedKB; }
         public long committedDeltaKB() { return curCommittedKB - baseCommittedKB; }
         public double committedDeltaPct() {
             if (baseCommittedKB == 0) return curCommittedKB > 0 ? Double.POSITIVE_INFINITY : 0;
             return (committedDeltaKB() * 100.0) / baseCommittedKB;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof DiffRow)) return false;
+            DiffRow that = (DiffRow) o;
+            return baseReservedKB == that.baseReservedKB
+                    && curReservedKB == that.curReservedKB
+                    && baseCommittedKB == that.baseCommittedKB
+                    && curCommittedKB == that.curCommittedKB
+                    && java.util.Objects.equals(name, that.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(name, baseReservedKB, curReservedKB,
+                    baseCommittedKB, curCommittedKB);
+        }
+
+        @Override
+        public String toString() {
+            return "DiffRow[name=" + name + ", baseReservedKB=" + baseReservedKB
+                    + ", curReservedKB=" + curReservedKB + ", baseCommittedKB=" + baseCommittedKB
+                    + ", curCommittedKB=" + curCommittedKB + "]";
         }
     }
 
@@ -138,15 +183,15 @@ public final class NmtBaseline {
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             switch (c) {
-                case '"' -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default -> {
+                case '"': sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                default:
                     if (c < 0x20) sb.append(String.format("\\u%04x", (int) c));
                     else sb.append(c);
-                }
+                    break;
             }
         }
         return sb.toString();

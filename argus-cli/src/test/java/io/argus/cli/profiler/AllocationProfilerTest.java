@@ -114,7 +114,7 @@ class AllocationProfilerTest {
         AllocationProfile profile = agg.build(10);
 
         assertEquals(1000, profile.totalBytes());
-        AllocationSite top = profile.sites().getFirst();
+        AllocationSite top = profile.sites().get(0);
         assertEquals(700, top.totalBytes());
 
         double pct = (double) top.totalBytes() / profile.totalBytes() * 100;
@@ -129,7 +129,7 @@ class AllocationProfilerTest {
 
         AllocationProfile profile = agg.build(10);
 
-        AllocationSite site = profile.sites().getFirst();
+        AllocationSite site = profile.sites().get(0);
         assertEquals(200_000.0, site.bytesPerSec(), 1.0, "Rate should be 200KB/s");
     }
 
@@ -143,8 +143,8 @@ class AllocationProfilerTest {
         AllocationProfile profile = agg.build(10);
 
         assertEquals(1, profile.sites().size(), "Same site should be aggregated into one");
-        assertEquals(600, profile.sites().getFirst().totalBytes());
-        assertEquals(3, profile.sites().getFirst().allocationCount());
+        assertEquals(600, profile.sites().get(0).totalBytes());
+        assertEquals(3, profile.sites().get(0).allocationCount());
     }
 
     @Test
@@ -235,7 +235,7 @@ class AllocationProfilerTest {
         agg.add("java.lang.String", 400_000); // 200 KB/s
 
         AllocationByClass result = agg.build();
-        assertEquals(200_000, result.sites().getFirst().bytesPerSec(), 1);
+        assertEquals(200_000, result.sites().get(0).bytesPerSec(), 1);
     }
 
     @Test
@@ -331,7 +331,7 @@ class AllocationProfilerTest {
         agg.add("com.example.Service", "process", 88, 400);
 
         AllocationProfile profile = agg.build(10);
-        AllocationSite site = profile.sites().getFirst();
+        AllocationSite site = profile.sites().get(0);
 
         assertEquals("com.example.Service", site.className());
         assertEquals("process", site.methodName());

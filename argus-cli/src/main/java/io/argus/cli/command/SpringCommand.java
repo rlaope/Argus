@@ -401,10 +401,11 @@ public final class SpringCommand implements Command {
     private long getLongAttr(MBeanServerConnection mbs, ObjectName on, String attr) {
         try {
             Object val = mbs.getAttribute(on, attr);
-            if (val instanceof Number n) return n.longValue();
-            if (val instanceof CompositeData cd) {
+            if (val instanceof Number) return ((Number) val).longValue();
+            if (val instanceof CompositeData) {
+                CompositeData cd = (CompositeData) val;
                 Object v = cd.get(attr);
-                if (v instanceof Number n) return n.longValue();
+                if (v instanceof Number) return ((Number) v).longValue();
             }
             return 0;
         } catch (Exception ignored) {

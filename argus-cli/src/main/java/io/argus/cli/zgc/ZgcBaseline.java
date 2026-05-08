@@ -106,11 +106,52 @@ public final class ZgcBaseline {
 
     public enum Severity { INFO, WARN, REGRESSION }
 
-    public record DiffRow(String label,
-                          String baselineValue,
-                          String currentValue,
-                          String delta,
-                          Severity severity) {}
+    public static final class DiffRow {
+        private final String label;
+        private final String baselineValue;
+        private final String currentValue;
+        private final String delta;
+        private final Severity severity;
+
+        public DiffRow(String label, String baselineValue, String currentValue,
+                       String delta, Severity severity) {
+            this.label = label;
+            this.baselineValue = baselineValue;
+            this.currentValue = currentValue;
+            this.delta = delta;
+            this.severity = severity;
+        }
+
+        public String label() { return label; }
+        public String baselineValue() { return baselineValue; }
+        public String currentValue() { return currentValue; }
+        public String delta() { return delta; }
+        public Severity severity() { return severity; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof DiffRow)) return false;
+            DiffRow that = (DiffRow) o;
+            return java.util.Objects.equals(label, that.label)
+                    && java.util.Objects.equals(baselineValue, that.baselineValue)
+                    && java.util.Objects.equals(currentValue, that.currentValue)
+                    && java.util.Objects.equals(delta, that.delta)
+                    && severity == that.severity;
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(label, baselineValue, currentValue, delta, severity);
+        }
+
+        @Override
+        public String toString() {
+            return "DiffRow[label=" + label + ", baselineValue=" + baselineValue
+                    + ", currentValue=" + currentValue + ", delta=" + delta
+                    + ", severity=" + severity + "]";
+        }
+    }
 
     // ── save ─────────────────────────────────────────────────────────────────
 

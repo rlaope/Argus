@@ -3,13 +3,14 @@ package io.argus.cli.gclog;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class GcRateAnalyzerTest {
 
     private static List<GcEvent> pauseOnly(List<GcEvent> events) {
-        return events.stream().filter(e -> !e.isConcurrent()).toList();
+        return events.stream().filter(e -> !e.isConcurrent()).collect(Collectors.toList());
     }
 
     @Test

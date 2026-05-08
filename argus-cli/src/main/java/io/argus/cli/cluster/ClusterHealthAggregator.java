@@ -35,25 +35,6 @@ public final class ClusterHealthAggregator {
 
     private ClusterHealthAggregator() {}
 
-    public record InstanceMetrics(
-        String target,
-        double heapPercent,
-        double gcOverhead,
-        double cpuPercent,
-        boolean leakSuspected,
-        long activeVThreads,
-        boolean reachable
-    ) {}
-
-    public record AggregateStats(
-        double heapMin, double heapMax, double heapAvg,
-        double gcMin,   double gcMax,   double gcAvg,
-        double cpuMin,  double cpuMax,  double cpuAvg,
-        long   vtTotal,
-        int    leakCount,
-        String worstTarget,
-        String worstReason
-    ) {}
 
     /**
      * Extracts per-instance metrics from the raw Prometheus map.
@@ -71,7 +52,8 @@ public final class ClusterHealthAggregator {
      * Computes aggregate statistics from a list of reachable instance metrics.
      */
     public static AggregateStats aggregate(List<InstanceMetrics> instances) {
-        List<InstanceMetrics> up = instances.stream().filter(InstanceMetrics::reachable).toList();
+        List<InstanceMetrics> up = instances.stream().filter(InstanceMetrics::reachable)
+                .collect(java.util.stream.Collectors.toList());
         if (up.isEmpty()) {
             return new AggregateStats(-1,-1,-1,-1,-1,-1,-1,-1,-1,0,0,null,"no reachable instances");
         }
@@ -120,7 +102,7 @@ public final class ClusterHealthAggregator {
             reason.append(String.format("GC overhead %.1f%%", worst.gcOverhead()));
         }
         if (worst.leakSuspected()) {
-            if (!reason.isEmpty()) reason.append(", ");
+            if (reason.length() > 0) reason.append(", ");
             reason.append("memory leak suspected");
         }
 
@@ -138,5 +120,142 @@ public final class ClusterHealthAggregator {
             if (v != null) return v;
         }
         return def;
+    }
+
+    public static final class InstanceMetrics {
+        private final String target;
+        private final double heapPercent;
+        private final double gcOverhead;
+        private final double cpuPercent;
+        private final boolean leakSuspected;
+        private final long activeVThreads;
+        private final boolean reachable;
+
+        public InstanceMetrics(String target, double heapPercent, double gcOverhead,
+                               double cpuPercent, boolean leakSuspected,
+                               long activeVThreads, boolean reachable) {
+            this.target = target;
+            this.heapPercent = heapPercent;
+            this.gcOverhead = gcOverhead;
+            this.cpuPercent = cpuPercent;
+            this.leakSuspected = leakSuspected;
+            this.activeVThreads = activeVThreads;
+            this.reachable = reachable;
+        }
+
+        public String target() { return target; }
+        public double heapPercent() { return heapPercent; }
+        public double gcOverhead() { return gcOverhead; }
+        public double cpuPercent() { return cpuPercent; }
+        public boolean leakSuspected() { return leakSuspected; }
+        public long activeVThreads() { return activeVThreads; }
+        public boolean reachable() { return reachable; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof InstanceMetrics)) return false;
+            InstanceMetrics that = (InstanceMetrics) o;
+            return Double.compare(that.heapPercent, heapPercent) == 0
+                    && Double.compare(that.gcOverhead, gcOverhead) == 0
+                    && Double.compare(that.cpuPercent, cpuPercent) == 0
+                    && leakSuspected == that.leakSuspected
+                    && activeVThreads == that.activeVThreads
+                    && reachable == that.reachable
+                    && java.util.Objects.equals(target, that.target);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(target, heapPercent, gcOverhead, cpuPercent,
+                    leakSuspected, activeVThreads, reachable);
+        }
+
+        @Override
+        public String toString() {
+            return "InstanceMetrics[target=" + target + ", heapPercent=" + heapPercent
+                    + ", gcOverhead=" + gcOverhead + ", cpuPercent=" + cpuPercent
+                    + ", leakSuspected=" + leakSuspected + ", activeVThreads=" + activeVThreads
+                    + ", reachable=" + reachable + "]";
+        }
+    }
+
+    public static final class AggregateStats {
+        private final double heapMin, heapMax, heapAvg;
+        private final double gcMin, gcMax, gcAvg;
+        private final double cpuMin, cpuMax, cpuAvg;
+        private final long vtTotal;
+        private final int leakCount;
+        private final String worstTarget;
+        private final String worstReason;
+
+        public AggregateStats(double heapMin, double heapMax, double heapAvg,
+                              double gcMin, double gcMax, double gcAvg,
+                              double cpuMin, double cpuMax, double cpuAvg,
+                              long vtTotal, int leakCount,
+                              String worstTarget, String worstReason) {
+            this.heapMin = heapMin;
+            this.heapMax = heapMax;
+            this.heapAvg = heapAvg;
+            this.gcMin = gcMin;
+            this.gcMax = gcMax;
+            this.gcAvg = gcAvg;
+            this.cpuMin = cpuMin;
+            this.cpuMax = cpuMax;
+            this.cpuAvg = cpuAvg;
+            this.vtTotal = vtTotal;
+            this.leakCount = leakCount;
+            this.worstTarget = worstTarget;
+            this.worstReason = worstReason;
+        }
+
+        public double heapMin() { return heapMin; }
+        public double heapMax() { return heapMax; }
+        public double heapAvg() { return heapAvg; }
+        public double gcMin() { return gcMin; }
+        public double gcMax() { return gcMax; }
+        public double gcAvg() { return gcAvg; }
+        public double cpuMin() { return cpuMin; }
+        public double cpuMax() { return cpuMax; }
+        public double cpuAvg() { return cpuAvg; }
+        public long vtTotal() { return vtTotal; }
+        public int leakCount() { return leakCount; }
+        public String worstTarget() { return worstTarget; }
+        public String worstReason() { return worstReason; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AggregateStats)) return false;
+            AggregateStats that = (AggregateStats) o;
+            return Double.compare(that.heapMin, heapMin) == 0
+                    && Double.compare(that.heapMax, heapMax) == 0
+                    && Double.compare(that.heapAvg, heapAvg) == 0
+                    && Double.compare(that.gcMin, gcMin) == 0
+                    && Double.compare(that.gcMax, gcMax) == 0
+                    && Double.compare(that.gcAvg, gcAvg) == 0
+                    && Double.compare(that.cpuMin, cpuMin) == 0
+                    && Double.compare(that.cpuMax, cpuMax) == 0
+                    && Double.compare(that.cpuAvg, cpuAvg) == 0
+                    && vtTotal == that.vtTotal
+                    && leakCount == that.leakCount
+                    && java.util.Objects.equals(worstTarget, that.worstTarget)
+                    && java.util.Objects.equals(worstReason, that.worstReason);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(heapMin, heapMax, heapAvg, gcMin, gcMax, gcAvg,
+                    cpuMin, cpuMax, cpuAvg, vtTotal, leakCount, worstTarget, worstReason);
+        }
+
+        @Override
+        public String toString() {
+            return "AggregateStats[heapMin=" + heapMin + ", heapMax=" + heapMax + ", heapAvg=" + heapAvg
+                    + ", gcMin=" + gcMin + ", gcMax=" + gcMax + ", gcAvg=" + gcAvg
+                    + ", cpuMin=" + cpuMin + ", cpuMax=" + cpuMax + ", cpuAvg=" + cpuAvg
+                    + ", vtTotal=" + vtTotal + ", leakCount=" + leakCount
+                    + ", worstTarget=" + worstTarget + ", worstReason=" + worstReason + "]";
+        }
     }
 }

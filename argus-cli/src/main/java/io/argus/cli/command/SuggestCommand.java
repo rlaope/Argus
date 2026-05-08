@@ -214,7 +214,7 @@ public final class SuggestCommand implements Command {
 
         // GC algorithm recommendation
         switch (profile) {
-            case "web" -> {
+            case "web": {
                 if (!gc.contains("g1") && !gc.contains("zgc")) {
                     suggestions.add(new Suggestion("GC Algorithm",
                             "Switch to G1GC for balanced latency/throughput",
@@ -231,8 +231,9 @@ public final class SuggestCommand implements Command {
                             "For heaps > 8GB, ZGC provides sub-ms pauses",
                             "-XX:+UseZGC", "Requires Java 17+"));
                 }
+                break;
             }
-            case "batch" -> {
+            case "batch": {
                 if (!gc.contains("parallel")) {
                     suggestions.add(new Suggestion("GC Algorithm",
                             "Parallel GC maximizes throughput for batch processing",
@@ -242,8 +243,9 @@ public final class SuggestCommand implements Command {
                         "Match GC threads to available processors",
                         "-XX:ParallelGCThreads=" + s.availableProcessors(),
                         s.availableProcessors() + " processors available"));
+                break;
             }
-            case "microservice" -> {
+            case "microservice": {
                 if (heapMB < 256) {
                     suggestions.add(new Suggestion("GC Algorithm",
                             "Serial GC is efficient for small heaps (<256MB)",
@@ -252,8 +254,9 @@ public final class SuggestCommand implements Command {
                 suggestions.add(new Suggestion("Class Data Sharing",
                         "Enable CDS for faster startup",
                         "-XX:SharedArchiveFile=app-cds.jsa", "Use: java -Xshare:dump first"));
+                break;
             }
-            case "streaming" -> {
+            case "streaming": {
                 if (!gc.contains("g1")) {
                     suggestions.add(new Suggestion("GC Algorithm",
                             "G1GC handles mixed workloads well for streaming",
@@ -262,15 +265,19 @@ public final class SuggestCommand implements Command {
                 suggestions.add(new Suggestion("Heap Region Size",
                         "Larger regions reduce fragmentation for steady allocation",
                         "-XX:G1HeapRegionSize=8m", "Default is auto-sized"));
+                break;
             }
-            case "general" -> {
+            case "general": {
                 // Conservative suggestions when workload is unknown
                 if (!gc.contains("g1") && heapMB > 512) {
                     suggestions.add(new Suggestion("GC Algorithm",
                             "G1GC is the safest default for general workloads",
                             "-XX:+UseG1GC", "Default since Java 9"));
                 }
+                break;
             }
+            default:
+                break;
         }
 
         // Universal recommendations based on current state
@@ -431,11 +438,12 @@ public final class SuggestCommand implements Command {
         } else {
             for (int i = 0; i < recs.size(); i++) {
                 ProfileRecommendation r = recs.get(i);
-                String confColor = switch (r.confidence()) {
-                    case HIGH -> AnsiStyle.GREEN;
-                    case MED  -> AnsiStyle.YELLOW;
-                    case LOW  -> AnsiStyle.DIM;
-                };
+                String confColor;
+                switch (r.confidence()) {
+                    case HIGH: confColor = AnsiStyle.GREEN; break;
+                    case MED:  confColor = AnsiStyle.YELLOW; break;
+                    default:   confColor = AnsiStyle.DIM; break;
+                }
                 System.out.println(RichRenderer.boxLine(
                         "  " + AnsiStyle.style(c, AnsiStyle.BOLD) + (i + 1) + ". "
                                 + r.ruleName() + AnsiStyle.style(c, AnsiStyle.RESET)
@@ -502,5 +510,20 @@ public final class SuggestCommand implements Command {
         System.out.println(sb);
     }
 
-    private record Suggestion(String area, String reason, String flag, String note) {}
+    private static final class Suggestion {
+        final String area;
+        final String reason;
+        final String flag;
+        final String note;
+        Suggestion(String area, String reason, String flag, String note) {
+            this.area = area;
+            this.reason = reason;
+            this.flag = flag;
+            this.note = note;
+        }
+        String area() { return area; }
+        String reason() { return reason; }
+        String flag() { return flag; }
+        String note() { return note; }
+    }
 }

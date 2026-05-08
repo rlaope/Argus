@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -93,7 +94,7 @@ class GcLeakDetectorTest {
                     0, 0, 8192));
         }
         // Caller is responsible for filtering; pass only pause events
-        List<GcEvent> pauseEvents = events.stream().filter(e -> !e.isConcurrent()).toList();
+        List<GcEvent> pauseEvents = events.stream().filter(e -> !e.isConcurrent()).collect(Collectors.toList());
         GcLeakDetector.LeakAnalysis r = GcLeakDetector.analyze(pauseEvents);
         assertNotNull(r);
         // Pattern should reflect only the pause events

@@ -24,13 +24,77 @@ public final class ZgcDiagnosis {
     public enum Verdict { HEALTHY, WARNING, UNHEALTHY }
 
     /** Allocation stall captured from {@code jdk.ZAllocationStall}. */
-    public record Stall(String thread, double durationMs) {}
+    public static final class Stall {
+        private final String thread;
+        private final double durationMs;
+
+        public Stall(String thread, double durationMs) {
+            this.thread = thread;
+            this.durationMs = durationMs;
+        }
+
+        public String thread() { return thread; }
+        public double durationMs() { return durationMs; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof Stall)) return false;
+            Stall that = (Stall) o;
+            return Double.compare(that.durationMs, durationMs) == 0
+                    && java.util.Objects.equals(thread, that.thread);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(thread, durationMs);
+        }
+
+        @Override
+        public String toString() {
+            return "Stall[thread=" + thread + ", durationMs=" + durationMs + "]";
+        }
+    }
 
     /**
      * Top allocation call site correlated with stalls, derived from
      * {@code jdk.ObjectAllocationInNewTLAB} / {@code jdk.ObjectAllocationOutsideTLAB} events.
      */
-    public record AllocHotspot(String frame, long count, double pct) {}
+    public static final class AllocHotspot {
+        private final String frame;
+        private final long count;
+        private final double pct;
+
+        public AllocHotspot(String frame, long count, double pct) {
+            this.frame = frame;
+            this.count = count;
+            this.pct = pct;
+        }
+
+        public String frame() { return frame; }
+        public long count() { return count; }
+        public double pct() { return pct; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AllocHotspot)) return false;
+            AllocHotspot that = (AllocHotspot) o;
+            return count == that.count
+                    && Double.compare(that.pct, pct) == 0
+                    && java.util.Objects.equals(frame, that.frame);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(frame, count, pct);
+        }
+
+        @Override
+        public String toString() {
+            return "AllocHotspot[frame=" + frame + ", count=" + count + ", pct=" + pct + "]";
+        }
+    }
 
     // ── Process / GC identity ───────────────────────────────────────────────
     public boolean usingZgc;

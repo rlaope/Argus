@@ -21,6 +21,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Analyzes a JFR recording file and produces a comprehensive summary.
@@ -77,7 +78,7 @@ public final class JfrAnalyzer {
                 String eventType = event.getEventType().getName();
 
                 switch (eventType) {
-                    case "jdk.GarbageCollection" -> {
+                    case "jdk.GarbageCollection": {
                         gcEventCount++;
                         long durationNs = event.getDuration().toNanos();
                         totalGcPauseNs += durationNs;
@@ -86,13 +87,16 @@ public final class JfrAnalyzer {
                             String cause = event.getString("cause");
                             if (cause != null) gcCauses.merge(cause, 1, Integer::sum);
                         } catch (Exception ignored) {}
+                        break;
                     }
-                    case "jdk.GCPhasePause", "jdk.GCPhasePauseLevel1" -> {
+                    case "jdk.GCPhasePause":
+                    case "jdk.GCPhasePauseLevel1": {
                         long durationNs = event.getDuration().toNanos();
                         totalGcPauseNs += durationNs;
                         if (durationNs > maxGcPauseNs) maxGcPauseNs = durationNs;
+                        break;
                     }
-                    case "jdk.CPULoad" -> {
+                    case "jdk.CPULoad": {
                         try {
                             double jvmUser = event.getDouble("jvmUser");
                             double jvmSystem = event.getDouble("jvmSystem");
@@ -100,21 +104,25 @@ public final class JfrAnalyzer {
                             cpuLoadSamples.add(jvmUser + jvmSystem);
                             systemCpuSamples.add(machineTotal);
                         } catch (Exception ignored) {}
+                        break;
                     }
-                    case "jdk.ExecutionSample", "jdk.NativeMethodSample" -> {
+                    case "jdk.ExecutionSample":
+                    case "jdk.NativeMethodSample": {
                         totalSamples++;
                         RecordedStackTrace stack = event.getStackTrace();
                         if (stack != null && !stack.getFrames().isEmpty()) {
-                            RecordedFrame topFrame = stack.getFrames().getFirst();
+                            RecordedFrame topFrame = stack.getFrames().get(0);
                             RecordedMethod method = topFrame.getMethod();
                             if (method != null) {
                                 String methodName = method.getType().getName() + "." + method.getName();
                                 methodSamples.merge(methodName, 1, Integer::sum);
                             }
                         }
+                        break;
                     }
-                    case "jdk.ObjectAllocationInNewTLAB", "jdk.ObjectAllocationOutsideTLAB",
-                         "jdk.ObjectAllocationSample" -> {
+                    case "jdk.ObjectAllocationInNewTLAB":
+                    case "jdk.ObjectAllocationOutsideTLAB":
+                    case "jdk.ObjectAllocationSample": {
                         try {
                             String className = "unknown";
                             try { className = event.getClass("objectClass").getName(); } catch (Exception ignored2) {}
@@ -126,8 +134,9 @@ public final class JfrAnalyzer {
                             allocations.get(className)[0] += bytes;
                             allocations.get(className)[1]++;
                         } catch (Exception ignored) {}
+                        break;
                     }
-                    case "jdk.JavaMonitorEnter" -> {
+                    case "jdk.JavaMonitorEnter": {
                         try {
                             String monitorClass = "unknown";
                             try { monitorClass = event.getClass("monitorClass").getName(); } catch (Exception ignored2) {}
@@ -136,23 +145,33 @@ public final class JfrAnalyzer {
                             contentions.get(monitorClass)[0] += durationNs;
                             contentions.get(monitorClass)[1]++;
                         } catch (Exception ignored) {}
+                        break;
                     }
-                    case "jdk.JavaExceptionThrow" -> {
+                    case "jdk.JavaExceptionThrow": {
                         try {
                             String exClass = event.getClass("thrownClass").getName();
                             exceptions.merge(exClass, 1, Integer::sum);
                         } catch (Exception ignored) {}
+                        break;
                     }
-                    case "jdk.FileRead" -> {
+                    case "jdk.FileRead": {
                         fileReadCount++;
                         try { totalFileReadBytes += event.getLong("bytesRead"); } catch (Exception ignored) {}
+                        break;
                     }
-                    case "jdk.FileWrite" -> fileWriteCount++;
-                    case "jdk.SocketRead" -> {
+                    case "jdk.FileWrite":
+                        fileWriteCount++;
+                        break;
+                    case "jdk.SocketRead": {
                         socketReadCount++;
                         try { totalSocketReadBytes += event.getLong("bytesRead"); } catch (Exception ignored) {}
+                        break;
                     }
-                    case "jdk.SocketWrite" -> socketWriteCount++;
+                    case "jdk.SocketWrite":
+                        socketWriteCount++;
+                        break;
+                    default:
+                        break;
                 }
             }
         }
@@ -167,21 +186,21 @@ public final class JfrAnalyzer {
                 .limit(TOP_N)
                 .map(e -> new HotMethod(e.getKey(), e.getValue(),
                         finalTotalSamples > 0 ? (double) e.getValue() / finalTotalSamples * 100 : 0))
-                .toList();
+                .collect(Collectors.toList());
 
         // Build top allocations
         List<AllocationSite> topAllocations = allocations.entrySet().stream()
                 .sorted((a, b) -> Long.compare(b.getValue()[0], a.getValue()[0]))
                 .limit(TOP_N)
                 .map(e -> new AllocationSite(e.getKey(), e.getValue()[0], (int) e.getValue()[1]))
-                .toList();
+                .collect(Collectors.toList());
 
         // Build top contention
         List<ContentionSite> topContention = contentions.entrySet().stream()
                 .sorted((a, b) -> Long.compare(b.getValue()[0], a.getValue()[0]))
                 .limit(TOP_N)
                 .map(e -> new ContentionSite(e.getKey(), e.getValue()[0] / 1_000_000, (int) e.getValue()[1]))
-                .toList();
+                .collect(Collectors.toList());
 
         // Sort GC causes by count descending
         Map<String, Integer> sortedGcCauses = new LinkedHashMap<>();

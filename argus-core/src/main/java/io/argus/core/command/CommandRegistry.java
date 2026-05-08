@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
+import java.util.stream.Collectors;
 
 /**
  * Central registry for diagnostic commands. Discovers commands via {@link ServiceLoader}
@@ -73,21 +74,21 @@ public final class CommandRegistry {
     public List<DiagnosticCommand> byGroup(CommandGroup group) {
         return commands.values().stream()
                 .filter(cmd -> cmd.group() == group)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /** Commands that support in-process execution. */
     public List<DiagnosticCommand> inProcessCommands() {
         return commands.values().stream()
                 .filter(DiagnosticCommand::supportsInProcess)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /** Commands that support external execution. */
     public List<DiagnosticCommand> externalCommands() {
         return commands.values().stream()
                 .filter(DiagnosticCommand::supportsExternal)
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /** Number of registered commands. */

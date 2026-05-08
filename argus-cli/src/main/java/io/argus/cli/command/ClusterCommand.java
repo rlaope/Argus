@@ -114,7 +114,7 @@ public final class ClusterCommand implements Command {
 
         List<CompletableFuture<InstanceMetrics>> futures = targets.stream()
                 .map(target -> fetchOne(client, target))
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
 
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 

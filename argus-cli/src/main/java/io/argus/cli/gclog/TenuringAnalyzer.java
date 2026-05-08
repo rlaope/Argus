@@ -30,25 +30,114 @@ public final class TenuringAnalyzer {
     /**
      * Result of tenuring log analysis.
      */
-    public record TenuringAnalysis(
-            List<GcAgeSnapshot> snapshots,
-            List<String> insights,
-            List<String> recommendations,
-            boolean prematurePromotionDetected,
-            boolean survivorOverflowDetected,
-            int minThreshold,
-            int maxThresholdSeen,
-            int suggestedMaxTenuringThreshold
-    ) {}
+    public static final class TenuringAnalysis {
+        private final List<GcAgeSnapshot> snapshots;
+        private final List<String> insights;
+        private final List<String> recommendations;
+        private final boolean prematurePromotionDetected;
+        private final boolean survivorOverflowDetected;
+        private final int minThreshold;
+        private final int maxThresholdSeen;
+        private final int suggestedMaxTenuringThreshold;
+
+        public TenuringAnalysis(List<GcAgeSnapshot> snapshots, List<String> insights,
+                                List<String> recommendations,
+                                boolean prematurePromotionDetected,
+                                boolean survivorOverflowDetected,
+                                int minThreshold, int maxThresholdSeen,
+                                int suggestedMaxTenuringThreshold) {
+            this.snapshots = snapshots;
+            this.insights = insights;
+            this.recommendations = recommendations;
+            this.prematurePromotionDetected = prematurePromotionDetected;
+            this.survivorOverflowDetected = survivorOverflowDetected;
+            this.minThreshold = minThreshold;
+            this.maxThresholdSeen = maxThresholdSeen;
+            this.suggestedMaxTenuringThreshold = suggestedMaxTenuringThreshold;
+        }
+
+        public List<GcAgeSnapshot> snapshots() { return snapshots; }
+        public List<String> insights() { return insights; }
+        public List<String> recommendations() { return recommendations; }
+        public boolean prematurePromotionDetected() { return prematurePromotionDetected; }
+        public boolean survivorOverflowDetected() { return survivorOverflowDetected; }
+        public int minThreshold() { return minThreshold; }
+        public int maxThresholdSeen() { return maxThresholdSeen; }
+        public int suggestedMaxTenuringThreshold() { return suggestedMaxTenuringThreshold; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof TenuringAnalysis)) return false;
+            TenuringAnalysis that = (TenuringAnalysis) o;
+            return prematurePromotionDetected == that.prematurePromotionDetected
+                    && survivorOverflowDetected == that.survivorOverflowDetected
+                    && minThreshold == that.minThreshold
+                    && maxThresholdSeen == that.maxThresholdSeen
+                    && suggestedMaxTenuringThreshold == that.suggestedMaxTenuringThreshold
+                    && java.util.Objects.equals(snapshots, that.snapshots)
+                    && java.util.Objects.equals(insights, that.insights)
+                    && java.util.Objects.equals(recommendations, that.recommendations);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(snapshots, insights, recommendations,
+                    prematurePromotionDetected, survivorOverflowDetected,
+                    minThreshold, maxThresholdSeen, suggestedMaxTenuringThreshold);
+        }
+
+        @Override
+        public String toString() {
+            return "TenuringAnalysis[snapshots=" + snapshots + ", insights=" + insights
+                    + ", recommendations=" + recommendations
+                    + ", prematurePromotionDetected=" + prematurePromotionDetected
+                    + ", survivorOverflowDetected=" + survivorOverflowDetected
+                    + ", minThreshold=" + minThreshold
+                    + ", maxThresholdSeen=" + maxThresholdSeen
+                    + ", suggestedMaxTenuringThreshold=" + suggestedMaxTenuringThreshold + "]";
+        }
+    }
 
     /**
      * Age distribution captured at a single GC event.
      */
-    public record GcAgeSnapshot(
-            int gcId,
-            double timestampSec,
-            AgeDistribution distribution
-    ) {}
+    public static final class GcAgeSnapshot {
+        private final int gcId;
+        private final double timestampSec;
+        private final AgeDistribution distribution;
+
+        public GcAgeSnapshot(int gcId, double timestampSec, AgeDistribution distribution) {
+            this.gcId = gcId;
+            this.timestampSec = timestampSec;
+            this.distribution = distribution;
+        }
+
+        public int gcId() { return gcId; }
+        public double timestampSec() { return timestampSec; }
+        public AgeDistribution distribution() { return distribution; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof GcAgeSnapshot)) return false;
+            GcAgeSnapshot that = (GcAgeSnapshot) o;
+            return gcId == that.gcId
+                    && Double.compare(that.timestampSec, timestampSec) == 0
+                    && java.util.Objects.equals(distribution, that.distribution);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(gcId, timestampSec, distribution);
+        }
+
+        @Override
+        public String toString() {
+            return "GcAgeSnapshot[gcId=" + gcId + ", timestampSec=" + timestampSec
+                    + ", distribution=" + distribution + "]";
+        }
+    }
 
     /**
      * Parses a GC log file and returns tenuring analysis.
@@ -119,7 +208,7 @@ public final class TenuringAnalyzer {
     private static GcAgeSnapshot buildSnapshot(int gcId, double ts, int tt, int mtt,
                                                 long desiredSize,
                                                 List<AgeDistribution.AgeEntry> entries) {
-        long survivorCap = entries.isEmpty() ? 0 : entries.getLast().cumulativeBytes();
+        long survivorCap = entries.isEmpty() ? 0 : entries.get(entries.size() - 1).cumulativeBytes();
         AgeDistribution dist = new AgeDistribution(List.copyOf(entries), tt, mtt,
                 desiredSize, survivorCap);
         return new GcAgeSnapshot(gcId, ts, dist);
@@ -152,13 +241,13 @@ public final class TenuringAnalyzer {
         }
 
         // Analyze the last snapshot for current state
-        GcAgeSnapshot latest = snapshots.getLast();
+        GcAgeSnapshot latest = snapshots.get(snapshots.size() - 1);
         List<AgeDistribution.AgeEntry> entries = latest.distribution().entries();
 
         // Age-1 ratio insight
         if (!entries.isEmpty()) {
             long total = latest.distribution().survivorCapacity();
-            long age1 = entries.getFirst().bytes();
+            long age1 = entries.get(0).bytes();
             if (total > 0) {
                 int age1Pct = (int) (age1 * 100 / total);
                 if (age1Pct >= 60) {

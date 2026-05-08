@@ -5,6 +5,7 @@ import io.argus.cli.doctor.rules.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * The doctor engine: collects JVM snapshot, runs all health rules,
@@ -85,7 +86,7 @@ public final class DoctorEngine {
         return findings.stream()
                 .flatMap(f -> f.suggestedFlags().stream())
                 .distinct()
-                .toList();
+                .collect(Collectors.toList());
     }
 
     /**

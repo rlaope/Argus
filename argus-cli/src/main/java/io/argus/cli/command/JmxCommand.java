@@ -43,12 +43,15 @@ public final class JmxCommand implements Command {
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
         try {
-            String jcmdCommand = switch (subcommand) {
-                case "start" -> buildStartCommand(args);
-                case "start-local", "startlocal", "local" -> "ManagementAgent.start_local";
-                case "stop" -> "ManagementAgent.stop";
-                default -> "ManagementAgent.status";
-            };
+            String jcmdCommand;
+            switch (subcommand) {
+                case "start": jcmdCommand = buildStartCommand(args); break;
+                case "start-local":
+                case "startlocal":
+                case "local": jcmdCommand = "ManagementAgent.start_local"; break;
+                case "stop": jcmdCommand = "ManagementAgent.stop"; break;
+                default: jcmdCommand = "ManagementAgent.status"; break;
+            }
 
             String output = JcmdExecutor.execute(pid, jcmdCommand);
 

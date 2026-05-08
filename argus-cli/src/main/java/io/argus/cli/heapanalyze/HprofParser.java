@@ -87,22 +87,25 @@ public final class HprofParser {
                 long length = Integer.toUnsignedLong(in.readInt());
 
                 switch (tag) {
-                    case TAG_STRING -> {
+                    case TAG_STRING: {
                         long id = readId(in, idSize);
                         int strLen = (int) (length - idSize);
                         byte[] buf = new byte[strLen];
                         in.readFully(buf);
                         strings.put(id, new String(buf, StandardCharsets.UTF_8));
+                        break;
                     }
-                    case TAG_LOAD_CLASS -> {
+                    case TAG_LOAD_CLASS: {
                         int serial = in.readInt();
                         long classObjId = readId(in, idSize);
                         in.readInt(); // stack trace serial
                         long nameId = readId(in, idSize);
                         classSerialToId.put((long) serial, classObjId);
                         classIdToNameId.put(classObjId, nameId);
+                        break;
                     }
-                    case TAG_HEAP_DUMP, TAG_HEAP_DUMP_SEG -> {
+                    case TAG_HEAP_DUMP:
+                    case TAG_HEAP_DUMP_SEG: {
                         // Parse sub-records within the heap dump segment
                         long remaining = length;
                         while (remaining > 0) {
@@ -110,7 +113,7 @@ public final class HprofParser {
                             remaining--;
 
                             switch (subTag) {
-                                case SUB_GC_CLASS_DUMP -> {
+                                case SUB_GC_CLASS_DUMP: {
                                     long classObjId = readId(in, idSize);
                                     in.readInt(); // stack trace serial
                                     long superClassId = readId(in, idSize);
@@ -158,8 +161,9 @@ public final class HprofParser {
                                     }
 
                                     classes.put(classObjId, new ClassInfo(instanceSize, superClassId, fieldsDataSize));
+                                    break;
                                 }
-                                case SUB_GC_INSTANCE_DUMP -> {
+                                case SUB_GC_INSTANCE_DUMP: {
                                     readId(in, idSize); // object ID
                                     in.readInt(); // stack trace serial
                                     long classId = readId(in, idSize);
@@ -179,8 +183,9 @@ public final class HprofParser {
                                     if ("java.lang.String".equals(className)) {
                                         stringCount++;
                                     }
+                                    break;
                                 }
-                                case SUB_GC_OBJ_ARRAY_DUMP -> {
+                                case SUB_GC_OBJ_ARRAY_DUMP: {
                                     readId(in, idSize); // array object ID
                                     in.readInt(); // stack trace serial
                                     int numElements = in.readInt();
@@ -196,8 +201,9 @@ public final class HprofParser {
                                     histogram.get(className)[1] += shallowSize;
                                     totalArrays++;
                                     totalArrayBytes += shallowSize;
+                                    break;
                                 }
-                                case SUB_GC_PRIM_ARRAY_DUMP -> {
+                                case SUB_GC_PRIM_ARRAY_DUMP: {
                                     readId(in, idSize); // array object ID
                                     in.readInt(); // stack trace serial
                                     int numElements = in.readInt();
@@ -220,56 +226,69 @@ public final class HprofParser {
                                         // We can't easily extract string values in streaming mode
                                         // without building a full reference graph
                                     }
+                                    break;
                                 }
                                 // GC roots — skip
-                                case SUB_GC_ROOT_UNKNOWN -> {
+                                case SUB_GC_ROOT_UNKNOWN: {
                                     readId(in, idSize);
                                     remaining -= idSize;
+                                    break;
                                 }
-                                case SUB_GC_ROOT_JNI_GLOBAL -> {
+                                case SUB_GC_ROOT_JNI_GLOBAL: {
                                     readId(in, idSize);
                                     readId(in, idSize);
                                     remaining -= idSize * 2;
+                                    break;
                                 }
-                                case SUB_GC_ROOT_JNI_LOCAL, SUB_GC_ROOT_JAVA_FRAME,
-                                     SUB_GC_ROOT_THREAD_BLOCK -> {
+                                case SUB_GC_ROOT_JNI_LOCAL:
+                                case SUB_GC_ROOT_JAVA_FRAME:
+                                case SUB_GC_ROOT_THREAD_BLOCK: {
                                     readId(in, idSize);
                                     in.readInt();
                                     in.readInt();
                                     remaining -= idSize + 8;
+                                    break;
                                 }
-                                case SUB_GC_ROOT_NATIVE_STACK, SUB_GC_ROOT_THREAD_OBJ -> {
+                                case SUB_GC_ROOT_NATIVE_STACK:
+                                case SUB_GC_ROOT_THREAD_OBJ: {
                                     readId(in, idSize);
                                     in.readInt();
                                     in.readInt();
                                     remaining -= idSize + 8;
+                                    break;
                                 }
-                                case SUB_GC_ROOT_STICKY_CLASS -> {
+                                case SUB_GC_ROOT_STICKY_CLASS: {
                                     readId(in, idSize);
                                     remaining -= idSize;
+                                    break;
                                 }
-                                case SUB_GC_ROOT_MONITOR_USED -> {
+                                case SUB_GC_ROOT_MONITOR_USED: {
                                     readId(in, idSize);
                                     remaining -= idSize;
+                                    break;
                                 }
-                                default -> {
+                                default: {
                                     // Unknown sub-record, skip remaining
                                     if (remaining > 0) {
                                         skipBytes(in, remaining);
                                         remaining = 0;
                                     }
+                                    break;
                                 }
                             }
                         }
+                        break;
                     }
-                    case TAG_HEAP_DUMP_END -> {
+                    case TAG_HEAP_DUMP_END: {
                         // No body
+                        break;
                     }
-                    default -> {
+                    default: {
                         // Skip unknown records
                         if (length > 0) {
                             skipBytes(in, length);
                         }
+                        break;
                     }
                 }
             }
@@ -318,32 +337,32 @@ public final class HprofParser {
     }
 
     private static int typeSize(int type, int idSize) {
-        return switch (type) {
-            case 2 -> idSize;  // object
-            case 4 -> 1;       // boolean
-            case 5 -> 2;       // char
-            case 6 -> 4;       // float
-            case 7 -> 8;       // double
-            case 8 -> 1;       // byte
-            case 9 -> 2;       // short
-            case 10 -> 4;      // int
-            case 11 -> 8;      // long
-            default -> idSize; // unknown, assume ID
-        };
+        switch (type) {
+            case 2: return idSize;  // object
+            case 4: return 1;       // boolean
+            case 5: return 2;       // char
+            case 6: return 4;       // float
+            case 7: return 8;       // double
+            case 8: return 1;       // byte
+            case 9: return 2;       // short
+            case 10: return 4;      // int
+            case 11: return 8;      // long
+            default: return idSize; // unknown, assume ID
+        }
     }
 
     private static String primArrayName(int type) {
-        return switch (type) {
-            case 4 -> "boolean[]";
-            case 5 -> "char[]";
-            case 6 -> "float[]";
-            case 7 -> "double[]";
-            case 8 -> "byte[]";
-            case 9 -> "short[]";
-            case 10 -> "int[]";
-            case 11 -> "long[]";
-            default -> "unknown[]";
-        };
+        switch (type) {
+            case 4: return "boolean[]";
+            case 5: return "char[]";
+            case 6: return "float[]";
+            case 7: return "double[]";
+            case 8: return "byte[]";
+            case 9: return "short[]";
+            case 10: return "int[]";
+            case 11: return "long[]";
+            default: return "unknown[]";
+        }
     }
 
     private static String resolveClassName(long classId, Map<Long, Long> classIdToNameId,
@@ -355,5 +374,14 @@ public final class HprofParser {
         return name.replace('/', '.');
     }
 
-    private record ClassInfo(int instanceSize, long superClassId, int fieldsDataSize) {}
+    private static final class ClassInfo {
+        final int instanceSize;
+        final long superClassId;
+        final int fieldsDataSize;
+        ClassInfo(int instanceSize, long superClassId, int fieldsDataSize) {
+            this.instanceSize = instanceSize;
+            this.superClassId = superClassId;
+            this.fieldsDataSize = fieldsDataSize;
+        }
+    }
 }

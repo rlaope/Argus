@@ -70,7 +70,7 @@ public final class AllocationProfiler {
                     continue;
                 }
 
-                RecordedFrame top = stack.getFrames().getFirst();
+                RecordedFrame top = stack.getFrames().get(0);
                 String className = top.getMethod().getType().getName();
                 String methodName = top.getMethod().getName();
                 int lineNumber = top.getLineNumber();
@@ -113,59 +113,187 @@ public final class AllocationProfiler {
 
     /**
      * Aggregated allocation profile from a JFR recording.
-     *
-     * @param sites            allocation sites sorted by total bytes descending
-     * @param totalBytes       total bytes allocated across all events
-     * @param totalAllocations total number of allocation events
-     * @param durationSec      recording duration in seconds
      */
-    public record AllocationProfile(
-            List<AllocationSite> sites,
-            long totalBytes,
-            long totalAllocations,
-            double durationSec
-    ) {}
+    public static final class AllocationProfile {
+        private final List<AllocationSite> sites;
+        private final long totalBytes;
+        private final long totalAllocations;
+        private final double durationSec;
+
+        public AllocationProfile(List<AllocationSite> sites, long totalBytes,
+                                 long totalAllocations, double durationSec) {
+            this.sites = sites;
+            this.totalBytes = totalBytes;
+            this.totalAllocations = totalAllocations;
+            this.durationSec = durationSec;
+        }
+
+        public List<AllocationSite> sites() { return sites; }
+        public long totalBytes() { return totalBytes; }
+        public long totalAllocations() { return totalAllocations; }
+        public double durationSec() { return durationSec; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AllocationProfile)) return false;
+            AllocationProfile that = (AllocationProfile) o;
+            return totalBytes == that.totalBytes
+                    && totalAllocations == that.totalAllocations
+                    && Double.compare(that.durationSec, durationSec) == 0
+                    && java.util.Objects.equals(sites, that.sites);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(sites, totalBytes, totalAllocations, durationSec);
+        }
+
+        @Override
+        public String toString() {
+            return "AllocationProfile[sites=" + sites + ", totalBytes=" + totalBytes
+                    + ", totalAllocations=" + totalAllocations + ", durationSec=" + durationSec + "]";
+        }
+    }
 
     /**
      * A single allocation hotspot aggregated from JFR stack top frames.
-     *
-     * @param className       fully-qualified class name
-     * @param methodName      method name
-     * @param lineNumber      source line number (0 if unknown)
-     * @param totalBytes      total bytes allocated at this site
-     * @param allocationCount number of allocation events at this site
-     * @param bytesPerSec     allocation rate in bytes/second
      */
-    public record AllocationSite(
-            String className,
-            String methodName,
-            int lineNumber,
-            long totalBytes,
-            long allocationCount,
-            double bytesPerSec
-    ) {}
+    public static final class AllocationSite {
+        private final String className;
+        private final String methodName;
+        private final int lineNumber;
+        private final long totalBytes;
+        private final long allocationCount;
+        private final double bytesPerSec;
+
+        public AllocationSite(String className, String methodName, int lineNumber,
+                              long totalBytes, long allocationCount, double bytesPerSec) {
+            this.className = className;
+            this.methodName = methodName;
+            this.lineNumber = lineNumber;
+            this.totalBytes = totalBytes;
+            this.allocationCount = allocationCount;
+            this.bytesPerSec = bytesPerSec;
+        }
+
+        public String className() { return className; }
+        public String methodName() { return methodName; }
+        public int lineNumber() { return lineNumber; }
+        public long totalBytes() { return totalBytes; }
+        public long allocationCount() { return allocationCount; }
+        public double bytesPerSec() { return bytesPerSec; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AllocationSite)) return false;
+            AllocationSite that = (AllocationSite) o;
+            return lineNumber == that.lineNumber
+                    && totalBytes == that.totalBytes
+                    && allocationCount == that.allocationCount
+                    && Double.compare(that.bytesPerSec, bytesPerSec) == 0
+                    && java.util.Objects.equals(className, that.className)
+                    && java.util.Objects.equals(methodName, that.methodName);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(className, methodName, lineNumber,
+                    totalBytes, allocationCount, bytesPerSec);
+        }
+
+        @Override
+        public String toString() {
+            return "AllocationSite[className=" + className + ", methodName=" + methodName
+                    + ", lineNumber=" + lineNumber + ", totalBytes=" + totalBytes
+                    + ", allocationCount=" + allocationCount + ", bytesPerSec=" + bytesPerSec + "]";
+        }
+    }
 
     /**
      * Aggregated allocation view grouped by the <em>allocated type</em> rather than stack frame.
      * Answers "which classes are burning allocation bytes".
-     *
-     * @param sites       allocated types sorted by total bytes descending
-     * @param totalBytes  total bytes allocated across all events
-     * @param durationSec recording duration in seconds
      */
-    public record AllocationByClass(
-            List<AllocatedType> sites,
-            long totalBytes,
-            double durationSec
-    ) {}
+    public static final class AllocationByClass {
+        private final List<AllocatedType> sites;
+        private final long totalBytes;
+        private final double durationSec;
+
+        public AllocationByClass(List<AllocatedType> sites, long totalBytes, double durationSec) {
+            this.sites = sites;
+            this.totalBytes = totalBytes;
+            this.durationSec = durationSec;
+        }
+
+        public List<AllocatedType> sites() { return sites; }
+        public long totalBytes() { return totalBytes; }
+        public double durationSec() { return durationSec; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AllocationByClass)) return false;
+            AllocationByClass that = (AllocationByClass) o;
+            return totalBytes == that.totalBytes
+                    && Double.compare(that.durationSec, durationSec) == 0
+                    && java.util.Objects.equals(sites, that.sites);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(sites, totalBytes, durationSec);
+        }
+
+        @Override
+        public String toString() {
+            return "AllocationByClass[sites=" + sites + ", totalBytes=" + totalBytes
+                    + ", durationSec=" + durationSec + "]";
+        }
+    }
 
     /** A single allocated-type row: the class that was allocated, not the code that allocated it. */
-    public record AllocatedType(
-            String className,
-            long totalBytes,
-            long allocationCount,
-            double bytesPerSec
-    ) {}
+    public static final class AllocatedType {
+        private final String className;
+        private final long totalBytes;
+        private final long allocationCount;
+        private final double bytesPerSec;
+
+        public AllocatedType(String className, long totalBytes,
+                             long allocationCount, double bytesPerSec) {
+            this.className = className;
+            this.totalBytes = totalBytes;
+            this.allocationCount = allocationCount;
+            this.bytesPerSec = bytesPerSec;
+        }
+
+        public String className() { return className; }
+        public long totalBytes() { return totalBytes; }
+        public long allocationCount() { return allocationCount; }
+        public double bytesPerSec() { return bytesPerSec; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof AllocatedType)) return false;
+            AllocatedType that = (AllocatedType) o;
+            return totalBytes == that.totalBytes
+                    && allocationCount == that.allocationCount
+                    && Double.compare(that.bytesPerSec, bytesPerSec) == 0
+                    && java.util.Objects.equals(className, that.className);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(className, totalBytes, allocationCount, bytesPerSec);
+        }
+
+        @Override
+        public String toString() {
+            return "AllocatedType[className=" + className + ", totalBytes=" + totalBytes
+                    + ", allocationCount=" + allocationCount + ", bytesPerSec=" + bytesPerSec + "]";
+        }
+    }
 
     // -------------------------------------------------------------------------
     // New: group by allocated class

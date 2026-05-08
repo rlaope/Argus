@@ -23,7 +23,37 @@ public final class GcLogParser {
     /**
      * Result container for phase-aware parsing.
      */
-    public record ParseResult(List<GcEvent> events, List<GcPhaseEvent> phases) {}
+    public static final class ParseResult {
+        private final List<GcEvent> events;
+        private final List<GcPhaseEvent> phases;
+
+        public ParseResult(List<GcEvent> events, List<GcPhaseEvent> phases) {
+            this.events = events;
+            this.phases = phases;
+        }
+
+        public List<GcEvent> events() { return events; }
+        public List<GcPhaseEvent> phases() { return phases; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ParseResult)) return false;
+            ParseResult that = (ParseResult) o;
+            return java.util.Objects.equals(events, that.events)
+                    && java.util.Objects.equals(phases, that.phases);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(events, phases);
+        }
+
+        @Override
+        public String toString() {
+            return "ParseResult[events=" + events + ", phases=" + phases + "]";
+        }
+    }
 
     /**
      * Parse GC log file and also extract phase breakdown from debug gc,phases lines.
@@ -239,12 +269,12 @@ public final class GcLogParser {
     }
 
     private static long toKB(long value, String unit) {
-        return switch (unit) {
-            case "K" -> value;
-            case "M" -> value * 1024L;
-            case "G" -> value * 1024L * 1024L;
-            case "T" -> value * 1024L * 1024L * 1024L;
-            default -> value;
-        };
+        switch (unit) {
+            case "K": return value;
+            case "M": return value * 1024L;
+            case "G": return value * 1024L * 1024L;
+            case "T": return value * 1024L * 1024L * 1024L;
+            default: return value;
+        }
     }
 }

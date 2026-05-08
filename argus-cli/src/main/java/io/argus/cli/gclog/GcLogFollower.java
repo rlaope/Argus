@@ -199,12 +199,12 @@ public final class GcLogFollower {
     }
 
     private static long toKB(long value, String unit) {
-        return switch (unit) {
-            case "K" -> value;
-            case "M" -> value * 1024;
-            case "G" -> value * 1024 * 1024;
-            default  -> value;
-        };
+        switch (unit) {
+            case "K": return value;
+            case "M": return value * 1024;
+            case "G": return value * 1024 * 1024;
+            default:  return value;
+        }
     }
 
     public int maxEvents() { return maxEvents; }

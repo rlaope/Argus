@@ -3,27 +3,30 @@ package io.argus.core.command;
 /**
  * Execution context for diagnostic commands.
  *
- * <p>Sealed to exactly two variants:
+ * <p>Two variants:
  * <ul>
  *   <li>{@link InProcess} — command runs inside the target JVM (MXBeans, direct API access)</li>
  *   <li>{@link External} — command runs from outside, targeting a remote JVM by PID</li>
  * </ul>
  *
- * <p>Command implementations use pattern matching to handle each context:
+ * <p>Command implementations dispatch on context type:
  * <pre>
- * switch (ctx) {
- *     case InProcess ip -> ip.getBufferPoolMXBeans();
- *     case External ex  -> JcmdExecutor.execute(ex.pid(), "VM.info");
+ * if (ctx instanceof CommandContext.InProcess) {
+ *     CommandContext.InProcess ip = (CommandContext.InProcess) ctx;
+ *     ip.getBufferPoolMXBeans();
+ * } else if (ctx instanceof CommandContext.External) {
+ *     CommandContext.External ex = (CommandContext.External) ctx;
+ *     JcmdExecutor.execute(ex.pid(), "VM.info");
  * }
  * </pre>
  */
-public sealed interface CommandContext permits CommandContext.InProcess, CommandContext.External {
+public interface CommandContext {
 
     /**
      * In-process context: the command executes inside the monitored JVM.
      * Has direct access to MXBeans, Runtime APIs, and the current JVM state.
      */
-    non-sealed interface InProcess extends CommandContext {
+    interface InProcess extends CommandContext {
         /** Current JVM PID. */
         long pid();
     }
@@ -32,7 +35,7 @@ public sealed interface CommandContext permits CommandContext.InProcess, Command
      * External context: the command targets a remote JVM by PID.
      * Uses jcmd, jstat, or attach API to gather data.
      */
-    non-sealed interface External extends CommandContext {
+    interface External extends CommandContext {
         /** Target JVM PID. */
         long pid();
     }

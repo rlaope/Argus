@@ -35,8 +35,8 @@ class MaxPauseRuleTest {
         JvmSnapshot s = snapshotWithPause(500L); // exactly at default warn threshold
         List<Finding> findings = new MaxPauseRule().evaluate(s);
         assertEquals(1, findings.size());
-        assertEquals(Severity.WARNING, findings.getFirst().severity());
-        assertEquals("GC", findings.getFirst().category());
+        assertEquals(Severity.WARNING, findings.get(0).severity());
+        assertEquals("GC", findings.get(0).category());
     }
 
     @Test
@@ -44,8 +44,8 @@ class MaxPauseRuleTest {
         JvmSnapshot s = snapshotWithPause(1000L); // 1000ms: warn >= 500, critical < 2000
         List<Finding> findings = new MaxPauseRule().evaluate(s);
         assertEquals(1, findings.size());
-        assertEquals(Severity.WARNING, findings.getFirst().severity());
-        assertTrue(findings.getFirst().title().contains("1000ms"));
+        assertEquals(Severity.WARNING, findings.get(0).severity());
+        assertTrue(findings.get(0).title().contains("1000ms"));
     }
 
     // --- critical band ---
@@ -55,7 +55,7 @@ class MaxPauseRuleTest {
         JvmSnapshot s = snapshotWithPause(2000L); // exactly at default critical threshold
         List<Finding> findings = new MaxPauseRule().evaluate(s);
         assertEquals(1, findings.size());
-        assertEquals(Severity.CRITICAL, findings.getFirst().severity());
+        assertEquals(Severity.CRITICAL, findings.get(0).severity());
     }
 
     @Test
@@ -63,8 +63,8 @@ class MaxPauseRuleTest {
         JvmSnapshot s = snapshotWithPause(5000L);
         List<Finding> findings = new MaxPauseRule().evaluate(s);
         assertEquals(1, findings.size());
-        assertEquals(Severity.CRITICAL, findings.getFirst().severity());
-        assertTrue(findings.getFirst().title().contains("5000ms"));
+        assertEquals(Severity.CRITICAL, findings.get(0).severity());
+        assertTrue(findings.get(0).title().contains("5000ms"));
     }
 
     // --- custom threshold via constructor ---
@@ -83,7 +83,7 @@ class MaxPauseRuleTest {
         JvmSnapshot s = snapshotWithPause(1500L); // 1500ms >= custom warn of 1000ms, < critical 4000ms
         List<Finding> findings = rule.evaluate(s);
         assertEquals(1, findings.size());
-        assertEquals(Severity.WARNING, findings.getFirst().severity());
+        assertEquals(Severity.WARNING, findings.get(0).severity());
     }
 
     @Test
@@ -92,7 +92,7 @@ class MaxPauseRuleTest {
         JvmSnapshot s = snapshotWithPause(4500L); // 4500ms >= custom critical of 4000ms
         List<Finding> findings = rule.evaluate(s);
         assertEquals(1, findings.size());
-        assertEquals(Severity.CRITICAL, findings.getFirst().severity());
+        assertEquals(Severity.CRITICAL, findings.get(0).severity());
     }
 
     // --- missing data ---
@@ -109,7 +109,7 @@ class MaxPauseRuleTest {
     @Test
     void warningFinding_containsRecommendations() {
         JvmSnapshot s = snapshotWithPause(600L);
-        Finding f = new MaxPauseRule().evaluate(s).getFirst();
+        Finding f = new MaxPauseRule().evaluate(s).get(0);
         assertFalse(f.recommendations().isEmpty(), "Finding should include recommendations");
         assertTrue(f.recommendations().stream().anyMatch(r -> r.contains("ZGC")),
                 "Should recommend ZGC for sub-ms pauses");

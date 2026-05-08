@@ -74,10 +74,10 @@ public final class HtmlExporter {
             } else {
                 char c = input.charAt(i);
                 switch (c) {
-                    case '<' -> out.append("&lt;");
-                    case '>' -> out.append("&gt;");
-                    case '&' -> out.append("&amp;");
-                    default -> out.append(c);
+                    case '<': out.append("&lt;"); break;
+                    case '>': out.append("&gt;"); break;
+                    case '&': out.append("&amp;"); break;
+                    default: out.append(c); break;
                 }
                 i++;
             }
@@ -91,23 +91,23 @@ public final class HtmlExporter {
         StringBuilder classes = new StringBuilder();
         for (String code : codes.split(";")) {
             switch (code.trim()) {
-                case "1" -> append(classes, "bold");
-                case "2" -> append(classes, "dim");
-                case "31" -> append(classes, "red");
-                case "32" -> append(classes, "green");
-                case "33" -> append(classes, "yellow");
-                case "34" -> append(classes, "blue");
-                case "35" -> append(classes, "magenta");
-                case "36" -> append(classes, "cyan");
-                case "37" -> append(classes, "white");
-                default -> {} // ignore unknown codes
+                case "1": append(classes, "bold"); break;
+                case "2": append(classes, "dim"); break;
+                case "31": append(classes, "red"); break;
+                case "32": append(classes, "green"); break;
+                case "33": append(classes, "yellow"); break;
+                case "34": append(classes, "blue"); break;
+                case "35": append(classes, "magenta"); break;
+                case "36": append(classes, "cyan"); break;
+                case "37": append(classes, "white"); break;
+                default: break; // ignore unknown codes
             }
         }
         return classes.toString();
     }
 
     private static void append(StringBuilder sb, String cls) {
-        if (!sb.isEmpty()) sb.append(' ');
+        if (sb.length() > 0) sb.append(' ');
         sb.append(cls);
     }
 

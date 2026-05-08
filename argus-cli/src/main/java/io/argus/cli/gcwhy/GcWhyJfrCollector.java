@@ -63,14 +63,15 @@ public final class GcWhyJfrCollector {
                 }
 
                 switch (typeName) {
-                    case "jdk.GarbageCollection" -> {
+                    case "jdk.GarbageCollection": {
                         long gcId = safeGetLong(event, "gcId");
                         String name  = safeGetString(event, "name");   // e.g. "G1Young", "G1Full"
                         String cause = safeGetString(event, "cause");  // e.g. "G1 Evacuation Pause"
                         long durationNs = event.getDuration().toNanos();
                         collections.put(gcId, new GcCollectionInfo(gcId, name, cause, startTime, durationNs));
+                        break;
                     }
-                    case "jdk.GCHeapSummary" -> {
+                    case "jdk.GCHeapSummary": {
                         long gcId = safeGetLong(event, "gcId");
                         String when = safeGetString(event, "when"); // GCWhen enum: "Before GC" or "After GC"
                         long heapUsed = safeGetLong(event, "heapUsed"); // bytes
@@ -89,7 +90,10 @@ public final class GcWhyJfrCollector {
                         } else if (when != null && when.toLowerCase().contains("after")) {
                             heapAfter.put(gcId, new long[]{usedKB, committedKB});
                         }
+                        break;
                     }
+                    default:
+                        break;
                 }
             }
         }
@@ -162,10 +166,23 @@ public final class GcWhyJfrCollector {
 
     // ── Internal value type ──────────────────────────────────────────────────
 
-    private record GcCollectionInfo(
-            long gcId,
-            String name,
-            String cause,
-            Instant startTime,
-            long durationNs) {}
+    private static final class GcCollectionInfo {
+        final long gcId;
+        final String name;
+        final String cause;
+        final Instant startTime;
+        final long durationNs;
+        GcCollectionInfo(long gcId, String name, String cause, Instant startTime, long durationNs) {
+            this.gcId = gcId;
+            this.name = name;
+            this.cause = cause;
+            this.startTime = startTime;
+            this.durationNs = durationNs;
+        }
+        long gcId() { return gcId; }
+        String name() { return name; }
+        String cause() { return cause; }
+        Instant startTime() { return startTime; }
+        long durationNs() { return durationNs; }
+    }
 }

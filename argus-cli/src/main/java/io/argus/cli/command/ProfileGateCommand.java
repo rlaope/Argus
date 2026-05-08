@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * CI/CD gate command that compares two profile snapshots and exits non-zero on regression.
@@ -155,7 +156,7 @@ public final class ProfileGateCommand implements Command {
         List<RegressionEntry> failing = regressions.stream()
                 .filter(r -> r.deltaPp >= thresh
                         && Math.abs(r.de.deltaSamples()) >= threshSamples)
-                .toList();
+                .collect(Collectors.toList());
 
         // Pass iff no threshold violations; also fail when total (any) regressions > maxRegressions
         boolean gatePass = baselineOnly || failing.isEmpty();
@@ -414,10 +415,18 @@ public final class ProfileGateCommand implements Command {
     // Internal record
     // -------------------------------------------------------------------------
 
-    private record RegressionEntry(ProfileSnapshot.DiffEntry de,
-                                   double beforePct,
-                                   double afterPct,
-                                   double deltaPp) {}
+    private static final class RegressionEntry {
+        final ProfileSnapshot.DiffEntry de;
+        final double beforePct;
+        final double afterPct;
+        final double deltaPp;
+        RegressionEntry(ProfileSnapshot.DiffEntry de, double beforePct, double afterPct, double deltaPp) {
+            this.de = de;
+            this.beforePct = beforePct;
+            this.afterPct = afterPct;
+            this.deltaPp = deltaPp;
+        }
+    }
 
     // -------------------------------------------------------------------------
     // Utilities

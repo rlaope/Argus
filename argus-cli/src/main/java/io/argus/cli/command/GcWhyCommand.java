@@ -279,12 +279,12 @@ public final class GcWhyCommand implements Command {
             char last = s.charAt(s.length() - 1);
             if (Character.isDigit(last)) return Double.parseDouble(s);
             double n = Double.parseDouble(s.substring(0, s.length() - 1));
-            return switch (last) {
-                case 's' -> n;
-                case 'm' -> n * 60;
-                case 'h' -> n * 3600;
-                default -> null;
-            };
+            switch (last) {
+                case 's': return n;
+                case 'm': return n * 60;
+                case 'h': return n * 3600;
+                default: return null;
+            }
         } catch (NumberFormatException e) {
             return null;
         }

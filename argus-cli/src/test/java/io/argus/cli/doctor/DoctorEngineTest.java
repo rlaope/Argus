@@ -135,7 +135,7 @@ class DoctorEngineTest {
         List<Finding> findings = DoctorEngine.diagnose(s);
         assertFalse(findings.isEmpty());
         // First finding should be CRITICAL
-        assertEquals(Severity.CRITICAL, findings.getFirst().severity());
+        assertEquals(Severity.CRITICAL, findings.get(0).severity());
     }
 
     @Test

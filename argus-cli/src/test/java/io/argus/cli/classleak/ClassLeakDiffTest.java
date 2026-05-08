@@ -156,16 +156,15 @@ class ClassLeakDiffTest {
 
     @Test
     void parserHandlesActualJcmdOutput() {
-        String raw = """
-                ClassLoader         Parent              CLD*               Classes   ChunkSz   BlockSz  Type
-                0x0000000000000000  0x0000000000000000  0x0000000cb30b8e60    2447   8028160   7669896  <boot class loader>
-                                                                                62    191488    123512   + hidden classes
-                0x0000000500068770  0x0000000500069008  0x0000000cb30b9400     735   5586944   5581408  jdk.internal.loader.ClassLoaders$AppClassLoader
-                0x0000000500069008  0x0000000000000000  0x0000000cb30b9360       3     41984     39576  jdk.internal.loader.ClassLoaders$PlatformClassLoader
-                Total = 3                                                      3247  13848576  13414392
-                ChunkSz: Total size of all allocated metaspace chunks
-                BlockSz: Total size of all allocated metaspace blocks (each chunk has several blocks)
-                """;
+        String raw =
+                "ClassLoader         Parent              CLD*               Classes   ChunkSz   BlockSz  Type\n" +
+                "0x0000000000000000  0x0000000000000000  0x0000000cb30b8e60    2447   8028160   7669896  <boot class loader>\n" +
+                "                                                                62    191488    123512   + hidden classes\n" +
+                "0x0000000500068770  0x0000000500069008  0x0000000cb30b9400     735   5586944   5581408  jdk.internal.loader.ClassLoaders$AppClassLoader\n" +
+                "0x0000000500069008  0x0000000000000000  0x0000000cb30b9360       3     41984     39576  jdk.internal.loader.ClassLoaders$PlatformClassLoader\n" +
+                "Total = 3                                                      3247  13848576  13414392\n" +
+                "ChunkSz: Total size of all allocated metaspace chunks\n" +
+                "BlockSz: Total size of all allocated metaspace blocks (each chunk has several blocks)\n";
 
         List<ClassLoaderEntry> entries = ClassLeakAnalyzer.parse(raw);
 

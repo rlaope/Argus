@@ -154,7 +154,7 @@ public final class GcNewCommand implements Command {
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
         long total = dist.survivorCapacity();
-        if (total == 0 && !entries.isEmpty()) total = entries.getLast().cumulativeBytes();
+        if (total == 0 && !entries.isEmpty()) total = entries.get(entries.size() - 1).cumulativeBytes();
 
         // Group ages >= 6 together
         long ageGe6Bytes = 0;
@@ -199,7 +199,7 @@ public final class GcNewCommand implements Command {
         // Insights
         System.out.println(RichRenderer.emptyLine(WIDTH));
         if (!entries.isEmpty() && total > 0) {
-            long age1Bytes = entries.getFirst().age() == 1 ? entries.getFirst().bytes() : 0;
+            long age1Bytes = entries.get(0).age() == 1 ? entries.get(0).bytes() : 0;
             int age1Pct = (int) (age1Bytes * 100 / total);
             if (age1Pct >= 50) {
                 System.out.println(RichRenderer.boxLine(

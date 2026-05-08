@@ -75,19 +75,19 @@ public enum EventType {
     }
 
     public static EventType fromCode(int code) {
-        return switch (code) {
-            case 1 -> VIRTUAL_THREAD_START;
-            case 2 -> VIRTUAL_THREAD_END;
-            case 3 -> VIRTUAL_THREAD_PINNED;
-            case 4 -> VIRTUAL_THREAD_SUBMIT_FAILED;
-            case 10 -> GC_PAUSE;
-            case 11 -> GC_HEAP_SUMMARY;
-            case 20 -> CPU_LOAD;
-            case 30 -> ALLOCATION;
-            case 31 -> METASPACE_SUMMARY;
-            case 40 -> EXECUTION_SAMPLE;
-            case 41 -> CONTENTION;
-            default -> throw new IllegalArgumentException("Unknown event type code: " + code);
-        };
+        switch (code) {
+            case 1: return VIRTUAL_THREAD_START;
+            case 2: return VIRTUAL_THREAD_END;
+            case 3: return VIRTUAL_THREAD_PINNED;
+            case 4: return VIRTUAL_THREAD_SUBMIT_FAILED;
+            case 10: return GC_PAUSE;
+            case 11: return GC_HEAP_SUMMARY;
+            case 20: return CPU_LOAD;
+            case 30: return ALLOCATION;
+            case 31: return METASPACE_SUMMARY;
+            case 40: return EXECUTION_SAMPLE;
+            case 41: return CONTENTION;
+            default: throw new IllegalArgumentException("Unknown event type code: " + code);
+        }
     }
 }

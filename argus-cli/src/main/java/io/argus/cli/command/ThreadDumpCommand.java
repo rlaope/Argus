@@ -186,12 +186,13 @@ public final class ThreadDumpCommand implements Command {
     }
 
     private static String stateColor(boolean useColor, String state) {
-        return switch (state) {
-            case "RUNNABLE" -> AnsiStyle.style(useColor, AnsiStyle.GREEN);
-            case "BLOCKED" -> AnsiStyle.style(useColor, AnsiStyle.RED);
-            case "WAITING", "TIMED_WAITING" -> AnsiStyle.style(useColor, AnsiStyle.YELLOW);
-            default -> AnsiStyle.style(useColor, AnsiStyle.DIM);
-        };
+        switch (state) {
+            case "RUNNABLE": return AnsiStyle.style(useColor, AnsiStyle.GREEN);
+            case "BLOCKED": return AnsiStyle.style(useColor, AnsiStyle.RED);
+            case "WAITING":
+            case "TIMED_WAITING": return AnsiStyle.style(useColor, AnsiStyle.YELLOW);
+            default: return AnsiStyle.style(useColor, AnsiStyle.DIM);
+        }
     }
 
     private static void printJson(ThreadDumpResult result) {

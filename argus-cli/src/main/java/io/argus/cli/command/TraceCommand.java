@@ -147,7 +147,7 @@ public final class TraceCommand implements Command {
                         new java.io.InputStreamReader(process.getInputStream()))) {
                     String line;
                     while ((line = br.readLine()) != null) {
-                        if (!sb.isEmpty()) sb.append('\n');
+                        if (sb.length() > 0) sb.append('\n');
                         sb.append(line);
                     }
                 } catch (Exception ignored) {}

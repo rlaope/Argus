@@ -324,11 +324,12 @@ public final class GcLogCommand implements Command {
 
             for (int i = 0; i < a.recommendations().size(); i++) {
                 var rec = a.recommendations().get(i);
-                String sevColor = switch (rec.severity()) {
-                    case "CRITICAL" -> AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);
-                    case "WARNING" -> AnsiStyle.style(c, AnsiStyle.YELLOW, AnsiStyle.BOLD);
-                    default -> AnsiStyle.style(c, AnsiStyle.CYAN);
-                };
+                String sevColor;
+                switch (rec.severity()) {
+                    case "CRITICAL": sevColor = AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD);    break;
+                    case "WARNING":  sevColor = AnsiStyle.style(c, AnsiStyle.YELLOW, AnsiStyle.BOLD); break;
+                    default:         sevColor = AnsiStyle.style(c, AnsiStyle.CYAN);                   break;
+                }
 
                 System.out.println(RichRenderer.boxLine(
                         "  " + sevColor + (i + 1) + ". " + rec.problem()
@@ -427,7 +428,7 @@ public final class GcLogCommand implements Command {
 
         // Latest age snapshot
         if (!analysis.snapshots().isEmpty()) {
-            TenuringAnalyzer.GcAgeSnapshot latest = analysis.snapshots().getLast();
+            TenuringAnalyzer.GcAgeSnapshot latest = analysis.snapshots().get(analysis.snapshots().size() - 1);
             section(c, "Latest Age Distribution (GC " + latest.gcId() + ")");
 
             var entries = latest.distribution().entries();

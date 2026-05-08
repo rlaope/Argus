@@ -8,31 +8,29 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class PrometheusTextParserTest {
 
-    private static final String SAMPLE = """
-            # HELP argus_heap_used_percent Heap used percent
-            # TYPE argus_heap_used_percent gauge
-            argus_heap_used_percent 56.3
-            # HELP argus_gc_overhead_percent GC overhead percent
-            # TYPE argus_gc_overhead_percent gauge
-            argus_gc_overhead_percent 2.1
-            # HELP argus_cpu_process_percent Process CPU percent
-            # TYPE argus_cpu_process_percent gauge
-            argus_cpu_process_percent 12.0
-            # HELP argus_virtual_threads_active Active virtual threads
-            # TYPE argus_virtual_threads_active gauge
-            argus_virtual_threads_active 1234.0
-            # HELP argus_memory_leak_suspected Memory leak flag
-            # TYPE argus_memory_leak_suspected gauge
-            argus_memory_leak_suspected 0.0
-            """;
+    private static final String SAMPLE =
+            "# HELP argus_heap_used_percent Heap used percent\n" +
+            "# TYPE argus_heap_used_percent gauge\n" +
+            "argus_heap_used_percent 56.3\n" +
+            "# HELP argus_gc_overhead_percent GC overhead percent\n" +
+            "# TYPE argus_gc_overhead_percent gauge\n" +
+            "argus_gc_overhead_percent 2.1\n" +
+            "# HELP argus_cpu_process_percent Process CPU percent\n" +
+            "# TYPE argus_cpu_process_percent gauge\n" +
+            "argus_cpu_process_percent 12.0\n" +
+            "# HELP argus_virtual_threads_active Active virtual threads\n" +
+            "# TYPE argus_virtual_threads_active gauge\n" +
+            "argus_virtual_threads_active 1234.0\n" +
+            "# HELP argus_memory_leak_suspected Memory leak flag\n" +
+            "# TYPE argus_memory_leak_suspected gauge\n" +
+            "argus_memory_leak_suspected 0.0\n";
 
-    private static final String SAMPLE_WITH_LABELS = """
-            # HELP jvm_memory_used_bytes Memory used
-            # TYPE jvm_memory_used_bytes gauge
-            jvm_memory_used_bytes{area="heap",id="G1 Eden Space"} 12345678.0
-            jvm_gc_overhead_percent{gc="G1"} 8.3
-            process_cpu_usage 0.67
-            """;
+    private static final String SAMPLE_WITH_LABELS =
+            "# HELP jvm_memory_used_bytes Memory used\n" +
+            "# TYPE jvm_memory_used_bytes gauge\n" +
+            "jvm_memory_used_bytes{area=\"heap\",id=\"G1 Eden Space\"} 12345678.0\n" +
+            "jvm_gc_overhead_percent{gc=\"G1\"} 8.3\n" +
+            "process_cpu_usage 0.67\n";
 
     @Test
     void parsesBasicMetrics() {

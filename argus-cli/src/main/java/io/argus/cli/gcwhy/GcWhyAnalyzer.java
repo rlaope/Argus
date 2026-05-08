@@ -22,7 +22,7 @@ public final class GcWhyAnalyzer {
     public static GcWhyResult analyze(List<GcEvent> events, double windowSeconds) {
         if (events == null || events.isEmpty()) return GcWhyResult.empty();
 
-        double latestTs = events.getLast().timestampSec();
+        double latestTs = events.get(events.size() - 1).timestampSec();
         double cutoffTs = latestTs - windowSeconds;
 
         List<GcEvent> window = new ArrayList<>();

@@ -108,15 +108,15 @@ public final class JdkSearchClassProvider implements SearchClassProvider {
         for (int i = 0; i < glob.length(); i++) {
             char c = glob.charAt(i);
             switch (c) {
-                case '*' -> regex.append(".*");
-                case '?' -> regex.append(".");
-                case '.' -> regex.append("\\.");
-                case '$' -> regex.append("\\$");
-                case '[' -> regex.append("\\[");
-                case ']' -> regex.append("\\]");
-                case '(' -> regex.append("\\(");
-                case ')' -> regex.append("\\)");
-                default -> regex.append(c);
+                case '*': regex.append(".*"); break;
+                case '?': regex.append("."); break;
+                case '.': regex.append("\\."); break;
+                case '$': regex.append("\\$"); break;
+                case '[': regex.append("\\["); break;
+                case ']': regex.append("\\]"); break;
+                case '(': regex.append("\\("); break;
+                case ')': regex.append("\\)"); break;
+                default: regex.append(c); break;
             }
         }
         return Pattern.compile(regex.toString(), Pattern.CASE_INSENSITIVE);

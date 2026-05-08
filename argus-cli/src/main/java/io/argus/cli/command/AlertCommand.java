@@ -208,7 +208,18 @@ public final class AlertCommand implements Command {
         return new ConfigResult(target, interval, webhook, rules);
     }
 
-    private record ConfigResult(String target, int interval, String webhook, List<AlertRule> rules) {}
+    private static final class ConfigResult {
+        final String target;
+        final int interval;
+        final String webhook;
+        final List<AlertRule> rules;
+        ConfigResult(String target, int interval, String webhook, List<AlertRule> rules) {
+            this.target = target;
+            this.interval = interval;
+            this.webhook = webhook;
+            this.rules = rules;
+        }
+    }
 
     // ── Help ────────────────────────────────────────────────────────────────
 
