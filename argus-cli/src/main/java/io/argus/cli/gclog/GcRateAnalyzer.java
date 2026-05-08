@@ -16,8 +16,8 @@ public final class GcRateAnalyzer {
                     new double[NUM_WINDOWS], new double[NUM_WINDOWS]);
         }
 
-        double firstTs = pauseEvents.getFirst().timestampSec();
-        double lastTs = pauseEvents.getLast().timestampSec();
+        double firstTs = pauseEvents.get(0).timestampSec();
+        double lastTs = pauseEvents.get(pauseEvents.size() - 1).timestampSec();
         double duration = Math.max(lastTs - firstTs, 0.001);
         double windowSize = duration / NUM_WINDOWS;
 

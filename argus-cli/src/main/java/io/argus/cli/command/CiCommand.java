@@ -66,10 +66,10 @@ public final class CiCommand implements Command {
         if ("critical".equals(failOn) && exitCode == 1) exitCode = 0; // warnings OK
 
         switch (format) {
-            case "github-annotations" -> printGitHubAnnotations(findings);
-            case "json" -> printJson(findings, exitCode);
-            case "junit" -> printJunit(findings);
-            default -> printSummary(findings, exitCode);
+            case "github-annotations": printGitHubAnnotations(findings); break;
+            case "json": printJson(findings, exitCode); break;
+            case "junit": printJunit(findings); break;
+            default: printSummary(findings, exitCode); break;
         }
 
         if (exitCode > 0) throw new CommandExitException(exitCode);
@@ -92,11 +92,12 @@ public final class CiCommand implements Command {
 
     private void printGitHubAnnotations(List<Finding> findings) {
         for (Finding f : findings) {
-            String level = switch (f.severity()) {
-                case CRITICAL -> "error";
-                case WARNING -> "warning";
-                case INFO -> "notice";
-            };
+            String level;
+            switch (f.severity()) {
+                case CRITICAL: level = "error";   break;
+                case WARNING:  level = "warning"; break;
+                default:       level = "notice";  break;
+            }
             // GitHub Actions annotation format
             System.out.println("::" + level + " title=Argus " + f.category() + "::" + f.title());
             if (!f.detail().isEmpty()) {

@@ -95,7 +95,7 @@ public final class JdkGcAgeProvider implements GcAgeProvider {
         }
 
         long survivorCapacity = entries.isEmpty() ? 0
-                : entries.getLast().cumulativeBytes();
+                : entries.get(entries.size() - 1).cumulativeBytes();
         return new AgeDistribution(entries, tenuringThreshold, maxTenuringThreshold,
                 desiredSurvivorSize, survivorCapacity);
     }

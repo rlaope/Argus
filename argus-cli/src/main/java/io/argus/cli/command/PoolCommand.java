@@ -110,22 +110,23 @@ public final class PoolCommand implements Command {
     }
 
     private static String getStateColor(boolean useColor, String state) {
-        return switch (state) {
-            case "RUNNABLE" -> AnsiStyle.style(useColor, AnsiStyle.GREEN);
-            case "BLOCKED" -> AnsiStyle.style(useColor, AnsiStyle.RED);
-            case "WAITING", "TIMED_WAITING" -> AnsiStyle.style(useColor, AnsiStyle.YELLOW);
-            default -> "";
-        };
+        switch (state) {
+            case "RUNNABLE": return AnsiStyle.style(useColor, AnsiStyle.GREEN);
+            case "BLOCKED": return AnsiStyle.style(useColor, AnsiStyle.RED);
+            case "WAITING":
+            case "TIMED_WAITING": return AnsiStyle.style(useColor, AnsiStyle.YELLOW);
+            default: return "";
+        }
     }
 
     private static String abbreviateState(String state) {
-        return switch (state) {
-            case "RUNNABLE" -> "RUN";
-            case "BLOCKED" -> "BLK";
-            case "WAITING" -> "WAIT";
-            case "TIMED_WAITING" -> "TWAIT";
-            default -> state;
-        };
+        switch (state) {
+            case "RUNNABLE": return "RUN";
+            case "BLOCKED": return "BLK";
+            case "WAITING": return "WAIT";
+            case "TIMED_WAITING": return "TWAIT";
+            default: return state;
+        }
     }
 
     private static void printJson(PoolResult result) {

@@ -20,7 +20,7 @@ class ZgcSoftMaxBreachRuleTest {
         JvmSnapshot s = snapshot("ZGC", 5 * GB, List.of("-XX:SoftMaxHeapSize=" + (4 * GB)));
         List<Finding> findings = new ZgcSoftMaxBreachRule().evaluate(s);
         assertEquals(1, findings.size());
-        Finding f = findings.getFirst();
+        Finding f = findings.get(0);
         assertEquals(Severity.WARNING, f.severity());
         assertEquals("GC", f.category());
         assertTrue(f.title().contains("SoftMaxHeapSize"), "Title should mention SoftMaxHeapSize");
@@ -73,7 +73,7 @@ class ZgcSoftMaxBreachRuleTest {
                 List.of("-XX:SoftMaxHeapSize=" + (4 * GB)));
         List<Finding> findings = new ZgcSoftMaxBreachRule().evaluate(s);
         assertEquals(1, findings.size());
-        assertEquals(Severity.WARNING, findings.getFirst().severity());
+        assertEquals(Severity.WARNING, findings.get(0).severity());
     }
 
     // --- parseSoftMaxHeapSize helper ---

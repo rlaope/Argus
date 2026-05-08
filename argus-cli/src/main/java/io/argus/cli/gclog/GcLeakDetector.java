@@ -20,8 +20,8 @@ public final class GcLeakDetector {
                     new double[0], 0, 0);
         }
 
-        double firstTs = pauses.getFirst().timestampSec();
-        double lastTs = pauses.getLast().timestampSec();
+        double firstTs = pauses.get(0).timestampSec();
+        double lastTs = pauses.get(pauses.size() - 1).timestampSec();
         double duration = Math.max(lastTs - firstTs, 0.001);
         double windowSize = duration / NUM_WINDOWS;
 
@@ -81,7 +81,7 @@ public final class GcLeakDetector {
 
         // OOM estimation
         long heapTotalKB = pauses.stream().mapToLong(GcEvent::heapTotalKB).max().orElse(0);
-        double lastMedian = points.getLast()[1];
+        double lastMedian = points.get(points.size() - 1)[1];
         double estimatedOomSec = -1;
         if (leakDetected && growthRateKBPerSec > 0 && heapTotalKB > lastMedian) {
             estimatedOomSec = (heapTotalKB - lastMedian) / growthRateKBPerSec;

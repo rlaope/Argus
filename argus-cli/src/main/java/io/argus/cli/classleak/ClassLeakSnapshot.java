@@ -25,7 +25,38 @@ import java.util.regex.Pattern;
  * @param capturedAtEpochSec  Unix epoch second when the snapshot was taken
  * @param entries             parsed classloader rows, ordered as returned by the JVM
  */
-public record ClassLeakSnapshot(long capturedAtEpochSec, List<ClassLoaderEntry> entries) {
+public final class ClassLeakSnapshot {
+
+    private final long capturedAtEpochSec;
+    private final List<ClassLoaderEntry> entries;
+
+    public ClassLeakSnapshot(long capturedAtEpochSec, List<ClassLoaderEntry> entries) {
+        this.capturedAtEpochSec = capturedAtEpochSec;
+        this.entries = entries;
+    }
+
+    public long capturedAtEpochSec() { return capturedAtEpochSec; }
+    public List<ClassLoaderEntry> entries() { return entries; }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof ClassLeakSnapshot)) return false;
+        ClassLeakSnapshot that = (ClassLeakSnapshot) o;
+        return capturedAtEpochSec == that.capturedAtEpochSec
+                && java.util.Objects.equals(entries, that.entries);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(capturedAtEpochSec, entries);
+    }
+
+    @Override
+    public String toString() {
+        return "ClassLeakSnapshot[capturedAtEpochSec=" + capturedAtEpochSec
+                + ", entries=" + entries + "]";
+    }
 
     // ── Serialization ────────────────────────────────────────────────────────
 
@@ -111,12 +142,12 @@ public record ClassLeakSnapshot(long capturedAtEpochSec, List<ClassLoaderEntry> 
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             switch (c) {
-                case '"'  -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                case '\r' -> sb.append("\\r");
-                case '\t' -> sb.append("\\t");
-                default   -> { if (c < 0x20) sb.append(String.format("\\u%04x", (int) c)); else sb.append(c); }
+                case '"': sb.append("\\\""); break;
+                case '\\': sb.append("\\\\"); break;
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                default: if (c < 0x20) sb.append(String.format("\\u%04x", (int) c)); else sb.append(c); break;
             }
         }
         return sb.toString();

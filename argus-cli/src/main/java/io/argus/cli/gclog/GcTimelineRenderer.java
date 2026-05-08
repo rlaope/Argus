@@ -4,6 +4,7 @@ import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Renders an ASCII heatmap of GC pause events over time.
@@ -31,7 +32,7 @@ public final class GcTimelineRenderer {
         // Filter to only pause (non-concurrent) events
         List<GcEvent> pauses = events.stream()
                 .filter(e -> !e.isConcurrent())
-                .toList();
+                .collect(Collectors.toList());
 
         StringBuilder out = new StringBuilder();
 
@@ -44,8 +45,8 @@ public final class GcTimelineRenderer {
         // width - 4 (box border) - 7 (label + space) = width - 11, clamp min 10
         int chartWidth = Math.max(10, width - 11);
 
-        double firstTs = pauses.getFirst().timestampSec();
-        double lastTs = pauses.getLast().timestampSec();
+        double firstTs = pauses.get(0).timestampSec();
+        double lastTs = pauses.get(pauses.size() - 1).timestampSec();
         double rangeTs = lastTs - firstTs;
 
         // Handle degenerate case: all events at same timestamp

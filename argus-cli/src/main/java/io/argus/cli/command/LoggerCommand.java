@@ -167,12 +167,19 @@ public final class LoggerCommand implements Command {
     }
 
     private static String levelColor(boolean useColor, String level) {
-        return switch (level.toUpperCase()) {
-            case "ERROR", "SEVERE", "OFF" -> AnsiStyle.style(useColor, AnsiStyle.RED);
-            case "WARNING", "WARN" -> AnsiStyle.style(useColor, AnsiStyle.YELLOW);
-            case "DEBUG", "FINE", "FINER", "FINEST", "TRACE" -> AnsiStyle.style(useColor, AnsiStyle.CYAN);
-            default -> AnsiStyle.style(useColor, AnsiStyle.GREEN);
-        };
+        switch (level.toUpperCase()) {
+            case "ERROR":
+            case "SEVERE":
+            case "OFF": return AnsiStyle.style(useColor, AnsiStyle.RED);
+            case "WARNING":
+            case "WARN": return AnsiStyle.style(useColor, AnsiStyle.YELLOW);
+            case "DEBUG":
+            case "FINE":
+            case "FINER":
+            case "FINEST":
+            case "TRACE": return AnsiStyle.style(useColor, AnsiStyle.CYAN);
+            default: return AnsiStyle.style(useColor, AnsiStyle.GREEN);
+        }
     }
 
     private static void printJson(LoggerResult result, String filter) {

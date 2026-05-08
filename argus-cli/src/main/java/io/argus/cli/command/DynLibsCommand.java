@@ -60,9 +60,9 @@ public final class DynLibsCommand implements Command {
         int jdkCount = 0, appCount = 0, sysCount = 0;
         for (DynLibsResult.LibInfo lib : result.libraries()) {
             switch (lib.category()) {
-                case "jdk" -> jdkCount++;
-                case "app" -> appCount++;
-                default -> sysCount++;
+                case "jdk": jdkCount++; break;
+                case "app": appCount++; break;
+                default: sysCount++; break;
             }
         }
 

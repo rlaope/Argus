@@ -16,14 +16,13 @@ class GcPhaseAnalyzerTest {
 
     @Test
     void parsePhaseEvents_fromDebugLog() throws IOException {
-        String log = """
-                [0.234s][debug][gc,phases] GC(0) Pre Evacuate Collection Set: 0.1ms
-                [0.234s][debug][gc,phases] GC(0) Merge Heap Roots: 0.3ms
-                [0.234s][debug][gc,phases] GC(0) Evacuate Collection Set: 5.2ms
-                [0.234s][debug][gc,phases] GC(0) Post Evacuate Collection Set: 1.1ms
-                [0.234s][debug][gc,phases] GC(0) Other: 0.8ms
-                [0.234s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 7.500ms
-                """;
+        String log =
+                "[0.234s][debug][gc,phases] GC(0) Pre Evacuate Collection Set: 0.1ms\n" +
+                "[0.234s][debug][gc,phases] GC(0) Merge Heap Roots: 0.3ms\n" +
+                "[0.234s][debug][gc,phases] GC(0) Evacuate Collection Set: 5.2ms\n" +
+                "[0.234s][debug][gc,phases] GC(0) Post Evacuate Collection Set: 1.1ms\n" +
+                "[0.234s][debug][gc,phases] GC(0) Other: 0.8ms\n" +
+                "[0.234s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 7.500ms\n";
         Path file = tempDir.resolve("phases.log");
         Files.writeString(file, log);
 
@@ -41,14 +40,13 @@ class GcPhaseAnalyzerTest {
 
     @Test
     void parsePhaseEvents_multipleGcCycles() throws IOException {
-        String log = """
-                [0.234s][debug][gc,phases] GC(0) Evacuate Collection Set: 5.2ms
-                [0.234s][debug][gc,phases] GC(0) Other: 0.8ms
-                [0.500s][debug][gc,phases] GC(1) Evacuate Collection Set: 7.4ms
-                [0.500s][debug][gc,phases] GC(1) Other: 1.2ms
-                [0.234s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 6.0ms
-                [0.500s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 32M->10M(256M) 8.6ms
-                """;
+        String log =
+                "[0.234s][debug][gc,phases] GC(0) Evacuate Collection Set: 5.2ms\n" +
+                "[0.234s][debug][gc,phases] GC(0) Other: 0.8ms\n" +
+                "[0.500s][debug][gc,phases] GC(1) Evacuate Collection Set: 7.4ms\n" +
+                "[0.500s][debug][gc,phases] GC(1) Other: 1.2ms\n" +
+                "[0.234s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 6.0ms\n" +
+                "[0.500s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 32M->10M(256M) 8.6ms\n";
         Path file = tempDir.resolve("multi.log");
         Files.writeString(file, log);
 
@@ -68,11 +66,10 @@ class GcPhaseAnalyzerTest {
 
     @Test
     void percentageCalculation_sumsTo100() throws IOException {
-        String log = """
-                [0.234s][debug][gc,phases] GC(0) Phase A: 3.0ms
-                [0.234s][debug][gc,phases] GC(0) Phase B: 7.0ms
-                [0.234s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 10.0ms
-                """;
+        String log =
+                "[0.234s][debug][gc,phases] GC(0) Phase A: 3.0ms\n" +
+                "[0.234s][debug][gc,phases] GC(0) Phase B: 7.0ms\n" +
+                "[0.234s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 10.0ms\n";
         Path file = tempDir.resolve("pct.log");
         Files.writeString(file, log);
 
@@ -100,10 +97,9 @@ class GcPhaseAnalyzerTest {
 
     @Test
     void nonPhaseLines_notParsedAsPhases() throws IOException {
-        String log = """
-                [0.234s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 7.500ms
-                [0.235s][info][gc,heap] GC(0) Eden regions: 10->0(20)
-                """;
+        String log =
+                "[0.234s][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 7.500ms\n" +
+                "[0.235s][info][gc,heap] GC(0) Eden regions: 10->0(20)\n";
         Path file = tempDir.resolve("nophases.log");
         Files.writeString(file, log);
 

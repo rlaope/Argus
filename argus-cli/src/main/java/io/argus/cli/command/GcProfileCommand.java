@@ -243,7 +243,7 @@ public final class GcProfileCommand implements Command {
 
         // Insight line for the top allocator
         if (!sites.isEmpty() && profile.totalBytes() > 0) {
-            AllocationSite top1 = sites.getFirst();
+            AllocationSite top1 = sites.get(0);
             double pct = (double) top1.totalBytes() / profile.totalBytes() * 100;
             if (pct > 10) {
                 System.out.println(RichRenderer.emptyLine(WIDTH));

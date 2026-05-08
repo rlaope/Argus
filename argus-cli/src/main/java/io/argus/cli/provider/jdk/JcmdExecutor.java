@@ -105,7 +105,7 @@ public final class JcmdExecutor {
                 try (BufferedReader br = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                     String line;
                     while ((line = br.readLine()) != null) {
-                        if (!outputBuf.isEmpty()) outputBuf.append('\n');
+                        if (outputBuf.length() > 0) outputBuf.append('\n');
                         outputBuf.append(line);
                     }
                 } catch (Exception ignored) {}

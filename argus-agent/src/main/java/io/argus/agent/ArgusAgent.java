@@ -38,17 +38,16 @@ import java.lang.instrument.Instrumentation;
  */
 public final class ArgusAgent {
 
-    private static final String BANNER = """
-
-           _____
-          /  _  \\_______  ____  __ __  ______
-         /  /_\\  \\_  __ \\/ ___\\|  |  \\/  ___/
-        /    |    \\  | \\/ /_/  >  |  /\\___ \\
-        \\____|__  /__|  \\___  /|____//____  >
-                \\/     /_____/            \\/
-
-        Virtual Thread Profiler v%s
-        """;
+    private static final String BANNER = "\n" +
+            "           _____\n" +
+            "          /  _  \\_______  ____  __ __  ______\n" +
+            "         /  /_\\  \\_  __ \\/ ___\\|  |  \\/  ___/\n" +
+            "        /    |    \\  | \\/ /_/  >  |  /\\___ \\\n" +
+            "        \\____|__  /__|  \\___  /|____//____  >\n" +
+            "                \\/     /_____/            \\/\n" +
+            "\n" +
+            "        Virtual Thread Profiler v%s\n" +
+            "        ";
 
     private static volatile JfrStreamingEngine engine;
     private static volatile MxBeanPollingEngine pollingEngine;

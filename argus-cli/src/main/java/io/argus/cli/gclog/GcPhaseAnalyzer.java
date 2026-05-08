@@ -48,7 +48,76 @@ public final class GcPhaseAnalyzer {
         return new PhaseAnalysis(Collections.unmodifiableList(stats), gcCount);
     }
 
-    public record PhaseAnalysis(List<PhaseStat> phases, int gcCount) {}
+    public static final class PhaseAnalysis {
+        private final List<PhaseStat> phases;
+        private final int gcCount;
 
-    public record PhaseStat(String phase, double avgMs, double maxMs, double percentOfTotal) {}
+        public PhaseAnalysis(List<PhaseStat> phases, int gcCount) {
+            this.phases = phases;
+            this.gcCount = gcCount;
+        }
+
+        public List<PhaseStat> phases() { return phases; }
+        public int gcCount() { return gcCount; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof PhaseAnalysis)) return false;
+            PhaseAnalysis that = (PhaseAnalysis) o;
+            return gcCount == that.gcCount
+                    && java.util.Objects.equals(phases, that.phases);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(phases, gcCount);
+        }
+
+        @Override
+        public String toString() {
+            return "PhaseAnalysis[phases=" + phases + ", gcCount=" + gcCount + "]";
+        }
+    }
+
+    public static final class PhaseStat {
+        private final String phase;
+        private final double avgMs;
+        private final double maxMs;
+        private final double percentOfTotal;
+
+        public PhaseStat(String phase, double avgMs, double maxMs, double percentOfTotal) {
+            this.phase = phase;
+            this.avgMs = avgMs;
+            this.maxMs = maxMs;
+            this.percentOfTotal = percentOfTotal;
+        }
+
+        public String phase() { return phase; }
+        public double avgMs() { return avgMs; }
+        public double maxMs() { return maxMs; }
+        public double percentOfTotal() { return percentOfTotal; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof PhaseStat)) return false;
+            PhaseStat that = (PhaseStat) o;
+            return Double.compare(that.avgMs, avgMs) == 0
+                    && Double.compare(that.maxMs, maxMs) == 0
+                    && Double.compare(that.percentOfTotal, percentOfTotal) == 0
+                    && java.util.Objects.equals(phase, that.phase);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(phase, avgMs, maxMs, percentOfTotal);
+        }
+
+        @Override
+        public String toString() {
+            return "PhaseStat[phase=" + phase + ", avgMs=" + avgMs + ", maxMs=" + maxMs
+                    + ", percentOfTotal=" + percentOfTotal + "]";
+        }
+    }
 }

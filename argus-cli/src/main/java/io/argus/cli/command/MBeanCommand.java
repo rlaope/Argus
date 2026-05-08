@@ -240,21 +240,28 @@ public final class MBeanCommand implements Command {
 
     private String formatAttrValue(Object value) {
         if (value == null) return "null";
-        if (value instanceof CompositeData cd) {
+        if (value instanceof CompositeData) {
+            CompositeData cd = (CompositeData) value;
             StringBuilder sb = new StringBuilder();
             for (String key : cd.getCompositeType().keySet()) {
                 Object v = cd.get(key);
-                String formatted = v instanceof Long l && l > 1024 * 1024
-                        ? String.format("%,d (%s)", l, RichRenderer.formatBytes(l))
-                        : String.valueOf(v);
+                String formatted;
+                if (v instanceof Long && ((Long) v) > 1024 * 1024) {
+                    long l = (Long) v;
+                    formatted = String.format("%,d (%s)", l, RichRenderer.formatBytes(l));
+                } else {
+                    formatted = String.valueOf(v);
+                }
                 sb.append(key).append(" = ").append(formatted).append('\n');
             }
             return sb.toString().stripTrailing();
         }
-        if (value instanceof TabularData td) {
+        if (value instanceof TabularData) {
+            TabularData td = (TabularData) value;
             StringBuilder sb = new StringBuilder();
             for (Object row : td.values()) {
-                if (row instanceof CompositeData cd) {
+                if (row instanceof CompositeData) {
+                    CompositeData cd = (CompositeData) row;
                     for (String key : cd.getCompositeType().keySet()) {
                         sb.append(key).append("=").append(cd.get(key)).append("  ");
                     }
@@ -263,10 +270,12 @@ public final class MBeanCommand implements Command {
             }
             return sb.toString().stripTrailing();
         }
-        if (value instanceof long[] la) {
+        if (value instanceof long[]) {
+            long[] la = (long[]) value;
             return "length=" + la.length;
         }
-        if (value instanceof Long l && l > 1024 * 1024) {
+        if (value instanceof Long && ((Long) value) > 1024 * 1024) {
+            long l = (Long) value;
             return String.format("%,d (%s)", l, RichRenderer.formatBytes(l));
         }
         return String.valueOf(value);
@@ -314,5 +323,17 @@ public final class MBeanCommand implements Command {
         }
     }
 
-    private record AttrEntry(String name, String type, String value) {}
+    private static final class AttrEntry {
+        final String name;
+        final String type;
+        final String value;
+        AttrEntry(String name, String type, String value) {
+            this.name = name;
+            this.type = type;
+            this.value = value;
+        }
+        String name() { return name; }
+        String type() { return type; }
+        String value() { return value; }
+    }
 }

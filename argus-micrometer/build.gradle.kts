@@ -10,3 +10,7 @@ dependencies {
     testImplementation("io.micrometer:micrometer-core:1.12.0")
     testImplementation("org.junit.jupiter:junit-jupiter:${property("junitVersion")}")
 }
+
+tasks.withType<JavaCompile> {
+    options.release.set(17)
+}

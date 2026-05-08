@@ -20,12 +20,8 @@ tasks.jar {
     }
 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-}
-
 tasks.withType<JavaCompile> {
+    options.release.set(11)
     options.compilerArgs.remove("--enable-preview")
 }
 

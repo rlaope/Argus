@@ -333,5 +333,20 @@ public final class GcLogDiffCommand implements Command {
         return higherIsBetter ? pct < -thresholdPct : pct > thresholdPct;
     }
 
-    private record DeltaResult(String text, boolean regression, boolean improvement, boolean unchanged) {}
+    private static final class DeltaResult {
+        final String text;
+        final boolean regression;
+        final boolean improvement;
+        final boolean unchanged;
+        DeltaResult(String text, boolean regression, boolean improvement, boolean unchanged) {
+            this.text = text;
+            this.regression = regression;
+            this.improvement = improvement;
+            this.unchanged = unchanged;
+        }
+        String text() { return text; }
+        boolean regression() { return regression; }
+        boolean improvement() { return improvement; }
+        boolean unchanged() { return unchanged; }
+    }
 }

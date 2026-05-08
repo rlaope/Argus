@@ -237,13 +237,13 @@ public final class GcScoreCalculator {
     }
 
     static String summaryFor(String grade) {
-        return switch (grade) {
-            case "A" -> "excellent, no tuning required";
-            case "B" -> "good, minor tuning opportunities";
-            case "C" -> "acceptable, tuning recommended";
-            case "D" -> "poor, tuning required";
-            default -> "critical, immediate action required";
-        };
+        switch (grade) {
+            case "A": return "excellent, no tuning required";
+            case "B": return "good, minor tuning opportunities";
+            case "C": return "acceptable, tuning recommended";
+            case "D": return "poor, tuning required";
+            default: return "critical, immediate action required";
+        }
     }
 
     // ── Hint selection ──────────────────────────────────────────────────────
@@ -268,35 +268,28 @@ public final class GcScoreCalculator {
     }
 
     private static String hintFor(AxisScore ax) {
-        return switch (ax.name()) {
-            case "Pause p99" -> "Long p99 pauses — try -XX:MaxGCPauseMillis=200 or raise heap to absorb allocation bursts";
-            case "Pause tail (max)" -> "Long tail pauses suggest concurrent-mode failure or humongous allocation; consider G1/ZGC or increase heap";
-            case "Throughput" -> "Low throughput — raise -Xmx or consider a concurrent collector (G1/ZGC/Shenandoah)";
-            case "Full GC frequency" -> "Frequent Full GC — heap too small or memory leak; inspect with argus heap / argus diff";
-            case "Allocation rate" -> "Very high allocation rate — run argus flame --type=alloc to find hot allocation sites";
-            case "Promotion ratio" -> "Survivor overflow promoting short-lived objects; raise -XX:MaxTenuringThreshold or -XX:SurvivorRatio";
-            default -> null;
-        };
+        switch (ax.name()) {
+            case "Pause p99": return "Long p99 pauses — try -XX:MaxGCPauseMillis=200 or raise heap to absorb allocation bursts";
+            case "Pause tail (max)": return "Long tail pauses suggest concurrent-mode failure or humongous allocation; consider G1/ZGC or increase heap";
+            case "Throughput": return "Low throughput — raise -Xmx or consider a concurrent collector (G1/ZGC/Shenandoah)";
+            case "Full GC frequency": return "Frequent Full GC — heap too small or memory leak; inspect with argus heap / argus diff";
+            case "Allocation rate": return "Very high allocation rate — run argus flame --type=alloc to find hot allocation sites";
+            case "Promotion ratio": return "Survivor overflow promoting short-lived objects; raise -XX:MaxTenuringThreshold or -XX:SurvivorRatio";
+            default: return null;
+        }
     }
 
     private static String hintForZgc(AxisScore ax) {
-        return switch (ax.name()) {
-            case "Pause p99" ->
-                    "Elevated ZGC p99 pauses — raise -Xmx or set -XX:SoftMaxHeapSize to reduce GC pressure; consider -XX:ConcGCThreads";
-            case "Pause tail (max)" ->
-                    "Elevated ZGC max pause — check for allocation stalls; increase heap with -Xmx or tune -XX:SoftMaxHeapSize";
-            case "Throughput" ->
-                    "Low throughput under ZGC — raise -Xmx or increase -XX:ConcGCThreads to keep concurrent work ahead of mutators";
-            case "Full GC frequency" ->
-                    "Frequent Full GC — heap too small or memory leak; inspect with argus heap / argus diff";
-            case "Allocation rate" ->
-                    "Very high allocation rate under ZGC — run argus flame --type=alloc to find hot allocation sites";
-            case "Promotion ratio" ->
-                    "High promotion ratio under ZGC — review object lifetime patterns; consider raising -Xmx";
-            case "Allocation pressure (ZGC)" ->
-                    "ZGC cycle frequency too high (> 0.5/s) — heap is undersized; raise -Xmx or tune -XX:SoftMaxHeapSize and -XX:ConcGCThreads";
-            default -> null;
-        };
+        switch (ax.name()) {
+            case "Pause p99": return "Elevated ZGC p99 pauses — raise -Xmx or set -XX:SoftMaxHeapSize to reduce GC pressure; consider -XX:ConcGCThreads";
+            case "Pause tail (max)": return "Elevated ZGC max pause — check for allocation stalls; increase heap with -Xmx or tune -XX:SoftMaxHeapSize";
+            case "Throughput": return "Low throughput under ZGC — raise -Xmx or increase -XX:ConcGCThreads to keep concurrent work ahead of mutators";
+            case "Full GC frequency": return "Frequent Full GC — heap too small or memory leak; inspect with argus heap / argus diff";
+            case "Allocation rate": return "Very high allocation rate under ZGC — run argus flame --type=alloc to find hot allocation sites";
+            case "Promotion ratio": return "High promotion ratio under ZGC — review object lifetime patterns; consider raising -Xmx";
+            case "Allocation pressure (ZGC)": return "ZGC cycle frequency too high (> 0.5/s) — heap is undersized; raise -Xmx or tune -XX:SoftMaxHeapSize and -XX:ConcGCThreads";
+            default: return null;
+        }
     }
 
     // Expose for tests

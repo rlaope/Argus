@@ -123,9 +123,9 @@ public final class TuiApp {
                 StringBuilder sb = new StringBuilder(H * (W + 40));
                 sb.append("\033[1;").append(H).append("r\033[H");
                 switch (phase) {
-                    case PS -> drawPS(sb, W, H, ml);
-                    case CMD -> drawCMD(sb, W, H, ml);
-                    case OUT -> drawOUT(sb, W, H, ml);
+                    case PS: drawPS(sb, W, H, ml); break;
+                    case CMD: drawCMD(sb, W, H, ml); break;
+                    case OUT: drawOUT(sb, W, H, ml); break;
                 }
                 byte[] frame = sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
                 rawOut.write(frame);
@@ -157,10 +157,13 @@ public final class TuiApp {
         }
         if (langSelect) {
             switch (key) {
-                case 'j' -> { if (langSelIdx < LANGS.length-1) langSelIdx++; }
-                case 'k' -> { if (langSelIdx > 0) langSelIdx--; }
-                case 10, 13 -> { langIdx = langSelIdx; messages = new Messages(LANGS[langIdx]); langSelect = false; }
-                case 'q', 'Q' -> langSelect = false;
+                case 'j': if (langSelIdx < LANGS.length-1) langSelIdx++; break;
+                case 'k': if (langSelIdx > 0) langSelIdx--; break;
+                case 10:
+                case 13: langIdx = langSelIdx; messages = new Messages(LANGS[langIdx]); langSelect = false; break;
+                case 'q':
+                case 'Q': langSelect = false; break;
+                default: break;
             }
             return;
         }
@@ -171,26 +174,33 @@ public final class TuiApp {
             return;
         }
         switch (key) {
-            case 'q','Q' -> back();
-            case 'j' -> dn(); case 'k' -> up();
-            case '/' -> { if (phase == Phase.CMD) { searching = true; sq = ""; } }
-            case 'r','R' -> { if (phase == Phase.PS) refreshPs(); }
-            case 'l','L' -> { langSelect = true; langSelIdx = langIdx; }
-            case 't','T' -> themeIdx = (themeIdx+1) % THEME_NAMES.length;
-            case 'w','W' -> { if (phase == Phase.CMD) writePopup = !writePopup; }
-            case 10, 13 -> enter();
-            default -> {}
+            case 'q':
+            case 'Q': back(); break;
+            case 'j': dn(); break;
+            case 'k': up(); break;
+            case '/': if (phase == Phase.CMD) { searching = true; sq = ""; } break;
+            case 'r':
+            case 'R': if (phase == Phase.PS) refreshPs(); break;
+            case 'l':
+            case 'L': langSelect = true; langSelIdx = langIdx; break;
+            case 't':
+            case 'T': themeIdx = (themeIdx+1) % THEME_NAMES.length; break;
+            case 'w':
+            case 'W': if (phase == Phase.CMD) writePopup = !writePopup; break;
+            case 10:
+            case 13: enter(); break;
+            default: break;
         }
     }
 
-    private void back() { switch(phase){ case OUT->{stopExec();phase=Phase.CMD;oScr=0;} case CMD->{if(!sq.isEmpty()){sq="";filter();}else{phase=Phase.PS;psIdx=0;}} case PS->running=false; }}
+    private void back() { switch(phase){ case OUT: stopExec();phase=Phase.CMD;oScr=0; break; case CMD: if(!sq.isEmpty()){sq="";filter();}else{phase=Phase.PS;psIdx=0;} break; case PS: running=false; break; }}
     private void stopExec() { if(execThread!=null&&execThread.isAlive()){execThread.interrupt();execRunning=false;} }
-    private void dn() { switch(phase){ case PS->{if(psIdx<procs.size()-1)psIdx++;} case CMD->{int n=cIdx+1;while(n<fCmds.size()&&fCmds.get(n).h)n++;if(n<fCmds.size())cIdx=n;} case OUT->oScr++; }}
-    private void up() { switch(phase){ case PS->{if(psIdx>0)psIdx--;} case CMD->{int p=cIdx-1;while(p>=0&&fCmds.get(p).h)p--;if(p>=0)cIdx=p;} case OUT->{if(oScr>0)oScr--;} }}
+    private void dn() { switch(phase){ case PS: if(psIdx<procs.size()-1)psIdx++; break; case CMD: {int n=cIdx+1;while(n<fCmds.size()&&fCmds.get(n).h)n++;if(n<fCmds.size())cIdx=n;} break; case OUT: oScr++; break; }}
+    private void up() { switch(phase){ case PS: if(psIdx>0)psIdx--; break; case CMD: {int p=cIdx-1;while(p>=0&&fCmds.get(p).h)p--;if(p>=0)cIdx=p;} break; case OUT: if(oScr>0)oScr--; break; }}
     private void enter() { switch(phase){
-        case PS->{if(psIdx<procs.size()){pid=procs.get(psIdx).pid();pidName=procs.get(psIdx).mainClass();phase=Phase.CMD;cIdx=0;cScr=0;sq="";filter();while(cIdx<fCmds.size()&&fCmds.get(cIdx).h)cIdx++;}}
-        case CMD->{if(cIdx<fCmds.size()&&!fCmds.get(cIdx).h)exec(fCmds.get(cIdx));}
-        case OUT->phase=Phase.CMD;
+        case PS: if(psIdx<procs.size()){pid=procs.get(psIdx).pid();pidName=procs.get(psIdx).mainClass();phase=Phase.CMD;cIdx=0;cScr=0;sq="";filter();while(cIdx<fCmds.size()&&fCmds.get(cIdx).h)cIdx++;} break;
+        case CMD: if(cIdx<fCmds.size()&&!fCmds.get(cIdx).h)exec(fCmds.get(cIdx)); break;
+        case OUT: phase=Phase.CMD; break;
     }}
     private volatile Thread execThread;
     private volatile ByteArrayOutputStream execCap;
@@ -428,11 +438,51 @@ public final class TuiApp {
     }
 
     private static String langLabel(int i) {
-        return switch(i) { case 0->"English"; case 1->"한국어"; case 2->"日本語"; case 3->"中文"; default->""; };
+        switch(i) {
+            case 0: return "English";
+            case 1: return "한국어";
+            case 2: return "日本語";
+            case 3: return "中文";
+            default: return "";
+        }
     }
 
     private static String pad(String s, int w) { return s.length()>=w?s.substring(0,w):s+" ".repeat(w-s.length()); }
     private static String trn(String s, int m) { return m<=0?"":s.length()<=m?s:s.substring(0,m-1)+"…"; }
 
-    record CE(Command c, String n, boolean h) {}
+    static final class CE {
+        final Command c;
+        final String n;
+        final boolean h;
+
+        CE(Command c, String n, boolean h) {
+            this.c = c;
+            this.n = n;
+            this.h = h;
+        }
+
+        Command c() { return c; }
+        String n() { return n; }
+        boolean h() { return h; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof CE)) return false;
+            CE that = (CE) o;
+            return h == that.h
+                    && java.util.Objects.equals(c, that.c)
+                    && java.util.Objects.equals(n, that.n);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(c, n, h);
+        }
+
+        @Override
+        public String toString() {
+            return "CE[c=" + c + ", n=" + n + ", h=" + h + "]";
+        }
+    }
 }

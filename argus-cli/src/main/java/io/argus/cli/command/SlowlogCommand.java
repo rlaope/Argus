@@ -10,10 +10,10 @@ import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordedFrame;
 import jdk.jfr.consumer.RecordedMethod;
 import jdk.jfr.consumer.RecordedStackTrace;
-import jdk.jfr.consumer.RecordingStream;
 
 import java.time.Duration;
 import java.io.IOException;
+import java.lang.reflect.Method;
 
 /**
  * Real-time slow method detection via JFR streaming.
@@ -92,38 +92,60 @@ public final class SlowlogCommand implements Command {
 
     private void streamLocal(long thresholdMs, String filter, int durationSec,
                              boolean useColor, boolean json) {
-        try (RecordingStream rs = new RecordingStream()) {
-            rs.enable("jdk.ExecutionSample").withPeriod(Duration.ofMillis(20));
-            rs.enable("jdk.JavaMonitorEnter").withThreshold(Duration.ofMillis(thresholdMs));
-            rs.enable("jdk.ThreadSleep").withThreshold(Duration.ofMillis(thresholdMs));
-            rs.enable("jdk.FileRead").withThreshold(Duration.ofMillis(thresholdMs));
-            rs.enable("jdk.FileWrite").withThreshold(Duration.ofMillis(thresholdMs));
-            rs.enable("jdk.SocketRead").withThreshold(Duration.ofMillis(thresholdMs));
-            rs.enable("jdk.SocketWrite").withThreshold(Duration.ofMillis(thresholdMs));
+        int feature = Runtime.version().feature();
+        if (feature < 14) {
+            System.err.println("argus slowlog: requires Java 14+ runtime (current: Java " + feature + ").");
+            System.err.println("This command uses jdk.jfr.consumer.RecordingStream which was added in Java 14.");
+            System.err.println("Most other argus commands work on Java 11+; only argus slowlog requires 14+.");
+            return;
+        }
+        // RecordingStream is loaded reflectively to keep this source file compatible with --release 11.
+        try {
+            Class<?> rsClass = Class.forName("jdk.jfr.consumer.RecordingStream");
+            // RecordingStream implements AutoCloseable
+            try (AutoCloseable rs = (AutoCloseable) rsClass.getConstructor().newInstance()) {
+                Method enable = rsClass.getMethod("enable", String.class);
+                Class<?> esClass = enable.getReturnType(); // EventSettings
+                Method withPeriod = esClass.getMethod("withPeriod", Duration.class);
+                Method withThreshold = esClass.getMethod("withThreshold", Duration.class);
 
-            final String f = filter;
-            rs.onEvent(event -> {
-                String method = extractMethod(event);
-                if (method.isEmpty()) return;
-                if (!f.isEmpty() && !matchesFilter(method, f)) return;
+                withPeriod.invoke(enable.invoke(rs, "jdk.ExecutionSample"), Duration.ofMillis(20));
+                withThreshold.invoke(enable.invoke(rs, "jdk.JavaMonitorEnter"), Duration.ofMillis(thresholdMs));
+                withThreshold.invoke(enable.invoke(rs, "jdk.ThreadSleep"), Duration.ofMillis(thresholdMs));
+                withThreshold.invoke(enable.invoke(rs, "jdk.FileRead"), Duration.ofMillis(thresholdMs));
+                withThreshold.invoke(enable.invoke(rs, "jdk.FileWrite"), Duration.ofMillis(thresholdMs));
+                withThreshold.invoke(enable.invoke(rs, "jdk.SocketRead"), Duration.ofMillis(thresholdMs));
+                withThreshold.invoke(enable.invoke(rs, "jdk.SocketWrite"), Duration.ofMillis(thresholdMs));
 
-                long durationMs = event.getDuration().toMillis();
-                if (durationMs < thresholdMs && !event.getEventType().getName().equals("jdk.ExecutionSample")) return;
+                final String f = filter;
+                final AutoCloseable rsRef = rs;
+                // onEvent(RecordedEvent consumer)
+                Method onEvent = rsClass.getMethod("onEvent", java.util.function.Consumer.class);
+                onEvent.invoke(rs, (java.util.function.Consumer<RecordedEvent>) event -> {
+                    String method = extractMethod(event);
+                    if (method.isEmpty()) return;
+                    if (!f.isEmpty() && !matchesFilter(method, f)) return;
 
-                String tag = categorize(event.getEventType().getName(), method);
-                printEvent(method, durationMs, tag, event.getEventType().getName(), useColor, json);
-            });
+                    long durationMs = event.getDuration().toMillis();
+                    if (durationMs < thresholdMs && !event.getEventType().getName().equals("jdk.ExecutionSample")) return;
 
-            if (durationSec > 0) {
-                Thread.ofPlatform().daemon(true).start(() -> {
-                    try {
-                        Thread.sleep(durationSec * 1000L);
-                        rs.close();
-                    } catch (InterruptedException ignored) {}
+                    String tag = categorize(event.getEventType().getName(), method);
+                    printEvent(method, durationMs, tag, event.getEventType().getName(), useColor, json);
                 });
-            }
 
-            rs.start();
+                if (durationSec > 0) {
+                    Thread t = new Thread(() -> {
+                        try {
+                            Thread.sleep(durationSec * 1000L);
+                            rsRef.close();
+                        } catch (Exception ignored) {}
+                    });
+                    t.setDaemon(true);
+                    t.start();
+                }
+
+                rsClass.getMethod("start").invoke(rs);
+            }
         } catch (Exception e) {
             System.err.println("JFR streaming error: " + e.getMessage());
         }
@@ -187,7 +209,7 @@ public final class SlowlogCommand implements Command {
     private static String extractMethod(RecordedEvent event) {
         RecordedStackTrace stack = event.getStackTrace();
         if (stack == null || stack.getFrames().isEmpty()) return "";
-        RecordedFrame frame = stack.getFrames().getFirst();
+        RecordedFrame frame = stack.getFrames().get(0);
         RecordedMethod method = frame.getMethod();
         if (method == null) return "";
         return method.getType().getName() + "." + method.getName();
@@ -199,20 +221,22 @@ public final class SlowlogCommand implements Command {
     }
 
     private static String categorize(String eventType, String method) {
-        return switch (eventType) {
-            case "jdk.JavaMonitorEnter" -> "\u26a0 Lock";
-            case "jdk.FileRead", "jdk.FileWrite" -> "\u26a0 I/O";
-            case "jdk.SocketRead", "jdk.SocketWrite" -> "\u26a0 Network";
-            case "jdk.ThreadSleep" -> "Sleep";
-            default -> {
+        switch (eventType) {
+            case "jdk.JavaMonitorEnter": return "\u26a0 Lock";
+            case "jdk.FileRead":
+            case "jdk.FileWrite": return "\u26a0 I/O";
+            case "jdk.SocketRead":
+            case "jdk.SocketWrite": return "\u26a0 Network";
+            case "jdk.ThreadSleep": return "Sleep";
+            default: {
                 String lower = method.toLowerCase();
                 if (lower.contains("jdbc") || lower.contains("sql") || lower.contains("datasource"))
-                    yield "\u26a0 SQL?";
+                    return "\u26a0 SQL?";
                 if (lower.contains("http") || lower.contains("socket") || lower.contains("rest"))
-                    yield "\u26a0 Network?";
-                yield "";
+                    return "\u26a0 Network?";
+                return "";
             }
-        };
+        }
     }
 
     private static void printEvent(String method, long durationMs, String tag,

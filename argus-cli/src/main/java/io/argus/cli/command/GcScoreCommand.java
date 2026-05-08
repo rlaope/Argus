@@ -237,10 +237,10 @@ public final class GcScoreCommand implements Command {
         String mark;
         String color;
         switch (ax.verdict()) {
-            case PASS -> { mark = "\u2713 Pass "; color = AnsiStyle.GREEN; }
-            case WARN -> { mark = "\u26A0 Warn "; color = AnsiStyle.YELLOW; }
-            case FAIL -> { mark = "\u2717 Fail "; color = AnsiStyle.RED; }
-            default   -> { mark = "\u2013 N/A  "; color = AnsiStyle.DIM;    }
+            case PASS: mark = "\u2713 Pass "; color = AnsiStyle.GREEN;  break;
+            case WARN: mark = "\u26A0 Warn "; color = AnsiStyle.YELLOW; break;
+            case FAIL: mark = "\u2717 Fail "; color = AnsiStyle.RED;    break;
+            default:   mark = "\u2013 N/A  "; color = AnsiStyle.DIM;    break;
         }
         String coloredMark = AnsiStyle.style(useColor, color) + mark + AnsiStyle.style(useColor, AnsiStyle.RESET);
         String valueStr = ax.available() ? formatValue(ax) : "-";
@@ -251,23 +251,27 @@ public final class GcScoreCommand implements Command {
     }
 
     private static String formatValue(AxisScore ax) {
-        return switch (ax.name()) {
-            case "Pause p99", "Pause tail (max)" -> String.format("%.0f %s", ax.value(), ax.unit());
-            case "Throughput", "Promotion ratio" -> String.format("%.1f%s", ax.value(), ax.unit());
-            case "Allocation rate" -> String.format("%.0f %s", ax.value(), ax.unit());
-            case "Full GC frequency", "Allocation pressure (ZGC)" -> String.format("%.2f %s", ax.value(), ax.unit());
-            default -> String.format("%.2f %s", ax.value(), ax.unit());
-        };
+        switch (ax.name()) {
+            case "Pause p99":
+            case "Pause tail (max)": return String.format("%.0f %s", ax.value(), ax.unit());
+            case "Throughput":
+            case "Promotion ratio": return String.format("%.1f%s", ax.value(), ax.unit());
+            case "Allocation rate": return String.format("%.0f %s", ax.value(), ax.unit());
+            case "Full GC frequency":
+            case "Allocation pressure (ZGC)": return String.format("%.2f %s", ax.value(), ax.unit());
+            default: return String.format("%.2f %s", ax.value(), ax.unit());
+        }
     }
 
     private static String gradeColor(boolean useColor, String grade) {
-        String code = switch (grade) {
-            case "A" -> AnsiStyle.GREEN;
-            case "B" -> AnsiStyle.CYAN;
-            case "C" -> AnsiStyle.YELLOW;
-            case "D" -> AnsiStyle.YELLOW;
-            default  -> AnsiStyle.RED;
-        };
+        String code;
+        switch (grade) {
+            case "A": code = AnsiStyle.GREEN;  break;
+            case "B": code = AnsiStyle.CYAN;   break;
+            case "C": code = AnsiStyle.YELLOW; break;
+            case "D": code = AnsiStyle.YELLOW; break;
+            default:  code = AnsiStyle.RED;    break;
+        }
         return AnsiStyle.style(useColor, AnsiStyle.BOLD) + AnsiStyle.style(useColor, code);
     }
 

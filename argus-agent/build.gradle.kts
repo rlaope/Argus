@@ -8,6 +8,10 @@ dependencies {
     testImplementation("org.junit.jupiter:junit-jupiter:${project.findProperty("junitVersion")}")
 }
 
+tasks.withType<JavaCompile> {
+    options.release.set(17)
+}
+
 tasks.jar {
     dependsOn(":argus-core:jar", ":argus-server:jar")
 

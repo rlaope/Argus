@@ -212,14 +212,33 @@ public final class DiffCommand implements Command {
     /**
      * Immutable record representing a single class's heap growth between two snapshots.
      */
-    private record DiffEntry(
-            String className,
-            long instancesBefore,
-            long instancesAfter,
-            long instancesDelta,
-            long bytesBefore,
-            long bytesAfter,
-            long bytesDelta,
-            double growthPercent
-    ) {}
+    private static final class DiffEntry {
+        final String className;
+        final long instancesBefore;
+        final long instancesAfter;
+        final long instancesDelta;
+        final long bytesBefore;
+        final long bytesAfter;
+        final long bytesDelta;
+        final double growthPercent;
+        DiffEntry(String className, long instancesBefore, long instancesAfter, long instancesDelta,
+                  long bytesBefore, long bytesAfter, long bytesDelta, double growthPercent) {
+            this.className = className;
+            this.instancesBefore = instancesBefore;
+            this.instancesAfter = instancesAfter;
+            this.instancesDelta = instancesDelta;
+            this.bytesBefore = bytesBefore;
+            this.bytesAfter = bytesAfter;
+            this.bytesDelta = bytesDelta;
+            this.growthPercent = growthPercent;
+        }
+        String className() { return className; }
+        long instancesBefore() { return instancesBefore; }
+        long instancesAfter() { return instancesAfter; }
+        long instancesDelta() { return instancesDelta; }
+        long bytesBefore() { return bytesBefore; }
+        long bytesAfter() { return bytesAfter; }
+        long bytesDelta() { return bytesDelta; }
+        double growthPercent() { return growthPercent; }
+    }
 }

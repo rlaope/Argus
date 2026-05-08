@@ -159,9 +159,10 @@ public final class JdkInfoProvider implements InfoProvider {
                     java.lang.management.ManagementFactory.getOperatingSystemMXBean();
             availableProcessors = availableProcessors > 0 ? availableProcessors : os.getAvailableProcessors();
             systemLoadAverage = os.getSystemLoadAverage();
-            if (os instanceof com.sun.management.OperatingSystemMXBean sunOs) {
+            if (os instanceof com.sun.management.OperatingSystemMXBean) {
+                com.sun.management.OperatingSystemMXBean sunOs = (com.sun.management.OperatingSystemMXBean) os;
                 processCpuLoad = sunOs.getProcessCpuLoad();
-                systemCpuLoad = sunOs.getCpuLoad();
+                systemCpuLoad = sunOs.getSystemCpuLoad();
             }
         } catch (Exception ignored) {}
 

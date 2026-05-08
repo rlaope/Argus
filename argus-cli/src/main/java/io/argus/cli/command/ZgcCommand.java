@@ -429,9 +429,9 @@ public final class ZgcCommand implements Command {
             String severityMarker;
             String rowColor;
             switch (row.severity()) {
-                case REGRESSION -> { severityMarker = " ✘"; rowColor = red;    }
-                case WARN       -> { severityMarker = " ⚠"; rowColor = yellow; }
-                default         -> { severityMarker = "";   rowColor = reset;   }
+                case REGRESSION: severityMarker = " ✘"; rowColor = red;    break;
+                case WARN:       severityMarker = " ⚠"; rowColor = yellow; break;
+                default:         severityMarker = "";   rowColor = reset;   break;
             }
 
             String deltaDisplay = row.delta();
@@ -451,26 +451,42 @@ public final class ZgcCommand implements Command {
     }
 
     private static String rowLabel(String key, Messages messages) {
-        return switch (key) {
-            case "heapCommitted"  -> messages.get("cli.zgc.diff.row.committed");
-            case "minorCycles"    -> messages.get("cli.zgc.diff.row.cycles.minor");
-            case "majorCycles"    -> messages.get("cli.zgc.diff.row.cycles.major");
-            case "stallCount"     -> messages.get("cli.zgc.diff.row.stalls");
-            case "pauseMarkEnd"   -> messages.get("cli.zgc.diff.row.markend");
-            case "softMaxBreached"-> messages.get("cli.zgc.diff.row.softmax");
-            default               -> key;
-        };
+        switch (key) {
+            case "heapCommitted":   return messages.get("cli.zgc.diff.row.committed");
+            case "minorCycles":     return messages.get("cli.zgc.diff.row.cycles.minor");
+            case "majorCycles":     return messages.get("cli.zgc.diff.row.cycles.major");
+            case "stallCount":      return messages.get("cli.zgc.diff.row.stalls");
+            case "pauseMarkEnd":    return messages.get("cli.zgc.diff.row.markend");
+            case "softMaxBreached": return messages.get("cli.zgc.diff.row.softmax");
+            default:                return key;
+        }
     }
 
     // ── Target inspection (JMX) ─────────────────────────────────────────────
 
-    private record TargetInfo(
-            boolean usingZgc,
-            boolean generational,
-            String  gcAlgo,
-            String  jvmVersion,
-            long    maxHeapBytes,
-            long    softMaxHeapBytes) {}
+    private static final class TargetInfo {
+        final boolean usingZgc;
+        final boolean generational;
+        final String  gcAlgo;
+        final String  jvmVersion;
+        final long    maxHeapBytes;
+        final long    softMaxHeapBytes;
+        TargetInfo(boolean usingZgc, boolean generational, String gcAlgo, String jvmVersion,
+                   long maxHeapBytes, long softMaxHeapBytes) {
+            this.usingZgc = usingZgc;
+            this.generational = generational;
+            this.gcAlgo = gcAlgo;
+            this.jvmVersion = jvmVersion;
+            this.maxHeapBytes = maxHeapBytes;
+            this.softMaxHeapBytes = softMaxHeapBytes;
+        }
+        boolean usingZgc() { return usingZgc; }
+        boolean generational() { return generational; }
+        String gcAlgo() { return gcAlgo; }
+        String jvmVersion() { return jvmVersion; }
+        long maxHeapBytes() { return maxHeapBytes; }
+        long softMaxHeapBytes() { return softMaxHeapBytes; }
+    }
 
     private static TargetInfo inspectTarget(long pid) {
         boolean usingZgc = false;
@@ -529,9 +545,10 @@ public final class ZgcCommand implements Command {
             try {
                 ObjectName mem = new ObjectName("java.lang:type=Memory");
                 Object usage = mbs.getAttribute(mem, "HeapMemoryUsage");
-                if (usage instanceof CompositeData cd) {
+                if (usage instanceof CompositeData) {
+                    CompositeData cd = (CompositeData) usage;
                     Object max = cd.get("max");
-                    if (max instanceof Number n) maxHeap = n.longValue();
+                    if (max instanceof Number) maxHeap = ((Number) max).longValue();
                 }
             } catch (Exception ignored) {}
 
@@ -540,7 +557,8 @@ public final class ZgcCommand implements Command {
                 Object res = mbs.invoke(diag, "getVMOption",
                         new Object[]{"SoftMaxHeapSize"},
                         new String[]{"java.lang.String"});
-                if (res instanceof CompositeData cd) {
+                if (res instanceof CompositeData) {
+                    CompositeData cd = (CompositeData) res;
                     Object v = cd.get("value");
                     if (v != null) {
                         try {
@@ -654,11 +672,12 @@ public final class ZgcCommand implements Command {
         System.out.println();
 
         // Verdict line
-        String verdictColor = switch (verdict) {
-            case HEALTHY   -> grn;
-            case WARNING   -> yel;
-            case UNHEALTHY -> red;
-        };
+        String verdictColor;
+        switch (verdict) {
+            case HEALTHY:   verdictColor = grn; break;
+            case WARNING:   verdictColor = yel; break;
+            default:        verdictColor = red; break;
+        }
         String verdictReason = verdictReason(verdict, d, messages);
         System.out.println(bold + messages.get("cli.zgc.verdict.label") + " " + reset
                 + verdictColor + bold + verdict.name() + reset
@@ -673,25 +692,26 @@ public final class ZgcCommand implements Command {
     }
 
     private static String verdictReason(ZgcDiagnosis.Verdict v, ZgcDiagnosis d, Messages messages) {
-        return switch (v) {
-            case HEALTHY -> messages.get("cli.zgc.verdict.healthy");
-            case WARNING -> {
+        switch (v) {
+            case HEALTHY:
+                return messages.get("cli.zgc.verdict.healthy");
+            case WARNING: {
                 if (d.softMaxBreached && d.pauseMarkEndMs > 1.0) {
-                    yield messages.get("cli.zgc.verdict.warning.both");
+                    return messages.get("cli.zgc.verdict.warning.both");
                 }
-                if (d.softMaxBreached) yield messages.get("cli.zgc.verdict.warning.softmax");
-                yield messages.get("cli.zgc.verdict.warning.pause");
+                if (d.softMaxBreached) return messages.get("cli.zgc.verdict.warning.softmax");
+                return messages.get("cli.zgc.verdict.warning.pause");
             }
-            case UNHEALTHY -> {
+            default: {
                 if (!d.stalls.isEmpty() && d.cycleOverlap) {
-                    yield messages.get("cli.zgc.verdict.unhealthy.stalls.overlap");
+                    return messages.get("cli.zgc.verdict.unhealthy.stalls.overlap");
                 }
-                if (!d.stalls.isEmpty()) yield d.softMaxBreached
+                if (!d.stalls.isEmpty()) return d.softMaxBreached
                         ? messages.get("cli.zgc.verdict.unhealthy.stalls.softmax")
                         : messages.get("cli.zgc.verdict.unhealthy.stalls");
-                yield messages.get("cli.zgc.verdict.unhealthy.overlap");
+                return messages.get("cli.zgc.verdict.unhealthy.overlap");
             }
-        };
+        }
     }
 
     private static List<String> recommendations(ZgcDiagnosis d, Messages messages) {

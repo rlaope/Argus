@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Classloader-level metaspace leak attribution.
@@ -150,7 +151,7 @@ public final class ClassLeakCommand implements Command {
         List<ClassLoaderEntry> sorted = entries.stream()
                 .sorted(Comparator.comparingLong(ClassLoaderEntry::classCount).reversed())
                 .limit(top)
-                .toList();
+                .collect(Collectors.toList());
 
         long totalClasses = entries.stream().mapToLong(ClassLoaderEntry::classCount).sum();
         long totalChunk   = entries.stream().mapToLong(ClassLoaderEntry::chunkBytes).sum();
@@ -227,7 +228,7 @@ public final class ClassLeakCommand implements Command {
         List<ClassLeakDiff.Row> changed = diff.rows().stream()
                 .filter(r -> r.delta() != 0 || r.isNew())
                 .sorted(Comparator.comparingLong(ClassLeakDiff.Row::delta).reversed())
-                .toList();
+                .collect(Collectors.toList());
 
         if (changed.isEmpty()) {
             System.out.println(RichRenderer.boxLine(
@@ -235,11 +236,12 @@ public final class ClassLeakCommand implements Command {
         } else {
             for (ClassLeakDiff.Row row : changed) {
                 long delta = row.delta();
-                String sev = switch (row.severity()) {
-                    case CRITICAL -> red + "[CRITICAL]" + reset;
-                    case WARNING  -> yellow + "[WARNING]" + reset;
-                    case OK       -> green + "[OK]" + reset;
-                };
+                String sev;
+                switch (row.severity()) {
+                    case CRITICAL: sev = red + "[CRITICAL]" + reset;    break;
+                    case WARNING:  sev = yellow + "[WARNING]" + reset;  break;
+                    default:       sev = green + "[OK]" + reset;        break;
+                }
                 String deltaColor = delta > 0
                         ? (row.severity() == ClassLeakDiff.Severity.CRITICAL ? red : yellow)
                         : green;
@@ -347,7 +349,7 @@ public final class ClassLeakCommand implements Command {
         List<ClassLoaderEntry> sorted = current.stream()
                 .sorted(Comparator.comparingLong(ClassLoaderEntry::classCount).reversed())
                 .limit(top)
-                .toList();
+                .collect(Collectors.toList());
 
         sb.append(bold)
           .append(RichRenderer.padRight("Type", 44))

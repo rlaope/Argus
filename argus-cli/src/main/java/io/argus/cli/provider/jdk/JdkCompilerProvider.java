@@ -91,7 +91,7 @@ public final class JdkCompilerProvider implements CompilerProvider {
             if (Character.isDigit(c)) sb.append(c);
             else break;
         }
-        if (sb.isEmpty()) return 0;
+        if (sb.length() == 0) return 0;
         return Long.parseLong(sb.toString());
     }
 
@@ -104,7 +104,7 @@ public final class JdkCompilerProvider implements CompilerProvider {
             if (Character.isDigit(c)) sb.append(c);
             else break;
         }
-        if (sb.isEmpty()) return 0;
+        if (sb.length() == 0) return 0;
         return Integer.parseInt(sb.toString());
     }
 }

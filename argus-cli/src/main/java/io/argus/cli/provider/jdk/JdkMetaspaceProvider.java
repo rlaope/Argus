@@ -166,12 +166,12 @@ public final class JdkMetaspaceProvider implements MetaspaceProvider {
     private static long parseSize(String numStr, String unit) {
         try {
             double value = Double.parseDouble(numStr);
-            return switch (unit) {
-                case "KB" -> (long) (value * 1024);
-                case "MB" -> (long) (value * 1024 * 1024);
-                case "GB" -> (long) (value * 1024L * 1024 * 1024);
-                default -> (long) value;
-            };
+            switch (unit) {
+                case "KB": return (long) (value * 1024);
+                case "MB": return (long) (value * 1024 * 1024);
+                case "GB": return (long) (value * 1024L * 1024 * 1024);
+                default: return (long) value;
+            }
         } catch (NumberFormatException e) {
             return 0;
         }

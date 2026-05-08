@@ -247,19 +247,55 @@ public final class ProfileSuggestions {
 
     /**
      * A single profile-driven recommendation.
-     *
-     * @param ruleName    internal identifier for the rule that fired
-     * @param confidence  LOW / MED / HIGH
-     * @param flag        JVM flag string, or empty string for non-flag hints
-     * @param rationale   one-line explanation
-     * @param evidence    hot method name that triggered the rule
-     * @param evidencePct percentage of total samples attributed to the evidence method
      */
-    public record ProfileRecommendation(
-            String ruleName,
-            Confidence confidence,
-            String flag,
-            String rationale,
-            String evidence,
-            double evidencePct) {}
+    public static final class ProfileRecommendation {
+        private final String ruleName;
+        private final Confidence confidence;
+        private final String flag;
+        private final String rationale;
+        private final String evidence;
+        private final double evidencePct;
+
+        public ProfileRecommendation(String ruleName, Confidence confidence, String flag,
+                                     String rationale, String evidence, double evidencePct) {
+            this.ruleName = ruleName;
+            this.confidence = confidence;
+            this.flag = flag;
+            this.rationale = rationale;
+            this.evidence = evidence;
+            this.evidencePct = evidencePct;
+        }
+
+        public String ruleName() { return ruleName; }
+        public Confidence confidence() { return confidence; }
+        public String flag() { return flag; }
+        public String rationale() { return rationale; }
+        public String evidence() { return evidence; }
+        public double evidencePct() { return evidencePct; }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ProfileRecommendation)) return false;
+            ProfileRecommendation that = (ProfileRecommendation) o;
+            return Double.compare(that.evidencePct, evidencePct) == 0
+                    && java.util.Objects.equals(ruleName, that.ruleName)
+                    && confidence == that.confidence
+                    && java.util.Objects.equals(flag, that.flag)
+                    && java.util.Objects.equals(rationale, that.rationale)
+                    && java.util.Objects.equals(evidence, that.evidence);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(ruleName, confidence, flag, rationale, evidence, evidencePct);
+        }
+
+        @Override
+        public String toString() {
+            return "ProfileRecommendation[ruleName=" + ruleName + ", confidence=" + confidence
+                    + ", flag=" + flag + ", rationale=" + rationale + ", evidence=" + evidence
+                    + ", evidencePct=" + evidencePct + "]";
+        }
+    }
 }

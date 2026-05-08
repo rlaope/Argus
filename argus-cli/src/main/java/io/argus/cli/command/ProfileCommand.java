@@ -1010,11 +1010,12 @@ public final class ProfileCommand implements Command {
         int limit = Math.min(top, deltas.size());
         for (int i = 0; i < limit; i++) {
             ProfileSnapshot.DiffEntry de = deltas.get(i);
-            String suffix = switch (de.state()) {
-                case "new"  -> " (NEW)";
-                case "gone" -> " (GONE)";
-                default     -> "";
-            };
+            String suffix;
+            switch (de.state()) {
+                case "new":  suffix = " (NEW)";  break;
+                case "gone": suffix = " (GONE)"; break;
+                default:     suffix = "";         break;
+            }
             String methodDisplay = RichRenderer.truncate(de.method() + suffix, 42);
             String deltaColor = de.deltaSamples() > 0 ? red : (de.deltaSamples() < 0 ? green : "");
             String sign = de.deltaSamples() >= 0 ? "+" : "";
