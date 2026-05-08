@@ -4,6 +4,14 @@ All notable changes to Argus are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+- `argus harness <pid>` — continuous JVM monitoring + optimization + troubleshooting. Samples on a fixed interval, runs the existing 12 doctor health rules plus four new trend rules (heap-leak regression, GC overhead trend, thread growth, GC pause regression) and produces a single severity-ranked session report with JVM-flag suggestions. Observation-only — no JVM mutation. Supports `--profile=quick|deep`, `--interval=<dur>`, `--duration=<dur>`, `--out=<file>`, and `--format=json`. Dedupes findings by category+title across the session and reports per-rule hit counts so a leak rule that fires 600 times shows up once with "(fired 600 ticks)".
+- `.claude-plugin/marketplace.json` + `.claude-plugin/skills/argus-jvm-harness/SKILL.md` — Argus is now installable as a Claude Code plugin via `/plugin marketplace add https://github.com/rlaope/Argus` then `/plugin install argus-jvm-harness`. The skill wraps the CLI; if `argus` isn't on PATH it bootstraps via `install.sh` first.
+- `docs/harness.md` — full reference for the harness, trend rules, output formats, and recommended usage patterns.
+
+### Changed
+- `argusVersion` bumped to `1.4.0-SNAPSHOT` while harness work lands; the next tagged release will be `1.4.0`.
+
 ## [1.3.0] - 2026-05-08
 
 ### Added

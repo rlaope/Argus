@@ -36,6 +36,29 @@ Shell completions (bash, zsh, fish, PowerShell) are installed automatically.
 
 ---
 
+## JVM Harness
+
+Continuous JVM monitoring + optimization + troubleshooting on top of Argus, available as a Claude Code plugin.
+
+```
+/plugin marketplace add https://github.com/rlaope/Argus
+/plugin install argus-jvm-harness
+```
+
+CLI equivalent (no Claude Code required):
+
+```bash
+argus harness <pid>                          # 30-min trend-aware health watch
+argus harness <pid> --profile=quick --duration=1m
+argus harness <pid> --out=session.json --format=json
+```
+
+The harness samples on a fixed interval, runs the doctor rule set plus four trend rules (heap-leak regression, GC overhead trend, thread growth, pause-time regression), and produces a single session report with severity-ranked findings and JVM-flag suggestions.
+
+Full reference: [docs/harness.md](docs/harness.md)
+
+---
+
 ## Why Argus?
 
 - **66 diagnostic commands** — heap, GC, threads, profiling, flame graphs, NMT, class loaders, and more. No agent required.

@@ -1,0 +1,11 @@
+{
+  "name": "argus-jvm-harness",
+  "description": "Continuous JVM monitoring + optimization + troubleshooting via the Argus CLI. Bootstraps the CLI on first use, runs the harness against a target PID, and summarises findings + JVM-flag recommendations.",
+  "version": "1.4.0-SNAPSHOT",
+  "author": {
+    "name": "rlaope"
+  },
+  "license": "MIT",
+  "keywords": ["jvm", "monitoring", "diagnostics", "gc", "performance", "argus"],
+  "skills": ["./skills/argus-jvm-harness"]
+}

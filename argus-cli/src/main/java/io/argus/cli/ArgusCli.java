@@ -31,6 +31,7 @@ import io.argus.cli.command.GcWhyCommand;
 import io.argus.cli.command.GcCommand;
 import io.argus.cli.command.GcNewCommand;
 import io.argus.cli.command.GcUtilCommand;
+import io.argus.cli.command.HarnessCommand;
 import io.argus.cli.command.HeapAnalyzeCommand;
 import io.argus.cli.command.HeapCommand;
 import io.argus.cli.command.HeapDumpCommand;
@@ -182,6 +183,7 @@ public final class ArgusCli {
         register(commands, new DiffCommand());
         register(commands, new ReportCommand());
         register(commands, new DoctorCommand());
+        register(commands, new HarnessCommand());
         register(commands, new CiCommand());
         register(commands, new CompareCommand());
         register(commands, new SlowlogCommand());

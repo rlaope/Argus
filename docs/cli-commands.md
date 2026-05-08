@@ -60,6 +60,7 @@ Real-time process observation, dashboards, environment inspection, multi-instanc
 - `argus cluster` — multi-instance aggregated health
 - `argus perfcounter` — low-level JVM performance counters
 - `argus tui` — interactive terminal UI (k9s-style)
+- `argus harness` — continuous trend-aware health watch (doctor + 4 trend rules over a window)
 
 ---
 

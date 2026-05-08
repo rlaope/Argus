@@ -1,0 +1,31 @@
+{
+  "name": "argus",
+  "id": "argus",
+  "owner": {
+    "name": "rlaope"
+  },
+  "metadata": {
+    "description": "Argus — JVM diagnostic toolkit. The harness skill turns the CLI into an AI-assisted continuous JVM monitoring + optimization + troubleshooting flow inside Claude Code.",
+    "version": "1.4.0-SNAPSHOT"
+  },
+  "plugins": [
+    {
+      "name": "argus-jvm-harness",
+      "source": "./",
+      "description": "Continuous JVM monitoring + optimization + troubleshooting. Wraps the Argus CLI's harness command and summarises its findings in natural language. Bootstraps the CLI via the official install.sh if it is not already on PATH.",
+      "version": "1.4.0-SNAPSHOT",
+      "author": {
+        "name": "rlaope"
+      },
+      "keywords": [
+        "jvm",
+        "monitoring",
+        "diagnostics",
+        "gc",
+        "performance",
+        "argus"
+      ],
+      "category": "diagnostics"
+    }
+  ]
+}
