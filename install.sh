@@ -105,14 +105,66 @@ mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 
 DOWNLOAD_BASE="https://github.com/$REPO/releases/download/$VERSION"
 
+# Resolve which sha256 binary is available so we can verify release artifacts.
+if command -v sha256sum &>/dev/null; then
+    SHA256_CMD="sha256sum"
+elif command -v shasum &>/dev/null; then
+    SHA256_CMD="shasum -a 256"
+else
+    SHA256_CMD=""
+fi
+
+# Try to fetch checksums.txt from the release. Releases before 1.3.0 do not
+# publish it, so a 404 is non-fatal — we just skip integrity checks for those.
+CHECKSUMS_FILE=""
+if [ -n "$SHA256_CMD" ]; then
+    CHECKSUMS_FILE="$INSTALL_DIR/.checksums.txt"
+    if curl -fsSL "$DOWNLOAD_BASE/checksums.txt" -o "$CHECKSUMS_FILE" 2>/dev/null; then
+        ok "Fetched checksums.txt for SHA-256 verification"
+    else
+        rm -f "$CHECKSUMS_FILE"
+        CHECKSUMS_FILE=""
+        warn "checksums.txt not published for $VERSION — skipping integrity check"
+    fi
+else
+    warn "No sha256sum/shasum on PATH — skipping integrity check"
+fi
+
+# verify_sha256 <local-path> <filename-in-checksums.txt>
+# Aborts the install on mismatch. Skips silently if checksums.txt is unavailable
+# or has no entry for the file (e.g. a legacy artifact).
+verify_sha256() {
+    local local_file="$1"
+    local expected_name="$2"
+    [ -z "$CHECKSUMS_FILE" ] && return 0
+    local expected_hash
+    expected_hash=$(awk -v name="$expected_name" '$2 == name {print $1}' "$CHECKSUMS_FILE" | head -1)
+    if [ -z "$expected_hash" ]; then
+        warn "  no checksum entry for $expected_name — skipping"
+        return 0
+    fi
+    local actual_hash
+    actual_hash=$($SHA256_CMD "$local_file" | awk '{print $1}')
+    if [ "$expected_hash" != "$actual_hash" ]; then
+        error "SHA-256 mismatch for $expected_name"
+        error "  expected: $expected_hash"
+        error "  actual:   $actual_hash"
+        rm -f "$local_file"
+        exit 1
+    fi
+    ok "  sha256 verified: $expected_name"
+}
+
 info "Downloading argus-agent-${VER_NUM}.jar ..."
 curl -fSL "$DOWNLOAD_BASE/argus-agent-${VER_NUM}.jar" -o "$INSTALL_DIR/argus-agent.jar" \
     || { error "Failed to download argus-agent. Check version: $VERSION"; exit 1; }
+verify_sha256 "$INSTALL_DIR/argus-agent.jar" "argus-agent.jar"
 ok "argus-agent.jar"
 
 info "Downloading argus-cli-${VER_NUM}-all.jar ..."
 curl -fSL "$DOWNLOAD_BASE/argus-cli-${VER_NUM}-all.jar" -o "$INSTALL_DIR/argus-cli.jar" \
     || { warn "argus-cli not found in release. CLI may not be available in $VERSION."; }
+verify_sha256 "$INSTALL_DIR/argus-cli.jar" "argus-cli-${VER_NUM}-all.jar"
 ok "argus-cli.jar"
 
 # --- Attempt native binary download (faster startup, no JVM required for launch) ---
