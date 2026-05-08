@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 55 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
+Complete reference for all 66 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
 
 ## Global Options
 
