@@ -64,7 +64,7 @@ public final class CPUAnalyzer {
 
         history.add(snapshot);
         while (history.size() > MAX_HISTORY_SIZE) {
-            history.removeFirst();
+            history.remove(0);
         }
     }
 

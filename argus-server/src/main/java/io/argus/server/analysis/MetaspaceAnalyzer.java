@@ -71,7 +71,7 @@ public final class MetaspaceAnalyzer {
 
         history.add(snapshot);
         while (history.size() > MAX_HISTORY_SIZE) {
-            history.removeFirst();
+            history.remove(0);
         }
     }
 

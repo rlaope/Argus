@@ -224,10 +224,9 @@ public final class JfrStreamingEngine {
             return;
         }
 
-        streamThread = Thread.ofPlatform()
-                .name("argus-jfr-stream")
-                .daemon(true)
-                .start(this::runStream);
+        streamThread = new Thread(this::runStream, "argus-jfr-stream");
+        streamThread.setDaemon(true);
+        streamThread.start();
 
         // Wait for JFR streaming to actually start before returning
         try {

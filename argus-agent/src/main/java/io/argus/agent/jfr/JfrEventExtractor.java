@@ -124,7 +124,7 @@ public final class JfrEventExtractor {
         // The OS thread ID represents the carrier thread for virtual threads
         try {
             RecordedThread eventThread = event.getValue("eventThread");
-            if (eventThread != null && eventThread.isVirtual()) {
+            if (eventThread != null && isVirtualRecordedThread(eventThread)) {
                 // For virtual threads, the OS thread ID is the carrier's thread ID
                 long osThreadId = eventThread.getOSThreadId();
                 if (osThreadId > 0) {
@@ -135,6 +135,21 @@ public final class JfrEventExtractor {
         }
 
         return -1;
+    }
+
+    /**
+     * Reflective {@code RecordedThread.isVirtual()} call so this module compiles
+     * under {@code --release 17} but still detects virtual threads when the
+     * recorded JFR was produced on Java 21+. Returns {@code false} on Java 17/20.
+     */
+    private static boolean isVirtualRecordedThread(RecordedThread t) {
+        try {
+            java.lang.reflect.Method m = RecordedThread.class.getMethod("isVirtual");
+            Object r = m.invoke(t);
+            return r instanceof Boolean && (Boolean) r;
+        } catch (Throwable ignored) {
+            return false;
+        }
     }
 
     /**

@@ -216,7 +216,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         // Run profiling asynchronously
         final int dur = duration;
         final String pType = type;
-        Thread.ofPlatform().name("argus-profile").daemon(true).start(() -> {
+        Thread profileThread = new Thread(() -> {
             try {
                 long pid = ProcessHandle.current().pid();
                 String tmpDir = System.getProperty("java.io.tmpdir");
@@ -245,7 +245,9 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
                 String errJson = "{\"status\":\"error\",\"message\":\"" + escapeJson(e.getMessage()) + "\"}";
                 HttpResponseHelper.sendJson(ctx, request, errJson);
             }
-        });
+        }, "argus-profile");
+        profileThread.setDaemon(true);
+        profileThread.start();
 
         // Immediate response that profiling has started
         String startJson = "{\"status\":\"started\",\"type\":\"" + pType + "\",\"duration\":" + dur + "}";
@@ -486,7 +488,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         if (targetThread != null) {
             sb.append("\"threadName\":\"").append(escapeJson(targetThread.getName())).append("\",");
             sb.append("\"state\":\"").append(targetThread.getState()).append("\",");
-            sb.append("\"isVirtual\":").append(targetThread.isVirtual()).append(",");
+            sb.append("\"isVirtual\":").append(isVirtualThread(targetThread)).append(",");
             sb.append("\"stackTrace\":\"").append(escapeJson(formatStackTrace(targetThread.getStackTrace()))).append("\"");
         } else {
             sb.append("\"error\":\"Thread not found or already terminated\"");
@@ -977,10 +979,10 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             first = false;
 
             sb.append("{");
-            sb.append("\"threadId\":").append(thread.threadId()).append(",");
+            sb.append("\"threadId\":").append(thread.getId()).append(",");
             sb.append("\"threadName\":\"").append(escapeJson(thread.getName())).append("\",");
             sb.append("\"state\":\"").append(thread.getState()).append("\",");
-            sb.append("\"isVirtual\":").append(thread.isVirtual()).append(",");
+            sb.append("\"isVirtual\":").append(isVirtualThread(thread)).append(",");
             sb.append("\"stackTrace\":\"").append(escapeJson(formatStackTrace(stackTrace))).append("\"");
             sb.append("}");
         }
@@ -990,9 +992,24 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         HttpResponseHelper.sendJson(ctx, request, sb.toString());
     }
 
+    /**
+     * Reflective {@code Thread.isVirtual()} call so this module compiles
+     * under {@code --release 17} but still reports virtual-thread status
+     * when running on Java 21+. Returns {@code false} on Java 17/20.
+     */
+    private static boolean isVirtualThread(Thread t) {
+        try {
+            java.lang.reflect.Method m = Thread.class.getMethod("isVirtual");
+            Object r = m.invoke(t);
+            return r instanceof Boolean && (Boolean) r;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private Thread findThreadById(long threadId) {
         return Thread.getAllStackTraces().keySet().stream()
-                .filter(t -> t.threadId() == threadId)
+                .filter(t -> t.getId() == threadId)
                 .findFirst()
                 .orElse(null);
     }

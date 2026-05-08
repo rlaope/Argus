@@ -32,7 +32,7 @@ public final class ExecutionSampleExtractor {
         String threadName = extractThreadName(event);
 
         // Get the top frame
-        RecordedFrame topFrame = stackTrace.getFrames().getFirst();
+        RecordedFrame topFrame = stackTrace.getFrames().get(0);
         String methodName = extractMethodName(topFrame);
         String className = extractClassName(topFrame);
         int lineNumber = topFrame.getLineNumber();

@@ -82,7 +82,7 @@ public final class GCAnalyzer {
 
         recentGCs.add(summary);
         while (recentGCs.size() > MAX_HISTORY_SIZE) {
-            recentGCs.removeFirst();
+            recentGCs.remove(0);
         }
     }
 
