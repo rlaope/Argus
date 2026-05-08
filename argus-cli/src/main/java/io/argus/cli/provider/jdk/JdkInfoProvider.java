@@ -42,12 +42,15 @@ public final class JdkInfoProvider implements InfoProvider {
         List<String> vmFlags = new ArrayList<>();
         Map<String, String> systemProperties = new HashMap<>();
 
-        // VM.version: extract vmName and vmVersion
+        // VM.version: extract vmName and vmVersion.
+        // jcmd echoes "<pid>:" as the first non-empty line of every command's output;
+        // skip it so we don't end up with vmName="<pid>:".
         try {
             String versionOutput = JcmdExecutor.execute(pid, "VM.version");
             for (String line : versionOutput.split("\n")) {
                 String trimmed = line.trim();
                 if (trimmed.isEmpty()) continue;
+                if (trimmed.matches("^\\d+:$")) continue;
                 if (vmName.isEmpty()) {
                     vmName = trimmed;
                 } else if (vmVersion.isEmpty() && (trimmed.contains("build") || trimmed.matches(".*\\d+\\..*"))) {
