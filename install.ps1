@@ -75,9 +75,46 @@ New-Item -ItemType Directory -Path $BinDir -Force | Out-Null
 
 $DownloadBase = "https://github.com/$Repo/releases/download/$Version"
 
+# Try to fetch checksums.txt from the release. Releases before 1.3.0 do not
+# publish it, so a 404 is non-fatal — we just skip integrity checks for those.
+$ChecksumsFile = Join-Path $InstallDir ".checksums.txt"
+$ChecksumsAvailable = $false
+try {
+    Invoke-WebRequest "$DownloadBase/checksums.txt" -OutFile $ChecksumsFile -UseBasicParsing -ErrorAction Stop
+    $ChecksumsAvailable = $true
+    Write-Ok "Fetched checksums.txt for SHA-256 verification"
+} catch {
+    if (Test-Path $ChecksumsFile) { Remove-Item $ChecksumsFile -Force }
+    Write-Warn "checksums.txt not published for $Version - skipping integrity check"
+}
+
+# Verify-Sha256: aborts on mismatch, skips silently when checksums.txt is
+# unavailable or has no entry for the artifact.
+function Verify-Sha256 {
+    param([string]$LocalFile, [string]$ExpectedName)
+    if (-not $ChecksumsAvailable) { return }
+    $line = Select-String -Path $ChecksumsFile -Pattern "  $([regex]::Escape($ExpectedName))$" -SimpleMatch:$false `
+        | Select-Object -First 1
+    if (-not $line) {
+        Write-Warn "  no checksum entry for $ExpectedName - skipping"
+        return
+    }
+    $expected = ($line.Line -split '\s+')[0]
+    $actual = (Get-FileHash $LocalFile -Algorithm SHA256).Hash.ToLower()
+    if ($expected -ne $actual) {
+        Write-Err "SHA-256 mismatch for $ExpectedName"
+        Write-Err "  expected: $expected"
+        Write-Err "  actual:   $actual"
+        Remove-Item $LocalFile -Force -ErrorAction SilentlyContinue
+        exit 1
+    }
+    Write-Ok "  sha256 verified: $ExpectedName"
+}
+
 Write-Info "Downloading argus-agent-${VerNum}.jar ..."
 try {
     Invoke-WebRequest "$DownloadBase/argus-agent-${VerNum}.jar" -OutFile "$InstallDir\argus-agent.jar" -UseBasicParsing
+    Verify-Sha256 -LocalFile "$InstallDir\argus-agent.jar" -ExpectedName "argus-agent.jar"
     Write-Ok "argus-agent.jar"
 } catch {
     Write-Err "Failed to download argus-agent. Check version: $Version"
@@ -87,6 +124,7 @@ try {
 Write-Info "Downloading argus-cli-${VerNum}-all.jar ..."
 try {
     Invoke-WebRequest "$DownloadBase/argus-cli-${VerNum}-all.jar" -OutFile "$InstallDir\argus-cli.jar" -UseBasicParsing
+    Verify-Sha256 -LocalFile "$InstallDir\argus-cli.jar" -ExpectedName "argus-cli-${VerNum}-all.jar"
     Write-Ok "argus-cli.jar"
 } catch {
     Write-Warn "argus-cli not found in release. CLI may not be available in $Version."
