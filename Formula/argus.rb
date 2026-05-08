@@ -1,14 +1,14 @@
 class Argus < Formula
   desc "JVM diagnostic toolkit — 66 commands, health diagnosis, GC analysis, profiling, interactive TUI"
   homepage "https://github.com/rlaope/Argus"
-  url "https://github.com/rlaope/Argus/releases/download/v1.2.1/argus-cli-1.2.1-all.jar"
+  url "https://github.com/rlaope/Argus/releases/download/v1.3.0/argus-cli-1.3.0-all.jar"
   sha256 "f0bb79ef3a599c206fa26a86012b9e0f4236d7750a2b789652472ea8aaf3d0ee"
   license "Apache-2.0"
 
   depends_on "openjdk@21"
 
   def install
-    libexec.install "argus-cli-1.2.1-all.jar" => "argus-cli.jar"
+    libexec.install "argus-cli-1.3.0-all.jar" => "argus-cli.jar"
 
     (bin/"argus").write <<~EOS
       #!/bin/bash

@@ -63,13 +63,13 @@ env:
 <dependency>
   <groupId>io.github.rlaope</groupId>
   <artifactId>argus-spring-boot-starter</artifactId>
-  <version>1.2.1</version>
+  <version>1.3.0</version>
 </dependency>
 ```
 
 ```groovy
 // Gradle
-implementation 'io.github.rlaope:argus-spring-boot-starter:1.2.1'
+implementation 'io.github.rlaope:argus-spring-boot-starter:1.3.0'
 ```
 
 ### Step 3 — Expose the metrics port

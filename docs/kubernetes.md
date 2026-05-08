@@ -68,7 +68,7 @@ Use an init container to inject the agent JAR via a shared volume. This avoids m
 ```yaml
 initContainers:
   - name: argus-init
-    image: ghcr.io/rlaope/argus:1.2.1
+    image: ghcr.io/rlaope/argus:1.3.0
     command: ["cp", "/opt/argus/argus-cli.jar", "/argus-volume/argus-cli.jar"]
     volumeMounts:
       - name: argus-volume
@@ -98,13 +98,13 @@ Add the Argus Spring Boot starter to `pom.xml` or `build.gradle`. No `-javaagent
 <dependency>
   <groupId>io.argus</groupId>
   <artifactId>argus-spring-boot-starter</artifactId>
-  <version>1.2.1</version>
+  <version>1.3.0</version>
 </dependency>
 ```
 
 **Gradle:**
 ```groovy
-implementation 'io.argus:argus-spring-boot-starter:1.2.1'
+implementation 'io.argus:argus-spring-boot-starter:1.3.0'
 ```
 
 The `/prometheus` and `/argus` endpoints are auto-registered alongside your application's existing endpoints.
@@ -279,7 +279,7 @@ spec:
               mountPath: /argus
       initContainers:
         - name: argus-init
-          image: ghcr.io/rlaope/argus:1.2.1
+          image: ghcr.io/rlaope/argus:1.3.0
           command: ["cp", "/opt/argus/argus-cli.jar", "/argus-volume/argus-cli.jar"]
           volumeMounts:
             - name: argus-volume

@@ -119,7 +119,7 @@ All settings are passed as `-D` system properties:
 Add `argus-spring-boot-starter` to your Spring Boot 3.2+ application for zero-config JVM monitoring:
 
 ```kotlin
-implementation("io.argus:argus-spring-boot-starter:1.2.1")
+implementation("io.argus:argus-spring-boot-starter:1.3.0")
 ```
 
 Configure via `application.yml`:
