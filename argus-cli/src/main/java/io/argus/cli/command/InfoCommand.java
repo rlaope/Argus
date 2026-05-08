@@ -42,7 +42,12 @@ public final class InfoCommand implements Command {
             pid = Long.parseLong(args[0]);
         } catch (NumberFormatException e) {
             System.err.println(messages.get("error.pid.invalid", args[0]));
-            return;
+            throw new CommandExitException(2);
+        }
+
+        if (!ProcessHandle.of(pid).isPresent()) {
+            System.err.println(messages.get("error.pid.notfound", pid));
+            throw new CommandExitException(1);
         }
 
         String sourceOverride = null;

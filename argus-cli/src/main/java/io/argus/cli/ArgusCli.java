@@ -251,6 +251,22 @@ public final class ArgusCli {
         String[] subArgs = new String[args.length - commandArgStart];
         System.arraycopy(args, commandArgStart, subArgs, 0, subArgs.length);
 
+        // Per-subcommand --help: short-circuit before delegating to the command,
+        // so commands that take a positional <pid> don't misparse `--help` as a PID.
+        for (String a : subArgs) {
+            if (a.equals("--help") || a.equals("-h")) {
+                System.out.println();
+                System.out.println("  argus " + command.name() + "  " + command.description(messages));
+                System.out.println();
+                System.out.println("  Usage: argus " + command.name() + " [<pid>] [options]");
+                System.out.println();
+                System.out.println("  For the full option/output reference, see:");
+                System.out.println("    https://github.com/rlaope/Argus/tree/master/docs/commands");
+                System.out.println();
+                return;
+            }
+        }
+
         try {
             command.execute(subArgs, config, registry, messages);
         } catch (CommandExitException e) {
