@@ -158,6 +158,58 @@ cat gradle.properties
 ```
 Compare to baseline minima. Netty `< 4.1.115.Final` is a P0 (CVE).
 
+#### 2.11 Post-release artifact verification
+
+A green `release.yml` run is not proof every distribution channel succeeded. Each tag-triggered workflow has independent jobs, and one can fail silently while docs continue to reference the URL/tag that was supposed to be produced. Always cross-check the *artifacts*, not just the run status.
+
+For the most recent published tag (or the tag passed by the user), verify each channel:
+
+```bash
+LATEST_TAG="$(gh release view --json tagName -q .tagName)"
+
+# 1. Per-workflow conclusion for that tag
+for WF in release.yml docker.yml native-image.yml; do
+  echo "=== $WF ==="
+  gh run list --workflow "$WF" --branch "$LATEST_TAG" --limit 3 \
+    --json conclusion,headBranch,event,name,databaseId,createdAt
+done
+
+# 2. Per-job conclusion (catch the case where the run is "failure" but only one job)
+RUN_ID=$(gh run list --workflow docker.yml --branch "$LATEST_TAG" --limit 1 --json databaseId -q '.[0].databaseId')
+gh run view "$RUN_ID" --json jobs -q '.jobs[] | "\(.name): \(.conclusion)"'
+
+# 3. GHCR images actually exist (anonymous manifest fetch — works for public packages)
+VERSION="${LATEST_TAG#v}"
+OWNER_LC=$(echo "$GITHUB_REPOSITORY_OWNER" | tr 'A-Z' 'a-z')   # GHCR is case-sensitive lowercase
+for IMAGE in argus argus-agent; do
+  TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:${OWNER_LC}/${IMAGE}:pull" | jq -r .token)
+  HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Accept: application/vnd.oci.image.index.v1+json,application/vnd.docker.distribution.manifest.list.v2+json" \
+    "https://ghcr.io/v2/${OWNER_LC}/${IMAGE}/manifests/${VERSION}")
+  echo "ghcr.io/${OWNER_LC}/${IMAGE}:${VERSION} -> HTTP $HTTP"
+done
+# 200 = exists, 404 = missing → P0 if docs/Helm reference it.
+
+# 4. GitHub Release artifacts present
+gh release view "$LATEST_TAG" --json assets -q '.assets[].name'
+```
+
+Expected for a healthy 1.x release:
+- `release.yml`: success, with `argus-agent.jar`, `argus-server.jar`, `argus-cli-X.Y.Z-all.jar` listed under release assets.
+- `docker.yml`: every job (`Build CLI image`, `Build agent image`) success. Manifest fetch returns HTTP 200 for both `argus` and `argus-agent`.
+- `native-image.yml`: success if the project ships native binaries; if the upload step fails, `install.sh` falls back to JAR (which is fine but flag it so the user knows their native artifact is missing).
+
+**Red flags this check is meant to catch:**
+- A run is marked `failure` but only one of N jobs failed, and the published-version assumption silently breaks (e.g., agent image missing while CLI was fine).
+- Workflow succeeded but `gh release view` shows no assets attached (action-gh-release misconfig).
+- A `latest` tag in GHCR points to a stale digest because the new push was rejected.
+
+If a channel is missing for the current `argusVersion`:
+1. Identify the failing job from `gh run view --log-failed`.
+2. Fix the workflow on a branch (do not retag `vX.Y.Z` in place — Git tags are immutable on consumers' machines).
+3. After the fix is merged to `master`, re-run via `workflow_dispatch` against the existing tag, or cut a `vX.Y.(Z+1)` patch release.
+
 ### 3. Fix policy
 
 - **Pure version swaps** with a clear baseline (Helm appVersion, install fallback, compose pin): edit directly.
@@ -201,7 +253,17 @@ Verification:
   ./gradlew compileJava → exit 0
   ./gradlew :argus-cli:test → exit 0
 
+Released-tag verification (v1.2.0):
+  release.yml                       : success
+  docker.yml / Build CLI image      : success
+  docker.yml / Build agent image    : FAILURE  ← P0
+  native-image.yml                  : success
+  ghcr.io/<owner>/argus:1.2.0       : 200 OK
+  ghcr.io/<owner>/argus-agent:1.2.0 : 404 missing  ← P0
+  release assets                    : argus-cli-1.2.0-all.jar, argus-agent.jar, argus-server.jar
+
 Escalated to user:
+  - docker.yml build-agent job failed for v1.2.0 — agent image is not on GHCR even though docs reference it. Fix workflow, then re-run via workflow_dispatch on the v1.2.0 tag or cut v1.2.1.
   - Homebrew Formula sha256 — release artifact not yet uploaded; rerun after release publish.
 ```
 
