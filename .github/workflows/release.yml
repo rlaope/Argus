@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   release:
@@ -38,6 +39,15 @@ jobs:
           cp argus-server/build/libs/argus-server-*.jar argus-server.jar
           cp argus-cli/build/libs/argus-cli-*-all.jar argus-cli-${{ steps.version.outputs.VERSION }}-all.jar
 
+      - name: Generate SHA-256 checksums
+        run: |
+          sha256sum \
+            argus-agent.jar \
+            argus-server.jar \
+            argus-cli-${{ steps.version.outputs.VERSION }}-all.jar \
+            > checksums.txt
+          cat checksums.txt
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -49,3 +59,9 @@ jobs:
             argus-agent.jar
             argus-server.jar
             argus-cli-${{ steps.version.outputs.VERSION }}-all.jar
+            checksums.txt
+
+      - name: Trigger native-image build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run native-image.yml --ref ${{ github.ref_name }}
