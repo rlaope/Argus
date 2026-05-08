@@ -155,8 +155,8 @@ verify_sha256() {
     ok "  sha256 verified: $expected_name"
 }
 
-info "Downloading argus-agent-${VER_NUM}.jar ..."
-curl -fSL "$DOWNLOAD_BASE/argus-agent-${VER_NUM}.jar" -o "$INSTALL_DIR/argus-agent.jar" \
+info "Downloading argus-agent.jar ..."
+curl -fSL "$DOWNLOAD_BASE/argus-agent.jar" -o "$INSTALL_DIR/argus-agent.jar" \
     || { error "Failed to download argus-agent. Check version: $VERSION"; exit 1; }
 verify_sha256 "$INSTALL_DIR/argus-agent.jar" "argus-agent.jar"
 ok "argus-agent.jar"

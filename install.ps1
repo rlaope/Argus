@@ -111,9 +111,9 @@ function Verify-Sha256 {
     Write-Ok "  sha256 verified: $ExpectedName"
 }
 
-Write-Info "Downloading argus-agent-${VerNum}.jar ..."
+Write-Info "Downloading argus-agent.jar ..."
 try {
-    Invoke-WebRequest "$DownloadBase/argus-agent-${VerNum}.jar" -OutFile "$InstallDir\argus-agent.jar" -UseBasicParsing
+    Invoke-WebRequest "$DownloadBase/argus-agent.jar" -OutFile "$InstallDir\argus-agent.jar" -UseBasicParsing
     Verify-Sha256 -LocalFile "$InstallDir\argus-agent.jar" -ExpectedName "argus-agent.jar"
     Write-Ok "argus-agent.jar"
 } catch {
