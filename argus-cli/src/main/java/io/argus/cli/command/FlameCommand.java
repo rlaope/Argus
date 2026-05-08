@@ -50,13 +50,7 @@ public final class FlameCommand implements Command {
             return;
         }
 
-        long pid;
-        try {
-            pid = Long.parseLong(args[0]);
-        } catch (NumberFormatException e) {
-            System.err.println(messages.get("error.pid.invalid", args[0]));
-            return;
-        }
+        long pid = CommandUtils.parsePidOrExit(args, messages);
 
         int duration = DEFAULT_DURATION;
         String type = "cpu";

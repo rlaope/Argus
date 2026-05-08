@@ -51,13 +51,7 @@ public final class TraceCommand implements Command {
             return;
         }
 
-        long pid;
-        try {
-            pid = Long.parseLong(args[0]);
-        } catch (NumberFormatException e) {
-            System.err.println(messages.get("error.pid.invalid", args[0]));
-            return;
-        }
+        long pid = CommandUtils.parsePidOrExit(args, messages);
 
         String target = args[1]; // e.g. "com.example.OrderService.createOrder"
         int durationSec = DEFAULT_DURATION_SEC;

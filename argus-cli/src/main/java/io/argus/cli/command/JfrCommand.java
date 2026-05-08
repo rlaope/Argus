@@ -37,13 +37,7 @@ public final class JfrCommand implements Command {
             return;
         }
 
-        long pid;
-        try {
-            pid = Long.parseLong(args[0]);
-        } catch (NumberFormatException e) {
-            System.err.println(messages.get("error.pid.invalid", args[0]));
-            return;
-        }
+        long pid = CommandUtils.parsePidOrExit(args, messages);
 
         if (args.length < 2) {
             printHelp(config.color(), messages);

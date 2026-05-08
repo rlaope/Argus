@@ -36,9 +36,7 @@ public final class VmSetCommand implements Command {
             return;
         }
 
-        long pid;
-        try { pid = Long.parseLong(args[0]); }
-        catch (NumberFormatException e) { System.err.println(messages.get("error.pid.invalid", args[0])); return; }
+        long pid = CommandUtils.parsePidOrExit(args, messages);
 
         boolean useColor = config.color();
         boolean confirm = false;

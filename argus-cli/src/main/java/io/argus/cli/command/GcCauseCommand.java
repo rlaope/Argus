@@ -29,11 +29,7 @@ public final class GcCauseCommand implements Command {
 
     @Override
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
-        if (args.length == 0) { System.err.println(messages.get("error.pid.required")); return; }
-
-        long pid;
-        try { pid = Long.parseLong(args[0]); }
-        catch (NumberFormatException e) { System.err.println(messages.get("error.pid.invalid", args[0])); return; }
+        long pid = CommandUtils.parsePidOrExit(args, messages);
 
         String sourceOverride = null;
         boolean json = "json".equals(config.format());

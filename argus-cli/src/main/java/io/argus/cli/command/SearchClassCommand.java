@@ -44,13 +44,7 @@ public final class SearchClassCommand implements Command {
             return;
         }
 
-        long pid;
-        try {
-            pid = Long.parseLong(args[0]);
-        } catch (NumberFormatException e) {
-            System.err.println(messages.get("error.pid.invalid", args[0]));
-            return;
-        }
+        long pid = CommandUtils.parsePidOrExit(args, messages);
 
         String pattern = args[1];
         String sourceOverride = null;

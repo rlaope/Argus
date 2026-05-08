@@ -24,7 +24,7 @@ public final class JcmdExecutor {
      * @throws RuntimeException if the process fails or times out
      */
     public static String execute(long pid, String command) {
-        return runProcess("jcmd", String.valueOf(pid), command);
+        return stripPidEcho(runProcess("jcmd", String.valueOf(pid), command), pid);
     }
 
     /**
@@ -60,10 +60,26 @@ public final class JcmdExecutor {
             Process proc = pb.start();
             String out = new String(proc.getInputStream().readAllBytes());
             proc.waitFor(30, java.util.concurrent.TimeUnit.SECONDS);
-            return out;
+            return stripPidEcho(out, pid);
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * jcmd echoes "{@code <pid>:}" as the first line of every response. Strip it
+     * here so providers don't all need to repeat the same defensive check
+     * (which historically led to "VM Name = <pid>:" leaking into argus info).
+     */
+    private static String stripPidEcho(String output, long pid) {
+        if (output == null || output.isEmpty()) return output;
+        String prefix = pid + ":";
+        int newline = output.indexOf('\n');
+        String firstLine = newline >= 0 ? output.substring(0, newline) : output;
+        if (firstLine.trim().equals(prefix)) {
+            return newline >= 0 ? output.substring(newline + 1) : "";
+        }
+        return output;
     }
 
     /**
