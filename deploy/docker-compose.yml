@@ -9,7 +9,7 @@ services:
     # Replace with your actual app service
 
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.55.0
     ports:
       - "9090:9090"
     volumes:
@@ -20,7 +20,7 @@ services:
       - '--storage.tsdb.retention.time=7d'
 
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:11.3.0
     ports:
       - "3000:3000"
     environment:
