@@ -11,7 +11,7 @@
     irm https://raw.githubusercontent.com/rlaope/argus/master/install.ps1 | iex
 
 .EXAMPLE
-    .\install.ps1 -Version v1.2.1
+    .\install.ps1 -Version v1.3.0
 #>
 
 param(
@@ -55,8 +55,8 @@ if ($Version -eq "latest") {
         $Release = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -UseBasicParsing
         $Version = $Release.tag_name
     } catch {
-        Write-Warn "Could not resolve latest release. Using 'v1.2.1' as fallback."
-        $Version = "v1.2.1"
+        Write-Warn "Could not resolve latest release. Using 'v1.3.0' as fallback."
+        $Version = "v1.3.0"
     }
 }
 

@@ -4,6 +4,21 @@ All notable changes to Argus are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-05-08
+
+### Added
+- **Java 11 / 17 / 21 multi-runtime support** — the CLI now genuinely runs on Java 11+ as advertised. `argus-core` and `argus-cli` compile to Java 11 bytecode; `argus-agent`, `argus-server`, `argus-micrometer`, and `argus-spring-boot-starter` compile to Java 17 (Spring Boot 3 baseline). One command (`argus slowlog`) gates on `Runtime.version().feature() < 14` because it uses `jdk.jfr.consumer.RecordingStream`. Until 1.2.1 the CLI silently required Java 21, throwing `UnsupportedClassVersionError` on Java 11/17.
+- CI `runtime-compat` matrix that builds the fat JAR on JDK 21 and smoke-tests it on JDK 11, 17, and 21 — so future regressions where Java-12+ APIs sneak in will be caught in CI rather than by users.
+- Per-subcommand `--help`. `argus <cmd> --help` now prints the command's description and a Usage hint; previously the parser misread `--help` as a positional `<pid>` and errored out.
+- `install.sh` and `install.ps1` SHA-256 verification. After downloading each JAR the installer fetches `checksums.txt` from the same release, looks up the entry by original filename, and aborts on mismatch. Releases that don't publish `checksums.txt` (anything before this version) get a clear "skipping integrity check" warning so the legacy path still works.
+- `argus-spring-boot-starter` real Spring-context integration tests via `ApplicationContextRunner` — covers `@ConfigurationProperties` binding, the `argus.enabled=false` short-circuit, and the `matchIfMissing=true` default activation. Adds three tests alongside the existing two pure unit tests.
+- `release.yml` writes `checksums.txt` next to the JARs and dispatches `native-image.yml` after the GitHub Release is created (the `release: published` event does not fire for releases created via `GITHUB_TOKEN`, which is why native-image runs were skipped on v1.1.0/v1.2.0/v1.2.1 unless dispatched manually).
+
+### Fixed
+- `argus info <pid>` no longer shows the literal "<pid>:" string for "VM Name". The bug came from `JdkInfoProvider` taking the first non-empty line of `jcmd VM.version` output, which is always `<pid>:`.
+- `argus info <bad-pid>` now exits 1 with `PID <n> not found. Run \`argus ps\` to list running JVMs.` instead of silently rendering an empty info card and exiting 0. CI scripts can now detect the failure.
+- All Java 19/21 APIs that had leaked into the Java-17-baseline modules: `Thread.ofPlatform()`, `Thread.threadId()`, `Thread.isVirtual()`, `RecordedThread.isVirtual()`, `List.removeFirst()`, `List.getFirst()` — replaced with traditional equivalents or, for virtual-thread checks, reflective helpers that return the real value on Java 21+ runtimes and `false` on 17.
+
 ## [1.2.1] - 2026-05-08
 
 ### Fixed
@@ -69,7 +84,8 @@ First major release — production-ready JVM diagnostic CLI.
 
 ---
 
-[Unreleased]: https://github.com/rlaope/Argus/compare/v1.2.1...HEAD
+[Unreleased]: https://github.com/rlaope/Argus/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/rlaope/Argus/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/rlaope/Argus/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/rlaope/Argus/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/rlaope/Argus/compare/v1.0.0...v1.1.0
