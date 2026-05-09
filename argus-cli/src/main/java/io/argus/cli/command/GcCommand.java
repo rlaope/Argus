@@ -46,11 +46,7 @@ public final class GcCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        GcProvider provider = registry.findGcProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        GcProvider provider = Providers.require(registry.findGcProvider(pid, sourceOverride), pid, messages);
 
         GcResult result = provider.getGcInfo(pid);
 

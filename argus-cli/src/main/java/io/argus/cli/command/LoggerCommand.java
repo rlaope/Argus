@@ -61,11 +61,7 @@ public final class LoggerCommand implements Command {
             }
         }
 
-        LoggerProvider provider = registry.findLoggerProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        LoggerProvider provider = Providers.require(registry.findLoggerProvider(pid, sourceOverride), pid, messages);
 
         // Set mode: change log level
         if (loggerName != null && level != null) {

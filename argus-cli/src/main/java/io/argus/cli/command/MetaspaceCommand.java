@@ -40,8 +40,7 @@ public final class MetaspaceCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        MetaspaceProvider provider = registry.findMetaspaceProvider(pid, sourceOverride);
-        if (provider == null) { System.err.println(messages.get("error.provider.none", pid)); return; }
+        MetaspaceProvider provider = Providers.require(registry.findMetaspaceProvider(pid, sourceOverride), pid, messages);
 
         MetaspaceResult result = provider.getMetaspaceInfo(pid);
 

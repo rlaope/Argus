@@ -39,8 +39,7 @@ public final class EnvCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        EnvProvider provider = registry.findEnvProvider(pid, sourceOverride);
-        if (provider == null) { System.err.println(messages.get("error.provider.none", pid)); return; }
+        EnvProvider provider = Providers.require(registry.findEnvProvider(pid, sourceOverride), pid, messages);
 
         EnvResult result = provider.getEnv(pid);
 

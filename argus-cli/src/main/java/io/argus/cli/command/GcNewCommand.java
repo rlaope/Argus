@@ -48,8 +48,7 @@ public final class GcNewCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        GcNewProvider provider = registry.findGcNewProvider(pid, sourceOverride);
-        if (provider == null) { System.err.println(messages.get("error.provider.none", pid)); return; }
+        GcNewProvider provider = Providers.require(registry.findGcNewProvider(pid, sourceOverride), pid, messages);
 
         GcNewResult result = provider.getGcNew(pid);
 

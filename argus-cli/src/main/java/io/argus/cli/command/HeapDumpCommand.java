@@ -114,11 +114,7 @@ public final class HeapDumpCommand implements Command {
             }
         }
 
-        HeapDumpProvider provider = registry.findHeapDumpProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        HeapDumpProvider provider = Providers.require(registry.findHeapDumpProvider(pid, sourceOverride), pid, messages);
 
         HeapDumpResult result = provider.heapDump(pid, filePath, liveOnly);
 
