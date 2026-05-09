@@ -246,8 +246,7 @@ render/
 ├── AnsiStyle.java - ANSI escape code constants
 └── RichRenderer.java - Box-drawing, tables, progress bars
 
-Legacy (still used by TopCommand):
-├── ArgusTop.java - Original main loop
+Used by TopCommand:
 ├── ArgusClient.java - HTTP polling (10 endpoints in parallel)
 ├── TerminalRenderer.java - ANSI escape code rendering
 └── MetricsSnapshot.java - Immutable data record for one poll cycle

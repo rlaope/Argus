@@ -11,7 +11,8 @@ import io.argus.core.command.CommandGroup;
 import java.io.IOException;
 
 /**
- * Real-time JVM monitoring command. Delegates to the existing ArgusTop/ArgusClient/TerminalRenderer flow.
+ * Real-time JVM monitoring command. Drives ArgusClient + TerminalRenderer directly:
+ * fetches metrics, renders, polls stdin for {@code q}/{@code Q}, sleeps, repeats.
  */
 public final class TopCommand implements Command {
 
