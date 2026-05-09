@@ -1,80 +1,16 @@
 package io.argus.cli;
 
-import io.argus.cli.command.AlertCommand;
 import io.argus.cli.command.Command;
 import io.argus.cli.command.CommandExitException;
-import io.argus.cli.command.ClusterCommand;
-import io.argus.cli.command.BuffersCommand;
-import io.argus.cli.command.CiCommand;
-import io.argus.cli.command.ClassLeakCommand;
-import io.argus.cli.command.ClassStatCommand;
-import io.argus.cli.command.CompareCommand;
-import io.argus.cli.command.CompilerCommand;
-import io.argus.cli.command.CompilerQueueCommand;
-import io.argus.cli.command.EventsCommand;
-import io.argus.cli.command.DeadlockCommand;
-import io.argus.cli.command.DiffCommand;
-import io.argus.cli.command.DoctorCommand;
-import io.argus.cli.command.DynLibsCommand;
-import io.argus.cli.command.EnvCommand;
-import io.argus.cli.command.ExplainCommand;
-import io.argus.cli.command.FinalizerCommand;
-import io.argus.cli.command.FlameCommand;
-import io.argus.cli.command.WatchCommand;
-import io.argus.cli.command.GcCauseCommand;
-import io.argus.cli.command.GcLogCommand;
-import io.argus.cli.command.GcLogDiffCommand;
-import io.argus.cli.command.GcProfileCommand;
-import io.argus.cli.command.GcRunCommand;
-import io.argus.cli.command.GcScoreCommand;
-import io.argus.cli.command.GcWhyCommand;
-import io.argus.cli.command.GcCommand;
-import io.argus.cli.command.GcNewCommand;
-import io.argus.cli.command.GcUtilCommand;
-import io.argus.cli.command.HarnessCommand;
-import io.argus.cli.command.HeapAnalyzeCommand;
-import io.argus.cli.command.HeapCommand;
-import io.argus.cli.command.HeapDumpCommand;
-import io.argus.cli.command.HistoCommand;
-import io.argus.cli.command.InfoCommand;
-import io.argus.cli.command.InitCommand;
-import io.argus.cli.command.JfrAnalyzeCommand;
-import io.argus.cli.command.LoggerCommand;
-import io.argus.cli.command.ClassLoaderCommand;
-import io.argus.cli.command.JfrCommand;
-import io.argus.cli.command.JmxCommand;
-import io.argus.cli.command.BenchmarkCommand;
-import io.argus.cli.command.MBeanCommand;
-import io.argus.cli.command.MetaspaceCommand;
-import io.argus.cli.command.PerfCounterCommand;
-import io.argus.cli.command.NmtCommand;
-import io.argus.cli.command.PoolCommand;
-import io.argus.cli.command.ProfileCommand;
-import io.argus.cli.command.ProfileGateCommand;
-import io.argus.cli.command.PsCommand;
-import io.argus.cli.command.ReportCommand;
-import io.argus.cli.command.SearchClassCommand;
-import io.argus.cli.command.SlowlogCommand;
-import io.argus.cli.command.SpringCommand;
-import io.argus.cli.command.StringTableCommand;
-import io.argus.cli.command.SuggestCommand;
-import io.argus.cli.command.SymbolTableCommand;
-import io.argus.cli.command.SysPropsCommand;
-import io.argus.cli.command.ThreadDumpCommand;
-import io.argus.cli.command.ThreadsCommand;
-import io.argus.cli.command.TopCommand;
-import io.argus.cli.command.TraceCommand;
 import io.argus.cli.command.TuiCommand;
-import io.argus.cli.command.VmFlagCommand;
-import io.argus.cli.command.VmLogCommand;
-import io.argus.cli.command.VmSetCommand;
-import io.argus.cli.command.ZgcCommand;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;
 
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.ServiceLoader;
 
 /**
  * Main entry point for the Argus CLI.
@@ -162,74 +98,16 @@ public final class ArgusCli {
         Messages messages = new Messages(lang);
         ProviderRegistry registry = new ProviderRegistry(host, port);
 
-        // Register all commands
+        // Discover commands via ServiceLoader. Listed in
+        // META-INF/services/io.argus.cli.command.Command. Ordering for help
+        // output is applied later by group + name; insertion order here is
+        // deterministic only because the loader iterates the services file
+        // top-to-bottom on the bootstrap classloader.
         Map<String, Command> commands = new LinkedHashMap<>();
-        register(commands, new AlertCommand());
-        register(commands, new ClusterCommand());
-        register(commands, new InitCommand());
-        register(commands, new PsCommand());
-        register(commands, new HistoCommand());
-        register(commands, new ThreadsCommand());
-        register(commands, new GcCommand());
-        register(commands, new GcUtilCommand());
-        register(commands, new HeapCommand());
-        register(commands, new SysPropsCommand());
-        register(commands, new VmFlagCommand());
-        register(commands, new NmtCommand());
-        register(commands, new ClassLoaderCommand());
-        register(commands, new ProfileCommand());
-        register(commands, new ProfileGateCommand());
-        register(commands, new JfrCommand());
-        register(commands, new DiffCommand());
-        register(commands, new ReportCommand());
-        register(commands, new DoctorCommand());
-        register(commands, new HarnessCommand());
-        register(commands, new CiCommand());
-        register(commands, new CompareCommand());
-        register(commands, new SlowlogCommand());
-        register(commands, new GcLogCommand());
-        register(commands, new GcLogDiffCommand());
-        register(commands, new GcProfileCommand());
-        register(commands, new GcScoreCommand());
-        register(commands, new GcWhyCommand());
-        register(commands, new ZgcCommand());
-        register(commands, new FlameCommand());
-        register(commands, new SuggestCommand());
-        register(commands, new InfoCommand());
-        register(commands, new HeapDumpCommand());
-        register(commands, new DeadlockCommand());
-        register(commands, new ThreadDumpCommand());
-        register(commands, new EnvCommand());
-        register(commands, new BuffersCommand());
-        register(commands, new GcRunCommand());
-        register(commands, new LoggerCommand());
-        register(commands, new EventsCommand());
-        register(commands, new CompilerQueueCommand());
-        register(commands, new SearchClassCommand());
-        register(commands, new JfrAnalyzeCommand());
-        register(commands, new CompilerCommand());
-        register(commands, new FinalizerCommand());
-        register(commands, new StringTableCommand());
-        register(commands, new PoolCommand());
-        register(commands, new GcCauseCommand());
-        register(commands, new MetaspaceCommand());
-        register(commands, new DynLibsCommand());
-        register(commands, new VmSetCommand());
-        register(commands, new VmLogCommand());
-        register(commands, new JmxCommand());
-        register(commands, new ClassLeakCommand());
-        register(commands, new ClassStatCommand());
-        register(commands, new GcNewCommand());
-        register(commands, new SymbolTableCommand());
-        register(commands, new HeapAnalyzeCommand());
-        register(commands, new PerfCounterCommand());
-        register(commands, new MBeanCommand());
-        register(commands, new SpringCommand());
-        register(commands, new BenchmarkCommand());
-        register(commands, new TopCommand());
-        register(commands, new TraceCommand());
-        register(commands, new WatchCommand());
-        register(commands, new ExplainCommand());
+        ServiceLoader.load(Command.class).forEach(cmd -> commands.put(cmd.name(), cmd));
+
+        // TuiCommand depends on the populated commands map and is therefore
+        // registered explicitly after the ServiceLoader pass.
         register(commands, new TuiCommand(commands));
 
         if (version) {
@@ -300,7 +178,7 @@ public final class ArgusCli {
         System.out.println("  \033[1mUsage:\033[0m argus <command> [<pid>] [options]");
         System.out.println();
 
-        // Group commands by CommandGroup
+        // Group by CommandGroup (enum declaration order), alphabetical within group.
         var grouped = new java.util.LinkedHashMap<io.argus.core.command.CommandGroup,
                 java.util.List<Command>>();
         for (io.argus.core.command.CommandGroup g : io.argus.core.command.CommandGroup.values()) {
@@ -309,9 +187,10 @@ public final class ArgusCli {
         for (Command cmd : commands.values()) {
             grouped.computeIfAbsent(cmd.group(), k -> new java.util.ArrayList<>()).add(cmd);
         }
-
+        Comparator<Command> byName = Comparator.comparing(Command::name);
         for (var entry : grouped.entrySet()) {
             if (entry.getValue().isEmpty()) continue;
+            entry.getValue().sort(byName);
             System.out.println("  \033[1m" + entry.getKey().displayName() + ":\033[0m");
             for (Command cmd : entry.getValue()) {
                 String desc = cmd.description(messages);
