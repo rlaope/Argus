@@ -10,8 +10,9 @@ import io.argus.cli.gcscore.AxisScore;
 import io.argus.cli.gcscore.GcScoreCalculator;
 import io.argus.cli.gcscore.GcScoreResult;
 import io.argus.cli.gcwhy.GcWhyJfrCollector;
+import io.argus.cli.jfr.JfrCaptureFailed;
+import io.argus.cli.jfr.JfrCaptureSession;
 import io.argus.cli.provider.ProviderRegistry;
-import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
@@ -117,71 +118,25 @@ public final class GcScoreCommand implements Command {
     // ── Live JFR form ────────────────────────────────────────────────────────
 
     private void executeLive(long pid, int durationSec, boolean json, boolean useColor, Messages messages) {
-        Path tmpFile = null;
-        try {
-            tmpFile = Files.createTempFile("argus-gcscore-" + pid + "-", ".jfr");
-            String jfrPath = tmpFile.toAbsolutePath().toString();
+        System.out.println("  " + messages.get("gcscore.live.capturing",
+                String.valueOf(pid), String.valueOf(durationSec)));
 
-            System.out.println("  " + messages.get("gcscore.live.capturing",
-                    String.valueOf(pid), String.valueOf(durationSec)));
+        try (JfrCaptureSession.Capture capture = JfrCaptureSession.capture(
+                pid, JFR_RECORDING_NAME, "default", durationSec, "argus-gcscore-")) {
 
-            String startOut = JcmdExecutor.runJcmd(pid, "JFR.start",
-                    "name=" + JFR_RECORDING_NAME,
-                    "settings=default");
-            if (startOut == null) {
-                System.err.println("Failed to start JFR recording. Ensure jcmd is available and the JVM is accessible.");
-                return;
-            }
-            if (startOut.contains("Could not") || startOut.toLowerCase().contains("error")) {
-                System.err.println("JFR.start failed: " + startOut.trim());
-                return;
-            }
-
-            try {
-                Thread.sleep((long) durationSec * 1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.err.println("Interrupted while waiting for JFR recording.");
-                return;
-            }
-
-            String dumpOut = JcmdExecutor.runJcmd(pid, "JFR.dump",
-                    "name=" + JFR_RECORDING_NAME,
-                    "filename=" + jfrPath);
-            if (dumpOut == null || dumpOut.contains("Could not") || dumpOut.toLowerCase().contains("error")) {
-                System.err.println("JFR.dump failed: " + (dumpOut != null ? dumpOut.trim() : "no output"));
-                return;
-            }
-            JcmdExecutor.runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
-
-            if (!Files.exists(tmpFile) || Files.size(tmpFile) == 0) {
-                System.err.println("JFR file is empty or was not created. The JVM may not support JFR recording.");
-                return;
-            }
-
-            List<GcEvent> events;
-            try {
-                events = GcWhyJfrCollector.collect(tmpFile);
-            } catch (IOException e) {
-                System.err.println("Failed to parse JFR recording: " + e.getMessage());
-                return;
-            }
-
+            List<GcEvent> events = GcWhyJfrCollector.collect(capture.file());
             if (events.isEmpty()) {
                 System.err.println(messages.get("gcscore.no.events", String.valueOf(durationSec)));
                 return;
             }
-
             scoreAndRender(events, json, useColor, messages, "pid:" + pid);
 
+        } catch (JfrCaptureFailed e) {
+            System.err.println(e.getMessage());
         } catch (IOException e) {
             System.err.println("Failed to capture live GC data for PID " + pid + ": " + e.getMessage());
             if (Boolean.getBoolean("argus.debug") || System.getenv("ARGUS_DEBUG") != null) {
                 e.printStackTrace();
-            }
-        } finally {
-            if (tmpFile != null) {
-                try { Files.deleteIfExists(tmpFile); } catch (IOException ignored) {}
             }
         }
     }
