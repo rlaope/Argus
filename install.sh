@@ -17,7 +17,49 @@ set -euo pipefail
 REPO="rlaope/argus"
 INSTALL_DIR="$HOME/.argus"
 BIN_DIR="$INSTALL_DIR/bin"
-VERSION="${1:-latest}"
+
+# --- Argument parsing ---
+# Supported forms:
+#   install.sh
+#   install.sh v1.4.0
+#   install.sh --run harness 12345
+#   install.sh v1.4.0 --run harness 12345 --duration=30s
+# After --run, all remaining tokens are forwarded to `argus` post-install.
+VERSION="latest"
+RUN_ARGS=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --run)
+            shift
+            RUN_ARGS=("$@")
+            break
+            ;;
+        --help|-h)
+            cat <<'USAGE'
+Argus installer.
+
+  install.sh [version] [--run <argus-subcommand> [args...]]
+
+  version       optional GitHub release tag (e.g. v1.4.0). Defaults to "latest".
+  --run         after install completes, exec `argus <subcommand> [args...]`.
+                All tokens after --run are forwarded to argus.
+
+Examples
+  install.sh
+  install.sh v1.4.0
+  install.sh --run harness 12345 --duration=30s
+USAGE
+            exit 0
+            ;;
+        --*)
+            shift
+            ;;
+        *)
+            VERSION="$1"
+            shift
+            ;;
+    esac
+done
 
 # --- OS/Arch detection ---
 
@@ -414,3 +456,9 @@ echo ""
 echo -e "  ${BOLD}Uninstall:${RESET}"
 echo -e "     ${CYAN}rm -rf ~/.argus${RESET}  and remove the PATH line from $PROFILE"
 echo ""
+
+# --- --run: chain straight into argus after install ---
+if [ ${#RUN_ARGS[@]} -gt 0 ]; then
+    info "Running: argus ${RUN_ARGS[*]}"
+    exec "$BIN_DIR/argus" "${RUN_ARGS[@]}"
+fi

@@ -15,7 +15,10 @@
 #>
 
 param(
-    [string]$Version = "latest"
+    [string]$Version = "latest",
+    [switch]$Run,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RunArgs
 )
 
 $ErrorActionPreference = "Stop"
@@ -249,3 +252,11 @@ Write-Host "  Uninstall:" -ForegroundColor White
 Write-Host "     Remove-Item -Recurse ~/.argus" -ForegroundColor Cyan
 Write-Host "     # Remove $BinDir from PATH in System > Environment Variables" -ForegroundColor DarkGray
 Write-Host ""
+
+# --- -Run: chain straight into argus after install ---
+if ($Run -and $RunArgs -and $RunArgs.Count -gt 0) {
+    Write-Info "Running: argus $($RunArgs -join ' ')"
+    $env:Path = "$BinDir;$env:Path"
+    & "$BinDir\argus.cmd" @RunArgs
+    exit $LASTEXITCODE
+}
