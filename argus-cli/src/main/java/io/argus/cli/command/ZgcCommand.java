@@ -2,6 +2,8 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.jfr.JfrCaptureFailed;
+import io.argus.cli.jfr.JfrCaptureSession;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
@@ -19,7 +21,6 @@ import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
 import javax.management.openmbean.CompositeData;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
@@ -175,75 +176,19 @@ public final class ZgcCommand implements Command {
         d.maxHeapBytes     = info.maxHeapBytes;
         d.softMaxHeapBytes = info.softMaxHeapBytes;
 
-        Path tmpFile = null;
-        try {
-            tmpFile = Files.createTempFile("argus-zgc-" + pid + "-", ".jfr");
-            String jfrPath = tmpFile.toAbsolutePath().toString();
+        System.out.println(messages.get("cli.zgc.capturing", String.valueOf(durationSec)));
 
-            System.out.println(messages.get("cli.zgc.capturing", String.valueOf(durationSec)));
+        try (JfrCaptureSession.Capture capture = JfrCaptureSession.capture(
+                pid, JFR_RECORDING_NAME, "profile", durationSec, "argus-zgc-")) {
 
-            // Stop any existing recording with the same name to avoid conflicts
-            stopExistingRecording(pid);
+            ZgcJfrCollector.collect(capture.file(), d);
 
-            String startOut = JcmdExecutor.runJcmd(pid, "JFR.start",
-                    "name=" + JFR_RECORDING_NAME,
-                    "settings=profile");
-            if (startOut == null
-                    || startOut.contains("Could not")
-                    || startOut.toLowerCase().contains("error")) {
-                // Retry once after stopping any existing recording
-                stopExistingRecording(pid);
-                startOut = JcmdExecutor.runJcmd(pid, "JFR.start",
-                        "name=" + JFR_RECORDING_NAME,
-                        "settings=profile");
-                if (startOut == null
-                        || startOut.contains("Could not")
-                        || startOut.toLowerCase().contains("error")) {
-                    System.err.println("JFR.start failed: "
-                            + (startOut != null ? startOut.trim() : "no output"));
-                    throw new CommandExitException(2);
-                }
-            }
-
-            try {
-                Thread.sleep((long) durationSec * 1000L);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.err.println("Interrupted while waiting for JFR recording.");
-                throw new CommandExitException(2);
-            }
-
-            String dumpOut = JcmdExecutor.runJcmd(pid, "JFR.dump",
-                    "name=" + JFR_RECORDING_NAME,
-                    "filename=" + jfrPath);
-            if (dumpOut == null
-                    || dumpOut.contains("Could not")
-                    || dumpOut.toLowerCase().contains("error")) {
-                System.err.println("JFR.dump failed: "
-                        + (dumpOut != null ? dumpOut.trim() : "no output"));
-                throw new CommandExitException(2);
-            }
-            JcmdExecutor.runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
-
-            if (!Files.exists(tmpFile) || Files.size(tmpFile) == 0) {
-                System.err.println("JFR file is empty. The JVM may not support JFR recording.");
-                throw new CommandExitException(2);
-            }
-
-            try {
-                ZgcJfrCollector.collect(tmpFile, d);
-            } catch (IOException e) {
-                System.err.println("Failed to parse JFR recording: " + e.getMessage());
-                throw new CommandExitException(2);
-            }
-
+        } catch (JfrCaptureFailed e) {
+            System.err.println(e.getMessage());
+            throw new CommandExitException(2);
         } catch (IOException e) {
             System.err.println("Failed to capture live ZGC data for PID " + pid + ": " + e.getMessage());
             throw new CommandExitException(2);
-        } finally {
-            if (tmpFile != null) {
-                try { Files.deleteIfExists(tmpFile); } catch (IOException ignored) {}
-            }
         }
 
         return d;

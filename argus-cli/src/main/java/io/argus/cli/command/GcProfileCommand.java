@@ -7,8 +7,9 @@ import io.argus.cli.profiler.AllocationProfiler.AllocatedType;
 import io.argus.cli.profiler.AllocationProfiler.AllocationByClass;
 import io.argus.cli.profiler.AllocationProfiler.AllocationProfile;
 import io.argus.cli.profiler.AllocationProfiler.AllocationSite;
+import io.argus.cli.jfr.JfrCaptureFailed;
+import io.argus.cli.jfr.JfrCaptureSession;
 import io.argus.cli.provider.ProviderRegistry;
-import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
@@ -90,58 +91,16 @@ public final class GcProfileCommand implements Command {
         }
 
         boolean useColor = config.color();
-        Path tmpFile = null;
+        System.out.println("  Starting JFR recording on PID " + pid + " for " + durationSec + "s...");
 
-        try {
-            tmpFile = Files.createTempFile("argus-gcprofile-" + pid + "-", ".jfr");
-            String jfrPath = tmpFile.toAbsolutePath().toString();
+        try (JfrCaptureSession.Capture capture = JfrCaptureSession.capture(
+                pid, JFR_RECORDING_NAME, "profile", durationSec, "argus-gcprofile-")) {
 
-            // Step 1: Start JFR recording
-            System.out.println("  Starting JFR recording on PID " + pid + " for " + durationSec + "s...");
-            String startOut = JcmdExecutor.runJcmd(pid, "JFR.start",
-                    "name=" + JFR_RECORDING_NAME,
-                    "duration=" + durationSec + "s",
-                    "settings=profile");
-            if (startOut == null) {
-                System.err.println("Failed to start JFR recording. Ensure jcmd is available and the JVM is accessible.");
-                return;
-            }
-            if (startOut.contains("Could not") || startOut.contains("error") || startOut.contains("Error")) {
-                System.err.println("JFR.start failed: " + startOut.trim());
-                return;
-            }
-
-            // Step 2: Wait for recording duration
-            System.out.println("  Recording... (wait " + durationSec + "s)");
-            try {
-                Thread.sleep((long) durationSec * 1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                System.err.println("Interrupted while waiting for JFR recording.");
-                return;
-            }
-
-            // Step 3: Dump the recording
-            String dumpOut = JcmdExecutor.runJcmd(pid, "JFR.dump",
-                    "name=" + JFR_RECORDING_NAME,
-                    "filename=" + jfrPath);
-            if (dumpOut == null || dumpOut.contains("Could not") || dumpOut.contains("error")) {
-                System.err.println("JFR.dump failed: " + (dumpOut != null ? dumpOut.trim() : "no output"));
-                return;
-            }
-
-            // Step 4: Stop the recording
-            JcmdExecutor.runJcmd(pid, "JFR.stop", "name=" + JFR_RECORDING_NAME);
-
-            // Step 5: Parse and display
-            if (!Files.exists(tmpFile) || Files.size(tmpFile) == 0) {
-                System.err.println("JFR file is empty or was not created. The JVM may not support JFR recording.");
-                return;
-            }
+            Path jfrFile = capture.file();
 
             // Optional: write folded stacks for flamegraph.pl consumption.
             if (foldPath != null) {
-                Map<String, Long> folded = AllocationProfiler.analyzeFoldedStacks(tmpFile);
+                Map<String, Long> folded = AllocationProfiler.analyzeFoldedStacks(jfrFile);
                 writeFolded(Path.of(foldPath), folded);
                 System.out.println("  Folded stacks written: " + foldPath
                         + " (" + folded.size() + " stacks)");
@@ -150,14 +109,14 @@ public final class GcProfileCommand implements Command {
             }
 
             if ("class".equals(by)) {
-                AllocationByClass byClass = AllocationProfiler.analyzeByClass(tmpFile);
+                AllocationByClass byClass = AllocationProfiler.analyzeByClass(jfrFile);
                 if (json) {
                     printJsonByClass(byClass, pid, durationSec, top);
                 } else {
                     printRichByClass(byClass, pid, durationSec, top, useColor);
                 }
             } else {
-                AllocationProfile profile = AllocationProfiler.analyze(tmpFile);
+                AllocationProfile profile = AllocationProfiler.analyze(jfrFile);
                 if (json) {
                     printJson(profile, pid, durationSec, top);
                 } else {
@@ -165,14 +124,12 @@ public final class GcProfileCommand implements Command {
                 }
             }
 
+        } catch (JfrCaptureFailed e) {
+            System.err.println(e.getMessage());
         } catch (IOException e) {
             System.err.println("Failed to profile PID " + pid + ": " + e.getMessage());
             if (Boolean.getBoolean("argus.debug") || System.getenv("ARGUS_DEBUG") != null) {
                 e.printStackTrace();
-            }
-        } finally {
-            if (tmpFile != null) {
-                try { Files.deleteIfExists(tmpFile); } catch (IOException ignored) {}
             }
         }
     }
