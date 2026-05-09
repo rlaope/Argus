@@ -71,11 +71,7 @@ public final class NmtCommand implements Command {
             }
         }
 
-        NmtProvider provider = registry.findNmtProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        NmtProvider provider = Providers.require(registry.findNmtProvider(pid, sourceOverride), pid, messages);
 
         // Watch mode — live delta loop, short-circuits everything else
         if (watchInterval > 0) {

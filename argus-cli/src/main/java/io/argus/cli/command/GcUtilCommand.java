@@ -54,11 +54,7 @@ public final class GcUtilCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        GcUtilProvider provider = registry.findGcUtilProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        GcUtilProvider provider = Providers.require(registry.findGcUtilProvider(pid, sourceOverride), pid, messages);
 
         if (watchInterval > 0) {
             runWatchMode(pid, provider, source, useColor, watchInterval, messages);

@@ -59,11 +59,7 @@ public final class VmFlagCommand implements Command {
             }
         }
 
-        VmFlagProvider provider = registry.findVmFlagProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        VmFlagProvider provider = Providers.require(registry.findVmFlagProvider(pid, sourceOverride), pid, messages);
 
         if (setExpr != null) {
             executeSet(pid, setExpr, provider, useColor, messages);

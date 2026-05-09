@@ -259,11 +259,7 @@ public final class ProfileCommand implements Command {
             return;
         }
 
-        ProfileProvider provider = registry.findProfileProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        ProfileProvider provider = Providers.require(registry.findProfileProvider(pid, sourceOverride), pid, messages);
 
         boolean useColor = config.color();
 
@@ -394,11 +390,7 @@ public final class ProfileCommand implements Command {
             }
         }
 
-        ProfileProvider provider = registry.findProfileProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        ProfileProvider provider = Providers.require(registry.findProfileProvider(pid, sourceOverride), pid, messages);
 
         // Create output dir if needed
         final String snapDir = outputDir;
@@ -864,11 +856,7 @@ public final class ProfileCommand implements Command {
             return;
         }
 
-        ProfileProvider provider = registry.findProfileProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        ProfileProvider provider = Providers.require(registry.findProfileProvider(pid, sourceOverride), pid, messages);
 
         ProfileResult result;
         switch (subcommand) {

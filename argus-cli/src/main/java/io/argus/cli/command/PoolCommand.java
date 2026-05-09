@@ -46,8 +46,7 @@ public final class PoolCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        PoolProvider provider = registry.findPoolProvider(pid, sourceOverride);
-        if (provider == null) { System.err.println(messages.get("error.provider.none", pid)); return; }
+        PoolProvider provider = Providers.require(registry.findPoolProvider(pid, sourceOverride), pid, messages);
 
         PoolResult result = provider.getPoolInfo(pid);
 

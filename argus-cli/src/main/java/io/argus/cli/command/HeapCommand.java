@@ -51,11 +51,7 @@ public final class HeapCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        HeapProvider provider = registry.findHeapProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        HeapProvider provider = Providers.require(registry.findHeapProvider(pid, sourceOverride), pid, messages);
 
         HeapResult result = provider.getHeapInfo(pid);
 

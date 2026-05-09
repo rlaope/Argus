@@ -48,11 +48,7 @@ public final class BuffersCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        BuffersProvider provider = registry.findBuffersProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        BuffersProvider provider = Providers.require(registry.findBuffersProvider(pid, sourceOverride), pid, messages);
 
         BuffersResult result = provider.getBuffers(pid);
 

@@ -51,11 +51,7 @@ public final class SysPropsCommand implements Command {
             }
         }
 
-        SysPropsProvider provider = registry.findSysPropsProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        SysPropsProvider provider = Providers.require(registry.findSysPropsProvider(pid, sourceOverride), pid, messages);
 
         SysPropsResult result = provider.getSystemProperties(pid);
 

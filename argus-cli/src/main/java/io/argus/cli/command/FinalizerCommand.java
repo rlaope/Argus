@@ -39,8 +39,7 @@ public final class FinalizerCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        FinalizerProvider provider = registry.findFinalizerProvider(pid, sourceOverride);
-        if (provider == null) { System.err.println(messages.get("error.provider.none", pid)); return; }
+        FinalizerProvider provider = Providers.require(registry.findFinalizerProvider(pid, sourceOverride), pid, messages);
 
         FinalizerResult result = provider.getFinalizerInfo(pid);
 

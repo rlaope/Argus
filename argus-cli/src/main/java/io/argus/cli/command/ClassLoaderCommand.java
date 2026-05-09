@@ -46,11 +46,7 @@ public final class ClassLoaderCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        ClassLoaderProvider provider = registry.findClassLoaderProvider(pid, sourceOverride);
-        if (provider == null) {
-            System.err.println(messages.get("error.provider.none", pid));
-            return;
-        }
+        ClassLoaderProvider provider = Providers.require(registry.findClassLoaderProvider(pid, sourceOverride), pid, messages);
 
         ClassLoaderResult result = provider.getClassLoaders(pid);
 
