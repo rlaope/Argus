@@ -85,6 +85,11 @@ public final class CompilerCommand implements Command {
             System.out.println(RichRenderer.boxLine(queueLine, WIDTH));
         }
 
+        // Deoptimizations — total runtime nmethod invalidations since JVM start.
+        String deoptLine = messages.get("compiler.deopt") + ": "
+                + RichRenderer.formatNumber(result.deoptCount());
+        System.out.println(RichRenderer.boxLine(deoptLine, WIDTH));
+
         // Warning if code cache usage > 80%
         if (usedPct > 80) {
             System.out.println(RichRenderer.emptyLine(WIDTH));
@@ -106,6 +111,7 @@ public final class CompilerCommand implements Command {
                 + ",\"nmethods\":" + result.nmethods()
                 + ",\"adapters\":" + result.adapters()
                 + ",\"compilationEnabled\":" + result.compilationEnabled()
-                + ",\"queueSize\":" + result.queueSize() + "}");
+                + ",\"queueSize\":" + result.queueSize()
+                + ",\"deoptCount\":" + result.deoptCount() + "}");
     }
 }
