@@ -1,8 +1,12 @@
 package io.argus.cli.doctor;
 
+import io.argus.cli.model.CompilerResult;
 import io.argus.cli.model.GcUtilResult;
+import io.argus.cli.model.NmtResult;
 import io.argus.cli.provider.jdk.JcmdExecutor;
+import io.argus.cli.provider.jdk.JdkCompilerProvider;
 import io.argus.cli.provider.jdk.JdkGcUtilProvider;
+import io.argus.cli.provider.jdk.JdkNmtProvider;
 
 import java.lang.management.*;
 import java.util.*;
@@ -98,6 +102,10 @@ public final class JvmSnapshotCollector {
                     buf.getName(), buf.getCount(), buf.getTotalCapacity(), buf.getMemoryUsed()));
         }
 
+        long pid = rt.getPid();
+        CodeCacheSnapshot cc = collectCodeCache(pid);
+        Map<String, Long> nmt = collectNmtCommittedKb(pid);
+
         return new JvmSnapshot(
                 heap.getUsed(), heap.getMax(), heap.getCommitted(),
                 mem.getNonHeapMemoryUsage().getUsed(),
@@ -111,7 +119,8 @@ public final class JvmSnapshotCollector {
                 mem.getObjectPendingFinalizationCount(),
                 rt.getVmName(), rt.getVmVersion(), gcAlgorithm,
                 List.copyOf(rt.getInputArguments()),
-                maxRecentPauseMs
+                maxRecentPauseMs,
+                cc.usedKb, cc.sizeKb, nmt
         );
     }
 
@@ -282,6 +291,9 @@ public final class JvmSnapshotCollector {
             }
         }
 
+        CodeCacheSnapshot cc = collectCodeCache(pid);
+        Map<String, Long> nmt = collectNmtCommittedKb(pid);
+
         return new JvmSnapshot(
                 heapUsed, heapMax, heapCommitted, nonHeapUsed,
                 Map.copyOf(pools),
@@ -293,8 +305,48 @@ public final class JvmSnapshotCollector {
                 0, 0, 0, 0,
                 vmName, vmVersion, gcAlgorithm,
                 List.copyOf(vmFlags),
-                maxRecentPauseMs
+                maxRecentPauseMs,
+                cc.usedKb, cc.sizeKb, nmt
         );
+    }
+
+    /** Best-effort code-cache totals; returns zeros on failure (doctor degrades gracefully). */
+    private static CodeCacheSnapshot collectCodeCache(long pid) {
+        try {
+            CompilerResult r = new JdkCompilerProvider().getCompilerInfo(pid);
+            return new CodeCacheSnapshot(r.codeCacheUsedKb(), r.codeCacheSizeKb());
+        } catch (RuntimeException e) {
+            warnings.get().add("Compiler.codecache failed: " + e.getMessage());
+            return new CodeCacheSnapshot(0L, 0L);
+        }
+    }
+
+    /**
+     * Best-effort NMT committed-KB per category. Returns empty map if NMT is not enabled
+     * or the call fails — rules that consume this must treat empty as "no signal".
+     */
+    private static Map<String, Long> collectNmtCommittedKb(long pid) {
+        try {
+            NmtResult r = new JdkNmtProvider().getNativeMemory(pid);
+            if (r.isNmtNotEnabled() || r.categories().isEmpty()) return Map.of();
+            Map<String, Long> out = new LinkedHashMap<>();
+            for (NmtResult.NmtCategory c : r.categories()) {
+                out.put(c.name(), c.committedKB());
+            }
+            return Map.copyOf(out);
+        } catch (RuntimeException e) {
+            warnings.get().add("VM.native_memory summary failed: " + e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private static final class CodeCacheSnapshot {
+        final long usedKb;
+        final long sizeKb;
+        CodeCacheSnapshot(long usedKb, long sizeKb) {
+            this.usedKb = usedKb;
+            this.sizeKb = sizeKb;
+        }
     }
 
     /**
