@@ -250,7 +250,10 @@ public final class ProfileCommand implements Command {
             } else if (arg.equals("--sched")) {
                 optsBuilder.sched(true);
             } else if (arg.startsWith("--clock=")) {
-                optsBuilder.clock(arg.substring("--clock=".length()));
+                String v = arg.substring("--clock=".length());
+                String err = validateClock(v, messages);
+                if (err != null) { System.err.println(err); return; }
+                optsBuilder.clock(v);
             } else if (arg.startsWith("--signal=")) {
                 optsBuilder.signal(arg.substring("--signal=".length()));
             } else if (arg.startsWith("--proc=")) {
@@ -873,7 +876,10 @@ public final class ProfileCommand implements Command {
             } else if (arg.equals("--sched")) {
                 subOptsBuilder.sched(true);
             } else if (arg.startsWith("--clock=")) {
-                subOptsBuilder.clock(arg.substring("--clock=".length()));
+                String v = arg.substring("--clock=".length());
+                String err = validateClock(v, messages);
+                if (err != null) { System.err.println(err); return; }
+                subOptsBuilder.clock(v);
             } else if (arg.startsWith("--signal=")) {
                 subOptsBuilder.signal(arg.substring("--signal=".length()));
             } else if (arg.startsWith("--proc=")) {
@@ -1435,6 +1441,14 @@ public final class ProfileCommand implements Command {
             return null;
         }
         return messages.get("error.profile.adv.cstack.invalid", v);
+    }
+
+    /** Returns null if valid, else an i18n error string. Accepts the asprof clock-source enum. */
+    private static String validateClock(String v, Messages messages) {
+        if ("tsc".equals(v) || "monotonic".equals(v)) {
+            return null;
+        }
+        return messages.get("error.profile.adv.clock.invalid", v);
     }
 
     private static int parseClampedInt(String s, int min, int max, int fallback) {
