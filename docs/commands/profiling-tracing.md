@@ -100,13 +100,9 @@ Power-user flags forwarded directly to async-profiler. All optional; defaults pr
 | `--live` | `--live` | Only count live allocations (only with `--type=alloc`) |
 | `--include=PATTERN` | `-I PATTERN` | Repeatable include filter |
 | `--exclude=PATTERN` | `-X PATTERN` | Repeatable exclude filter |
-| `--reverse` | `--reverse` | Stack-reversed (icicle) flame graph — surfaces hot leaf frames' callers |
-| `--minwidth=PCT` | `--minwidth pct` | Skip frames narrower than PCT% — noise reduction for large captures |
-| `--sched` | `--sched` | Group threads by scheduling policy (Linux only) |
-| `--clock=tsc\|monotonic` | `--clock source` | Clock source for JFR timestamps — use `monotonic` for container correctness |
-| `--signal=N` | `--signal num` | Alternative signal number for cpu/wall profiling — resolves signal conflicts |
-| `--proc=N` | `--proc interval` | Process sampling interval (e.g. `30s`) — how often asprof probes for thread list changes |
-| `--nofree` | `--nofree` | Exclude free() events from `nativemem` profiling — focus on allocation hotspots |
+| `--ttsp` | `--ttsp` | Time-to-safepoint profiling — surfaces safepoint stalls invisible to standard CPU sampling. **Overrides `--type=`**: asprof internally switches to the ttsp event regardless of the sampled event passed via `-e`. |
+| `--begin=FUNC` | `--begin <func>` | Start profiling when `<func>` is first executed (trigger-based capture) |
+| `--end=FUNC` | `--end <func>` | Stop profiling when `<func>` is executed (paired with `--begin` for entry/exit windowing) |
 
 ```bash
 # Native stacks for JNI debugging:
