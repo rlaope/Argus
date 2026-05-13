@@ -11,7 +11,7 @@
   <a href="https://github.com/rlaope/Argus/stargazers"><img src="https://img.shields.io/github/stars/rlaope/Argus" alt="GitHub stars"></a>
 </p>
 
-> **One CLI for all JVM diagnostics.** 66 commands, zero agent required, works on Java 11+.
+> **One CLI for all JVM diagnostics.** 67 commands, zero agent required, works on Java 11+.
 > The free alternative to GCEasy + jcmd + VisualVM combined — GC analysis, health diagnosis, flame graphs, async-profiler integration, ZGC live monitoring, and CI/CD profile gates.
 
 ---
