@@ -438,7 +438,8 @@ public final class AsProfProvider implements ProfileProvider {
      * Appends extra asprof arguments derived from {@link AsProfOptions} to the command list.
      * Handles null opts gracefully (no-op).
      */
-    private static void buildExtraArgs(List<String> cmd, AsProfOptions opts) {
+    /** Package-private so {@link AsProfProviderArgvTest} can exercise the asprof argv production directly. */
+    static void buildExtraArgs(List<String> cmd, AsProfOptions opts) {
         if (opts == null) return;
         if (opts.interval != null)    { cmd.add("-i"); cmd.add(opts.interval); }
         if (opts.jstackdepth != null) { cmd.add("-j"); cmd.add(String.valueOf(opts.jstackdepth)); }
