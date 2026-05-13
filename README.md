@@ -61,7 +61,7 @@ Full reference: [docs/harness.md](docs/harness.md)
 
 ## Why Argus?
 
-- **66 diagnostic commands** — heap, GC, threads, profiling, flame graphs, NMT, class loaders, and more. No agent required.
+- **67 diagnostic commands** — heap, GC, threads, profiling, flame graphs, NMT, class loaders, and more. No agent required.
 - **Live JVM attach** — attaches externally via `jcmd`/JMX; target JVM needs no restart and no `-javaagent` flag.
 - **ZGC-aware** — `argus zgc` gives a HEALTHY/WARNING/UNHEALTHY verdict with allocation stall detection, cycle-overlap analysis, SoftMax breach detection, and diff-against-baseline in one command.
 - **Virtual thread support** — JFR-based pinning detection, carrier-thread distribution, and virtual thread monitoring on Java 21+.
