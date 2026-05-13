@@ -1,14 +1,14 @@
 class Argus < Formula
   desc "JVM Monitoring Orchestration Tools — diagnostic CLI, dashboard, TUI, and rule-based doctor"
   homepage "https://github.com/rlaope/Argus"
-  url "https://github.com/rlaope/Argus/releases/download/v1.3.0/argus-cli-1.3.0-all.jar"
-  sha256 "f2e3ce15bf8f95a8c0e4d0d5da26c6d5ae8321295de41af1758e8516c8627a4e"
+  url "https://github.com/rlaope/Argus/releases/download/v1.4.0/argus-cli-1.4.0-all.jar"
+  sha256 "42ae225ebc68670097fe5adcf26872db089895df2b594e58b03d15415e4b0901"
   license "MIT"
 
   depends_on "openjdk@21"
 
   def install
-    libexec.install "argus-cli-1.3.0-all.jar" => "argus-cli.jar"
+    libexec.install "argus-cli-1.4.0-all.jar" => "argus-cli.jar"
 
     (bin/"argus").write <<~EOS
       #!/bin/bash
