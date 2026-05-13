@@ -20,10 +20,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: graalvm/setup-graalvm@v1
+      - uses: graalvm/setup-graalvm@v1.4.5
         with:
           java-version: '21'
-          distribution: 'graalvm-community'
+          distribution: 'graalvm'
       - name: Build fat JAR
         run: ./gradlew :argus-cli:fatJar
       - name: Build native image
