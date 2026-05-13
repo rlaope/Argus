@@ -229,7 +229,7 @@ fi
 
 # --- Download async-profiler ---
 
-ASPROF_VERSION="3.0"
+ASPROF_VERSION="4.4"
 ASPROF_DIR="$INSTALL_DIR/lib/async-profiler"
 
 detect_asprof_platform() {
