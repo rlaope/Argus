@@ -272,6 +272,15 @@ public final class ProfileCommand implements Command {
 
         // Mutual exclusion check
         AsProfOptions opts = optsBuilder.outputFormat(outputFormat).build();
+        // --sched is Linux-only per asprof. Reject early on non-Linux.
+        if (opts.sched && !System.getProperty("os.name", "").toLowerCase().contains("linux")) {
+            System.err.println(messages.get("error.profile.adv.sched.linux.only"));
+            return;
+        }
+        // --nofree only affects --type=nativemem. Warn for other events.
+        if (opts.nofree && !"nativemem".equals(type)) {
+            System.err.println(messages.get("warn.profile.adv.nofree.event.mismatch", type));
+        }
         if (opts.allUser && opts.allKernel) {
             System.err.println(messages.get("error.profile.adv.alluser.allkernel.exclusive"));
             return;
@@ -894,6 +903,15 @@ public final class ProfileCommand implements Command {
         }
 
         AsProfOptions subOpts = subOptsBuilder.build();
+        // --sched is Linux-only per asprof. Reject early on non-Linux.
+        if (subOpts.sched && !System.getProperty("os.name", "").toLowerCase().contains("linux")) {
+            System.err.println(messages.get("error.profile.adv.sched.linux.only"));
+            return;
+        }
+        // --nofree only affects --type=nativemem. Warn for other events.
+        if (subOpts.nofree && !"nativemem".equals(type)) {
+            System.err.println(messages.get("warn.profile.adv.nofree.event.mismatch", type));
+        }
         if (subOpts.allUser && subOpts.allKernel) {
             System.err.println(messages.get("error.profile.adv.alluser.allkernel.exclusive"));
             return;
