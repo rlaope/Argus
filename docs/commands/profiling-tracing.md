@@ -107,6 +107,9 @@ Power-user flags forwarded directly to async-profiler. All optional; defaults pr
 | `--signal=N` | `--signal num` | Alternative signal number for cpu/wall profiling — resolves signal conflicts |
 | `--proc=N` | `--proc interval` | Process sampling interval (e.g. `30s`) — how often asprof probes for thread list changes |
 | `--nofree` | `--nofree` | Exclude free() events from `nativemem` profiling — focus on allocation hotspots |
+| `--ttsp` | `--ttsp` | Time-to-safepoint profiling — surfaces safepoint stalls invisible to standard CPU sampling |
+| `--begin=FUNC` | `--begin <func>` | Start profiling when `<func>` is first executed (trigger-based capture) |
+| `--end=FUNC` | `--end <func>` | Stop profiling when `<func>` is executed (paired with `--begin` for entry/exit windowing) |
 
 ```bash
 # Native stacks for JNI debugging:

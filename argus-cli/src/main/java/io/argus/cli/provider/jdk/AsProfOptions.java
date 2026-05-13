@@ -73,25 +73,37 @@ public final class AsProfOptions {
     /** Pass {@code --nofree} to asprof — exclude free() events from native allocation profiling. */
     public final boolean nofree;
 
+    /** Pass {@code --ttsp} to asprof for time-to-safepoint profiling. */
+    public final boolean ttsp;
+
+    /** Function name passed to {@code --begin}, or null. Profiling starts when the function is executed. */
+    public final String beginFunction;
+
+    /** Function name passed to {@code --end}, or null. Profiling stops when the function is executed. */
+    public final String endFunction;
+
     private AsProfOptions(Builder b) {
-        this.interval     = b.interval;
-        this.jstackdepth  = b.jstackdepth;
-        this.cstack       = b.cstack;
-        this.perThread    = b.perThread;
-        this.allUser      = b.allUser;
-        this.allKernel    = b.allKernel;
-        this.allocBytes   = b.allocBytes;
-        this.live         = b.live;
-        this.include      = Collections.unmodifiableList(new ArrayList<>(b.include));
-        this.exclude      = Collections.unmodifiableList(new ArrayList<>(b.exclude));
-        this.outputFormat = b.outputFormat;
-        this.reverse      = b.reverse;
-        this.minwidth     = b.minwidth;
-        this.sched        = b.sched;
-        this.clock        = b.clock;
-        this.signal       = b.signal;
-        this.procInterval = b.procInterval;
-        this.nofree       = b.nofree;
+        this.interval      = b.interval;
+        this.jstackdepth   = b.jstackdepth;
+        this.cstack        = b.cstack;
+        this.perThread     = b.perThread;
+        this.allUser       = b.allUser;
+        this.allKernel     = b.allKernel;
+        this.allocBytes    = b.allocBytes;
+        this.live          = b.live;
+        this.include       = Collections.unmodifiableList(new ArrayList<>(b.include));
+        this.exclude       = Collections.unmodifiableList(new ArrayList<>(b.exclude));
+        this.outputFormat  = b.outputFormat;
+        this.reverse       = b.reverse;
+        this.minwidth      = b.minwidth;
+        this.sched         = b.sched;
+        this.clock         = b.clock;
+        this.signal        = b.signal;
+        this.procInterval  = b.procInterval;
+        this.nofree        = b.nofree;
+        this.ttsp          = b.ttsp;
+        this.beginFunction = b.beginFunction;
+        this.endFunction   = b.endFunction;
     }
 
     /** Returns an instance with all fields at their "no override" defaults. */
@@ -122,25 +134,31 @@ public final class AsProfOptions {
         private String signal;
         private String procInterval;
         private boolean nofree;
+        private boolean ttsp;
+        private String beginFunction;
+        private String endFunction;
 
-        public Builder interval(String v)     { this.interval = v;     return this; }
-        public Builder jstackdepth(int v)     { this.jstackdepth = v;  return this; }
-        public Builder cstack(String v)       { this.cstack = v;       return this; }
-        public Builder perThread(boolean v)   { this.perThread = v;    return this; }
-        public Builder allUser(boolean v)     { this.allUser = v;      return this; }
-        public Builder allKernel(boolean v)   { this.allKernel = v;    return this; }
-        public Builder allocBytes(String v)   { this.allocBytes = v;   return this; }
-        public Builder live(boolean v)        { this.live = v;         return this; }
-        public Builder addInclude(String v)   { this.include.add(v);   return this; }
-        public Builder addExclude(String v)   { this.exclude.add(v);   return this; }
-        public Builder outputFormat(String v) { this.outputFormat = v; return this; }
-        public Builder reverse(boolean v)     { this.reverse = v;      return this; }
-        public Builder minwidth(String v)     { this.minwidth = v;     return this; }
-        public Builder sched(boolean v)       { this.sched = v;        return this; }
-        public Builder clock(String v)        { this.clock = v;        return this; }
-        public Builder signal(String v)       { this.signal = v;       return this; }
-        public Builder procInterval(String v) { this.procInterval = v; return this; }
-        public Builder nofree(boolean v)      { this.nofree = v;       return this; }
+        public Builder interval(String v)      { this.interval = v;      return this; }
+        public Builder jstackdepth(int v)      { this.jstackdepth = v;   return this; }
+        public Builder cstack(String v)        { this.cstack = v;        return this; }
+        public Builder perThread(boolean v)    { this.perThread = v;     return this; }
+        public Builder allUser(boolean v)      { this.allUser = v;       return this; }
+        public Builder allKernel(boolean v)    { this.allKernel = v;     return this; }
+        public Builder allocBytes(String v)    { this.allocBytes = v;    return this; }
+        public Builder live(boolean v)         { this.live = v;          return this; }
+        public Builder addInclude(String v)    { this.include.add(v);    return this; }
+        public Builder addExclude(String v)    { this.exclude.add(v);    return this; }
+        public Builder outputFormat(String v)  { this.outputFormat = v;  return this; }
+        public Builder reverse(boolean v)      { this.reverse = v;       return this; }
+        public Builder minwidth(String v)      { this.minwidth = v;      return this; }
+        public Builder sched(boolean v)        { this.sched = v;         return this; }
+        public Builder clock(String v)         { this.clock = v;         return this; }
+        public Builder signal(String v)        { this.signal = v;        return this; }
+        public Builder procInterval(String v)  { this.procInterval = v;  return this; }
+        public Builder nofree(boolean v)       { this.nofree = v;        return this; }
+        public Builder ttsp(boolean v)         { this.ttsp = v;          return this; }
+        public Builder beginFunction(String v) { this.beginFunction = v; return this; }
+        public Builder endFunction(String v)   { this.endFunction = v;   return this; }
 
         public AsProfOptions build() {
             return new AsProfOptions(this);

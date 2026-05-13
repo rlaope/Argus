@@ -457,6 +457,9 @@ public final class AsProfProvider implements ProfileProvider {
         if (opts.signal != null)      { cmd.add("--signal"); cmd.add(opts.signal); }
         if (opts.procInterval != null){ cmd.add("--proc"); cmd.add(opts.procInterval); }
         if (opts.nofree)              { cmd.add("--nofree"); }
+        if (opts.ttsp)                { cmd.add("--ttsp"); }
+        if (opts.beginFunction != null) { cmd.add("--begin"); cmd.add(opts.beginFunction); }
+        if (opts.endFunction != null) { cmd.add("--end");   cmd.add(opts.endFunction); }
     }
 
     /** Returns the output format string to pass to asprof for the one-shot profile() path. */

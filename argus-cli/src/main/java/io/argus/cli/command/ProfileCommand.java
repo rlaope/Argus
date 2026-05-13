@@ -257,6 +257,12 @@ public final class ProfileCommand implements Command {
                 optsBuilder.procInterval(arg.substring("--proc=".length()));
             } else if (arg.equals("--nofree")) {
                 optsBuilder.nofree(true);
+            } else if (arg.equals("--ttsp")) {
+                optsBuilder.ttsp(true);
+            } else if (arg.startsWith("--begin=")) {
+                optsBuilder.beginFunction(arg.substring("--begin=".length()));
+            } else if (arg.startsWith("--end=")) {
+                optsBuilder.endFunction(arg.substring("--end=".length()));
             }
         }
 
