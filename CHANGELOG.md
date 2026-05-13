@@ -4,13 +4,25 @@ All notable changes to Argus are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-05-13
+
 ### Added
 - `argus harness <pid>` — continuous JVM monitoring + optimization + troubleshooting. Samples on a fixed interval, runs the existing 12 doctor health rules plus four new trend rules (heap-leak regression, GC overhead trend, thread growth, GC pause regression) and produces a single severity-ranked session report with JVM-flag suggestions. Observation-only — no JVM mutation. Supports `--profile=quick|deep`, `--interval=<dur>`, `--duration=<dur>`, `--out=<file>`, and `--format=json`. Dedupes findings by category+title across the session and reports per-rule hit counts so a leak rule that fires 600 times shows up once with "(fired 600 ticks)".
 - `.claude-plugin/marketplace.json` + `.claude-plugin/skills/argus-jvm-harness/SKILL.md` — Argus is now installable as a Claude Code plugin via `/plugin marketplace add https://github.com/rlaope/Argus` then `/plugin install argus-jvm-harness`. The skill wraps the CLI; if `argus` isn't on PATH it bootstraps via `install.sh` first.
 - `docs/harness.md` — full reference for the harness, trend rules, output formats, and recommended usage patterns.
+- **`argus profile` — 10 new async-profiler passthrough flags**: `--ttsp` (time-to-safepoint profiling), `--begin=<func>` / `--end=<func>` (profile boundary triggers), `--reverse` (call-tree direction), `--minwidth=<pct>` (collapse narrow frames), `--sched` (Linux scheduler events), `--clock=tsc|monotonic` (closed-enum validated), `--signal=<n>`, `--proc=<duration>` (per-process sampling interval), `--nofree` (suppress free events). `--cstack`, `--interval`, and `--clock` all parse-validate at the CLI boundary; `--sched` is Linux-gated and `--nofree` warns when the event isn't `nativemem`.
+- **`argus doctor` — CodeCache pressure rule + DirectBuffer rule that works on JDK 16+**: `CodeCacheRule` flags WARNING at ≥80% used and CRITICAL at ≥95%, recommending `-XX:ReservedCodeCacheSize=<2×current>` (256m floor) and re-enabling `+UseCodeCacheFlushing` only when the user has disabled it. `DirectBufferRule` reads the JVM-reported buffer pools first, then consults NMT `Other` / `Internal` category committed bytes when buffer pools are empty (the case on JDK 16+ jcmd-only path). Finding text says "via NMT" so operators know the source. `JvmSnapshot` now carries `codeCacheUsedKb` / `codeCacheSizeKb` / `nmtCommittedKbByCategory`, populated once per doctor run via `JdkCompilerProvider` and `JdkNmtProvider`.
+- **`argus compiler` — runtime deoptimization count**: reads `sun.ci.totalInvalidates` from `jcmd PerfCounter.print` and renders `Deoptimizations: N` under the existing code-cache block. JSON output gains `"deoptCount": N`. Stable across HotSpot JDK 8+.
+- `install.sh` / `install.ps1` `--run` flag — `install.sh ... --run <subcommand>` (and `install.ps1 ... -Run <subcommand>`) installs and immediately execs into the freshly-installed `argus` in one shot.
 
 ### Changed
-- `argusVersion` bumped to `1.4.0-SNAPSHOT` while harness work lands; the next tagged release will be `1.4.0`.
+- All GitHub Actions in `.github/workflows/*.yml` are now pinned by commit SHA (`uses: <owner>/<repo>@<sha> # <tag>`) for supply-chain hardening.
+- `setup-graalvm` pinned to `1.4.5` and Dependabot configured to ignore major/minor bumps for this action — `1.5.x` removed the `distribution: graalvm-community` input that `native-image.yml` depends on, so unattended bumps would break native-image builds. Patch bumps remain eligible. Lift only after `native-image.yml` is migrated to the new input shape and verified end-to-end on a tag.
+- `argus-cli` commands now self-register via `ServiceLoader` rather than a hand-maintained list. Adding a new command is one file plus a `META-INF/services` line; the CLI dispatcher does not need to be touched.
+- `JfrCaptureSession` consolidates the JFR start → stream → stop loop that was previously duplicated across `flame`, `gcprofile`, `profile`, and `slowlog`.
+
+### Fixed
+- `argus top` wiring: `ArgusTop` (a dead alternate command class) removed; `TopCommand` is now the single entry point for the `top` subcommand.
 
 ## [1.3.0] - 2026-05-08
 
