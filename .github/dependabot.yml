@@ -8,3 +8,10 @@ updates:
       prefix: "chore(ci)"
     labels:
       - "dependencies"
+    # graalvm/setup-graalvm@1.5.x removed the `distribution: graalvm-community`
+    # input that native-image.yml depends on. The 1.4.x line is the last
+    # version compatible with our workflow. Re-enable only when native-image.yml
+    # has been migrated to the new input shape and tested end-to-end on a tag.
+    ignore:
+      - dependency-name: "graalvm/setup-graalvm"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
