@@ -127,8 +127,8 @@ if [ "$VERSION" = "latest" ]; then
         | grep '"tag_name"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 
     if [ -z "$VERSION" ]; then
-        warn "Could not resolve latest release. Using 'v1.3.0' as fallback."
-        VERSION="v1.3.0"
+        warn "Could not resolve latest release. Using 'v1.4.0' as fallback."
+        VERSION="v1.4.0"
     fi
 fi
 

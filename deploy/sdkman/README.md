@@ -13,7 +13,7 @@ This directory contains the candidate definition for submitting Argus to the [SD
 Once the candidate is registered, publish each release via the SDKMAN Vendor API:
 
 ```bash
-VERSION="1.3.0"
+VERSION="1.4.0"
 CONSUMER_KEY="<your-key>"
 CONSUMER_SECRET="<your-secret>"
 
@@ -59,7 +59,7 @@ sdk install argus
 Or a specific version:
 
 ```bash
-sdk install argus 1.3.0
+sdk install argus 1.4.0
 ```
 
 ## Notes
