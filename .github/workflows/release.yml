@@ -65,3 +65,52 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run native-image.yml --ref ${{ github.ref_name }}
+
+      - name: Update Homebrew Formula on master
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+        run: |
+          set -euo pipefail
+          JAR="argus-cli-${VERSION}-all.jar"
+          SHA=$(sha256sum "$JAR" | awk '{print $1}')
+          echo "Computed sha256: $SHA"
+
+          git fetch origin master
+          git checkout master
+
+          # Patch version, url, sha256, and the libexec rename line. Anchored to the
+          # `^  version` / `url "...releases/download/...`/ `sha256 "..."` lines so we
+          # don't accidentally rewrite unrelated occurrences.
+          python3 - "$VERSION" "$SHA" <<'PY'
+          import re, sys, pathlib
+          version, sha = sys.argv[1], sys.argv[2]
+          p = pathlib.Path("Formula/argus.rb")
+          src = p.read_text()
+          # Homebrew derives version from the URL — no separate version line.
+          src = re.sub(
+              r'releases/download/v\d+\.\d+\.\d+/argus-cli-\d+\.\d+\.\d+-all\.jar',
+              f'releases/download/v{version}/argus-cli-{version}-all.jar',
+              src,
+          )
+          src = re.sub(r'sha256 "[a-f0-9]{64}"', f'sha256 "{sha}"', src, count=1)
+          src = re.sub(
+              r'argus-cli-\d+\.\d+\.\d+-all\.jar',
+              f'argus-cli-{version}-all.jar',
+              src,
+          )
+          p.write_text(src)
+          PY
+
+          if git diff --quiet Formula/argus.rb; then
+            echo "Formula already at ${VERSION} — nothing to commit."
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/argus.rb
+          git commit -s -m "chore(formula): bump to ${VERSION}
+
+          Auto-bumped by release.yml after publishing v${VERSION} artifacts.
+          sha256 computed against argus-cli-${VERSION}-all.jar from the release build."
+          git push origin master
