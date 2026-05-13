@@ -450,6 +450,13 @@ public final class AsProfProvider implements ProfileProvider {
         if (opts.live)                { cmd.add("--live"); }
         for (String p : opts.include) { cmd.add("-I"); cmd.add(p); }
         for (String p : opts.exclude) { cmd.add("-X"); cmd.add(p); }
+        if (opts.reverse)             { cmd.add("--reverse"); }
+        if (opts.minwidth != null)    { cmd.add("--minwidth"); cmd.add(opts.minwidth); }
+        if (opts.sched)               { cmd.add("--sched"); }
+        if (opts.clock != null)       { cmd.add("--clock"); cmd.add(opts.clock); }
+        if (opts.signal != null)      { cmd.add("--signal"); cmd.add(opts.signal); }
+        if (opts.procInterval != null){ cmd.add("--proc"); cmd.add(opts.procInterval); }
+        if (opts.nofree)              { cmd.add("--nofree"); }
     }
 
     /** Returns the output format string to pass to asprof for the one-shot profile() path. */
