@@ -243,6 +243,20 @@ public final class ProfileCommand implements Command {
                 optsBuilder.addInclude(arg.substring(10));
             } else if (arg.startsWith("--exclude=")) {
                 optsBuilder.addExclude(arg.substring(10));
+            } else if (arg.equals("--reverse")) {
+                optsBuilder.reverse(true);
+            } else if (arg.startsWith("--minwidth=")) {
+                optsBuilder.minwidth(arg.substring("--minwidth=".length()));
+            } else if (arg.equals("--sched")) {
+                optsBuilder.sched(true);
+            } else if (arg.startsWith("--clock=")) {
+                optsBuilder.clock(arg.substring("--clock=".length()));
+            } else if (arg.startsWith("--signal=")) {
+                optsBuilder.signal(arg.substring("--signal=".length()));
+            } else if (arg.startsWith("--proc=")) {
+                optsBuilder.procInterval(arg.substring("--proc=".length()));
+            } else if (arg.equals("--nofree")) {
+                optsBuilder.nofree(true);
             }
         }
 

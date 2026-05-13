@@ -52,6 +52,27 @@ public final class AsProfOptions {
      */
     public final String outputFormat;
 
+    /** Pass {@code --reverse} to asprof — generate a stack-reversed (icicle) flame graph. */
+    public final boolean reverse;
+
+    /** Minimum frame width percentage to render, e.g. {@code "0.5"} — or null. Maps to {@code --minwidth pct}. */
+    public final String minwidth;
+
+    /** Pass {@code --sched} to asprof — group threads by scheduling policy (Linux only). */
+    public final boolean sched;
+
+    /** Clock source for JFR timestamps: {@code tsc} or {@code monotonic} — or null. Maps to {@code --clock source}. */
+    public final String clock;
+
+    /** Alternative signal number for cpu/wall profiling — or null. Maps to {@code --signal num}. */
+    public final String signal;
+
+    /** Process sampling interval, e.g. {@code "60s"} — or null. Maps to {@code --proc interval}. */
+    public final String procInterval;
+
+    /** Pass {@code --nofree} to asprof — exclude free() events from native allocation profiling. */
+    public final boolean nofree;
+
     private AsProfOptions(Builder b) {
         this.interval     = b.interval;
         this.jstackdepth  = b.jstackdepth;
@@ -64,6 +85,13 @@ public final class AsProfOptions {
         this.include      = Collections.unmodifiableList(new ArrayList<>(b.include));
         this.exclude      = Collections.unmodifiableList(new ArrayList<>(b.exclude));
         this.outputFormat = b.outputFormat;
+        this.reverse      = b.reverse;
+        this.minwidth     = b.minwidth;
+        this.sched        = b.sched;
+        this.clock        = b.clock;
+        this.signal       = b.signal;
+        this.procInterval = b.procInterval;
+        this.nofree       = b.nofree;
     }
 
     /** Returns an instance with all fields at their "no override" defaults. */
@@ -87,18 +115,32 @@ public final class AsProfOptions {
         private final List<String> include = new ArrayList<>();
         private final List<String> exclude = new ArrayList<>();
         private String outputFormat;
+        private boolean reverse;
+        private String minwidth;
+        private boolean sched;
+        private String clock;
+        private String signal;
+        private String procInterval;
+        private boolean nofree;
 
-        public Builder interval(String v)     { this.interval = v;    return this; }
-        public Builder jstackdepth(int v)     { this.jstackdepth = v; return this; }
-        public Builder cstack(String v)       { this.cstack = v;      return this; }
-        public Builder perThread(boolean v)   { this.perThread = v;   return this; }
-        public Builder allUser(boolean v)     { this.allUser = v;     return this; }
-        public Builder allKernel(boolean v)   { this.allKernel = v;   return this; }
-        public Builder allocBytes(String v)   { this.allocBytes = v;  return this; }
-        public Builder live(boolean v)        { this.live = v;        return this; }
-        public Builder addInclude(String v)   { this.include.add(v);  return this; }
-        public Builder addExclude(String v)   { this.exclude.add(v);  return this; }
+        public Builder interval(String v)     { this.interval = v;     return this; }
+        public Builder jstackdepth(int v)     { this.jstackdepth = v;  return this; }
+        public Builder cstack(String v)       { this.cstack = v;       return this; }
+        public Builder perThread(boolean v)   { this.perThread = v;    return this; }
+        public Builder allUser(boolean v)     { this.allUser = v;      return this; }
+        public Builder allKernel(boolean v)   { this.allKernel = v;    return this; }
+        public Builder allocBytes(String v)   { this.allocBytes = v;   return this; }
+        public Builder live(boolean v)        { this.live = v;         return this; }
+        public Builder addInclude(String v)   { this.include.add(v);   return this; }
+        public Builder addExclude(String v)   { this.exclude.add(v);   return this; }
         public Builder outputFormat(String v) { this.outputFormat = v; return this; }
+        public Builder reverse(boolean v)     { this.reverse = v;      return this; }
+        public Builder minwidth(String v)     { this.minwidth = v;     return this; }
+        public Builder sched(boolean v)       { this.sched = v;        return this; }
+        public Builder clock(String v)        { this.clock = v;        return this; }
+        public Builder signal(String v)       { this.signal = v;       return this; }
+        public Builder procInterval(String v) { this.procInterval = v; return this; }
+        public Builder nofree(boolean v)      { this.nofree = v;       return this; }
 
         public AsProfOptions build() {
             return new AsProfOptions(this);
