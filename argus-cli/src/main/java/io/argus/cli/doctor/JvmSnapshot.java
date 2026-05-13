@@ -58,6 +58,15 @@ public final class JvmSnapshot {
     // GC pause — populated from MXBean on local path; heuristic on remote path; 0 if unknown.
     private final long maxRecentPauseMs;
 
+    // CodeCache — populated from CompilerProvider; 0 if collection failed.
+    private final long codeCacheUsedKb;
+    private final long codeCacheSizeKb;
+
+    // NMT — committedKB per category from jcmd VM.native_memory summary; empty if NMT off
+    // or jcmd call failed. Category names are passed through from jcmd verbatim (e.g.
+    // "Other", "Internal", "Java Heap") so callers must match case-insensitively.
+    private final Map<String, Long> nmtCommittedKbByCategory;
+
     public JvmSnapshot(long heapUsed, long heapMax, long heapCommitted, long nonHeapUsed,
                        Map<String, PoolInfo> memoryPools,
                        List<GcInfo> collectors, long totalGcCount, long totalGcTimeMs, long uptimeMs,
@@ -88,6 +97,29 @@ public final class JvmSnapshot {
                        int pendingFinalization,
                        String vmName, String vmVersion, String gcAlgorithm, List<String> vmFlags,
                        long maxRecentPauseMs) {
+        this(heapUsed, heapMax, heapCommitted, nonHeapUsed, memoryPools,
+                collectors, totalGcCount, totalGcTimeMs, uptimeMs,
+                processCpuLoad, systemCpuLoad, availableProcessors,
+                threadCount, daemonThreadCount, peakThreadCount,
+                threadStates, deadlockedThreads, bufferPools,
+                loadedClassCount, totalLoadedClassCount, unloadedClassCount,
+                pendingFinalization, vmName, vmVersion, gcAlgorithm, vmFlags,
+                maxRecentPauseMs, 0L, 0L, Map.of());
+    }
+
+    public JvmSnapshot(long heapUsed, long heapMax, long heapCommitted, long nonHeapUsed,
+                       Map<String, PoolInfo> memoryPools,
+                       List<GcInfo> collectors, long totalGcCount, long totalGcTimeMs, long uptimeMs,
+                       double processCpuLoad, double systemCpuLoad, int availableProcessors,
+                       int threadCount, int daemonThreadCount, int peakThreadCount,
+                       Map<String, Integer> threadStates, int deadlockedThreads,
+                       List<BufferInfo> bufferPools,
+                       int loadedClassCount, long totalLoadedClassCount, long unloadedClassCount,
+                       int pendingFinalization,
+                       String vmName, String vmVersion, String gcAlgorithm, List<String> vmFlags,
+                       long maxRecentPauseMs,
+                       long codeCacheUsedKb, long codeCacheSizeKb,
+                       Map<String, Long> nmtCommittedKbByCategory) {
         this.heapUsed = heapUsed;
         this.heapMax = heapMax;
         this.heapCommitted = heapCommitted;
@@ -115,6 +147,9 @@ public final class JvmSnapshot {
         this.gcAlgorithm = gcAlgorithm;
         this.vmFlags = vmFlags;
         this.maxRecentPauseMs = maxRecentPauseMs;
+        this.codeCacheUsedKb = codeCacheUsedKb;
+        this.codeCacheSizeKb = codeCacheSizeKb;
+        this.nmtCommittedKbByCategory = nmtCommittedKbByCategory;
     }
 
     // Accessors
@@ -151,6 +186,12 @@ public final class JvmSnapshot {
     public List<String> vmFlags() { return vmFlags; }
     /** Most recent STW pause in ms. 0 means unknown (remote path or no GC yet). */
     public long maxRecentPauseMs() { return maxRecentPauseMs; }
+    /** Code cache used in KB. 0 means unknown (collector failed). */
+    public long codeCacheUsedKb() { return codeCacheUsedKb; }
+    /** Code cache total size in KB. 0 means unknown (collector failed). */
+    public long codeCacheSizeKb() { return codeCacheSizeKb; }
+    /** NMT committed KB per category (verbatim jcmd names). Empty when NMT is off or unreadable. */
+    public Map<String, Long> nmtCommittedKbByCategory() { return nmtCommittedKbByCategory; }
 
     public static final class PoolInfo {
         private final String name;

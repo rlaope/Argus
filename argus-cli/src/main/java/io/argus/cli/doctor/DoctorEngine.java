@@ -23,6 +23,7 @@ public final class DoctorEngine {
             new HeapPressureRule(),
             new MetaspaceRule(),
             new DirectBufferRule(),
+            new CodeCacheRule(),
             new CpuUsageRule(),
             new ThreadContentionRule(),
             new FinalizerQueueRule(),
