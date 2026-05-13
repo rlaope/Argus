@@ -81,8 +81,33 @@ grep -rEn 'v?[0-9]+\.[0-9]+\.[0-9]+' README.md docs/ site/index.html \
   | grep -v -E '(java|jdk|jvm|netty|micrometer|junit|spring|node|graalvm|grafana|prometheus|3\.[0-9]|11\+|17\+|21\+)' \
   | head -50
 
-# Command-count drift
+# Command-count drift (per-file listing)
 grep -rnE '[0-9]{2}\+? ?(commands|Commands)' README.md docs/ site/index.html
+
+# Command-count internal consistency (catches the trap where the SAME README
+# says "67 commands" on line 14 and "66 diagnostic commands" on line 64 — listing
+# alone doesn't fail; collapse all occurrences plus the runtime help banner to a
+# unique-value set and fail if there's more than one).
+COUNT_OCCURRENCES=$(grep -rhEo '[0-9]{2,3} (diagnostic )?commands?' \
+    README.md docs/ site/index.html 2>/dev/null \
+  | sed -E 's/ diagnostic / /' \
+  | awk '{print $1}' \
+  | sort -u)
+HELP_COUNT=""
+if command -v argus &>/dev/null; then
+  HELP_COUNT=$(argus --help 2>&1 | sed -E "s/\x1b\[[0-9;]*m//g" \
+    | grep -oE '[0-9]{2,3} commands' | head -1 | awk '{print $1}')
+fi
+echo "docs occurrences: $(echo "$COUNT_OCCURRENCES" | tr '\n' ' ')"
+echo "argus --help    : ${HELP_COUNT:-(argus not on PATH)}"
+echo "truth (source)  : $CMD_COUNT"
+ALL=$(printf '%s\n%s\n%s\n' "$COUNT_OCCURRENCES" "$HELP_COUNT" "$CMD_COUNT" \
+  | grep -E '^[0-9]+$' | sort -u)
+if [ "$(echo "$ALL" | wc -l | tr -d ' ')" -gt 1 ]; then
+  echo "DRIFT — multiple command counts in circulation: $(echo "$ALL" | tr '\n' ' ')"
+else
+  echo "OK — single command count everywhere: $ALL"
+fi
 
 # i18n parity
 diff <(cat /tmp/keys_en.txt) <(cat /tmp/keys_ko.txt)
