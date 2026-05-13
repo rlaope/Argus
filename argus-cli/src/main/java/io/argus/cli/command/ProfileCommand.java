@@ -216,63 +216,10 @@ public final class ProfileCommand implements Command {
                 diffWith = Path.of(diffVal);
             } else if (arg.startsWith("--output-format=")) {
                 outputFormat = arg.substring(16).toLowerCase();
-            } else if (arg.startsWith("--interval=")) {
-                String v = arg.substring(11);
-                String err = validateInterval(v, messages);
-                if (err != null) { System.err.println(err); return; }
-                optsBuilder.interval(v);
-            } else if (arg.startsWith("--jstackdepth=")) {
-                int depth = parseClampedInt(arg.substring(14), 1, 2048, 64);
-                optsBuilder.jstackdepth(depth);
-            } else if (arg.startsWith("--cstack=")) {
-                String v = arg.substring(9);
-                String err = validateCstack(v, messages);
-                if (err != null) { System.err.println(err); return; }
-                optsBuilder.cstack(v);
-            } else if (arg.equals("--threads")) {
-                optsBuilder.perThread(true);
-            } else if (arg.equals("--alluser")) {
-                optsBuilder.allUser(true);
-            } else if (arg.equals("--allkernel")) {
-                optsBuilder.allKernel(true);
-            } else if (arg.startsWith("--alloc=")) {
-                optsBuilder.allocBytes(arg.substring(8));
-            } else if (arg.equals("--live")) {
-                optsBuilder.live(true);
-            } else if (arg.startsWith("--include=")) {
-                optsBuilder.addInclude(arg.substring(10));
-            } else if (arg.startsWith("--exclude=")) {
-                optsBuilder.addExclude(arg.substring(10));
-            } else if (arg.equals("--reverse")) {
-                optsBuilder.reverse(true);
-            } else if (arg.startsWith("--minwidth=")) {
-                optsBuilder.minwidth(arg.substring("--minwidth=".length()));
-            } else if (arg.equals("--sched")) {
-                optsBuilder.sched(true);
-            } else if (arg.startsWith("--clock=")) {
-                String v = arg.substring("--clock=".length());
-                String err = validateClock(v, messages);
-                if (err != null) { System.err.println(err); return; }
-                optsBuilder.clock(v);
-            } else if (arg.startsWith("--signal=")) {
-                optsBuilder.signal(arg.substring("--signal=".length()));
-            } else if (arg.startsWith("--proc=")) {
-                String v = arg.substring("--proc=".length());
-                String err = validateInterval(v, messages);
-                if (err != null) { System.err.println(err); return; }
-                optsBuilder.procInterval(v);
-            } else if (arg.equals("--nofree")) {
-                optsBuilder.nofree(true);
-            } else if (arg.equals("--ttsp")) {
-                optsBuilder.ttsp(true);
-            } else if (arg.startsWith("--begin=")) {
-                String v = arg.substring("--begin=".length());
-                if (v.isEmpty()) { System.err.println(messages.get("error.profile.adv.begin.empty")); return; }
-                optsBuilder.beginFunction(v);
-            } else if (arg.startsWith("--end=")) {
-                String v = arg.substring("--end=".length());
-                if (v.isEmpty()) { System.err.println(messages.get("error.profile.adv.end.empty")); return; }
-                optsBuilder.endFunction(v);
+            } else {
+                AsprofFlagParser.Result r = AsprofFlagParser.handle(arg, optsBuilder, messages);
+                if (r == AsprofFlagParser.Result.ERROR) return;
+                // unrecognised args silently skipped (matches pre-extraction behaviour)
             }
         }
 
@@ -855,62 +802,10 @@ public final class ProfileCommand implements Command {
                 flame = true;
             } else if (arg.startsWith("--source=")) {
                 sourceOverride = arg.substring(9);
-            } else if (arg.startsWith("--interval=")) {
-                String v = arg.substring(11);
-                String err = validateInterval(v, messages);
-                if (err != null) { System.err.println(err); return; }
-                subOptsBuilder.interval(v);
-            } else if (arg.startsWith("--jstackdepth=")) {
-                subOptsBuilder.jstackdepth(parseClampedInt(arg.substring(14), 1, 2048, 64));
-            } else if (arg.startsWith("--cstack=")) {
-                String v = arg.substring(9);
-                String err = validateCstack(v, messages);
-                if (err != null) { System.err.println(err); return; }
-                subOptsBuilder.cstack(v);
-            } else if (arg.equals("--threads")) {
-                subOptsBuilder.perThread(true);
-            } else if (arg.equals("--alluser")) {
-                subOptsBuilder.allUser(true);
-            } else if (arg.equals("--allkernel")) {
-                subOptsBuilder.allKernel(true);
-            } else if (arg.startsWith("--alloc=")) {
-                subOptsBuilder.allocBytes(arg.substring(8));
-            } else if (arg.equals("--live")) {
-                subOptsBuilder.live(true);
-            } else if (arg.startsWith("--include=")) {
-                subOptsBuilder.addInclude(arg.substring(10));
-            } else if (arg.startsWith("--exclude=")) {
-                subOptsBuilder.addExclude(arg.substring(10));
-            } else if (arg.equals("--reverse")) {
-                subOptsBuilder.reverse(true);
-            } else if (arg.startsWith("--minwidth=")) {
-                subOptsBuilder.minwidth(arg.substring("--minwidth=".length()));
-            } else if (arg.equals("--sched")) {
-                subOptsBuilder.sched(true);
-            } else if (arg.startsWith("--clock=")) {
-                String v = arg.substring("--clock=".length());
-                String err = validateClock(v, messages);
-                if (err != null) { System.err.println(err); return; }
-                subOptsBuilder.clock(v);
-            } else if (arg.startsWith("--signal=")) {
-                subOptsBuilder.signal(arg.substring("--signal=".length()));
-            } else if (arg.startsWith("--proc=")) {
-                String v = arg.substring("--proc=".length());
-                String err = validateInterval(v, messages);
-                if (err != null) { System.err.println(err); return; }
-                subOptsBuilder.procInterval(v);
-            } else if (arg.equals("--nofree")) {
-                subOptsBuilder.nofree(true);
-            } else if (arg.equals("--ttsp")) {
-                subOptsBuilder.ttsp(true);
-            } else if (arg.startsWith("--begin=")) {
-                String v = arg.substring("--begin=".length());
-                if (v.isEmpty()) { System.err.println(messages.get("error.profile.adv.begin.empty")); return; }
-                subOptsBuilder.beginFunction(v);
-            } else if (arg.startsWith("--end=")) {
-                String v = arg.substring("--end=".length());
-                if (v.isEmpty()) { System.err.println(messages.get("error.profile.adv.end.empty")); return; }
-                subOptsBuilder.endFunction(v);
+            } else {
+                AsprofFlagParser.Result r = AsprofFlagParser.handle(arg, subOptsBuilder, messages);
+                if (r == AsprofFlagParser.Result.ERROR) return;
+                // unrecognised args silently skipped (matches pre-extraction behaviour)
             }
         }
 
@@ -1442,8 +1337,8 @@ public final class ProfileCommand implements Command {
         return type.matches("[a-zA-Z_$][a-zA-Z0-9_$.\\-]*");
     }
 
-    /** Returns null if valid, else an i18n error string. */
-    private static String validateInterval(String v, Messages messages) {
+    /** Returns null if valid, else an i18n error string. Package-private for {@link AsprofFlagParser}. */
+    static String validateInterval(String v, Messages messages) {
         if (v == null || v.isEmpty()) return messages.get("error.profile.adv.interval.invalid", v);
         if (!v.endsWith("ms") && !v.endsWith("us") && !v.endsWith("ns") && !v.endsWith("s")) {
             return messages.get("error.profile.adv.interval.invalid", v);
@@ -1459,23 +1354,24 @@ public final class ProfileCommand implements Command {
         return null;
     }
 
-    /** Returns null if valid, else an i18n error string. */
-    private static String validateCstack(String v, Messages messages) {
+    /** Returns null if valid, else an i18n error string. Package-private for {@link AsprofFlagParser}. */
+    static String validateCstack(String v, Messages messages) {
         if ("fp".equals(v) || "dwarf".equals(v) || "lbr".equals(v) || "vm".equals(v) || "no".equals(v)) {
             return null;
         }
         return messages.get("error.profile.adv.cstack.invalid", v);
     }
 
-    /** Returns null if valid, else an i18n error string. Accepts the asprof clock-source enum. */
-    private static String validateClock(String v, Messages messages) {
+    /** Returns null if valid, else an i18n error string. Package-private for {@link AsprofFlagParser}. */
+    static String validateClock(String v, Messages messages) {
         if ("tsc".equals(v) || "monotonic".equals(v)) {
             return null;
         }
         return messages.get("error.profile.adv.clock.invalid", v);
     }
 
-    private static int parseClampedInt(String s, int min, int max, int fallback) {
+    /** Package-private for {@link AsprofFlagParser}. */
+    static int parseClampedInt(String s, int min, int max, int fallback) {
         try {
             return Math.min(max, Math.max(min, Integer.parseInt(s)));
         } catch (NumberFormatException e) {
