@@ -260,9 +260,13 @@ public final class ProfileCommand implements Command {
             } else if (arg.equals("--ttsp")) {
                 optsBuilder.ttsp(true);
             } else if (arg.startsWith("--begin=")) {
-                optsBuilder.beginFunction(arg.substring("--begin=".length()));
+                String v = arg.substring("--begin=".length());
+                if (v.isEmpty()) { System.err.println(messages.get("error.profile.adv.begin.empty")); return; }
+                optsBuilder.beginFunction(v);
             } else if (arg.startsWith("--end=")) {
-                optsBuilder.endFunction(arg.substring("--end=".length()));
+                String v = arg.substring("--end=".length());
+                if (v.isEmpty()) { System.err.println(messages.get("error.profile.adv.end.empty")); return; }
+                optsBuilder.endFunction(v);
             }
         }
 
@@ -876,6 +880,16 @@ public final class ProfileCommand implements Command {
                 subOptsBuilder.procInterval(arg.substring("--proc=".length()));
             } else if (arg.equals("--nofree")) {
                 subOptsBuilder.nofree(true);
+            } else if (arg.equals("--ttsp")) {
+                subOptsBuilder.ttsp(true);
+            } else if (arg.startsWith("--begin=")) {
+                String v = arg.substring("--begin=".length());
+                if (v.isEmpty()) { System.err.println(messages.get("error.profile.adv.begin.empty")); return; }
+                subOptsBuilder.beginFunction(v);
+            } else if (arg.startsWith("--end=")) {
+                String v = arg.substring("--end=".length());
+                if (v.isEmpty()) { System.err.println(messages.get("error.profile.adv.end.empty")); return; }
+                subOptsBuilder.endFunction(v);
             }
         }
 
