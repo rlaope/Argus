@@ -13,10 +13,18 @@ public final class CompilerResult {
     private final int adapters;
     private final boolean compilationEnabled;
     private final int queueSize;
+    private final long deoptCount;
 
     public CompilerResult(long codeCacheSizeKb, long codeCacheUsedKb, long codeCacheMaxUsedKb,
                           long codeCacheFreeKb, int totalBlobs, int nmethods, int adapters,
                           boolean compilationEnabled, int queueSize) {
+        this(codeCacheSizeKb, codeCacheUsedKb, codeCacheMaxUsedKb, codeCacheFreeKb,
+                totalBlobs, nmethods, adapters, compilationEnabled, queueSize, 0L);
+    }
+
+    public CompilerResult(long codeCacheSizeKb, long codeCacheUsedKb, long codeCacheMaxUsedKb,
+                          long codeCacheFreeKb, int totalBlobs, int nmethods, int adapters,
+                          boolean compilationEnabled, int queueSize, long deoptCount) {
         this.codeCacheSizeKb = codeCacheSizeKb;
         this.codeCacheUsedKb = codeCacheUsedKb;
         this.codeCacheMaxUsedKb = codeCacheMaxUsedKb;
@@ -26,6 +34,7 @@ public final class CompilerResult {
         this.adapters = adapters;
         this.compilationEnabled = compilationEnabled;
         this.queueSize = queueSize;
+        this.deoptCount = deoptCount;
     }
 
     public long codeCacheSizeKb() { return codeCacheSizeKb; }
@@ -37,4 +46,6 @@ public final class CompilerResult {
     public int adapters() { return adapters; }
     public boolean compilationEnabled() { return compilationEnabled; }
     public int queueSize() { return queueSize; }
+    /** Total runtime deoptimizations since JVM start; 0 when unknown. */
+    public long deoptCount() { return deoptCount; }
 }

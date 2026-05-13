@@ -26,6 +26,7 @@ public final class JdkCompilerProvider implements CompilerProvider {
     public CompilerResult getCompilerInfo(long pid) {
         String codecacheOutput;
         String queueOutput;
+        String perfCounterOutput;
         try {
             codecacheOutput = JcmdExecutor.execute(pid, "Compiler.codecache");
         } catch (RuntimeException e) {
@@ -36,10 +37,19 @@ public final class JdkCompilerProvider implements CompilerProvider {
         } catch (RuntimeException e) {
             queueOutput = "";
         }
-        return parseOutput(codecacheOutput, queueOutput);
+        try {
+            perfCounterOutput = JcmdExecutor.execute(pid, "PerfCounter.print");
+        } catch (RuntimeException e) {
+            perfCounterOutput = "";
+        }
+        return parseOutput(codecacheOutput, queueOutput, perfCounterOutput);
     }
 
     static CompilerResult parseOutput(String codecacheOutput, String queueOutput) {
+        return parseOutput(codecacheOutput, queueOutput, "");
+    }
+
+    static CompilerResult parseOutput(String codecacheOutput, String queueOutput, String perfCounterOutput) {
         long size = 0, used = 0, maxUsed = 0, free = 0;
         int blobs = 0, nmethods = 0, adapters = 0;
         boolean enabled = true;
@@ -79,7 +89,33 @@ public final class JdkCompilerProvider implements CompilerProvider {
             }
         }
 
-        return new CompilerResult(size, used, maxUsed, free, blobs, nmethods, adapters, enabled, queueSize);
+        long deoptCount = parseDeoptCount(perfCounterOutput);
+
+        return new CompilerResult(size, used, maxUsed, free, blobs, nmethods, adapters, enabled, queueSize, deoptCount);
+    }
+
+    /**
+     * Parse {@code sun.ci.totalInvalidates} from {@code jcmd PerfCounter.print} output.
+     * This counter tracks runtime nmethod invalidations (deopts due to class redefinition,
+     * type-profile mismatches, etc.) and has been stable in HotSpot since JDK 8. Returns
+     * 0 when the counter is absent or the perfcounter call failed.
+     */
+    static long parseDeoptCount(String perfCounterOutput) {
+        if (perfCounterOutput == null || perfCounterOutput.isEmpty()) return 0L;
+        for (String line : perfCounterOutput.split("\n")) {
+            String trimmed = line.trim();
+            int eq = trimmed.indexOf('=');
+            if (eq <= 0) continue;
+            String key = trimmed.substring(0, eq);
+            if (!key.equals("sun.ci.totalInvalidates")) continue;
+            String value = trimmed.substring(eq + 1).trim();
+            try {
+                return Long.parseLong(value);
+            } catch (NumberFormatException ignored) {
+                return 0L;
+            }
+        }
+        return 0L;
     }
 
     private static long extractKb(String line, String prefix) {
