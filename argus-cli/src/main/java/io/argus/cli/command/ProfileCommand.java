@@ -257,7 +257,10 @@ public final class ProfileCommand implements Command {
             } else if (arg.startsWith("--signal=")) {
                 optsBuilder.signal(arg.substring("--signal=".length()));
             } else if (arg.startsWith("--proc=")) {
-                optsBuilder.procInterval(arg.substring("--proc=".length()));
+                String v = arg.substring("--proc=".length());
+                String err = validateInterval(v, messages);
+                if (err != null) { System.err.println(err); return; }
+                optsBuilder.procInterval(v);
             } else if (arg.equals("--nofree")) {
                 optsBuilder.nofree(true);
             } else if (arg.equals("--ttsp")) {
@@ -883,7 +886,10 @@ public final class ProfileCommand implements Command {
             } else if (arg.startsWith("--signal=")) {
                 subOptsBuilder.signal(arg.substring("--signal=".length()));
             } else if (arg.startsWith("--proc=")) {
-                subOptsBuilder.procInterval(arg.substring("--proc=".length()));
+                String v = arg.substring("--proc=".length());
+                String err = validateInterval(v, messages);
+                if (err != null) { System.err.println(err); return; }
+                subOptsBuilder.procInterval(v);
             } else if (arg.equals("--nofree")) {
                 subOptsBuilder.nofree(true);
             } else if (arg.equals("--ttsp")) {
@@ -1421,12 +1427,12 @@ public final class ProfileCommand implements Command {
     /** Returns null if valid, else an i18n error string. */
     private static String validateInterval(String v, Messages messages) {
         if (v == null || v.isEmpty()) return messages.get("error.profile.adv.interval.invalid", v);
-        if (!v.endsWith("ms") && !v.endsWith("us") && !v.endsWith("ns")) {
+        if (!v.endsWith("ms") && !v.endsWith("us") && !v.endsWith("ns") && !v.endsWith("s")) {
             return messages.get("error.profile.adv.interval.invalid", v);
         }
-        String num = v.endsWith("ms") ? v.substring(0, v.length() - 2)
-                   : v.endsWith("us") ? v.substring(0, v.length() - 2)
-                   : v.substring(0, v.length() - 2);
+        String num = (v.endsWith("ms") || v.endsWith("us") || v.endsWith("ns"))
+                   ? v.substring(0, v.length() - 2)
+                   : v.substring(0, v.length() - 1);
         try {
             if (Long.parseLong(num) <= 0) return messages.get("error.profile.adv.interval.invalid", v);
         } catch (NumberFormatException e) {
