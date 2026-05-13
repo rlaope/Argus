@@ -57,6 +57,7 @@ These are the current stable minima. Refresh only when the user asks for a sweep
 | `prom/prometheus` | a pinned `vX.Y.Z`, never `latest` | reproducibility |
 | `grafana/grafana` | a pinned `X.Y.Z`, never `latest` | reproducibility |
 | Kubernetes API | `apps/v1`, `networking.k8s.io/v1`, `monitoring.coreos.com/v1` | K8s 1.25+ removed `*beta1` variants |
+| async-profiler | install-time and runtime versions MUST match — see §2.4 cross-source check | install.sh and `AsProfDownloader` write to the same `~/.argus/lib/async-profiler/` directory; a mismatch silently makes one of the two payloads dead weight |
 
 ## Procedure
 
@@ -107,7 +108,28 @@ grep -nE "VERSION=\"v|fallback|Version = \"v" install.sh install.ps1
 ```
 - Fallback string MUST be `v$ARGUS_VERSION`.
 - `install.sh` example URLs in the comment header use a recent version.
-- Confirm `ASPROF_VERSION` matches the version Argus actually wraps.
+
+**async-profiler cross-source check** (this is the trap that the v1.4.0 verify pass caught — install.sh's `ASPROF_VERSION="3.0"` shipped for releases while runtime was already pinned to `4.4`, making the 267 KB install-time download dead weight):
+
+```bash
+INSTALL_ASPROF=$(awk -F'"' '/^ASPROF_VERSION=/{print $2}' install.sh)
+RUNTIME_ASPROF_DL=$(grep -E '^\s*private static final String ASPROF_VERSION' \
+    argus-cli/src/main/java/io/argus/cli/provider/jdk/AsProfDownloader.java \
+    | awk -F'"' '{print $2}')
+RUNTIME_ASPROF_CAP=$(grep -E '^\s*public static final String ASPROF_VERSION' \
+    argus-cli/src/main/java/io/argus/cli/provider/jdk/AsProfCapabilities.java \
+    | awk -F'"' '{print $2}')
+
+echo "install.sh             = $INSTALL_ASPROF"
+echo "AsProfDownloader.java  = $RUNTIME_ASPROF_DL"
+echo "AsProfCapabilities.java = $RUNTIME_ASPROF_CAP"
+
+[ "$INSTALL_ASPROF" = "$RUNTIME_ASPROF_DL" ] && [ "$RUNTIME_ASPROF_DL" = "$RUNTIME_ASPROF_CAP" ] \
+    && echo "OK — all three async-profiler version constants agree" \
+    || echo "DRIFT — install.sh and runtime async-profiler versions disagree (P1)"
+```
+
+All three values MUST be identical. They share `~/.argus/lib/async-profiler/`, so a mismatch means whichever source ran last wins and the other download was wasted bandwidth — or worse, the binary on disk lies about its version. If runtime side bumps, install.sh MUST follow in the same release.
 
 #### 2.5 Homebrew Formula
 
