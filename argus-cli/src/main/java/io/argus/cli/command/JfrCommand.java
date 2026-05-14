@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.JfrResult;
 import io.argus.cli.provider.JfrProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -89,7 +90,7 @@ public final class JfrCommand implements Command {
         if (result == null) return;
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
         } else {
             boolean useColor = config.color();
             System.out.print(RichRenderer.brandedHeader(useColor, "jfr " + subcommand,
@@ -156,17 +157,4 @@ public final class JfrCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
 
-    private static void printJson(JfrResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"status\":\"").append(RichRenderer.escapeJson(result.status())).append('"');
-        sb.append(",\"message\":\"").append(RichRenderer.escapeJson(result.message())).append('"');
-        if (result.recordingInfo() != null) {
-            sb.append(",\"recordingInfo\":\"")
-              .append(RichRenderer.escapeJson(result.recordingInfo())).append('"');
-        } else {
-            sb.append(",\"recordingInfo\":null");
-        }
-        sb.append('}');
-        System.out.println(sb);
-    }
 }

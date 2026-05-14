@@ -1,9 +1,11 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+
 /**
  * Young generation GC detail from jstat -gcnew.
  */
-public final class GcNewResult {
+public final class GcNewResult implements JsonWritable {
     private final double s0c;   // Survivor 0 capacity (KB)
     private final double s1c;   // Survivor 1 capacity (KB)
     private final double s0u;   // Survivor 0 used (KB)
@@ -35,4 +37,13 @@ public final class GcNewResult {
     public double eu() { return eu; }
     public long ygc() { return ygc; }
     public double ygct() { return ygct; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"s0c\":").append(s0c).append(",\"s1c\":").append(s1c)
+           .append(",\"s0u\":").append(s0u).append(",\"s1u\":").append(s1u)
+           .append(",\"tt\":").append(tt).append(",\"mtt\":").append(mtt)
+           .append(",\"dss\":").append(dss).append(",\"ec\":").append(ec).append(",\"eu\":").append(eu)
+           .append(",\"ygc\":").append(ygc).append(",\"ygct\":").append(ygct).append('}');
+    }
 }

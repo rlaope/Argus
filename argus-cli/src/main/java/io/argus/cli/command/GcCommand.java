@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.GcResult;
 import io.argus.cli.provider.GcProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -51,7 +52,7 @@ public final class GcCommand implements Command {
         GcResult result = provider.getGcInfo(pid);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
             return;
         }
 
@@ -100,27 +101,6 @@ public final class GcCommand implements Command {
         }
 
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
-    }
-
-    private static void printJson(GcResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalEvents\":").append(result.totalEvents())
-          .append(",\"totalPauseMs\":").append(result.totalPauseMs())
-          .append(",\"overheadPercent\":").append(result.overheadPercent())
-          .append(",\"lastCause\":\"").append(RichRenderer.escapeJson(result.lastCause())).append('"')
-          .append(",\"heapUsed\":").append(result.heapUsed())
-          .append(",\"heapCommitted\":").append(result.heapCommitted())
-          .append(",\"collectors\":[");
-        for (int i = 0; i < result.collectors().size(); i++) {
-            GcResult.CollectorInfo c = result.collectors().get(i);
-            if (i > 0) sb.append(',');
-            sb.append("{\"name\":\"").append(RichRenderer.escapeJson(c.name())).append('"')
-              .append(",\"count\":").append(c.count())
-              .append(",\"totalMs\":").append(c.totalMs())
-              .append('}');
-        }
-        sb.append("]}");
-        System.out.println(sb);
     }
 
 }

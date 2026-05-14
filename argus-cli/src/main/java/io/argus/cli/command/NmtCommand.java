@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.NmtBaseline;
 import io.argus.cli.model.NmtResult;
 import io.argus.cli.provider.NmtProvider;
@@ -109,7 +110,7 @@ public final class NmtCommand implements Command {
         }
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
         } else {
             System.out.print(RichRenderer.brandedHeader(useColor, "nmt", messages.get("desc.nmt")));
             printTable(result, pid, provider.source(), useColor, messages);
@@ -496,21 +497,4 @@ public final class NmtCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor, cats.size() + " categories", WIDTH));
     }
 
-    private static void printJson(NmtResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalReservedKB\":").append(result.totalReservedKB())
-          .append(",\"totalCommittedKB\":").append(result.totalCommittedKB())
-          .append(",\"categories\":[");
-        boolean first = true;
-        for (NmtResult.NmtCategory cat : result.categories()) {
-            if (!first) sb.append(',');
-            sb.append("{\"name\":\"").append(RichRenderer.escapeJson(cat.name())).append('"')
-              .append(",\"reservedKB\":").append(cat.reservedKB())
-              .append(",\"committedKB\":").append(cat.committedKB())
-              .append('}');
-            first = false;
-        }
-        sb.append("]}");
-        System.out.println(sb);
-    }
 }

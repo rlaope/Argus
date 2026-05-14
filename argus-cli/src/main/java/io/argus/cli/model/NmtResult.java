@@ -1,11 +1,14 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 
 /**
  * Snapshot of native memory tracking from jcmd VM.native_memory summary.
  */
-public final class NmtResult {
+public final class NmtResult implements JsonWritable {
     private final long totalReservedKB;
     private final long totalCommittedKB;
     private final List<NmtCategory> categories;
@@ -36,6 +39,23 @@ public final class NmtResult {
     public long totalReservedKB() { return totalReservedKB; }
     public long totalCommittedKB() { return totalCommittedKB; }
     public List<NmtCategory> categories() { return categories; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"totalReservedKB\":").append(totalReservedKB)
+           .append(",\"totalCommittedKB\":").append(totalCommittedKB)
+           .append(",\"categories\":[");
+        boolean first = true;
+        for (NmtCategory cat : categories) {
+            if (!first) out.append(',');
+            out.append("{\"name\":\"").append(RichRenderer.escapeJson(cat.name())).append('"')
+               .append(",\"reservedKB\":").append(cat.reservedKB())
+               .append(",\"committedKB\":").append(cat.committedKB())
+               .append('}');
+            first = false;
+        }
+        out.append("]}");
+    }
 
     public static final class NmtCategory {
         private final String name;

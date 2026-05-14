@@ -2,14 +2,13 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.InfoResult;
 import io.argus.cli.provider.InfoProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
-
-import java.util.Map;
 
 /**
  * Shows JVM information for a given PID.
@@ -52,7 +51,7 @@ public final class InfoCommand implements Command {
         InfoResult result = provider.getVmInfo(pid);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
             return;
         }
 
@@ -120,35 +119,5 @@ public final class InfoCommand implements Command {
 
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
-
-    private static void printJson(InfoResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"vmName\":\"").append(RichRenderer.escapeJson(result.vmName())).append('"')
-          .append(",\"vmVersion\":\"").append(RichRenderer.escapeJson(result.vmVersion())).append('"')
-          .append(",\"vmVendor\":\"").append(RichRenderer.escapeJson(result.vmVendor())).append('"')
-          .append(",\"uptimeMs\":").append(result.uptimeMs())
-          .append(",\"pid\":").append(result.pid())
-          .append(",\"vmFlags\":[");
-        for (int i = 0; i < result.vmFlags().size(); i++) {
-            if (i > 0) sb.append(',');
-            sb.append('"').append(RichRenderer.escapeJson(result.vmFlags().get(i))).append('"');
-        }
-        sb.append("],\"systemProperties\":{");
-        boolean first = true;
-        for (Map.Entry<String, String> e : result.systemProperties().entrySet()) {
-            if (!first) sb.append(',');
-            sb.append('"').append(RichRenderer.escapeJson(e.getKey())).append("\":\"")
-              .append(RichRenderer.escapeJson(e.getValue())).append('"');
-            first = false;
-        }
-        sb.append("}");
-        sb.append(",\"processCpuLoad\":").append(result.processCpuLoad());
-        sb.append(",\"systemCpuLoad\":").append(result.systemCpuLoad());
-        sb.append(",\"availableProcessors\":").append(result.availableProcessors());
-        sb.append(",\"systemLoadAverage\":").append(result.systemLoadAverage());
-        sb.append('}');
-        System.out.println(sb);
-    }
-
 
 }

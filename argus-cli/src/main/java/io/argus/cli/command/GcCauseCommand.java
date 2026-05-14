@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.GcCauseResult;
 import io.argus.cli.provider.GcCauseProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -44,7 +45,7 @@ public final class GcCauseCommand implements Command {
 
         GcCauseResult result = provider.getGcCause(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "gccause", messages.get("desc.gccause")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.gccause"), WIDTH, "pid:" + pid, "source:" + source));
@@ -86,14 +87,4 @@ public final class GcCauseCommand implements Command {
         System.out.println(RichRenderer.boxLine(line, WIDTH));
     }
 
-    private static void printJson(GcCauseResult r) {
-        System.out.println("{\"s0\":" + r.s0() + ",\"s1\":" + r.s1()
-                + ",\"eden\":" + r.eden() + ",\"old\":" + r.old()
-                + ",\"meta\":" + r.meta() + ",\"ccs\":" + r.ccs()
-                + ",\"ygc\":" + r.ygc() + ",\"ygct\":" + r.ygct()
-                + ",\"fgc\":" + r.fgc() + ",\"fgct\":" + r.fgct()
-                + ",\"gct\":" + r.gct()
-                + ",\"lastGcCause\":\"" + RichRenderer.escapeJson(r.lastGcCause()) + "\""
-                + ",\"currentGcCause\":\"" + RichRenderer.escapeJson(r.currentGcCause()) + "\"}");
-    }
 }

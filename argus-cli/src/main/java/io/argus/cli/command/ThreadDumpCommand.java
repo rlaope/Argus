@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.ThreadDumpResult;
 import io.argus.cli.model.ThreadDumpResult.ThreadInfo;
 import io.argus.cli.provider.ProviderRegistry;
@@ -69,7 +70,7 @@ public final class ThreadDumpCommand implements Command {
         }
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
             return;
         }
 
@@ -180,36 +181,4 @@ public final class ThreadDumpCommand implements Command {
         }
     }
 
-    private static void printJson(ThreadDumpResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalThreads\":").append(result.totalThreads());
-        sb.append(",\"threads\":[");
-        for (int i = 0; i < result.threads().size(); i++) {
-            ThreadInfo t = result.threads().get(i);
-            if (i > 0) sb.append(',');
-            sb.append("{\"name\":\"").append(RichRenderer.escapeJson(t.name())).append('"');
-            sb.append(",\"tid\":").append(t.tid());
-            sb.append(",\"nid\":").append(t.nid());
-            sb.append(",\"state\":\"").append(t.state()).append('"');
-            sb.append(",\"daemon\":").append(t.daemon());
-            sb.append(",\"priority\":").append(t.priority());
-            if (!t.waitingOn().isEmpty()) {
-                sb.append(",\"waitingOn\":\"").append(RichRenderer.escapeJson(t.waitingOn())).append('"');
-            }
-            sb.append(",\"locksHeld\":[");
-            for (int j = 0; j < t.locksHeld().size(); j++) {
-                if (j > 0) sb.append(',');
-                sb.append('"').append(RichRenderer.escapeJson(t.locksHeld().get(j))).append('"');
-            }
-            sb.append("]");
-            sb.append(",\"stackTrace\":[");
-            for (int j = 0; j < t.stackTrace().size(); j++) {
-                if (j > 0) sb.append(',');
-                sb.append('"').append(RichRenderer.escapeJson(t.stackTrace().get(j))).append('"');
-            }
-            sb.append("]}");
-        }
-        sb.append("]}");
-        System.out.println(sb);
-    }
 }

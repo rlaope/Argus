@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.HistoResult;
 import io.argus.cli.provider.HistoProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -56,7 +57,7 @@ public final class HistoCommand implements Command {
         HistoResult result = provider.getHistogram(pid, topN);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
             return;
         }
 
@@ -91,24 +92,6 @@ public final class HistoCommand implements Command {
                 + " objects \u00b7 " + RichRenderer.formatBytes(result.totalBytes());
         System.out.println(RichRenderer.boxLine(summary, WIDTH));
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
-    }
-
-    private static void printJson(HistoResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalInstances\":").append(result.totalInstances())
-          .append(",\"totalBytes\":").append(result.totalBytes())
-          .append(",\"entries\":[");
-        for (int i = 0; i < result.entries().size(); i++) {
-            HistoResult.Entry e = result.entries().get(i);
-            if (i > 0) sb.append(',');
-            sb.append("{\"rank\":").append(e.rank())
-              .append(",\"className\":\"").append(RichRenderer.escapeJson(e.className())).append('"')
-              .append(",\"instances\":").append(e.instances())
-              .append(",\"bytes\":").append(e.bytes())
-              .append('}');
-        }
-        sb.append("]}");
-        System.out.println(sb);
     }
 
     private static String formatCount(long n) {

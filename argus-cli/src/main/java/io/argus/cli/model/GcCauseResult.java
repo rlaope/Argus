@@ -1,9 +1,12 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 /**
  * GC cause result from jstat -gccause. Extends gcutil with last/current GC cause.
  */
-public final class GcCauseResult {
+public final class GcCauseResult implements JsonWritable {
     private final double s0;
     private final double s1;
     private final double eden;
@@ -40,4 +43,16 @@ public final class GcCauseResult {
     public double gct() { return gct; }
     public String lastGcCause() { return lastGcCause; }
     public String currentGcCause() { return currentGcCause; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"s0\":").append(s0).append(",\"s1\":").append(s1)
+           .append(",\"eden\":").append(eden).append(",\"old\":").append(old)
+           .append(",\"meta\":").append(meta).append(",\"ccs\":").append(ccs)
+           .append(",\"ygc\":").append(ygc).append(",\"ygct\":").append(ygct)
+           .append(",\"fgc\":").append(fgc).append(",\"fgct\":").append(fgct)
+           .append(",\"gct\":").append(gct)
+           .append(",\"lastGcCause\":\"").append(RichRenderer.escapeJson(lastGcCause)).append('"')
+           .append(",\"currentGcCause\":\"").append(RichRenderer.escapeJson(currentGcCause)).append("\"}");
+    }
 }

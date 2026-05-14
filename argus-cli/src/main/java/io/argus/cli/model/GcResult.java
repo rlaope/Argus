@@ -1,11 +1,14 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 
 /**
  * GC statistics result.
  */
-public final class GcResult {
+public final class GcResult implements JsonWritable {
     private final long totalEvents;
     private final double totalPauseMs;
     private final double overheadPercent;
@@ -33,6 +36,26 @@ public final class GcResult {
     public long heapUsed() { return heapUsed; }
     public long heapCommitted() { return heapCommitted; }
     public List<CollectorInfo> collectors() { return collectors; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"totalEvents\":").append(totalEvents)
+           .append(",\"totalPauseMs\":").append(totalPauseMs)
+           .append(",\"overheadPercent\":").append(overheadPercent)
+           .append(",\"lastCause\":\"").append(RichRenderer.escapeJson(lastCause)).append('"')
+           .append(",\"heapUsed\":").append(heapUsed)
+           .append(",\"heapCommitted\":").append(heapCommitted)
+           .append(",\"collectors\":[");
+        for (int i = 0; i < collectors.size(); i++) {
+            CollectorInfo c = collectors.get(i);
+            if (i > 0) out.append(',');
+            out.append("{\"name\":\"").append(RichRenderer.escapeJson(c.name())).append('"')
+               .append(",\"count\":").append(c.count())
+               .append(",\"totalMs\":").append(c.totalMs())
+               .append('}');
+        }
+        out.append("]}");
+    }
 
     public static final class CollectorInfo {
         private final String name;

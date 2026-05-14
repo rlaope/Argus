@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.CompilerResult;
 import io.argus.cli.provider.CompilerProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -44,7 +45,7 @@ public final class CompilerCommand implements Command {
 
         CompilerResult result = provider.getCompilerInfo(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "compiler", messages.get("desc.compiler")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.compiler"), WIDTH, "pid:" + pid, "source:" + source));
@@ -100,18 +101,5 @@ public final class CompilerCommand implements Command {
         }
 
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
-    }
-
-    private static void printJson(CompilerResult result) {
-        System.out.println("{\"codeCacheSizeKb\":" + result.codeCacheSizeKb()
-                + ",\"codeCacheUsedKb\":" + result.codeCacheUsedKb()
-                + ",\"codeCacheMaxUsedKb\":" + result.codeCacheMaxUsedKb()
-                + ",\"codeCacheFreeKb\":" + result.codeCacheFreeKb()
-                + ",\"totalBlobs\":" + result.totalBlobs()
-                + ",\"nmethods\":" + result.nmethods()
-                + ",\"adapters\":" + result.adapters()
-                + ",\"compilationEnabled\":" + result.compilationEnabled()
-                + ",\"queueSize\":" + result.queueSize()
-                + ",\"deoptCount\":" + result.deoptCount() + "}");
     }
 }

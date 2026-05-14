@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.GcUtilResult;
 import io.argus.cli.provider.GcUtilProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -61,7 +62,7 @@ public final class GcUtilCommand implements Command {
         } else {
             GcUtilResult result = provider.getGcUtil(pid);
             if (json) {
-                printJson(result);
+                JsonOutput.println(result);
             } else {
                 System.out.print(RichRenderer.brandedHeader(useColor, "gcutil", messages.get("desc.gcutil")));
                 printTable(result, pid, source, useColor, messages, true);
@@ -164,20 +165,4 @@ public final class GcUtilCommand implements Command {
         return color + RichRenderer.padRight(formatted, width) + reset;
     }
 
-    private static void printJson(GcUtilResult r) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"s0\":").append(r.s0())
-          .append(",\"s1\":").append(r.s1())
-          .append(",\"eden\":").append(r.eden())
-          .append(",\"old\":").append(r.old())
-          .append(",\"meta\":").append(r.meta())
-          .append(",\"ccs\":").append(r.ccs())
-          .append(",\"ygc\":").append(r.ygc())
-          .append(",\"ygct\":").append(r.ygct())
-          .append(",\"fgc\":").append(r.fgc())
-          .append(",\"fgct\":").append(r.fgct())
-          .append(",\"gct\":").append(r.gct())
-          .append('}');
-        System.out.println(sb);
-    }
 }

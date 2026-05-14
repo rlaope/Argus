@@ -1,11 +1,14 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 
 /**
  * Snapshot of classloader hierarchy from jcmd VM.classloaders.
  */
-public final class ClassLoaderResult {
+public final class ClassLoaderResult implements JsonWritable {
     private final List<ClassLoaderInfo> loaders;
     private final long totalClasses;
 
@@ -16,6 +19,25 @@ public final class ClassLoaderResult {
 
     public List<ClassLoaderInfo> loaders() { return loaders; }
     public long totalClasses() { return totalClasses; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"loaders\":[");
+        boolean first = true;
+        for (ClassLoaderInfo loader : loaders) {
+            if (!first) out.append(',');
+            first = false;
+            out.append("{\"name\":\"").append(RichRenderer.escapeJson(loader.name())).append('"')
+               .append(",\"classCount\":").append(loader.classCount());
+            if (loader.parent() != null) {
+                out.append(",\"parent\":\"").append(RichRenderer.escapeJson(loader.parent())).append('"');
+            } else {
+                out.append(",\"parent\":null");
+            }
+            out.append('}');
+        }
+        out.append("],\"totalClasses\":").append(totalClasses).append('}');
+    }
 
     public static final class ClassLoaderInfo {
         private final String name;

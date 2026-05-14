@@ -1,9 +1,11 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+
 /**
  * JIT compiler and code cache statistics.
  */
-public final class CompilerResult {
+public final class CompilerResult implements JsonWritable {
     private final long codeCacheSizeKb;
     private final long codeCacheUsedKb;
     private final long codeCacheMaxUsedKb;
@@ -48,4 +50,19 @@ public final class CompilerResult {
     public int queueSize() { return queueSize; }
     /** Total runtime deoptimizations since JVM start; 0 when unknown. */
     public long deoptCount() { return deoptCount; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"codeCacheSizeKb\":").append(codeCacheSizeKb)
+           .append(",\"codeCacheUsedKb\":").append(codeCacheUsedKb)
+           .append(",\"codeCacheMaxUsedKb\":").append(codeCacheMaxUsedKb)
+           .append(",\"codeCacheFreeKb\":").append(codeCacheFreeKb)
+           .append(",\"totalBlobs\":").append(totalBlobs)
+           .append(",\"nmethods\":").append(nmethods)
+           .append(",\"adapters\":").append(adapters)
+           .append(",\"compilationEnabled\":").append(compilationEnabled)
+           .append(",\"queueSize\":").append(queueSize)
+           .append(",\"deoptCount\":").append(deoptCount)
+           .append('}');
+    }
 }

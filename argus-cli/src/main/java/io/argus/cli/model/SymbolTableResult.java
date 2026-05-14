@@ -1,9 +1,11 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+
 /**
  * Symbol table statistics from jcmd VM.symboltable.
  */
-public final class SymbolTableResult {
+public final class SymbolTableResult implements JsonWritable {
     private final long bucketCount;
     private final long entryCount;
     private final long literalCount;
@@ -34,4 +36,17 @@ public final class SymbolTableResult {
     public long literalBytes() { return literalBytes; }
     public long totalBytes() { return totalBytes; }
     public double avgLiteralSize() { return avgLiteralSize; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"bucketCount\":").append(bucketCount)
+           .append(",\"entryCount\":").append(entryCount)
+           .append(",\"literalCount\":").append(literalCount)
+           .append(",\"bucketBytes\":").append(bucketBytes)
+           .append(",\"entryBytes\":").append(entryBytes)
+           .append(",\"literalBytes\":").append(literalBytes)
+           .append(",\"totalBytes\":").append(totalBytes)
+           .append(",\"avgLiteralSize\":").append(avgLiteralSize)
+           .append('}');
+    }
 }

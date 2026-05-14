@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.MetaspaceResult;
 import io.argus.cli.provider.MetaspaceProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -44,7 +45,7 @@ public final class MetaspaceCommand implements Command {
 
         MetaspaceResult result = provider.getMetaspaceInfo(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "metaspace", messages.get("desc.metaspace")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.metaspace"), WIDTH, "pid:" + pid, "source:" + source));
@@ -97,21 +98,4 @@ public final class MetaspaceCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
 
-    private static void printJson(MetaspaceResult r) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalReserved\":").append(r.totalReserved());
-        sb.append(",\"totalCommitted\":").append(r.totalCommitted());
-        sb.append(",\"totalUsed\":").append(r.totalUsed());
-        sb.append(",\"spaces\":[");
-        for (int i = 0; i < r.spaces().size(); i++) {
-            MetaspaceResult.SpaceInfo sp = r.spaces().get(i);
-            if (i > 0) sb.append(',');
-            sb.append("{\"name\":\"").append(sp.name()).append('"');
-            sb.append(",\"reserved\":").append(sp.reserved());
-            sb.append(",\"committed\":").append(sp.committed());
-            sb.append(",\"used\":").append(sp.used()).append('}');
-        }
-        sb.append("]}");
-        System.out.println(sb);
-    }
 }

@@ -1,11 +1,14 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 
 /**
  * Deadlock detection result with detailed chain information.
  */
-public final class DeadlockResult {
+public final class DeadlockResult implements JsonWritable {
     private final int deadlockCount;
     private final List<DeadlockChain> chains;
 
@@ -16,6 +19,31 @@ public final class DeadlockResult {
 
     public int deadlockCount() { return deadlockCount; }
     public List<DeadlockChain> chains() { return chains; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"deadlockCount\":").append(deadlockCount)
+           .append(",\"chains\":[");
+        for (int c = 0; c < chains.size(); c++) {
+            DeadlockChain chain = chains.get(c);
+            if (c > 0) out.append(',');
+            out.append("{\"threads\":[");
+            for (int t = 0; t < chain.threads().size(); t++) {
+                DeadlockThread thread = chain.threads().get(t);
+                if (t > 0) out.append(',');
+                out.append("{\"name\":\"").append(RichRenderer.escapeJson(thread.name())).append('"')
+                   .append(",\"state\":\"").append(RichRenderer.escapeJson(thread.state())).append('"')
+                   .append(",\"waitingLock\":\"").append(RichRenderer.escapeJson(thread.waitingLock())).append('"')
+                   .append(",\"waitingLockClass\":\"").append(RichRenderer.escapeJson(thread.waitingLockClass())).append('"')
+                   .append(",\"heldLock\":\"").append(RichRenderer.escapeJson(thread.heldLock())).append('"')
+                   .append(",\"heldLockClass\":\"").append(RichRenderer.escapeJson(thread.heldLockClass())).append('"')
+                   .append(",\"stackTop\":\"").append(RichRenderer.escapeJson(thread.stackTop())).append('"')
+                   .append('}');
+            }
+            out.append("]}");
+        }
+        out.append("]}");
+    }
 
     /**
      * A single deadlock chain involving two or more threads.
