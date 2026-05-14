@@ -29,8 +29,9 @@ jobs:
       - name: Prepare site
         run: |
           mkdir -p _site
-          cp site/index.html _site/
+          cp site/*.html _site/
           cp -r assets _site/assets
+          cp -r site/assets/. _site/assets/
 
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
 

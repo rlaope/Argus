@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLI Commands — Argus</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<!-- Top header -->
+<header id="top-header">
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+    </button>
+    <a href="index.html" class="header-logo">
+        <img src="assets/argus_logo.png" alt="Argus">
+        <span class="header-logo-text">Argus</span>
+    </a>
+    <span class="header-divider"></span>
+    <span class="header-subtitle">JVM Observability Platform</span>
+    <nav class="page-nav" aria-label="Site sections">
+        <a href="index.html">Overview</a>
+        <a href="commands.html" class="active">Commands</a>
+        <a href="comparison.html">vs Traditional</a>
+        <a href="scenarios.html">Scenarios</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="integrations.html">Integrations</a>
+        <a href="reference.html">Reference</a>
+    </nav>
+    <span class="header-spacer"></span>
+    <a href="https://github.com/rlaope/Argus" class="header-github" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+    </a>
+</header>
+
+<div id="sidebar-overlay"></div>
+
+<div id="layout">
+
+    <nav id="sidebar" aria-label="Page contents">
+        <div class="sidebar-section">
+            <span class="sidebar-label">On this page</span>
+            <ul class="sidebar-nav">
+                <li><a href="#cli-commands" data-target="cli-commands">CLI Commands</a></li>
+                <li class="sub"><a href="#first-diagnosis" data-target="first-diagnosis">First Diagnosis</a></li>
+                <li class="sub"><a href="#command-reference" data-target="command-reference">Command Reference</a></li>
+                <li><a href="#zgc" data-target="zgc">ZGC Diagnosis</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main id="content">
+        <div class="content-inner">
+
+            <!-- CLI COMMANDS -->
+            <div class="doc-section">
+                <span class="section-anchor" id="cli-commands"></span>
+                <h2>CLI Commands</h2>
+
+                <p>The CLI is a standalone tool that works on any running JVM process. You don't need to have started the application with any special flags. You don't need to install an agent. If you can see the process in <code>jps</code>, Argus can diagnose it.</p>
+
+                <span class="section-anchor" id="first-diagnosis"></span>
+                <h3>Your First Diagnosis</h3>
+
+                <p>Let's say you have a Java application that's behaving strangely. Here's how you'd investigate:</p>
+
+                <pre><code># Step 1: Find your application's PID
+argus ps
+
+# Step 2: Get an overview of the JVM
+argus info 12345
+
+# Step 3: Check GC behavior — is the GC working too hard?
+argus gc 12345
+
+# Step 4: Look at memory — is something leaking?
+argus heap 12345
+
+# Step 5: Check threads — are there too many? Any deadlocked?
+argus threads 12345
+argus deadlock 12345
+
+# Step 6: If memory is the issue, find what's consuming it
+argus histo 12345</code></pre>
+
+                <div class="video-container">
+                    <video src="assets/argus-cli-demo.mp4" autoplay loop muted playsinline></video>
+                </div>
+                <p class="video-caption">Argus CLI in action — diagnosing a running JVM process</p>
+
+                <span class="section-anchor" id="command-reference"></span>
+                <h3>All 67 Commands</h3>
+
+                <p>Every command follows the same pattern: <code>argus &lt;command&gt; &lt;pid&gt;</code>. All commands support <code>--format=json</code> for scripting and <code>--source=auto|agent|jdk</code> to control the data source.</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Commands</th>
+                                <th>What they tell you</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Process</td><td><code>ps</code>, <code>info</code>, <code>init</code></td><td>Find and identify JVM processes</td></tr>
+                            <tr><td>Memory</td><td><code>heap</code>, <code>histo</code>, <code>heapdump</code>, <code>diff</code>, <code>nmt</code></td><td>Heap usage, object distribution, native memory</td></tr>
+                            <tr><td>GC</td><td><code>gc</code>, <code>gcutil</code>, <code>gccause</code>, <code>gcnew</code>, <code>zgc</code></td><td>GC frequency, pause times, causes, generation stats; ZGC live diagnosis (allocation stalls, soft-max breach, cycle overlap) + trend tracking</td></tr>
+                            <tr><td>Threads</td><td><code>threads</code>, <code>deadlock</code>, <code>pool</code></td><td>Thread states, deadlocks, pool analysis</td></tr>
+                            <tr><td>CPU</td><td><code>profile</code>, <code>jfr</code></td><td>CPU profiling, flight recording</td></tr>
+                            <tr><td>Classes</td><td><code>classloader</code>, <code>classstat</code>, <code>stringtable</code>, <code>symboltable</code></td><td>Class loading, interned strings, symbols</td></tr>
+                            <tr><td>Runtime</td><td><code>sysprops</code>, <code>vmflag</code>, <code>vmset</code>, <code>vmlog</code>, <code>env</code>, <code>dynlibs</code></td><td>Configuration, flags, environment</td></tr>
+                            <tr><td>Advanced</td><td><code>metaspace</code>, <code>compiler</code>, <code>finalizer</code>, <code>jmx</code>, <code>report</code>, <code>top</code></td><td>Metaspace, JIT, finalizers, diagnostics</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ZGC DIAGNOSIS -->
+            <div class="doc-section">
+                <span class="section-anchor" id="zgc"></span>
+                <h2>ZGC Diagnosis</h2>
+
+                <div class="callout">
+                    <p><strong>ZGC monitoring in one command.</strong> <code>argus zgc &lt;PID&gt;</code> runs a 30-second live JFR capture and returns a HEALTHY/WARNING/UNHEALTHY verdict driven by allocation stalls, SoftMaxHeapSize breach, and cycle overlap — the signals JDK Mission Control surfaces with three GUI clicks, in a one-line CLI.</p>
+                </div>
+
+                <p>The command pre-checks the target JVM via JMX to confirm ZGC is the active collector, then captures a JFR profile recording, parses ZGC-specific events, and prints a verdict with concrete tuning recommendations. Use <code>--duration=N</code> to override the default 30-second window (5–120 seconds). Allocation stalls now ship with the top-5 allocator call sites from the same JFR capture, so you see <em>what</em> allocated and <em>who</em> stalled in one shot. Use <code>--save</code>/<code>--diff</code> to track ZGC health across deploys, or <code>--watch</code> for live load tests.</p>
+
+<pre><code>$ argus zgc 12345
+ZGC Diagnosis (PID 12345, JDK 21, Generational)
+Heap         committed 4.2 GB / soft 4.0 GB / max 5.0 GB
+Cycles       12 minor, 2 major (avg interval 2.5s)
+Allocation Stalls  ✘ 7 stalls in 30s (max 508.8ms)
+Verdict: UNHEALTHY  — allocation stalls + soft-max breach
+
+Recommend:
+  • Raise -Xmx (e.g. -Xmx7g)
+  • Or raise -XX:SoftMaxHeapSize toward -Xmx
+  • Profile allocations: argus profile 12345 --event=alloc</code></pre>
+
+                <p>If the JVM is not running ZGC, the command exits with a clear message and suggests <code>argus gc &lt;PID&gt;</code> instead. Requires Java 21+ on the target process.</p>
+
+<pre><code># Save a healthy baseline before a deploy
+$ argus zgc 12345 --save=/tmp/zgc-pre.txt
+Saved ZGC baseline to: /tmp/zgc-pre.txt
+
+# After the deploy, see what changed
+$ argus zgc 12345 --diff=/tmp/zgc-pre.txt
+ZGC Diff (baseline 2026-05-08T12:00:00Z → now 2026-05-08T12:30:00Z, +30 min)
+  Heap committed     4.0 GB → 4.5 GB    (+512 MB) ⚠
+  Allocation stalls  0     → 7         (NEW) ✘
+  Pause Mark End     0.30ms → 0.42ms   (+0.12ms ⚠)
+
+# Or watch live during a load test
+$ argus zgc 12345 --watch=10 --interval=60</code></pre>
+
+            </div>
+
+        </div><!-- .content-inner -->
+
+        <footer>
+            <p>Argus JVM Observability Platform &mdash; <a href="https://github.com/rlaope/Argus" target="_blank" rel="noopener">GitHub</a></p>
+        </footer>
+    </main>
+
+</div><!-- #layout -->
+
+<script src="assets/site.js"></script>
+
+</body>
+</html>

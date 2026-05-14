@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vs Traditional JVM Tools — Argus</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="top-header">
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+    </button>
+    <a href="index.html" class="header-logo">
+        <img src="assets/argus_logo.png" alt="Argus">
+        <span class="header-logo-text">Argus</span>
+    </a>
+    <span class="header-divider"></span>
+    <span class="header-subtitle">JVM Observability Platform</span>
+    <nav class="page-nav" aria-label="Site sections">
+        <a href="index.html">Overview</a>
+        <a href="commands.html">Commands</a>
+        <a href="comparison.html" class="active">vs Traditional</a>
+        <a href="scenarios.html">Scenarios</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="integrations.html">Integrations</a>
+        <a href="reference.html">Reference</a>
+    </nav>
+    <span class="header-spacer"></span>
+    <a href="https://github.com/rlaope/Argus" class="header-github" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+    </a>
+</header>
+
+<div id="sidebar-overlay"></div>
+
+<div id="layout">
+
+    <nav id="sidebar" aria-label="Page contents">
+        <div class="sidebar-section">
+            <span class="sidebar-label">On this page</span>
+            <ul class="sidebar-nav">
+                <li><a href="#comparison" data-target="comparison">vs Traditional JVM Tools</a></li>
+            </ul>
+        </div>
+        <div class="sidebar-section">
+            <span class="sidebar-label">Related</span>
+            <ul class="sidebar-nav">
+                <li><a href="scenarios.html">Real-World Scenarios</a></li>
+                <li><a href="commands.html">CLI Commands</a></li>
+                <li><a href="commands.html#zgc">ZGC Diagnosis</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main id="content">
+        <div class="content-inner">
+
+            <!-- COMPARISON -->
+            <div class="doc-section">
+                <span class="section-anchor" id="comparison"></span>
+                <h2>Argus vs Traditional JVM Tools</h2>
+
+                <p>Argus's value proposition is brutally simple: replace the JFR-capture-then-GUI-then-grep workflow with one CLI command. Below are five real production scenarios where Argus collapses 5–10 manual steps into one or two commands.</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Scenario</th>
+                                <th>Traditional Path</th>
+                                <th>Argus</th>
+                                <th>Steps Saved</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>GC pressure under traffic</td>
+                                <td><code>jstat -gc</code> + log grep + interpretation</td>
+                                <td><code>argus doctor &lt;PID&gt;</code></td>
+                                <td>1 cmd vs 5</td>
+                            </tr>
+                            <tr>
+                                <td>Direct memory leak</td>
+                                <td><code>jcmd VM.native_memory baseline</code> + <code>detail.diff</code> + scan 200 lines</td>
+                                <td><code>argus nmt &lt;PID&gt; --diff baseline.json</code></td>
+                                <td>scan → banner + top growers</td>
+                            </tr>
+                            <tr>
+                                <td>Lock contention</td>
+                                <td><code>jstack</code> × 3 + manual <code>waiting to lock</code> aggregation</td>
+                                <td><code>argus pool &lt;PID&gt;</code></td>
+                                <td>1 cmd vs 3 jstacks + grep</td>
+                            </tr>
+                            <tr>
+                                <td>ZGC allocation stalls</td>
+                                <td><code>jcmd JFR.start</code> (30s) → JMC GUI → ZGC tab → <code>async-profiler -e alloc</code> (30s)</td>
+                                <td><code>argus zgc &lt;PID&gt;</code> (30s, includes top-5 alloc sites)</td>
+                                <td>1 cmd vs JFR + GUI + separate profiler</td>
+                            </tr>
+                            <tr>
+                                <td>ZGC trend across deploy</td>
+                                <td>Author custom Prometheus rule comparing committed vs SoftMax</td>
+                                <td><code>argus zgc &lt;PID&gt; --save=pre.txt</code> then <code>--diff=pre.txt</code></td>
+                                <td>1 cmd vs DIY metric pipeline</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>The ZGC workflow is the clearest illustration. The traditional path requires four <code>jcmd</code> calls, a GUI tool, and a second profiler session — then you manually correlate two output streams. Argus captures the same signals in one command:</p>
+
+<pre><code># Traditional: 4 commands + GUI
+$ jcmd 12345 JFR.start name=zgc duration=30s filename=/tmp/zgc.jfr settings=profile
+$ jcmd 12345 JFR.dump  name=zgc filename=/tmp/zgc.jfr
+$ jcmd 12345 JFR.stop  name=zgc
+$ jmc /tmp/zgc.jfr   # then click ZGC > Allocation Stalls tab
+$ async-profiler -e alloc -d 30s 12345  # for call-site identification
+
+# Argus: 1 command, 30 seconds, includes call sites
+$ argus zgc 12345
+ZGC Diagnosis (PID 12345, JDK 21, Generational)
+Allocation Stalls  ✘ 7 stalls in 30s (max 508.8ms)
+  Top alloc sources during capture (n=14,832 events)
+    1. com.example.JsonParser.parseObject(JsonParser.java:142)  38.2%
+    2. java.util.HashMap.resize(HashMap.java:711)               22.1%</code></pre>
+
+                <p>Full methodology and 9 scenarios with measured wallclock times: <a href="https://github.com/rlaope/Argus/blob/master/docs/comparison-argus-vs-traditional.md">comparison study →</a></p>
+
+                <p>For twelve full end-to-end production incidents — including humongous allocations, TTSP, OOMKilled, JIT deoptimization storms, false sharing, and direct buffer exhaustion — see <a href="scenarios.html">Real-World Scenarios</a>.</p>
+            </div>
+
+        </div><!-- .content-inner -->
+
+        <footer>
+            <p>Argus JVM Observability Platform &mdash; <a href="https://github.com/rlaope/Argus" target="_blank" rel="noopener">GitHub</a></p>
+        </footer>
+    </main>
+
+</div><!-- #layout -->
+
+<script src="assets/site.js"></script>
+
+</body>
+</html>
