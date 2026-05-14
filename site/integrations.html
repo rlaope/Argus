@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrations — Argus</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="top-header">
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+    </button>
+    <a href="index.html" class="header-logo">
+        <img src="assets/argus_logo.png" alt="Argus">
+        <span class="header-logo-text">Argus</span>
+    </a>
+    <span class="header-divider"></span>
+    <span class="header-subtitle">JVM Observability Platform</span>
+    <nav class="page-nav" aria-label="Site sections">
+        <a href="index.html">Overview</a>
+        <a href="commands.html">Commands</a>
+        <a href="comparison.html">vs Traditional</a>
+        <a href="scenarios.html">Scenarios</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="integrations.html" class="active">Integrations</a>
+        <a href="reference.html">Reference</a>
+    </nav>
+    <span class="header-spacer"></span>
+    <a href="https://github.com/rlaope/Argus" class="header-github" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+    </a>
+</header>
+
+<div id="sidebar-overlay"></div>
+
+<div id="layout">
+
+    <nav id="sidebar" aria-label="Page contents">
+        <div class="sidebar-section">
+            <span class="sidebar-label">On this page</span>
+            <ul class="sidebar-nav">
+                <li><a href="#spring-boot" data-target="spring-boot">Spring Boot</a></li>
+                <li class="sub"><a href="#spring-setup" data-target="spring-setup">Setup</a></li>
+                <li class="sub"><a href="#spring-config" data-target="spring-config">Configuration</a></li>
+                <li><a href="#micrometer" data-target="micrometer">Micrometer Metrics</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main id="content">
+        <div class="content-inner">
+
+            <!-- SPRING BOOT -->
+            <div class="doc-section">
+                <span class="section-anchor" id="spring-boot"></span>
+                <h2>Spring Boot Integration</h2>
+
+                <p>If you're building a Spring Boot application (3.2+), you don't need to use the <code>-javaagent</code> flag at all. Just add a single dependency and Argus starts automatically with your application.</p>
+
+                <span class="section-anchor" id="spring-setup"></span>
+                <h3>Setup</h3>
+
+                <pre><code>// build.gradle.kts
+implementation("io.argus:argus-spring-boot-starter:1.4.0")</code></pre>
+
+                <p>When your Spring Boot application starts, Argus will:</p>
+                <ul>
+                    <li>Start the JFR streaming engine automatically</li>
+                    <li>Launch the dashboard on port 9202</li>
+                    <li>Register with Spring Boot Actuator at <code>/actuator/health/argus</code></li>
+                    <li>Export ~25 Micrometer metrics to your configured backend (Prometheus, Datadog, etc.)</li>
+                </ul>
+
+                <span class="section-anchor" id="spring-config"></span>
+                <h3>Configuration via application.yml</h3>
+
+                <pre><code>argus:
+  buffer-size: 131072
+  server:
+    port: 9202
+  gc:
+    enabled: true
+  cpu:
+    enabled: true
+    interval-ms: 500
+  allocation:
+    enabled: true
+    threshold: 524288</code></pre>
+
+                <p>All properties have IDE autocomplete support. The defaults match the standard agent configuration.</p>
+            </div>
+
+            <!-- MICROMETER -->
+            <div class="doc-section">
+                <span class="section-anchor" id="micrometer"></span>
+                <h2>Micrometer Metrics</h2>
+
+                <p>When Micrometer is on the classpath (it is in most Spring Boot apps), Argus automatically registers ~25 JVM diagnostic metrics:</p>
+
+                <pre><code># Example Prometheus queries
+argus_heap_used_bytes                    # Current heap usage
+argus_gc_pause_time_max_seconds          # Worst GC pause
+argus_cpu_jvm_user_ratio * 100           # JVM CPU %
+argus_virtual_threads_active             # Active virtual threads
+argus_allocation_rate_bytes_per_second   # Allocation pressure</code></pre>
+
+                <div class="callout">
+                    <p><strong>Framework-agnostic:</strong> The <code>argus-micrometer</code> module works without Spring. If you're using Quarkus, Micronaut, or standalone Micrometer, add <code>argus-micrometer</code> directly and register the <code>ArgusMeterBinder</code> with your <code>MeterRegistry</code>.</p>
+                </div>
+            </div>
+
+        </div><!-- .content-inner -->
+
+        <footer>
+            <p>Argus JVM Observability Platform &mdash; <a href="https://github.com/rlaope/Argus" target="_blank" rel="noopener">GitHub</a></p>
+        </footer>
+    </main>
+
+</div><!-- #layout -->
+
+<script src="assets/site.js"></script>
+
+</body>
+</html>

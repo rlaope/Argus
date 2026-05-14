@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Argus</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="top-header">
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+    </button>
+    <a href="index.html" class="header-logo">
+        <img src="assets/argus_logo.png" alt="Argus">
+        <span class="header-logo-text">Argus</span>
+    </a>
+    <span class="header-divider"></span>
+    <span class="header-subtitle">JVM Observability Platform</span>
+    <nav class="page-nav" aria-label="Site sections">
+        <a href="index.html">Overview</a>
+        <a href="commands.html">Commands</a>
+        <a href="comparison.html">vs Traditional</a>
+        <a href="scenarios.html">Scenarios</a>
+        <a href="dashboard.html" class="active">Dashboard</a>
+        <a href="integrations.html">Integrations</a>
+        <a href="reference.html">Reference</a>
+    </nav>
+    <span class="header-spacer"></span>
+    <a href="https://github.com/rlaope/Argus" class="header-github" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+    </a>
+</header>
+
+<div id="sidebar-overlay"></div>
+
+<div id="layout">
+
+    <nav id="sidebar" aria-label="Page contents">
+        <div class="sidebar-section">
+            <span class="sidebar-label">On this page</span>
+            <ul class="sidebar-nav">
+                <li><a href="#dashboard" data-target="dashboard">Dashboard</a></li>
+                <li class="sub"><a href="#dashboard-setup" data-target="dashboard-setup">Setup</a></li>
+                <li class="sub"><a href="#dashboard-features" data-target="dashboard-features">Features</a></li>
+                <li class="sub"><a href="#interactive-console" data-target="interactive-console">Interactive Console</a></li>
+                <li class="sub"><a href="#dashboard-config" data-target="dashboard-config">Configuration</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main id="content">
+        <div class="content-inner">
+
+            <!-- DASHBOARD -->
+            <div class="doc-section">
+                <span class="section-anchor" id="dashboard"></span>
+                <h2>Dashboard</h2>
+
+                <p>While the CLI is great for quick checks, sometimes you need to watch what's happening over time. That's where the Argus Agent comes in. Attach it to your JVM, and you get a real-time web dashboard that shows you everything.</p>
+
+                <span class="section-anchor" id="dashboard-setup"></span>
+                <h3>Starting the Dashboard</h3>
+
+                <p>Add the <code>-javaagent</code> flag when starting your application:</p>
+
+                <pre><code>java -javaagent:argus-agent.jar \
+  -Dargus.gc.enabled=true \
+  -Dargus.cpu.enabled=true \
+  -Dargus.allocation.enabled=true \
+  -jar your-application.jar</code></pre>
+
+                <p>Open <code>http://localhost:9202/</code> in your browser and you'll see the dashboard immediately. No configuration files, no external services, no database.</p>
+
+                <div class="video-container">
+                    <video src="assets/argus-dashboard-real.mp4" autoplay loop muted playsinline></video>
+                </div>
+                <p class="video-caption">Argus Dashboard — real-time JVM monitoring with GC, CPU, memory, and thread analysis</p>
+
+                <span class="section-anchor" id="dashboard-features"></span>
+                <h3>What the Dashboard Shows</h3>
+
+                <p>The dashboard is organized in a JVM-health-first layout. When you're responding to an incident, you look at the most critical metrics first:</p>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>Memory &amp; GC</h4>
+                        <p>Heap usage over time, GC pause timeline, GC cause distribution, overhead percentage. See immediately if GC is your bottleneck.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>CPU Utilization</h4>
+                        <p>JVM and system CPU load plotted over the last 60 seconds. Spot CPU spikes and correlate them with GC pauses.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Allocation &amp; Metaspace</h4>
+                        <p>Object allocation rate, peak rate, top allocating classes, metaspace growth rate. Detect memory pressure before it becomes an OOM.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Profiling &amp; Contention</h4>
+                        <p>CPU hot methods, lock contention hotspots, interactive flame graph. Find exactly which code paths are consuming resources.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Virtual Threads</h4>
+                        <p>Thread creation rate, active count, pinning detection with stack traces, carrier thread distribution. Java 21+ only.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Recommendations</h4>
+                        <p>Auto-generated insights from cross-correlating GC, CPU, memory, and thread metrics. The dashboard tells you what to investigate.</p>
+                    </div>
+                </div>
+
+                <span class="section-anchor" id="interactive-console"></span>
+                <h3>Interactive Console</h3>
+
+                <p>The dashboard includes an interactive console at <code>/console.html</code> where you can run diagnostic commands directly in the browser. Click a command button, watch the typing animation, and see the results — all without leaving the dashboard.</p>
+
+                <span class="section-anchor" id="dashboard-config"></span>
+                <h3>Configuration Options</h3>
+
+                <div class="callout warning">
+                    <p><strong>Production tip:</strong> Start with just <code>gc</code> and <code>cpu</code> enabled. These have negligible overhead. Enable <code>allocation</code>, <code>profiling</code>, and <code>contention</code> only when actively investigating — they generate more JFR events and use more memory.</p>
+                </div>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Property</th><th>Default</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>argus.server.port</code></td><td>9202</td><td>Dashboard HTTP port</td></tr>
+                            <tr><td><code>argus.gc.enabled</code></td><td>true</td><td>GC event collection</td></tr>
+                            <tr><td><code>argus.cpu.enabled</code></td><td>true</td><td>CPU load sampling</td></tr>
+                            <tr><td><code>argus.allocation.enabled</code></td><td>false</td><td>Object allocation tracking (higher overhead)</td></tr>
+                            <tr><td><code>argus.profiling.enabled</code></td><td>false</td><td>CPU method profiling (higher overhead)</td></tr>
+                            <tr><td><code>argus.contention.enabled</code></td><td>false</td><td>Lock contention monitoring</td></tr>
+                            <tr><td><code>argus.metaspace.enabled</code></td><td>true</td><td>Metaspace usage tracking</td></tr>
+                            <tr><td><code>argus.metrics.prometheus.enabled</code></td><td>true</td><td>Prometheus metrics endpoint at <code>/prometheus</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>For the full set of agent properties and CLI flags, see the <a href="reference.html#config-reference">configuration reference</a>. For framework-native auto-configuration, see <a href="integrations.html#spring-boot">Spring Boot integration</a>.</p>
+            </div>
+
+        </div><!-- .content-inner -->
+
+        <footer>
+            <p>Argus JVM Observability Platform &mdash; <a href="https://github.com/rlaope/Argus" target="_blank" rel="noopener">GitHub</a></p>
+        </footer>
+    </main>
+
+</div><!-- #layout -->
+
+<script src="assets/site.js"></script>
+
+</body>
+</html>

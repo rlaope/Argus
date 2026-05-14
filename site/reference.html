@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reference — Argus</title>
+    <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header id="top-header">
+    <button class="hamburger" id="hamburger-btn" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+    </button>
+    <a href="index.html" class="header-logo">
+        <img src="assets/argus_logo.png" alt="Argus">
+        <span class="header-logo-text">Argus</span>
+    </a>
+    <span class="header-divider"></span>
+    <span class="header-subtitle">JVM Observability Platform</span>
+    <nav class="page-nav" aria-label="Site sections">
+        <a href="index.html">Overview</a>
+        <a href="commands.html">Commands</a>
+        <a href="comparison.html">vs Traditional</a>
+        <a href="scenarios.html">Scenarios</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="integrations.html">Integrations</a>
+        <a href="reference.html" class="active">Reference</a>
+    </nav>
+    <span class="header-spacer"></span>
+    <a href="https://github.com/rlaope/Argus" class="header-github" target="_blank" rel="noopener">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+    </a>
+</header>
+
+<div id="sidebar-overlay"></div>
+
+<div id="layout">
+
+    <nav id="sidebar" aria-label="Page contents">
+        <div class="sidebar-section">
+            <span class="sidebar-label">On this page</span>
+            <ul class="sidebar-nav">
+                <li><a href="#compatibility" data-target="compatibility">Java Compatibility</a></li>
+                <li><a href="#architecture" data-target="architecture">Architecture</a></li>
+                <li><a href="#config-reference" data-target="config-reference">Configuration Reference</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main id="content">
+        <div class="content-inner">
+
+            <!-- JAVA COMPATIBILITY -->
+            <div class="doc-section">
+                <span class="section-anchor" id="compatibility"></span>
+                <h2>Java Version Compatibility</h2>
+
+                <p>Argus adapts its capabilities based on the Java version at runtime. You don't need to configure anything — it detects the version automatically and enables what's available.</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Feature</th><th>Java 11+</th><th>Java 17+</th><th>Java 21+</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>CLI (67 commands)</td><td>Yes</td><td>Yes</td><td>Yes</td></tr>
+                            <tr><td>Dashboard &amp; Web UI</td><td>—</td><td>Yes (MXBean)</td><td>Yes (JFR)</td></tr>
+                            <tr><td>GC / CPU / Memory</td><td>CLI only</td><td>Yes</td><td>Yes</td></tr>
+                            <tr><td>Allocation Tracking</td><td>—</td><td>—</td><td>Yes</td></tr>
+                            <tr><td>Virtual Threads</td><td>—</td><td>—</td><td>Yes</td></tr>
+                            <tr><td>Flame Graph</td><td>—</td><td>—</td><td>Yes</td></tr>
+                            <tr><td>Lock Contention</td><td>—</td><td>—</td><td>Yes</td></tr>
+                            <tr><td>Spring Boot Starter</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+                            <tr><td>Micrometer Metrics</td><td>—</td><td>Yes</td><td>Yes</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="callout">
+                    <p><strong>How it works:</strong> On Java 17–20, the agent uses an MXBean polling engine that queries <code>ManagementFactory</code> MXBeans for GC, CPU, and memory data at regular intervals. On Java 21+, it uses JFR streaming for lower overhead and richer event data. The dashboard automatically hides features that aren't available on your Java version.</p>
+                </div>
+            </div>
+
+            <!-- ARCHITECTURE -->
+            <div class="doc-section">
+                <span class="section-anchor" id="architecture"></span>
+                <h2>Architecture</h2>
+
+                <p>Argus is organized into seven modules, each with a clear responsibility:</p>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Module</th><th>Purpose</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>argus-core</code></td><td>Shared event types, configuration, ring buffer transport</td></tr>
+                            <tr><td><code>argus-agent</code></td><td>Java agent entry point, JFR streaming engine, MXBean polling engine</td></tr>
+                            <tr><td><code>argus-server</code></td><td>Netty HTTP/WebSocket server, 10 analyzers, metrics export</td></tr>
+                            <tr><td><code>argus-frontend</code></td><td>Dashboard web UI (vanilla JS, Chart.js, D3 flame graph)</td></tr>
+                            <tr><td><code>argus-cli</code></td><td>67 diagnostic commands using jcmd/jstat</td></tr>
+                            <tr><td><code>argus-micrometer</code></td><td>Framework-agnostic Micrometer MeterBinder</td></tr>
+                            <tr><td><code>argus-spring-boot-starter</code></td><td>Spring Boot auto-configuration</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>The agent and server communicate through lock-free ring buffers in shared memory — there is no network protocol between them. This means zero serialization overhead and minimal latency from event capture to dashboard display.</p>
+            </div>
+
+            <!-- CONFIGURATION REFERENCE -->
+            <div class="doc-section">
+                <span class="section-anchor" id="config-reference"></span>
+                <h2>Configuration Reference</h2>
+
+                <p>All Argus properties can be set as JVM system properties (<code>-Dargus.xxx=value</code>) when using the agent, or in <code>application.yml</code> / <code>application.properties</code> when using the Spring Boot starter.</p>
+
+                <h3>Agent Properties</h3>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Property</th><th>Default</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>argus.server.port</code></td><td>9202</td><td>Dashboard HTTP port</td></tr>
+                            <tr><td><code>argus.gc.enabled</code></td><td>true</td><td>GC event collection via JFR</td></tr>
+                            <tr><td><code>argus.cpu.enabled</code></td><td>true</td><td>CPU load sampling</td></tr>
+                            <tr><td><code>argus.cpu.interval-ms</code></td><td>500</td><td>CPU sampling interval in milliseconds</td></tr>
+                            <tr><td><code>argus.allocation.enabled</code></td><td>false</td><td>Object allocation tracking (higher overhead)</td></tr>
+                            <tr><td><code>argus.allocation.threshold</code></td><td>524288</td><td>Minimum allocation size to track (bytes)</td></tr>
+                            <tr><td><code>argus.profiling.enabled</code></td><td>false</td><td>CPU method profiling via JFR</td></tr>
+                            <tr><td><code>argus.contention.enabled</code></td><td>false</td><td>Lock contention monitoring</td></tr>
+                            <tr><td><code>argus.metaspace.enabled</code></td><td>true</td><td>Metaspace usage tracking</td></tr>
+                            <tr><td><code>argus.buffer-size</code></td><td>131072</td><td>Ring buffer size in bytes</td></tr>
+                            <tr><td><code>argus.metrics.prometheus.enabled</code></td><td>true</td><td>Expose Prometheus endpoint at <code>/prometheus</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>CLI Flags</h3>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Flag</th><th>Values</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td><code>--format</code></td><td><code>text</code>, <code>json</code></td><td>Output format (default: <code>text</code>)</td></tr>
+                            <tr><td><code>--source</code></td><td><code>auto</code>, <code>agent</code>, <code>jdk</code></td><td>Data source selection (default: <code>auto</code>)</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div><!-- .content-inner -->
+
+        <footer>
+            <p>Argus JVM Observability Platform &mdash; <a href="https://github.com/rlaope/Argus" target="_blank" rel="noopener">GitHub</a></p>
+        </footer>
+    </main>
+
+</div><!-- #layout -->
+
+<script src="assets/site.js"></script>
+
+</body>
+</html>
