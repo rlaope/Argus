@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.ClassStatResult;
 import io.argus.cli.provider.ClassStatProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -43,7 +44,7 @@ public final class ClassStatCommand implements Command {
 
         ClassStatResult result = provider.getClassStats(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "classstat", messages.get("desc.classstat")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.classstat"), WIDTH, "pid:" + pid, "source:" + source));
@@ -82,11 +83,4 @@ public final class ClassStatCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
 
-    private static void printJson(ClassStatResult r) {
-        System.out.println("{\"loaded\":" + r.loaded()
-                + ",\"loadedBytes\":" + r.loadedBytes()
-                + ",\"unloaded\":" + r.unloaded()
-                + ",\"unloadedBytes\":" + r.unloadedBytes()
-                + ",\"timeMs\":" + r.timeMs() + "}");
-    }
 }

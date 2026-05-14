@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.FinalizerResult;
 import io.argus.cli.provider.FinalizerProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -43,7 +44,7 @@ public final class FinalizerCommand implements Command {
 
         FinalizerResult result = provider.getFinalizerInfo(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "finalizer", messages.get("desc.finalizer")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.finalizer"), WIDTH, "pid:" + pid, "source:" + source));
@@ -85,8 +86,4 @@ public final class FinalizerCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
 
-    private static void printJson(FinalizerResult result) {
-        System.out.println("{\"pendingCount\":" + result.pendingCount()
-                + ",\"finalizerThreadState\":\"" + RichRenderer.escapeJson(result.finalizerThreadState()) + "\"}");
-    }
 }

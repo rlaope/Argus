@@ -1,9 +1,12 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 /**
  * Result of a heap dump operation.
  */
-public final class HeapDumpResult {
+public final class HeapDumpResult implements JsonWritable {
 
     private final String status;
     private final String filePath;
@@ -31,5 +34,18 @@ public final class HeapDumpResult {
 
     public String errorMessage() {
         return errorMessage;
+    }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"status\":\"").append(RichRenderer.escapeJson(status)).append('"')
+           .append(",\"filePath\":\"").append(RichRenderer.escapeJson(filePath)).append('"')
+           .append(",\"fileSizeBytes\":").append(fileSizeBytes);
+        if (errorMessage != null) {
+            out.append(",\"errorMessage\":\"").append(RichRenderer.escapeJson(errorMessage)).append('"');
+        } else {
+            out.append(",\"errorMessage\":null");
+        }
+        out.append('}');
     }
 }

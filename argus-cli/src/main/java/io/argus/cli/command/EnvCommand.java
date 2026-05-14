@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.EnvResult;
 import io.argus.cli.provider.EnvProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -43,7 +44,7 @@ public final class EnvCommand implements Command {
 
         EnvResult result = provider.getEnv(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "env", messages.get("desc.env")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.env"), WIDTH, "pid:" + pid, "source:" + source));
@@ -95,18 +96,4 @@ public final class EnvCommand implements Command {
         System.out.println(RichRenderer.boxLine(line, WIDTH));
     }
 
-    private static void printJson(EnvResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"commandLine\":\"").append(RichRenderer.escapeJson(result.commandLine())).append('"');
-        sb.append(",\"javaHome\":\"").append(RichRenderer.escapeJson(result.javaHome())).append('"');
-        sb.append(",\"classPath\":\"").append(RichRenderer.escapeJson(result.classPath())).append('"');
-        sb.append(",\"workingDir\":\"").append(RichRenderer.escapeJson(result.workingDir())).append('"');
-        sb.append(",\"vmArgs\":[");
-        for (int i = 0; i < result.vmArgs().size(); i++) {
-            if (i > 0) sb.append(',');
-            sb.append('"').append(RichRenderer.escapeJson(result.vmArgs().get(i))).append('"');
-        }
-        sb.append("]}");
-        System.out.println(sb);
-    }
 }

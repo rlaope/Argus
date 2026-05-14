@@ -1,11 +1,14 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 
 /**
  * Result of NIO buffer pool query via BufferPoolMXBean.
  */
-public final class BuffersResult {
+public final class BuffersResult implements JsonWritable {
 
     private final List<BufferPool> pools;
     private final long totalCount;
@@ -23,6 +26,24 @@ public final class BuffersResult {
     public long totalCount() { return totalCount; }
     public long totalCapacity() { return totalCapacity; }
     public long totalUsed() { return totalUsed; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"totalCount\":").append(totalCount)
+           .append(",\"totalCapacity\":").append(totalCapacity)
+           .append(",\"totalUsed\":").append(totalUsed)
+           .append(",\"pools\":[");
+        for (int i = 0; i < pools.size(); i++) {
+            BufferPool pool = pools.get(i);
+            if (i > 0) out.append(',');
+            out.append("{\"name\":\"").append(RichRenderer.escapeJson(pool.name())).append('"')
+               .append(",\"count\":").append(pool.count())
+               .append(",\"totalCapacity\":").append(pool.totalCapacity())
+               .append(",\"memoryUsed\":").append(pool.memoryUsed())
+               .append('}');
+        }
+        out.append("]}");
+    }
 
     public static final class BufferPool {
         private final String name;

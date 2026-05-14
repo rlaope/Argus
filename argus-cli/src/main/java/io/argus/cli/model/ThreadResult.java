@@ -1,12 +1,15 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 import java.util.Map;
 
 /**
  * Thread dump summary result.
  */
-public final class ThreadResult {
+public final class ThreadResult implements JsonWritable {
     private final int totalThreads;
     private final int virtualThreads;
     private final int platformThreads;
@@ -44,6 +47,30 @@ public final class ThreadResult {
     public Map<String, Integer> stateDistribution() { return stateDistribution; }
     public List<DeadlockInfo> deadlocks() { return deadlocks; }
     public List<ThreadInfo> threads() { return threads; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"totalThreads\":").append(totalThreads)
+           .append(",\"virtualThreads\":").append(virtualThreads)
+           .append(",\"platformThreads\":").append(platformThreads)
+           .append(",\"stateDistribution\":{");
+        boolean first = true;
+        for (Map.Entry<String, Integer> e : stateDistribution.entrySet()) {
+            if (!first) out.append(',');
+            out.append('"').append(e.getKey()).append("\":").append(e.getValue());
+            first = false;
+        }
+        out.append("},\"deadlocks\":[");
+        for (int i = 0; i < deadlocks.size(); i++) {
+            DeadlockInfo dl = deadlocks.get(i);
+            if (i > 0) out.append(',');
+            out.append("{\"thread1\":\"").append(RichRenderer.escapeJson(dl.thread1())).append('"')
+               .append(",\"thread2\":\"").append(RichRenderer.escapeJson(dl.thread2())).append('"')
+               .append(",\"lockClass\":\"").append(RichRenderer.escapeJson(dl.lockClass())).append('"')
+               .append('}');
+        }
+        out.append("]}");
+    }
 
     public static final class DeadlockInfo {
         private final String thread1;

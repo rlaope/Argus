@@ -8,6 +8,7 @@ import io.argus.cli.gcwhy.GcWhyAnalyzer;
 import io.argus.cli.gcwhy.GcWhyJfrCollector;
 import io.argus.cli.gcwhy.GcWhyResult;
 import io.argus.cli.jfr.JfrCaptureFailed;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.jfr.JfrCaptureSession;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
@@ -157,7 +158,7 @@ public final class GcWhyCommand implements Command {
         }
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
         } else {
             printReport(result, useColor, messages, windowSec);
         }
@@ -196,28 +197,6 @@ public final class GcWhyCommand implements Command {
         }
 
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
-    }
-
-    private static void printJson(GcWhyResult r) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"timestampSec\":").append(r.timestampSec())
-                .append(",\"type\":\"").append(RichRenderer.escapeJson(r.type())).append('"')
-                .append(",\"cause\":\"").append(RichRenderer.escapeJson(r.cause())).append('"')
-                .append(",\"pauseMs\":").append(r.pauseMs())
-                .append(",\"bullets\":[");
-        for (int i = 0; i < r.bullets().size(); i++) {
-            if (i > 0) sb.append(',');
-            sb.append('"').append(RichRenderer.escapeJson(r.bullets().get(i))).append('"');
-        }
-        sb.append("],\"counters\":{");
-        int i = 0;
-        for (Map.Entry<String, String> e : r.counters().entrySet()) {
-            if (i++ > 0) sb.append(',');
-            sb.append('"').append(RichRenderer.escapeJson(e.getKey())).append("\":\"")
-                    .append(RichRenderer.escapeJson(e.getValue())).append('"');
-        }
-        sb.append("}}");
-        System.out.println(sb);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.AgeDistribution;
 import io.argus.cli.model.GcNewResult;
 import io.argus.cli.provider.GcAgeProvider;
@@ -52,7 +53,7 @@ public final class GcNewCommand implements Command {
 
         GcNewResult result = provider.getGcNew(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "gcnew", messages.get("desc.gcnew")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.gcnew"), WIDTH, "pid:" + pid, "source:" + source));
@@ -237,11 +238,4 @@ public final class GcNewCommand implements Command {
         System.out.println(RichRenderer.boxLine("  " + line, WIDTH));
     }
 
-    private static void printJson(GcNewResult r) {
-        System.out.println("{\"s0c\":" + r.s0c() + ",\"s1c\":" + r.s1c()
-                + ",\"s0u\":" + r.s0u() + ",\"s1u\":" + r.s1u()
-                + ",\"tt\":" + r.tt() + ",\"mtt\":" + r.mtt()
-                + ",\"dss\":" + r.dss() + ",\"ec\":" + r.ec() + ",\"eu\":" + r.eu()
-                + ",\"ygc\":" + r.ygc() + ",\"ygct\":" + r.ygct() + "}");
-    }
 }

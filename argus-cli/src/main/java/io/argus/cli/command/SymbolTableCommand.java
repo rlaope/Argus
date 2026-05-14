@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.SymbolTableResult;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.SymbolTableProvider;
@@ -43,7 +44,7 @@ public final class SymbolTableCommand implements Command {
 
         SymbolTableResult result = provider.getSymbolTableInfo(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "symboltable", messages.get("desc.symboltable")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.symboltable"), WIDTH, "pid:" + pid, "source:" + source));
@@ -87,14 +88,4 @@ public final class SymbolTableCommand implements Command {
         System.out.println(RichRenderer.boxLine(line, WIDTH));
     }
 
-    private static void printJson(SymbolTableResult r) {
-        System.out.println("{\"bucketCount\":" + r.bucketCount()
-                + ",\"entryCount\":" + r.entryCount()
-                + ",\"literalCount\":" + r.literalCount()
-                + ",\"bucketBytes\":" + r.bucketBytes()
-                + ",\"entryBytes\":" + r.entryBytes()
-                + ",\"literalBytes\":" + r.literalBytes()
-                + ",\"totalBytes\":" + r.totalBytes()
-                + ",\"avgLiteralSize\":" + r.avgLiteralSize() + "}");
-    }
 }

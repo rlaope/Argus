@@ -4,6 +4,7 @@ import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.jmx.JmxAttachment;
 import io.argus.cli.jmx.JmxAttachmentException;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.ThreadResult;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.ThreadProvider;
@@ -88,7 +89,7 @@ public final class ThreadsCommand implements Command {
         ThreadResult result = provider.getThreadDump(pid);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
             return;
         }
 
@@ -340,31 +341,5 @@ public final class ThreadsCommand implements Command {
         long cpuDelta() { return cpuDelta; }
         long totalCpu() { return totalCpu; }
     }
-
-    private static void printJson(ThreadResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalThreads\":").append(result.totalThreads())
-          .append(",\"virtualThreads\":").append(result.virtualThreads())
-          .append(",\"platformThreads\":").append(result.platformThreads())
-          .append(",\"stateDistribution\":{");
-        boolean first = true;
-        for (Map.Entry<String, Integer> e : result.stateDistribution().entrySet()) {
-            if (!first) sb.append(',');
-            sb.append('"').append(e.getKey()).append("\":").append(e.getValue());
-            first = false;
-        }
-        sb.append("},\"deadlocks\":[");
-        for (int i = 0; i < result.deadlocks().size(); i++) {
-            ThreadResult.DeadlockInfo dl = result.deadlocks().get(i);
-            if (i > 0) sb.append(',');
-            sb.append("{\"thread1\":\"").append(RichRenderer.escapeJson(dl.thread1())).append('"')
-              .append(",\"thread2\":\"").append(RichRenderer.escapeJson(dl.thread2())).append('"')
-              .append(",\"lockClass\":\"").append(RichRenderer.escapeJson(dl.lockClass())).append('"')
-              .append('}');
-        }
-        sb.append("]}");
-        System.out.println(sb);
-    }
-
 
 }

@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.DynLibsResult;
 import io.argus.cli.provider.DynLibsProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -45,7 +46,7 @@ public final class DynLibsCommand implements Command {
 
         DynLibsResult result = provider.getDynLibs(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "dynlibs", messages.get("desc.dynlibs")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.dynlibs"), WIDTH, "pid:" + pid, "source:" + source));
@@ -96,16 +97,4 @@ public final class DynLibsCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
 
-    private static void printJson(DynLibsResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalCount\":").append(result.totalCount()).append(",\"libraries\":[");
-        for (int i = 0; i < result.libraries().size(); i++) {
-            DynLibsResult.LibInfo lib = result.libraries().get(i);
-            if (i > 0) sb.append(',');
-            sb.append("{\"path\":\"").append(RichRenderer.escapeJson(lib.path())).append('"');
-            sb.append(",\"category\":\"").append(lib.category()).append("\"}");
-        }
-        sb.append("]}");
-        System.out.println(sb);
-    }
 }

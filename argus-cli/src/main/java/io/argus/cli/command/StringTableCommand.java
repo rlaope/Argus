@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.StringTableResult;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.StringTableProvider;
@@ -43,7 +44,7 @@ public final class StringTableCommand implements Command {
 
         StringTableResult result = provider.getStringTableInfo(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "stringtable", messages.get("desc.stringtable")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.stringtable"), WIDTH, "pid:" + pid, "source:" + source));
@@ -89,14 +90,4 @@ public final class StringTableCommand implements Command {
         System.out.println(RichRenderer.boxLine(line, WIDTH));
     }
 
-    private static void printJson(StringTableResult result) {
-        System.out.println("{\"bucketCount\":" + result.bucketCount()
-                + ",\"entryCount\":" + result.entryCount()
-                + ",\"literalCount\":" + result.literalCount()
-                + ",\"bucketBytes\":" + result.bucketBytes()
-                + ",\"entryBytes\":" + result.entryBytes()
-                + ",\"literalBytes\":" + result.literalBytes()
-                + ",\"totalBytes\":" + result.totalBytes()
-                + ",\"avgLiteralSize\":" + result.avgLiteralSize() + "}");
-    }
 }

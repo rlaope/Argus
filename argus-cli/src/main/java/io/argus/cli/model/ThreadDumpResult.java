@@ -1,11 +1,14 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 
 /**
  * Result of a full thread dump capture via jcmd Thread.print.
  */
-public final class ThreadDumpResult {
+public final class ThreadDumpResult implements JsonWritable {
 
     private final int totalThreads;
     private final List<ThreadInfo> threads;
@@ -20,6 +23,37 @@ public final class ThreadDumpResult {
     public int totalThreads() { return totalThreads; }
     public List<ThreadInfo> threads() { return threads; }
     public String rawOutput() { return rawOutput; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"totalThreads\":").append(totalThreads)
+           .append(",\"threads\":[");
+        for (int i = 0; i < threads.size(); i++) {
+            ThreadInfo t = threads.get(i);
+            if (i > 0) out.append(',');
+            out.append("{\"name\":\"").append(RichRenderer.escapeJson(t.name())).append('"')
+               .append(",\"tid\":").append(t.tid())
+               .append(",\"nid\":").append(t.nid())
+               .append(",\"state\":\"").append(t.state()).append('"')
+               .append(",\"daemon\":").append(t.daemon())
+               .append(",\"priority\":").append(t.priority());
+            if (!t.waitingOn().isEmpty()) {
+                out.append(",\"waitingOn\":\"").append(RichRenderer.escapeJson(t.waitingOn())).append('"');
+            }
+            out.append(",\"locksHeld\":[");
+            for (int j = 0; j < t.locksHeld().size(); j++) {
+                if (j > 0) out.append(',');
+                out.append('"').append(RichRenderer.escapeJson(t.locksHeld().get(j))).append('"');
+            }
+            out.append("],\"stackTrace\":[");
+            for (int j = 0; j < t.stackTrace().size(); j++) {
+                if (j > 0) out.append(',');
+                out.append('"').append(RichRenderer.escapeJson(t.stackTrace().get(j))).append('"');
+            }
+            out.append("]}");
+        }
+        out.append("]}");
+    }
 
     public static final class ThreadInfo {
         private final String name;

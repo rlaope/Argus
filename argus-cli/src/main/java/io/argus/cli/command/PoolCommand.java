@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.PoolResult;
 import io.argus.cli.provider.PoolProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -50,7 +51,7 @@ public final class PoolCommand implements Command {
 
         PoolResult result = provider.getPoolInfo(pid);
 
-        if (json) { printJson(result); return; }
+        if (json) { JsonOutput.println(result); return; }
 
         System.out.print(RichRenderer.brandedHeader(useColor, "pool", messages.get("desc.pool")));
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.pool"), WIDTH, "pid:" + pid, "source:" + source));
@@ -124,26 +125,4 @@ public final class PoolCommand implements Command {
         }
     }
 
-    private static void printJson(PoolResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalThreads\":").append(result.totalThreads());
-        sb.append(",\"totalPools\":").append(result.totalPools());
-        sb.append(",\"pools\":[");
-        for (int i = 0; i < result.pools().size(); i++) {
-            PoolResult.PoolInfo p = result.pools().get(i);
-            if (i > 0) sb.append(',');
-            sb.append("{\"name\":\"").append(RichRenderer.escapeJson(p.name())).append('"');
-            sb.append(",\"threadCount\":").append(p.threadCount());
-            sb.append(",\"states\":{");
-            boolean first = true;
-            for (Map.Entry<String, Integer> e : p.stateDistribution().entrySet()) {
-                if (!first) sb.append(',');
-                sb.append('"').append(e.getKey()).append("\":").append(e.getValue());
-                first = false;
-            }
-            sb.append("}}");
-        }
-        sb.append("]}");
-        System.out.println(sb);
-    }
 }

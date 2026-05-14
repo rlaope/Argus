@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.GcResult;
 import io.argus.cli.model.HeapResult;
 import io.argus.cli.provider.GcProvider;
@@ -56,7 +57,7 @@ public final class HeapCommand implements Command {
         HeapResult result = provider.getHeapInfo(pid);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
             return;
         }
 
@@ -174,28 +175,6 @@ public final class HeapCommand implements Command {
         }
 
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
-    }
-
-    private static void printJson(HeapResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"used\":").append(result.used())
-          .append(",\"committed\":").append(result.committed())
-          .append(",\"max\":").append(result.max())
-          .append(",\"spaces\":{");
-        boolean first = true;
-        for (Map.Entry<String, HeapResult.SpaceInfo> e : result.spaces().entrySet()) {
-            if (!first) sb.append(',');
-            HeapResult.SpaceInfo s = e.getValue();
-            sb.append('"').append(RichRenderer.escapeJson(e.getKey())).append("\":")
-              .append("{\"name\":\"").append(RichRenderer.escapeJson(s.name())).append('"')
-              .append(",\"used\":").append(s.used())
-              .append(",\"committed\":").append(s.committed())
-              .append(",\"max\":").append(s.max())
-              .append('}');
-            first = false;
-        }
-        sb.append("}}");
-        System.out.println(sb);
     }
 
 

@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.HeapDumpResult;
 import io.argus.cli.provider.HeapDumpProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -119,7 +120,7 @@ public final class HeapDumpCommand implements Command {
         HeapDumpResult result = provider.heapDump(pid, filePath, liveOnly);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
         } else {
             boolean useColor = config.color();
             System.out.print(RichRenderer.brandedHeader(useColor, "heapdump",
@@ -196,20 +197,6 @@ public final class HeapDumpCommand implements Command {
         System.out.println(RichRenderer.boxLine(
                 RichRenderer.padRight("  --yes, -y", 28) + "Skip the STW confirmation prompt", WIDTH));
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
-    }
-
-    private static void printJson(HeapDumpResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"status\":\"").append(RichRenderer.escapeJson(result.status())).append('"');
-        sb.append(",\"filePath\":\"").append(RichRenderer.escapeJson(result.filePath())).append('"');
-        sb.append(",\"fileSizeBytes\":").append(result.fileSizeBytes());
-        if (result.errorMessage() != null) {
-            sb.append(",\"errorMessage\":\"").append(RichRenderer.escapeJson(result.errorMessage())).append('"');
-        } else {
-            sb.append(",\"errorMessage\":null");
-        }
-        sb.append('}');
-        System.out.println(sb);
     }
 
     // -------------------------------------------------------------------------

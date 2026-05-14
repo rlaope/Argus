@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.DeadlockResult;
 import io.argus.cli.provider.DeadlockProvider;
 import io.argus.cli.provider.ProviderRegistry;
@@ -51,7 +52,7 @@ public final class DeadlockCommand implements Command {
         DeadlockResult result = provider.detectDeadlocks(pid);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
             return;
         }
 
@@ -133,29 +134,4 @@ public final class DeadlockCommand implements Command {
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
     }
 
-    private static void printJson(DeadlockResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"deadlockCount\":").append(result.deadlockCount());
-        sb.append(",\"chains\":[");
-        for (int c = 0; c < result.chains().size(); c++) {
-            DeadlockResult.DeadlockChain chain = result.chains().get(c);
-            if (c > 0) sb.append(',');
-            sb.append("{\"threads\":[");
-            for (int t = 0; t < chain.threads().size(); t++) {
-                DeadlockResult.DeadlockThread thread = chain.threads().get(t);
-                if (t > 0) sb.append(',');
-                sb.append("{\"name\":\"").append(RichRenderer.escapeJson(thread.name())).append('"');
-                sb.append(",\"state\":\"").append(RichRenderer.escapeJson(thread.state())).append('"');
-                sb.append(",\"waitingLock\":\"").append(RichRenderer.escapeJson(thread.waitingLock())).append('"');
-                sb.append(",\"waitingLockClass\":\"").append(RichRenderer.escapeJson(thread.waitingLockClass())).append('"');
-                sb.append(",\"heldLock\":\"").append(RichRenderer.escapeJson(thread.heldLock())).append('"');
-                sb.append(",\"heldLockClass\":\"").append(RichRenderer.escapeJson(thread.heldLockClass())).append('"');
-                sb.append(",\"stackTop\":\"").append(RichRenderer.escapeJson(thread.stackTop())).append('"');
-                sb.append('}');
-            }
-            sb.append("]}");
-        }
-        sb.append("]}");
-        System.out.println(sb);
-    }
 }

@@ -1,12 +1,15 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 import java.util.Map;
 
 /**
  * JVM information result.
  */
-public final class InfoResult {
+public final class InfoResult implements JsonWritable {
     private final String vmName;
     private final String vmVersion;
     private final String vmVendor;
@@ -54,4 +57,32 @@ public final class InfoResult {
     public double systemCpuLoad() { return systemCpuLoad; }
     public int availableProcessors() { return availableProcessors; }
     public double systemLoadAverage() { return systemLoadAverage; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"vmName\":\"").append(RichRenderer.escapeJson(vmName)).append('"')
+           .append(",\"vmVersion\":\"").append(RichRenderer.escapeJson(vmVersion)).append('"')
+           .append(",\"vmVendor\":\"").append(RichRenderer.escapeJson(vmVendor)).append('"')
+           .append(",\"uptimeMs\":").append(uptimeMs)
+           .append(",\"pid\":").append(pid)
+           .append(",\"vmFlags\":[");
+        for (int i = 0; i < vmFlags.size(); i++) {
+            if (i > 0) out.append(',');
+            out.append('"').append(RichRenderer.escapeJson(vmFlags.get(i))).append('"');
+        }
+        out.append("],\"systemProperties\":{");
+        boolean first = true;
+        for (Map.Entry<String, String> e : systemProperties.entrySet()) {
+            if (!first) out.append(',');
+            out.append('"').append(RichRenderer.escapeJson(e.getKey())).append("\":\"")
+               .append(RichRenderer.escapeJson(e.getValue())).append('"');
+            first = false;
+        }
+        out.append("}")
+           .append(",\"processCpuLoad\":").append(processCpuLoad)
+           .append(",\"systemCpuLoad\":").append(systemCpuLoad)
+           .append(",\"availableProcessors\":").append(availableProcessors)
+           .append(",\"systemLoadAverage\":").append(systemLoadAverage)
+           .append('}');
+    }
 }

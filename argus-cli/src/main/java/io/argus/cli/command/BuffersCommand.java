@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.BuffersResult;
 import io.argus.cli.model.BuffersResult.BufferPool;
 import io.argus.cli.provider.BuffersProvider;
@@ -53,7 +54,7 @@ public final class BuffersCommand implements Command {
         BuffersResult result = provider.getBuffers(pid);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
             return;
         }
 
@@ -113,24 +114,5 @@ public final class BuffersCommand implements Command {
 
         System.out.println(RichRenderer.emptyLine(WIDTH));
         System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
-    }
-
-    private static void printJson(BuffersResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"totalCount\":").append(result.totalCount());
-        sb.append(",\"totalCapacity\":").append(result.totalCapacity());
-        sb.append(",\"totalUsed\":").append(result.totalUsed());
-        sb.append(",\"pools\":[");
-        for (int i = 0; i < result.pools().size(); i++) {
-            BufferPool pool = result.pools().get(i);
-            if (i > 0) sb.append(',');
-            sb.append("{\"name\":\"").append(RichRenderer.escapeJson(pool.name())).append('"');
-            sb.append(",\"count\":").append(pool.count());
-            sb.append(",\"totalCapacity\":").append(pool.totalCapacity());
-            sb.append(",\"memoryUsed\":").append(pool.memoryUsed());
-            sb.append('}');
-        }
-        sb.append("]}");
-        System.out.println(sb);
     }
 }

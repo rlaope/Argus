@@ -1,9 +1,11 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+
 /**
  * Class loading statistics from jstat -class.
  */
-public final class ClassStatResult {
+public final class ClassStatResult implements JsonWritable {
     private final long loaded;
     private final double loadedBytes;
     private final long unloaded;
@@ -24,4 +26,14 @@ public final class ClassStatResult {
     public long unloaded() { return unloaded; }
     public double unloadedBytes() { return unloadedBytes; }
     public double timeMs() { return timeMs; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"loaded\":").append(loaded)
+           .append(",\"loadedBytes\":").append(loadedBytes)
+           .append(",\"unloaded\":").append(unloaded)
+           .append(",\"unloadedBytes\":").append(unloadedBytes)
+           .append(",\"timeMs\":").append(timeMs)
+           .append('}');
+    }
 }

@@ -1,11 +1,13 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+
 import java.util.List;
 
 /**
  * Detailed metaspace statistics from jcmd VM.metaspace.
  */
-public final class MetaspaceResult {
+public final class MetaspaceResult implements JsonWritable {
     private final long totalReserved;
     private final long totalCommitted;
     private final long totalUsed;
@@ -23,6 +25,23 @@ public final class MetaspaceResult {
     public long totalCommitted() { return totalCommitted; }
     public long totalUsed() { return totalUsed; }
     public List<SpaceInfo> spaces() { return spaces; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"totalReserved\":").append(totalReserved)
+           .append(",\"totalCommitted\":").append(totalCommitted)
+           .append(",\"totalUsed\":").append(totalUsed)
+           .append(",\"spaces\":[");
+        for (int i = 0; i < spaces.size(); i++) {
+            SpaceInfo sp = spaces.get(i);
+            if (i > 0) out.append(',');
+            out.append("{\"name\":\"").append(sp.name()).append('"')
+               .append(",\"reserved\":").append(sp.reserved())
+               .append(",\"committed\":").append(sp.committed())
+               .append(",\"used\":").append(sp.used()).append('}');
+        }
+        out.append("]}");
+    }
 
     public static final class SpaceInfo {
         private final String name;

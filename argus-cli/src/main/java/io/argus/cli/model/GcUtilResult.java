@@ -1,9 +1,11 @@
 package io.argus.cli.model;
 
+import io.argus.cli.json.JsonWritable;
+
 /**
  * GC utilization snapshot from jstat -gcutil.
  */
-public final class GcUtilResult {
+public final class GcUtilResult implements JsonWritable {
     private final double s0;       // Survivor 0 usage %
     private final double s1;       // Survivor 1 usage %
     private final double eden;     // Eden usage %
@@ -42,4 +44,20 @@ public final class GcUtilResult {
     public long fgc() { return fgc; }
     public double fgct() { return fgct; }
     public double gct() { return gct; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"s0\":").append(s0)
+           .append(",\"s1\":").append(s1)
+           .append(",\"eden\":").append(eden)
+           .append(",\"old\":").append(old)
+           .append(",\"meta\":").append(meta)
+           .append(",\"ccs\":").append(ccs)
+           .append(",\"ygc\":").append(ygc)
+           .append(",\"ygct\":").append(ygct)
+           .append(",\"fgc\":").append(fgc)
+           .append(",\"fgct\":").append(fgct)
+           .append(",\"gct\":").append(gct)
+           .append('}');
+    }
 }

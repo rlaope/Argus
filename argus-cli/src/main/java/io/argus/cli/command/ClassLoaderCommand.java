@@ -2,6 +2,7 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.json.JsonOutput;
 import io.argus.cli.model.ClassLoaderResult;
 import io.argus.cli.model.ClassLoaderResult.ClassLoaderInfo;
 import io.argus.cli.provider.ClassLoaderProvider;
@@ -51,7 +52,7 @@ public final class ClassLoaderCommand implements Command {
         ClassLoaderResult result = provider.getClassLoaders(pid);
 
         if (json) {
-            printJson(result);
+            JsonOutput.println(result);
         } else {
             boolean useColor = config.color();
             System.out.print(RichRenderer.brandedHeader(useColor, "classloader",
@@ -123,23 +124,4 @@ public final class ClassLoaderCommand implements Command {
         return depths;
     }
 
-    private static void printJson(ClassLoaderResult result) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("{\"loaders\":[");
-        boolean first = true;
-        for (ClassLoaderInfo loader : result.loaders()) {
-            if (!first) sb.append(',');
-            first = false;
-            sb.append("{\"name\":\"").append(RichRenderer.escapeJson(loader.name())).append('"');
-            sb.append(",\"classCount\":").append(loader.classCount());
-            if (loader.parent() != null) {
-                sb.append(",\"parent\":\"").append(RichRenderer.escapeJson(loader.parent())).append('"');
-            } else {
-                sb.append(",\"parent\":null");
-            }
-            sb.append('}');
-        }
-        sb.append("],\"totalClasses\":").append(result.totalClasses()).append('}');
-        System.out.println(sb);
-    }
 }

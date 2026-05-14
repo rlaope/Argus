@@ -1,5 +1,8 @@
 package io.argus.cli.gcwhy;
 
+import io.argus.cli.json.JsonWritable;
+import io.argus.cli.render.RichRenderer;
+
 import java.util.List;
 import java.util.Map;
 
@@ -7,7 +10,7 @@ import java.util.Map;
  * Result of the gcwhy correlation engine: the worst pause in the window,
  * a small set of "why" bullets, and a map of related counters to display.
  */
-public final class GcWhyResult {
+public final class GcWhyResult implements JsonWritable {
     private final double timestampSec;
     private final String type;
     private final String cause;
@@ -31,6 +34,27 @@ public final class GcWhyResult {
     public double pauseMs() { return pauseMs; }
     public List<String> bullets() { return bullets; }
     public Map<String, String> counters() { return counters; }
+
+    @Override
+    public void writeJson(StringBuilder out) {
+        out.append("{\"timestampSec\":").append(timestampSec)
+           .append(",\"type\":\"").append(RichRenderer.escapeJson(type)).append('"')
+           .append(",\"cause\":\"").append(RichRenderer.escapeJson(cause)).append('"')
+           .append(",\"pauseMs\":").append(pauseMs)
+           .append(",\"bullets\":[");
+        for (int i = 0; i < bullets.size(); i++) {
+            if (i > 0) out.append(',');
+            out.append('"').append(RichRenderer.escapeJson(bullets.get(i))).append('"');
+        }
+        out.append("],\"counters\":{");
+        int i = 0;
+        for (Map.Entry<String, String> e : counters.entrySet()) {
+            if (i++ > 0) out.append(',');
+            out.append('"').append(RichRenderer.escapeJson(e.getKey())).append("\":\"")
+               .append(RichRenderer.escapeJson(e.getValue())).append('"');
+        }
+        out.append("}}");
+    }
 
     public static GcWhyResult empty() {
         return new GcWhyResult(0, "", "", 0, List.of(), Map.of());
