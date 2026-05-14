@@ -2,6 +2,8 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.jmx.JmxAttachment;
+import io.argus.cli.jmx.JmxAttachmentException;
 import io.argus.cli.model.ThreadResult;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.ThreadProvider;
@@ -10,9 +12,6 @@ import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
 
 import javax.management.MBeanServerConnection;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXServiceURL;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
@@ -183,15 +182,23 @@ public final class ThreadsCommand implements Command {
      * Shows top-N threads ranked by CPU usage. Samples ThreadMXBean twice with 1s interval.
      */
     private void showCpuRanking(long pid, int topN, boolean c, boolean json) {
-        String connAddr = getConnectorAddress(pid);
-        if (connAddr == null) {
+        try {
+            JmxAttachment.withConnection(pid, mbs -> {
+                showCpuRankingWithConnection(pid, topN, c, json, mbs);
+                return null;
+            });
+        } catch (JmxAttachmentException e) {
             System.err.println("Cannot attach to PID " + pid + " via JMX. Ensure same user and Java 9+.");
-            return;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (Exception e) {
+            System.err.println("Error reading thread CPU: " + e.getMessage());
         }
+    }
 
-        try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(connAddr))) {
-            MBeanServerConnection mbs = connector.getMBeanServerConnection();
-            ThreadMXBean tmx = ManagementFactory.newPlatformMXBeanProxy(
+    private void showCpuRankingWithConnection(long pid, int topN, boolean c, boolean json,
+                                               MBeanServerConnection mbs) throws Exception {
+        ThreadMXBean tmx = ManagementFactory.newPlatformMXBeanProxy(
                     mbs, ManagementFactory.THREAD_MXBEAN_NAME, ThreadMXBean.class);
 
             if (!tmx.isThreadCpuTimeSupported() || !tmx.isThreadCpuTimeEnabled()) {
@@ -294,32 +301,6 @@ public final class ThreadsCommand implements Command {
                             + "  |  Showing top " + show
                             + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
             System.out.println(RichRenderer.boxFooter(c, null, WIDTH));
-
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (Exception e) {
-            System.err.println("Error reading thread CPU: " + e.getMessage());
-        }
-    }
-
-    private String getConnectorAddress(long pid) {
-        try {
-            var vm = com.sun.tools.attach.VirtualMachine.attach(String.valueOf(pid));
-            try {
-                String addr = vm.getAgentProperties().getProperty(
-                        "com.sun.management.jmxremote.localConnectorAddress");
-                if (addr == null) {
-                    vm.startLocalManagementAgent();
-                    addr = vm.getAgentProperties().getProperty(
-                            "com.sun.management.jmxremote.localConnectorAddress");
-                }
-                return addr;
-            } finally {
-                vm.detach();
-            }
-        } catch (Exception e) {
-            return null;
-        }
     }
 
     private void printCpuJson(List<ThreadCpuEntry> entries, int show, long totalDelta) {

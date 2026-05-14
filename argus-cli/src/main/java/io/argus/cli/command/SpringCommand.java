@@ -2,6 +2,8 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.jmx.JmxAttachment;
+import io.argus.cli.jmx.JmxAttachmentException;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
@@ -11,9 +13,6 @@ import io.argus.core.command.CommandGroup;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 import javax.management.openmbean.CompositeData;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXServiceURL;
 import java.util.Set;
 
 /**
@@ -60,22 +59,22 @@ public final class SpringCommand implements Command {
             return;
         }
 
-        String connectorAddr = getConnectorAddress(pid);
-        if (connectorAddr == null) {
+        final boolean showBeansFinal = showBeans;
+        final boolean showDatasourceFinal = showDatasource;
+
+        try {
+            JmxAttachment.withConnection(pid, mbs -> {
+                if (showBeansFinal) {
+                    renderBeans(mbs, pid, appName, useColor, messages);
+                } else if (showDatasourceFinal) {
+                    renderDatasource(mbs, pid, appName, useColor, messages);
+                } else {
+                    renderOverview(mbs, pid, appName, useColor, messages);
+                }
+                return null;
+            });
+        } catch (JmxAttachmentException e) {
             System.err.println(messages.get("error.spring.jmx.unavailable", pid));
-            return;
-        }
-
-        try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(connectorAddr))) {
-            MBeanServerConnection mbs = connector.getMBeanServerConnection();
-
-            if (showBeans) {
-                renderBeans(mbs, pid, appName, useColor, messages);
-            } else if (showDatasource) {
-                renderDatasource(mbs, pid, appName, useColor, messages);
-            } else {
-                renderOverview(mbs, pid, appName, useColor, messages);
-            }
         } catch (Exception e) {
             System.err.println(messages.get("error.spring.jmx.error", e.getMessage()));
         }
@@ -403,30 +402,6 @@ public final class SpringCommand implements Command {
             return 0;
         } catch (Exception ignored) {
             return 0;
-        }
-    }
-
-    // -------------------------------------------------------------------------
-    // JMX attach
-    // -------------------------------------------------------------------------
-
-    private String getConnectorAddress(long pid) {
-        try {
-            var vm = com.sun.tools.attach.VirtualMachine.attach(String.valueOf(pid));
-            try {
-                String addr = vm.getAgentProperties().getProperty(
-                        "com.sun.management.jmxremote.localConnectorAddress");
-                if (addr == null) {
-                    vm.startLocalManagementAgent();
-                    addr = vm.getAgentProperties().getProperty(
-                            "com.sun.management.jmxremote.localConnectorAddress");
-                }
-                return addr;
-            } finally {
-                vm.detach();
-            }
-        } catch (Exception e) {
-            return null;
         }
     }
 

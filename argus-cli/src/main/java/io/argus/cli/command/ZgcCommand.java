@@ -4,6 +4,8 @@ import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.jfr.JfrCaptureFailed;
 import io.argus.cli.jfr.JfrCaptureSession;
+import io.argus.cli.jmx.JmxAttachment;
+import io.argus.cli.jmx.JmxAttachmentException;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.provider.jdk.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
@@ -16,10 +18,10 @@ import io.argus.core.command.CommandGroup;
 
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
+import javax.management.openmbean.CompositeData;
 import javax.management.remote.JMXConnector;
 import javax.management.remote.JMXConnectorFactory;
 import javax.management.remote.JMXServiceURL;
-import javax.management.openmbean.CompositeData;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -443,27 +445,13 @@ public final class ZgcCommand implements Command {
 
         String connectorAddr;
         try {
-            var vm = com.sun.tools.attach.VirtualMachine.attach(String.valueOf(pid));
-            try {
-                connectorAddr = vm.getAgentProperties()
-                        .getProperty("com.sun.management.jmxremote.localConnectorAddress");
-                if (connectorAddr == null) {
-                    vm.startLocalManagementAgent();
-                    connectorAddr = vm.getAgentProperties()
-                            .getProperty("com.sun.management.jmxremote.localConnectorAddress");
-                }
-            } finally {
-                vm.detach();
-            }
-        } catch (Exception e) {
+            connectorAddr = JmxAttachment.resolveConnectorAddress(pid);
+        } catch (JmxAttachmentException e) {
             return new TargetInfo(false, false, "", "", 0, -1);
         }
 
-        if (connectorAddr == null) {
-            return new TargetInfo(false, false, "", "", 0, -1);
-        }
-
-        try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(connectorAddr))) {
+        try (JMXConnector connector =
+                JMXConnectorFactory.connect(new JMXServiceURL(connectorAddr))) {
             MBeanServerConnection mbs = connector.getMBeanServerConnection();
 
             Set<ObjectName> gcs = mbs.queryNames(
