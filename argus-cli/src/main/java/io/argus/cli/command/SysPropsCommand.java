@@ -51,7 +51,7 @@ public final class SysPropsCommand implements Command {
             }
         }
 
-        SysPropsProvider provider = Providers.require(registry.findSysPropsProvider(pid, sourceOverride), pid, messages);
+        SysPropsProvider provider = Providers.require(registry.find(SysPropsProvider.class, pid, sourceOverride), pid, messages);
 
         SysPropsResult result = provider.getSystemProperties(pid);
 

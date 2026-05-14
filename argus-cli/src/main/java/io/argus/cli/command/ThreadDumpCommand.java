@@ -59,7 +59,7 @@ public final class ThreadDumpCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        ThreadDumpProvider provider = Providers.require(registry.findThreadDumpProvider(pid, sourceOverride), pid, messages);
+        ThreadDumpProvider provider = Providers.require(registry.find(ThreadDumpProvider.class, pid, sourceOverride), pid, messages);
 
         ThreadDumpResult result = provider.dumpThreads(pid);
 

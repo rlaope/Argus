@@ -51,7 +51,7 @@ public final class HistoCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        HistoProvider provider = Providers.require(registry.findHistoProvider(pid, sourceOverride), pid, messages);
+        HistoProvider provider = Providers.require(registry.find(HistoProvider.class, pid, sourceOverride), pid, messages);
 
         HistoResult result = provider.getHistogram(pid, topN);
 

@@ -39,7 +39,7 @@ public final class ClassStatCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        ClassStatProvider provider = Providers.require(registry.findClassStatProvider(pid, sourceOverride), pid, messages);
+        ClassStatProvider provider = Providers.require(registry.find(ClassStatProvider.class, pid, sourceOverride), pid, messages);
 
         ClassStatResult result = provider.getClassStats(pid);
 

@@ -125,7 +125,7 @@ public final class FlameCommand implements Command {
                     + "/argus-flame-" + pid + formatToExtension(resolvedFmt);
         }
 
-        ProfileProvider provider = registry.findProfileProvider(pid, null);
+        ProfileProvider provider = registry.find(ProfileProvider.class, pid, null);
         if (provider == null) {
             System.err.println(messages.get("error.profile.adv.no.provider"));
             return;

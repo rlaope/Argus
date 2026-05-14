@@ -83,7 +83,7 @@ public final class ThreadsCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        ThreadProvider provider = Providers.require(registry.findThreadProvider(pid, sourceOverride), pid, messages);
+        ThreadProvider provider = Providers.require(registry.find(ThreadProvider.class, pid, sourceOverride), pid, messages);
 
         ThreadResult result = provider.getThreadDump(pid);
 

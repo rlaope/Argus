@@ -46,7 +46,7 @@ public final class DeadlockCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        DeadlockProvider provider = Providers.require(registry.findDeadlockProvider(pid, sourceOverride), pid, messages);
+        DeadlockProvider provider = Providers.require(registry.find(DeadlockProvider.class, pid, sourceOverride), pid, messages);
 
         DeadlockResult result = provider.detectDeadlocks(pid);
 

@@ -40,7 +40,7 @@ public final class GcCauseCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        GcCauseProvider provider = Providers.require(registry.findGcCauseProvider(pid, sourceOverride), pid, messages);
+        GcCauseProvider provider = Providers.require(registry.find(GcCauseProvider.class, pid, sourceOverride), pid, messages);
 
         GcCauseResult result = provider.getGcCause(pid);
 

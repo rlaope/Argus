@@ -51,7 +51,7 @@ public final class HeapCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        HeapProvider provider = Providers.require(registry.findHeapProvider(pid, sourceOverride), pid, messages);
+        HeapProvider provider = Providers.require(registry.find(HeapProvider.class, pid, sourceOverride), pid, messages);
 
         HeapResult result = provider.getHeapInfo(pid);
 
@@ -62,7 +62,7 @@ public final class HeapCommand implements Command {
 
         // Optionally fetch GC data for enriched output
         GcResult gcResult = null;
-        GcProvider gcProvider = registry.findGcProvider(pid, sourceOverride);
+        GcProvider gcProvider = registry.find(GcProvider.class, pid, sourceOverride);
         if (gcProvider != null) {
             try { gcResult = gcProvider.getGcInfo(pid); } catch (Exception ignored) {}
         }

@@ -34,7 +34,7 @@ public final class PsCommand implements Command {
         boolean useColor = config.color();
         boolean json = "json".equals(config.format()) || hasFlag(args, "--format=json");
 
-        ProcessProvider provider = registry.findProcessProvider();
+        ProcessProvider provider = registry.find(ProcessProvider.class);
         if (provider == null) {
             System.err.println(messages.get("error.provider.none", "ps"));
             return;

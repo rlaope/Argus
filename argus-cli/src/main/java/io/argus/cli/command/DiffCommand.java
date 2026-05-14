@@ -70,7 +70,7 @@ public final class DiffCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        HistoProvider provider = Providers.require(registry.findHistoProvider(pid, sourceOverride), pid, messages);
+        HistoProvider provider = Providers.require(registry.find(HistoProvider.class, pid, sourceOverride), pid, messages);
 
         System.out.println("Taking first snapshot... waiting " + intervalSeconds + "s for second snapshot");
 

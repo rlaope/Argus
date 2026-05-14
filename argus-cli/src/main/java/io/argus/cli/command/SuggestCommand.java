@@ -98,7 +98,7 @@ public final class SuggestCommand implements Command {
                 if (profileSnapshotPath != null) {
                     snapshot = ProfileSnapshot.load(Path.of(profileSnapshotPath));
                 } else {
-                    ProfileProvider provider = registry.findProfileProvider(pid, null);
+                    ProfileProvider provider = registry.find(ProfileProvider.class, pid, null);
                     if (provider == null) {
                         profileWarning = messages.get("suggest.profile.no.snapshot");
                         snapshot = null;

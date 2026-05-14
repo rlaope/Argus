@@ -39,7 +39,7 @@ public final class SymbolTableCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        SymbolTableProvider provider = Providers.require(registry.findSymbolTableProvider(pid, sourceOverride), pid, messages);
+        SymbolTableProvider provider = Providers.require(registry.find(SymbolTableProvider.class, pid, sourceOverride), pid, messages);
 
         SymbolTableResult result = provider.getSymbolTableInfo(pid);
 

@@ -226,7 +226,7 @@ public final class TuiApp {
         execThread.setDaemon(true);
         execThread.start();
     }
-    private void refreshPs() { ProcessProvider pp=registry.findProcessProvider(); if(pp!=null) procs=pp.listProcesses(); }
+    private void refreshPs() { ProcessProvider pp=registry.find(ProcessProvider.class); if(pp!=null) procs=pp.listProcesses(); }
 
     // ═══ SAFE ROW BUILDER — all padding uses plain-text length ═══
 

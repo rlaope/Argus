@@ -40,7 +40,7 @@ public final class CompilerCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        CompilerProvider provider = Providers.require(registry.findCompilerProvider(pid, sourceOverride), pid, messages);
+        CompilerProvider provider = Providers.require(registry.find(CompilerProvider.class, pid, sourceOverride), pid, messages);
 
         CompilerResult result = provider.getCompilerInfo(pid);
 
