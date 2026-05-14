@@ -576,6 +576,7 @@
                 <li><a href="#overview" data-target="overview">Overview</a></li>
                 <li><a href="#why-argus" data-target="why-argus">Why Argus</a></li>
                 <li><a href="#comparison" data-target="comparison">vs Traditional Tools</a></li>
+                <li class="sub"><a href="#scenarios" data-target="scenarios">Real-World Scenarios</a></li>
                 <li><a href="#getting-started" data-target="getting-started">Installation</a></li>
             </ul>
         </div>
@@ -749,6 +750,732 @@ Allocation Stalls  ✘ 7 stalls in 30s (max 508.8ms)
     2. java.util.HashMap.resize(HashMap.java:711)               22.1%</code></pre>
 
                 <p>Full methodology and 9 scenarios with measured wallclock times: <a href="https://github.com/rlaope/Argus/blob/master/docs/comparison-argus-vs-traditional.md">comparison study →</a></p>
+            </div>
+
+            <!-- REAL-WORLD SCENARIOS -->
+            <div class="doc-section">
+                <span class="section-anchor" id="scenarios"></span>
+                <h2>Real-World Scenarios: Argus vs Traditional Toolchains</h2>
+
+                <p>Twelve production incidents that a senior JVM engineer recognises on sight. For each one we show the commands you would actually type today, then the single Argus command that collapses the same evidence into one screen. We are honest about the cases where Argus does not replace the host shell — the OS-boundary cases (safepoint logs, swap, file descriptors, kernel OOM events) still need <code>vmstat</code>, <code>lsof</code>, or <code>dmesg</code> alongside Argus.</p>
+
+                <h3>1. G1GC Humongous Object Allocation Bomb</h3>
+
+                <p><strong>Symptom.</strong> Heap looks fine — 6 GB committed, 40% usage — yet every few minutes the application stalls for 2–4 seconds. The culprit is multi-megabyte <code>byte[]</code> allocations from an Excel reader or a streaming file API. G1 promotes them straight to humongous regions, fragmentation builds up, and eventually an evacuation failure triggers a multi-second STW.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Humongous allocation events — frequency, region count, source call sites</li>
+                    <li>G1 region fragmentation and evacuation failure markers in the GC log</li>
+                    <li>Allocation hotspots, ordered by allocated bytes per call site</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code># Enable verbose G1 logging, then re-correlate against allocation profile
+$ jcmd 12345 VM.flags | grep -E 'UseG1GC|G1HeapRegionSize'
+   uintx G1HeapRegionSize                          = 4194304
+   bool  UseG1GC                                    = true
+
+$ jcmd 12345 GC.heap_info
+ garbage-first heap   total 6291456K, used 2516201K [0x0000...]
+  region size 4096K, 14 young (57344K), 3 survivors (12288K)
+ Metaspace       used 84321K, committed 86016K, reserved 1130496K
+
+# Restart the app with -Xlog:gc*,gc+humongous=trace and re-grep
+$ grep -E 'Humongous|to-space exhausted' gc.log | tail -20
+[3214.876s][info ][gc,humongous] GC(412) Humongous region: 1 -> 1
+[3214.880s][info ][gc           ] GC(412) Pause Young (Concurrent Start) (G1 Humongous Allocation)
+[3401.122s][warn ][gc           ] GC(488) To-space exhausted
+
+# Get the call sites
+$ async-profiler -e alloc -d 30s -f /tmp/alloc.html 12345
+$ open /tmp/alloc.html   # click into HumongousObjAllocator path
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus doctor 12345
+╭─ argus doctor ──────────────────────────────────────────────╮
+│ JVM Health Report     pid:12345  HotSpot  uptime:1h 14m     │
+│                                                              │
+│   Heap: 2.4 GB/6.0 GB (40%)  |  CPU: 22%  |  Threads: 184    │
+│   GC: 14.6% overhead                                         │
+│ ──────────────────────────────────────────────────────────── │
+│                                                              │
+│   1 critical  1 warning                                      │
+│                                                              │
+│   ✘ CRITICAL: G1 humongous allocations dominating pauses     │
+│     14 humongous events in last 5 min; max pause 2,840 ms    │
+│     → Reduce object size below G1HeapRegionSize/2 (2 MB)     │
+│     → Or raise -XX:G1HeapRegionSize=8m                       │
+│                                                              │
+│   ⚠ WARNING: GC overhead 14.6% (threshold 10%)               │
+│     → argus profile 12345 --event alloc --duration 30        │
+│                                                              │
+╰─ ✘ critical ────────────────────────────────────────────────╯
+
+$ argus profile 12345 --event alloc --duration 30
+Top allocation sites (n=18,204 samples, 30s window)
+  1. com.acme.report.XlsxReader.readSheet            41.8%  byte[]
+  2. java.util.zip.Inflater.inflateBytes             17.2%  byte[]
+  3. com.acme.report.XlsxReader.rowBuffer             9.6%  byte[]
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Humongous event count</td><td>⚠️ requires <code>-Xlog:gc*</code> + restart</td><td>✅ surfaced by <code>doctor</code></td></tr>
+                            <tr><td>Allocation hotspots</td><td>⚠️ async-profiler + HTML viewer</td><td>✅ <code>argus profile --event alloc</code></td></tr>
+                            <tr><td>Region size + flag fix</td><td>✅ <code>jcmd VM.flags</code></td><td>✅ included as recommendation</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>One Argus run replaces a restart-for-logs cycle plus a separate profiler session.</p>
+
+                <h3>2. Time To Safepoint (TTSP) Black Hole</h3>
+
+                <p><strong>Symptom.</strong> The GC log says <code>Pause Young: 11 ms</code> but the application reports stop-the-world freezes of several seconds. The culprit is TTSP: a counted loop scanning a giant array does not poll for safepoints, so every other thread sits idle waiting for the laggard to check in.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Safepoint entry latency — time-to-reach-safepoint per VM operation</li>
+                    <li>Wall-clock samples of application threads during the stall</li>
+                    <li>JIT-compiled methods using counted loops on large arrays</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code># Add the safepoint logging flag and restart
+$ java -Xlog:safepoint*=info:file=safepoint.log:time,uptime,level ...
+
+$ grep 'Total time for which application threads were stopped' safepoint.log
+[uptime=621.142s] Total time for which application threads were stopped: 4.8214s
+                  Stopping threads took: 4.8101s
+# 4.8 of 4.82 seconds were spent reaching safepoint, not in the GC itself
+
+$ async-profiler -e wall -d 10s -f /tmp/wall.html 12345
+# Open in flame-graph viewer, look for hot frames during the stall window
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus profile 12345 --event wall --duration 10
+╭─ argus profile --event wall ────────────────────────────────╮
+│ Wall-clock profile   pid:12345  duration:10s  samples:9,873  │
+│                                                              │
+│   Top wall-time methods                                      │
+│     1. com.acme.search.MatrixScan.find          58.4%        │
+│     2. java.util.HashMap.getNode                 6.1%        │
+│     3. sun.nio.ch.EPollSelectorImpl.doSelect     5.8%        │
+│                                                              │
+│   ⚠ A single method dominates wall time — review for         │
+│     counted loops without safepoint polls (TTSP risk).       │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Safepoint entry latency</td><td>✅ <code>-Xlog:safepoint</code></td><td>❌ Argus does not parse safepoint logs</td></tr>
+                            <tr><td>Wall-clock hotspots</td><td>⚠️ async-profiler + HTML viewer</td><td>✅ <code>argus profile --event wall</code></td></tr>
+                            <tr><td>Root cause identification</td><td>✅ once both signals correlated</td><td>⚠️ partial — points at the suspect method</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Honest gap: Argus shows the dominant wall-time method, which is usually the offending counted loop, but you still want <code>-Xlog:safepoint</code> in production to prove the stop-the-world time is in safepoint entry, not in the collector.</p>
+
+                <h3>3. Linux OOMKilled — The Silent Assassin</h3>
+
+                <p><strong>Symptom.</strong> Heap stays at 50%, no <code>OutOfMemoryError</code> is thrown, yet the pod is killed and restarted. The kernel OOM-killer fired because resident memory blew past the container limit — usually Netty <code>DirectByteBuffer</code>, gRPC native channels, or jemalloc fragmentation, all of which live outside the heap.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Native memory committed by category (Class, Thread, Code, GC, Internal, …)</li>
+                    <li>Container working-set vs limit (cgroup memory.max)</li>
+                    <li>Kernel kill event in <code>dmesg</code> / journalctl</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code># Confirm the kernel killed it
+$ dmesg | grep -i 'killed process'
+[7421.882] Out of memory: Killed process 12345 (java) total-vm:9120384kB,
+           anon-rss:7842112kB, file-rss:0kB, shmem-rss:0kB
+
+# Re-enable NMT in the manifest and capture a baseline on next start
+$ jcmd 12345 VM.native_memory baseline
+$ # ... 30 min later ...
+$ jcmd 12345 VM.native_memory summary.diff
+Native Memory Tracking:
+Total: reserved=9628700KB +384200KB, committed=8420112KB +402112KB
+-                 Class (reserved=180224KB, committed=178892KB)
+-                Thread (reserved=520304KB +12000KB, committed=520304KB +12000KB)
+-              Internal (reserved=124188KB +321000KB, committed=124188KB +321000KB)
+... scan all 18 categories manually ...
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus nmt 12345 --save baseline.json
+Saved NMT baseline to: /home/ops/baseline.json
+
+# ... 30 minutes of traffic ...
+
+$ argus nmt 12345 --diff baseline.json
+╭─ argus nmt --diff ──────────────────────────────────────────╮
+│ NMT diff   pid:12345  source:jdk  elapsed:31m 04s            │
+│                                                              │
+│   Since 2026-05-14 09:12:01: committed +392.7 MB, reserved   │
+│   +375.2 MB                                                  │
+│                                                              │
+│   Category          Reserved Δ   Committed Δ   Reserved now  │
+│   ──────────────────────────────────────────────────────     │
+│   Internal              +321 MB       +321 MB       445 MB   │
+│   Thread                 +12 MB        +12 MB       520 MB   │
+│   GC                      +9 MB         +9 MB       142 MB   │
+│   Class                   +6 MB         +5 MB       178 MB   │
+│                                                              │
+│   ✘ Internal (DirectByteBuffer + JNI scratch) is the         │
+│     dominant grower — usually Netty/gRPC native pools.       │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>NMT baseline + diff</td><td>⚠️ manual scan of 18 categories</td><td>✅ banner + sorted growers</td></tr>
+                            <tr><td>Container working-set</td><td>✅ <code>kubectl top</code> / cAdvisor</td><td>❌ out of scope</td></tr>
+                            <tr><td>Kernel kill event</td><td>✅ <code>dmesg</code></td><td>❌ out of scope — still need shell</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Honest gap: Argus identifies the JVM-side grower in seconds; <code>dmesg</code> and container metrics are still required to confirm the kernel killed the process.</p>
+
+                <h3>4. JIT Deoptimization Storm</h3>
+
+                <p><strong>Symptom.</strong> CPU usage spikes and throughput collapses without any code change. Heavy use of runtime-generated lambdas and reflection fills the CodeCache, the JIT marks hot methods <em>made-not-entrant</em>, the JVM falls back to the interpreter, the loop repeats.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>CodeCache used vs total, max-used watermark</li>
+                    <li>nmethod count, deoptimization counter trend</li>
+                    <li>Compiler queue depth</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code>$ jcmd 12345 Compiler.codecache
+CodeHeap 'non-profiled nmethods': size=120000Kb  used=119742Kb  max_used=119988Kb  free=258Kb
+CodeHeap 'profiled nmethods':     size=120000Kb  used=119410Kb  max_used=119410Kb  free=590Kb
+CodeHeap 'non-nmethods':           size=5760Kb   used=4012Kb    max_used=4040Kb   free=1748Kb
+
+# Restart with -XX:+PrintCompilation to see made-not-entrant frequency
+$ grep 'made not entrant' compilation.log | wc -l
+21847
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus compiler 12345
+╭─ argus compiler ────────────────────────────────────────────╮
+│ JIT Compiler   pid:12345  source:jdk                         │
+│                                                              │
+│   ✔ Compilation enabled                                      │
+│                                                              │
+│   Code cache  ████████████████████  239.4 MB / 245.7 MB (97%)│
+│     Max used: 239.4 MB     Free: 6.3 MB                      │
+│                                                              │
+│   Total blobs: 28,412    nmethods: 24,108    adapters: 1,820 │
+│   Compiler queue: 312                                        │
+│   Deoptimizations: 21,847                                    │
+│                                                              │
+│   ⚠ Code cache > 80% full — JIT compiler may stop. Increase  │
+│     -XX:ReservedCodeCacheSize.                               │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+
+$ argus doctor 12345
+   ✘ CRITICAL: CodeCache near exhaustion (97%)
+     21,847 deoptimizations since boot; compiler queue 312
+     → -XX:ReservedCodeCacheSize=512m
+     → -XX:-UseCodeCacheFlushing (only after raising the size)
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>CodeCache used / max</td><td>✅ <code>Compiler.codecache</code></td><td>✅ progress bar + watermark</td></tr>
+                            <tr><td>Deoptimization count</td><td>⚠️ requires PrintCompilation restart</td><td>✅ surfaced live</td></tr>
+                            <tr><td>Suggested fix</td><td>⚠️ requires JVM-tuning knowledge</td><td>✅ <code>doctor</code> emits the flag</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>5. Phantom Thread Swamp</h3>
+
+                <p><strong>Symptom.</strong> A payment-gateway client was deployed without a read timeout. Tomcat worker threads accumulate stuck in <code>socketRead0</code>, the pool saturates, every other endpoint starts returning 503. Load average is low; the JVM looks idle.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Thread state distribution (RUNNABLE vs WAITING vs BLOCKED)</li>
+                    <li>Frequency of <code>socketRead0</code> in stacks</li>
+                    <li>Per-pool concentration of stuck threads</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code>$ jstack 12345 > /tmp/dump1.txt
+$ sleep 5
+$ jstack 12345 > /tmp/dump2.txt
+$ sleep 5
+$ jstack 12345 > /tmp/dump3.txt
+
+$ grep -c 'socketRead0' /tmp/dump1.txt /tmp/dump2.txt /tmp/dump3.txt
+/tmp/dump1.txt:182
+/tmp/dump2.txt:184
+/tmp/dump3.txt:183
+
+# Confirm they are Tomcat workers
+$ grep -B1 'socketRead0' /tmp/dump2.txt | grep '"http-nio'
+"http-nio-8080-exec-12"  ...
+"http-nio-8080-exec-13"  ...
+... (183 occurrences) ...
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus threads 12345
+╭─ argus threads ─────────────────────────────────────────────╮
+│ Thread Dump   pid:12345  source:jdk                          │
+│                                                              │
+│ Total: 248    Virtual: 0    Platform: 248    Peak: 252       │
+│                                                              │
+│ RUNNABLE      ████░░░░░░░░░░░░     24  ( 10%)                │
+│ WAITING       █████████████░░░    195  ( 79%)                │
+│ TIMED_WAITING ██░░░░░░░░░░░░░░     27  ( 11%)                │
+│ BLOCKED       ░░░░░░░░░░░░░░░░      2  (  1%)                │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+
+$ argus pool 12345
+  Pool                              Count  State
+  ──────────────────────────────────────────────────────────
+  http-nio-8080-exec-                 184    WAIT:183  RUN:1
+  catalina-utility-                     8    WAIT:8
+  ForkJoinPool.commonPool-              8    WAIT:8
+  scheduling-                           4    WAIT:4
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>State distribution</td><td>⚠️ 3× <code>jstack</code> + grep</td><td>✅ inline bars</td></tr>
+                            <tr><td>Stuck-thread pool</td><td>⚠️ manual aggregation</td><td>✅ <code>argus pool</code></td></tr>
+                            <tr><td>Confirm I/O wait</td><td>✅ stack grep</td><td>⚠️ requires opening one stack</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>6. Dynamic Proxy Betrayal (Metaspace Leak)</h3>
+
+                <p><strong>Symptom.</strong> A long-running service slowly grows Metaspace until it hits <code>OutOfMemoryError: Metaspace</code> a few weeks after deploy. Usually a Spring or Hibernate proxy class is pinned by a <code>ThreadLocal</code> that nobody clears, so its ClassLoader cannot be unloaded.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Metaspace used / committed trend</li>
+                    <li>Loaded class count growth</li>
+                    <li>Top ClassLoaders by class count</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code>$ jcmd 12345 VM.metaspace
+Total Usage - 9 loaders, 84,221 classes: ...
+  Used: 412.3 MB  Committed: 418.0 MB  Reserved: 1.1 GB
+
+$ jcmd 12345 GC.class_histogram | head -20
+ num     #instances         #bytes  class name
+   1:         482,114       38,569,120  $Proxy188
+   2:         312,002       24,960,160  $Proxy42
+... (no information about which ClassLoader is the offender)
+
+# To get the GC-root path you must dump the heap and load it in MAT
+$ jcmd 12345 GC.heap_dump /tmp/heap.hprof
+# Open in Eclipse MAT, run Leak Suspects ... 20 min later ...
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus metaspace 12345
+╭─ argus metaspace ───────────────────────────────────────────╮
+│ Metaspace   pid:12345  source:jdk                            │
+│                                                              │
+│   Used  ████████████████████  412.3 MB / 418.0 MB (99%)      │
+│     Reserved: 1.1 GB                                         │
+│                                                              │
+│   Space           Used     Committed     Reserved            │
+│   ──────────────────────────────────────────────────────     │
+│   Metaspace      318 MB       320 MB         1.0 GB          │
+│   ClassSpace      94 MB        98 MB        128 MB           │
+│                                                              │
+│   ⚠ Metaspace usage above 90% — risk of OOM:Metaspace.       │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+
+$ argus classloader 12345 --top 5
+  ClassLoader                                  Classes    Δ since boot
+  ─────────────────────────────────────────────────────────────────────
+  AppClassLoader                                 24,118        +18
+  sun.reflect.DelegatingClassLoader             482,114    +480,002
+  org.springframework.cglib.core.ReflectUtils    12,402     +12,400
+  jdk.internal.loader.ClassLoaders$AppClass...    1,402         +0
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Metaspace usage trend</td><td>✅ <code>VM.metaspace</code></td><td>✅ progress bar + warning</td></tr>
+                            <tr><td>Loaded class growth</td><td>⚠️ <code>GC.class_histogram</code> only</td><td>✅ <code>argus classloader</code></td></tr>
+                            <tr><td>Offending ClassLoader</td><td>❌ heap dump + MAT (20 min)</td><td>✅ top-N by class count</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>7. Fatal OS Swapping</h3>
+
+                <p><strong>Symptom.</strong> GC pauses that used to be 30–50 ms balloon to tens of seconds. The reason is not the collector — the JVM RSS exceeds physical RAM, the kernel pages out heap regions, and every GC mark phase has to fault them back in. Garbage-collecting paged-out memory is catastrophic.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Host swap-in / swap-out rates (<code>vmstat si/so</code>)</li>
+                    <li>GC pause <code>User=</code> vs <code>Sys=</code> ratio (high Sys = page faults)</li>
+                    <li>JVM GC overhead trend</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code>$ vmstat 1 5
+procs  -----------memory----------  ---swap--  -----io----  -system--  ----cpu----
+ r  b   swpd   free   buff  cache    si   so    bi    bo    in   cs  us sy id wa
+ 4  0  812224  31200  4012 142000   8412 9120  9408  9412  3211 4022  18 22 38 22
+ 5  0  819440  29040  4012 141880   9120 8804  9120  8800  3402 4188  17 25 36 22
+# si/so &gt; 0 sustained = the JVM is paging
+
+$ grep 'User=' gc.log | tail -3
+[Times: user=0.42 sys=3.81, real=4.18 secs]
+# sys time eclipses user time → kernel is dominating, the collector is waiting on I/O
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus doctor 12345
+   ✘ CRITICAL: GC overhead 38.2% (threshold 10%)
+     Mean pause 4,180 ms; last cause Allocation Failure
+     → Check host memory pressure: vmstat 1 (look at si/so)
+     → If swapping, the fix is at the OS layer, not the JVM
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>GC pause anomaly</td><td>✅ GC log review</td><td>✅ <code>doctor</code> flags overhead</td></tr>
+                            <tr><td>vmstat si/so</td><td>✅ <code>vmstat 1</code></td><td>❌ Argus does not read OS counters</td></tr>
+                            <tr><td>User vs Sys time</td><td>✅ GC log parsing</td><td>❌ not exposed</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Honest gap: Argus shouts "your GC overhead is wrong" within seconds, but the proof that the cause is swap-out lives in <code>vmstat</code> and the GC log timing fields. Argus and the host shell are complementary here.</p>
+
+                <h3>8. Finalizer Queue Backpressure</h3>
+
+                <p><strong>Symptom.</strong> An older third-party library uses <code>finalize()</code> for stream cleanup. Allocation rate is fine but heap usage climbs anyway, because objects scheduled for finalization sit in the <code>java.lang.ref.Finalizer</code> queue waiting for the single ReferenceHandler thread to drain them.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Pending finalization count</li>
+                    <li>Finalizer thread state (should be WAITING; if RUNNABLE constantly, it cannot keep up)</li>
+                    <li>Reference-processing phase time in GC log</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code>$ jcmd 12345 GC.heap_info | grep -i 'pending'
+# No direct surface — you must dump the heap.
+
+$ jcmd 12345 GC.heap_dump /tmp/heap.hprof
+$ # Open in MAT, navigate to java.lang.ref.Finalizer.queue, count nodes
+$ grep '\[Reference Processing\]' gc.log | tail -5
+[gc,ref] GC(721) Reference Processing                      284.318ms
+# 284 ms in reference processing alone is the smoking gun
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus finalizer 12345
+╭─ argus finalizer ───────────────────────────────────────────╮
+│ Finalizer queue   pid:12345  source:jdk                      │
+│                                                              │
+│   ⚠ 4,812 objects pending finalization                       │
+│                                                              │
+│   Finalizer thread state  RUNNABLE                           │
+│                                                              │
+│   ⚠ Pending count above 100 — finalizers cannot keep up.     │
+│     Replace finalize() with try-with-resources / Cleaner.    │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Pending finalizer count</td><td>❌ heap dump + MAT</td><td>✅ shown inline</td></tr>
+                            <tr><td>Finalizer thread state</td><td>⚠️ <code>jstack</code> grep</td><td>✅ shown inline</td></tr>
+                            <tr><td>Reference-processing time</td><td>✅ GC log</td><td>⚠️ visible via <code>argus gc</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>9. FD Exhaustion + CLOSE_WAIT</h3>
+
+                <p><strong>Symptom.</strong> The application starts throwing <code>java.net.SocketException: Too many open files</code>. The HTTP client never calls <code>close()</code> on its response bodies; sockets pile up in <code>CLOSE_WAIT</code> on the kernel side, until the process file-descriptor ceiling is hit and every new connection fails.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Process FD count vs limit</li>
+                    <li>TCP socket state distribution — count of <code>CLOSE_WAIT</code> entries</li>
+                    <li>Threads stuck in HTTP read on the application side</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code>$ lsof -p 12345 | wc -l
+65411
+$ cat /proc/12345/limits | grep 'open files'
+Max open files            65536                65536                files
+
+$ ss -tnp | awk '{print $1}' | sort | uniq -c
+   1 State
+  18 ESTAB
+8412 CLOSE-WAIT
+# CLOSE_WAIT dominates — the application is not closing its half of each socket
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code># Argus does not have an lsof equivalent. The application-side hint is:
+$ argus threads 12345
+ RUNNABLE       ░░░░░░░░░░░░░░░░      4  (  2%)
+ WAITING        ███████████████░    192  ( 96%)   ← almost all HTTP-read waits
+
+$ argus pool 12345
+  http-client-pool-                   180    WAIT:180
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Open FD count</td><td>✅ <code>lsof</code> / <code>/proc</code></td><td>❌ out of scope</td></tr>
+                            <tr><td>TCP socket state</td><td>✅ <code>ss</code> / <code>netstat</code></td><td>❌ out of scope</td></tr>
+                            <tr><td>Application-side stuck threads</td><td>⚠️ <code>jstack</code> grep</td><td>✅ <code>argus threads</code> + <code>pool</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Honest gap: this scenario lives below the JVM. Argus can confirm the application threads are stuck on socket reads (consistent with a leak), but the FD count and the kernel-side socket states require <code>lsof</code> / <code>ss</code> on the host.</p>
+
+                <h3>10. Invisible Implicit Deadlock — Lock Contention</h3>
+
+                <p><strong>Symptom.</strong> Throughput collapses, threads are not deadlocked in the JMX sense (there is no cycle), yet ninety percent of workers sit BLOCKED. The cause is a single <code>synchronized</code> cache map that serialises every read.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>BLOCKED thread count over time</li>
+                    <li>Lock-acquire wait hotspots — which monitor and from which call site</li>
+                    <li>Pool concentration of the blocked threads</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code>$ for i in 1 2 3; do jstack 12345 > /tmp/d$i.txt; sleep 5; done
+$ grep -E '^"|waiting to lock' /tmp/d2.txt | grep -B1 'waiting to lock 0x000000076ab1b9d0' | head
+"http-nio-8080-exec-42"
+        - waiting to lock &lt;0x000000076ab1b9d0&gt; (a java.util.HashMap)
+"http-nio-8080-exec-43"
+        - waiting to lock &lt;0x000000076ab1b9d0&gt; (a java.util.HashMap)
+# ... 178 more threads blocked on the same monitor
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus threads 12345
+ BLOCKED       ███████████████░    178  ( 72%)   ⚠
+
+$ argus profile 12345 --event lock --duration 20
+╭─ argus profile --event lock ────────────────────────────────╮
+│ Lock contention profile   pid:12345  duration:20s            │
+│                                                              │
+│   Top contended monitors                                     │
+│     1. com.acme.cache.HotCache.get               68.4%       │
+│        java.util.HashMap@0x76ab1b9d0                         │
+│     2. java.util.concurrent.ConcurrentHashMap     8.1%       │
+│     3. ch.qos.logback.core.OutputStreamAppender   3.2%       │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>BLOCKED count</td><td>⚠️ <code>jstack</code> × N + count</td><td>✅ inline bar + warning</td></tr>
+                            <tr><td>Contended monitor</td><td>⚠️ manual aggregation across dumps</td><td>✅ <code>profile --event lock</code></td></tr>
+                            <tr><td>Owning call site</td><td>✅ once you grep the holder</td><td>✅ top-N call sites</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <h3>11. False Sharing in the Multi-Core Era</h3>
+
+                <p><strong>Symptom.</strong> Independent counters live in adjacent fields of the same object. They land in the same 64-byte CPU cache line. Two cores end up invalidating each other's line on every write. Ops/sec collapses well below what the CPU should deliver, and no amount of pure-Java profiling tells you why.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>L1/LLC cache-miss rate</li>
+                    <li>Instructions per cycle (IPC)</li>
+                    <li>Hot method that correlates with the cache-miss events</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code>$ perf stat -e cache-misses,instructions,cycles -p 12345 sleep 10
+
+ Performance counter stats for process id '12345':
+
+       1,824,210,033      cache-misses                #   42.18 % of all cache refs
+       4,212,902,118      instructions                #    0.41  insn per cycle
+      10,302,002,418      cycles
+
+# 0.41 IPC and 42% miss rate is a giant red flag. Now correlate with hot methods:
+$ perf record -e cache-misses -p 12345 sleep 10
+$ perf report --no-children | head -10
+   38.42%  com.acme.metrics.Counters.recordHit
+   12.18%  com.acme.metrics.Counters.recordMiss
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus profile 12345 --event cache-misses --duration 10
+╭─ argus profile --event cache-misses ────────────────────────╮
+│ Hardware profile (Linux PMU)   pid:12345  duration:10s       │
+│                                                              │
+│   Top cache-miss methods                                     │
+│     1. com.acme.metrics.Counters.recordHit       38.4%       │
+│     2. com.acme.metrics.Counters.recordMiss      12.2%       │
+│     3. java.util.concurrent.atomic.LongAdder      4.1%       │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Cache-miss rate</td><td>✅ <code>perf stat</code></td><td>⚠️ method-level only (no global rate)</td></tr>
+                            <tr><td>IPC</td><td>✅ <code>perf stat</code></td><td>❌ not surfaced</td></tr>
+                            <tr><td>Hot method ↔ misses</td><td>✅ <code>perf record/report</code></td><td>✅ <code>argus profile --event cache-misses</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Honest gap: Argus's <code>cache-misses</code> event surfaces the hot method on Linux, but interpreting it as false sharing still requires knowing that adjacent fields share a cache line. <code>@Contended</code> or padding is the fix; Argus points the finger but does not diagnose the pattern.</p>
+
+                <h3>12. Direct Buffer Exhaustion (Off-Heap OOM)</h3>
+
+                <p><strong>Symptom.</strong> A high-traffic Netty service throws <code>OutOfMemoryError: Direct buffer memory</code>. Heap is healthy, the JVM is well below container limit, but the direct buffer pool has hit <code>-XX:MaxDirectMemorySize</code>.</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Direct buffer count, total capacity, memory used</li>
+                    <li>Mapped buffer counters for comparison</li>
+                    <li>Allocation profile during the spike</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code># Read the BufferPool MBean by hand
+$ jcmd 12345 ManagementAgent.status
+# Then connect with jconsole or a custom JMX client to read
+# java.nio:type=BufferPool,name=direct -> Count, MemoryUsed, TotalCapacity
+
+# Or capture a JFR allocation profile
+$ jcmd 12345 JFR.start name=direct duration=30s settings=profile
+$ jcmd 12345 JFR.stop name=direct filename=/tmp/direct.jfr
+$ jmc /tmp/direct.jfr   # GC > Allocation tab, filter on DirectByteBuffer
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus buffers 12345
+╭─ argus buffers ─────────────────────────────────────────────╮
+│ NIO Buffer Pools   pid:12345  source:jdk                     │
+│                                                              │
+│   Pool                       Count    Capacity     Used      │
+│   ──────────────────────────────────────────────────────     │
+│   direct                    24,812      1.0 GB    1.0 GB     │
+│   mapped                        18    412.0 MB    412.0 MB   │
+│   mapped - 'non-volatile'        0          0          0     │
+│                                                              │
+│   Total                     24,830      1.4 GB    1.4 GB     │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+
+$ argus doctor 12345
+   ✘ CRITICAL: Direct buffer pool at capacity (1.0 GB / 1.0 GB)
+     24,812 outstanding direct buffers — unreleased Netty allocations
+     → Raise -XX:MaxDirectMemorySize after confirming a real leak
+     → argus profile 12345 --event alloc to see allocation sites
+</code></pre>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Direct buffer count / size</td><td>⚠️ JMX MBean read</td><td>✅ <code>argus buffers</code></td></tr>
+                            <tr><td>Cross-correlation with GC</td><td>⚠️ JFR + JMC</td><td>✅ <code>doctor</code> rule</td></tr>
+                            <tr><td>Allocation call sites</td><td>✅ JFR allocation profile</td><td>✅ <code>argus profile --event alloc</code></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p><strong>Closing.</strong> Argus collapses roughly nine of these twelve scenarios into a single command answer (1, 4, 5, 6, 8, 10, 12, plus the JVM-side of 3 and the application-side of 9). The remaining cases — TTSP safepoint logs, OS swap, and FD/socket exhaustion — sit below the JVM boundary, where Argus consciously stops. The intended workflow is to run Argus alongside the host shell, not in place of it.</p>
             </div>
 
             <!-- GETTING STARTED / INSTALLATION -->
