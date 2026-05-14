@@ -2,6 +2,8 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.jmx.JmxAttachment;
+import io.argus.cli.jmx.JmxAttachmentException;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
@@ -13,9 +15,6 @@ import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 import javax.management.openmbean.CompositeData;
 import javax.management.openmbean.TabularData;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXServiceURL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -72,22 +71,26 @@ public final class MBeanCommand implements Command {
             else if (arg.equals("--format=json")) json = true;
         }
 
-        String connectorAddr = getConnectorAddress(pid);
-        if (connectorAddr == null) {
+        final boolean jsonOut = json;
+        final boolean colorOut = useColor;
+        final boolean listAllFinal = listAll;
+        final String mbeanNameFinal = mbeanName;
+        final String attrNameFinal = attrName;
+        final String domainFinal = domain;
+
+        try {
+            JmxAttachment.withConnection(pid, mbs -> {
+                if (mbeanNameFinal != null) {
+                    showMBeanAttributes(mbs, mbeanNameFinal, attrNameFinal, colorOut, jsonOut);
+                } else if (listAllFinal || domainFinal != null) {
+                    listMBeans(mbs, domainFinal, colorOut, jsonOut);
+                } else {
+                    listDomains(mbs, colorOut, jsonOut);
+                }
+                return null;
+            });
+        } catch (JmxAttachmentException e) {
             System.err.println("Cannot connect to JVM " + pid + " via JMX. Try: argus jmx " + pid + " start-local");
-            return;
-        }
-
-        try (JMXConnector connector = JMXConnectorFactory.connect(new JMXServiceURL(connectorAddr))) {
-            MBeanServerConnection mbs = connector.getMBeanServerConnection();
-
-            if (mbeanName != null) {
-                showMBeanAttributes(mbs, mbeanName, attrName, useColor, json);
-            } else if (listAll || domain != null) {
-                listMBeans(mbs, domain, useColor, json);
-            } else {
-                listDomains(mbs, useColor, json);
-            }
         } catch (Exception e) {
             System.err.println("JMX connection error: " + e.getMessage());
         }
@@ -291,29 +294,6 @@ public final class MBeanCommand implements Command {
         }
         sb.append("}}");
         System.out.println(sb);
-    }
-
-    /**
-     * Obtains the JMX connector address for a local JVM by PID using the Attach API.
-     */
-    private String getConnectorAddress(long pid) {
-        try {
-            var vm = com.sun.tools.attach.VirtualMachine.attach(String.valueOf(pid));
-            try {
-                String addr = vm.getAgentProperties().getProperty("com.sun.management.jmxremote.localConnectorAddress");
-                if (addr == null) {
-                    // Start the local management agent
-                    vm.startLocalManagementAgent();
-                    addr = vm.getAgentProperties().getProperty("com.sun.management.jmxremote.localConnectorAddress");
-                }
-                return addr;
-            } finally {
-                vm.detach();
-            }
-        } catch (Exception e) {
-            System.err.println("Cannot attach to PID " + pid + ": " + e.getMessage());
-            return null;
-        }
     }
 
     private static final class AttrEntry {

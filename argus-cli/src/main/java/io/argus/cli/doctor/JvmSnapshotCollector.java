@@ -21,6 +21,9 @@ public final class JvmSnapshotCollector {
 
     private static final ThreadLocal<List<String>> warnings = ThreadLocal.withInitial(ArrayList::new);
 
+    private static final Pattern JCMD_HEAP_TOTAL_USED_KB = Pattern.compile("total\\s+(\\d+)K.*used\\s+(\\d+)K");
+    private static final Pattern JCMD_HEAP_POOL_PARSE = Pattern.compile("(\\w[\\w\\s-]*)\\s+(?:total\\s+)?(\\d+)K.*used\\s+(\\d+)K");
+
     /**
      * Collect snapshot — routes to local or remote based on PID.
      */
@@ -458,9 +461,8 @@ public final class JvmSnapshotCollector {
     private static HeapTotals parseHeapTotals(String output) {
         if (output == null) return null;
         // e.g.: "garbage-first heap   total 524288K, used 65536K [0x..., 0x..., 0x...)"
-        Pattern total = Pattern.compile("total\\s+(\\d+)K.*used\\s+(\\d+)K");
         for (String line : output.split("\n")) {
-            Matcher m = total.matcher(line.trim());
+            Matcher m = JCMD_HEAP_TOTAL_USED_KB.matcher(line.trim());
             if (m.find()) {
                 return new HeapTotals(Long.parseLong(m.group(1)) * 1024L,
                         Long.parseLong(m.group(2)) * 1024L);
@@ -471,9 +473,8 @@ public final class JvmSnapshotCollector {
 
     private static void parseHeapInfo(String output, Map<String, JvmSnapshot.PoolInfo> pools) {
         if (output == null) return;
-        Pattern sizePattern = Pattern.compile("(\\w[\\w\\s-]*)\\s+(?:total\\s+)?(\\d+)K.*used\\s+(\\d+)K");
         for (String line : output.split("\n")) {
-            Matcher m = sizePattern.matcher(line.trim());
+            Matcher m = JCMD_HEAP_POOL_PARSE.matcher(line.trim());
             if (m.find()) {
                 String name = m.group(1).trim();
                 long totalKB = Long.parseLong(m.group(2));
