@@ -41,7 +41,7 @@ public final class DynLibsCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        DynLibsProvider provider = Providers.require(registry.findDynLibsProvider(pid, sourceOverride), pid, messages);
+        DynLibsProvider provider = Providers.require(registry.find(DynLibsProvider.class, pid, sourceOverride), pid, messages);
 
         DynLibsResult result = provider.getDynLibs(pid);
 

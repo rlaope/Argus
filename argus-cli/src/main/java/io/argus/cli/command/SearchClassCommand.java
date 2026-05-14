@@ -63,7 +63,7 @@ public final class SearchClassCommand implements Command {
             }
         }
 
-        SearchClassProvider provider = Providers.require(registry.findSearchClassProvider(pid, sourceOverride), pid, messages);
+        SearchClassProvider provider = Providers.require(registry.find(SearchClassProvider.class, pid, sourceOverride), pid, messages);
 
         SearchClassResult result = provider.searchClasses(pid, pattern);
 

@@ -48,7 +48,7 @@ public final class GcNewCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        GcNewProvider provider = Providers.require(registry.findGcNewProvider(pid, sourceOverride), pid, messages);
+        GcNewProvider provider = Providers.require(registry.find(GcNewProvider.class, pid, sourceOverride), pid, messages);
 
         GcNewResult result = provider.getGcNew(pid);
 
@@ -109,7 +109,7 @@ public final class GcNewCommand implements Command {
                             + AnsiStyle.style(useColor, AnsiStyle.RESET), WIDTH));
             System.out.println(RichRenderer.emptyLine(WIDTH));
 
-            GcAgeProvider ageProvider = registry.findGcAgeProvider(pid, sourceOverride);
+            GcAgeProvider ageProvider = registry.find(GcAgeProvider.class, pid, sourceOverride);
             if (ageProvider == null) {
                 System.out.println(RichRenderer.boxLine(
                         "  " + messages.get("gcnew.age.unavailable"), WIDTH));

@@ -6,6 +6,7 @@ import io.argus.cli.doctor.JvmSnapshot;
 import io.argus.cli.doctor.JvmSnapshotCollector;
 import io.argus.cli.model.NmtBaseline;
 import io.argus.cli.model.NmtResult;
+import io.argus.cli.provider.NmtProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
@@ -326,7 +327,7 @@ public final class CompareCommand implements Command {
 
     /** Collect NMT from live JVM; returns null if no NMT provider available. */
     private static NmtResult collectNmt(long pid, ProviderRegistry registry) {
-        var provider = registry.findNmtProvider(pid, null);
+        var provider = registry.find(NmtProvider.class, pid, null);
         if (provider == null) return null;
         try {
             return provider.getNativeMemory(pid);

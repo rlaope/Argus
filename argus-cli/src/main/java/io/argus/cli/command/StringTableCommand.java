@@ -39,7 +39,7 @@ public final class StringTableCommand implements Command {
         }
 
         String source = sourceOverride != null ? sourceOverride : config.defaultSource();
-        StringTableProvider provider = Providers.require(registry.findStringTableProvider(pid, sourceOverride), pid, messages);
+        StringTableProvider provider = Providers.require(registry.find(StringTableProvider.class, pid, sourceOverride), pid, messages);
 
         StringTableResult result = provider.getStringTableInfo(pid);
 

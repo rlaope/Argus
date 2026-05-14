@@ -95,7 +95,7 @@ public final class DoctorCommand implements Command {
         } else if (profileLive) {
             final long targetPid = pid > 0 ? pid : ProcessHandle.current().pid();
             try {
-                ProfileProvider pp = registry.findProfileProvider(targetPid, null);
+                ProfileProvider pp = registry.find(ProfileProvider.class, targetPid, null);
                 if (pp == null) {
                     profileError = "No profile provider available for pid " + targetPid;
                 } else {

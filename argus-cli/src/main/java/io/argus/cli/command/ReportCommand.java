@@ -71,32 +71,32 @@ public final class ReportCommand implements Command {
         ThreadResult threadResult = null;
         HistoResult histoResult = null;
 
-        InfoProvider infoProvider = registry.findInfoProvider(pid, sourceOverride);
+        InfoProvider infoProvider = registry.find(InfoProvider.class, pid, sourceOverride);
         if (infoProvider != null) {
             try { infoResult = infoProvider.getVmInfo(pid); } catch (Exception ignored) {}
         }
 
-        HeapProvider heapProvider = registry.findHeapProvider(pid, sourceOverride);
+        HeapProvider heapProvider = registry.find(HeapProvider.class, pid, sourceOverride);
         if (heapProvider != null) {
             try { heapResult = heapProvider.getHeapInfo(pid); } catch (Exception ignored) {}
         }
 
-        GcProvider gcProvider = registry.findGcProvider(pid, sourceOverride);
+        GcProvider gcProvider = registry.find(GcProvider.class, pid, sourceOverride);
         if (gcProvider != null) {
             try { gcResult = gcProvider.getGcInfo(pid); } catch (Exception ignored) {}
         }
 
-        GcUtilProvider gcUtilProvider = registry.findGcUtilProvider(pid, sourceOverride);
+        GcUtilProvider gcUtilProvider = registry.find(GcUtilProvider.class, pid, sourceOverride);
         if (gcUtilProvider != null) {
             try { gcUtilResult = gcUtilProvider.getGcUtil(pid); } catch (Exception ignored) {}
         }
 
-        ThreadProvider threadProvider = registry.findThreadProvider(pid, sourceOverride);
+        ThreadProvider threadProvider = registry.find(ThreadProvider.class, pid, sourceOverride);
         if (threadProvider != null) {
             try { threadResult = threadProvider.getThreadDump(pid); } catch (Exception ignored) {}
         }
 
-        HistoProvider histoProvider = registry.findHistoProvider(pid, sourceOverride);
+        HistoProvider histoProvider = registry.find(HistoProvider.class, pid, sourceOverride);
         if (histoProvider != null) {
             try { histoResult = histoProvider.getHistogram(pid, HISTO_TOP); } catch (Exception ignored) {}
         }

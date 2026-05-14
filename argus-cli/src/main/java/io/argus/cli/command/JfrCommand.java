@@ -63,7 +63,7 @@ public final class JfrCommand implements Command {
             }
         }
 
-        JfrProvider provider = Providers.require(registry.findJfrProvider(pid, sourceOverride), pid, messages);
+        JfrProvider provider = Providers.require(registry.find(JfrProvider.class, pid, sourceOverride), pid, messages);
 
         JfrResult result;
         switch (subcommand) {

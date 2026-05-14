@@ -245,7 +245,7 @@ public final class ProfileCommand implements Command {
             return;
         }
 
-        ProfileProvider provider = Providers.require(registry.findProfileProvider(pid, sourceOverride), pid, messages);
+        ProfileProvider provider = Providers.require(registry.find(ProfileProvider.class, pid, sourceOverride), pid, messages);
 
         boolean useColor = config.color();
 
@@ -376,7 +376,7 @@ public final class ProfileCommand implements Command {
             }
         }
 
-        ProfileProvider provider = Providers.require(registry.findProfileProvider(pid, sourceOverride), pid, messages);
+        ProfileProvider provider = Providers.require(registry.find(ProfileProvider.class, pid, sourceOverride), pid, messages);
 
         // Create output dir if needed
         final String snapDir = outputDir;
@@ -654,7 +654,7 @@ public final class ProfileCommand implements Command {
             futures.add(pool.submit(new Callable<PidOutcome>() {
                 @Override
                 public PidOutcome call() {
-                    ProfileProvider prov = registry.findProfileProvider(fp, finalSource);
+                    ProfileProvider prov = registry.find(ProfileProvider.class, fp, finalSource);
                     if (prov == null) {
                         return new PidOutcome(fp,
                                 ProfileResult.error(messages.get("error.provider.none", fp)), null);
@@ -829,7 +829,7 @@ public final class ProfileCommand implements Command {
             return;
         }
 
-        ProfileProvider provider = Providers.require(registry.findProfileProvider(pid, sourceOverride), pid, messages);
+        ProfileProvider provider = Providers.require(registry.find(ProfileProvider.class, pid, sourceOverride), pid, messages);
 
         ProfileResult result;
         switch (subcommand) {

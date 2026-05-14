@@ -47,7 +47,7 @@ public final class InfoCommand implements Command {
             }
         }
 
-        InfoProvider provider = Providers.require(registry.findInfoProvider(pid, sourceOverride), pid, messages);
+        InfoProvider provider = Providers.require(registry.find(InfoProvider.class, pid, sourceOverride), pid, messages);
 
         InfoResult result = provider.getVmInfo(pid);
 
