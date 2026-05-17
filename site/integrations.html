@@ -91,6 +91,52 @@ implementation("io.argus:argus-spring-boot-starter:1.4.0")</code></pre>
     threshold: 524288</code></pre>
 
                 <p>All properties have IDE autocomplete support. The defaults match the standard agent configuration.</p>
+
+                <span class="section-anchor" id="spring-mode"></span>
+                <h3>Diagnostics-only mode (production-safe)</h3>
+
+                <p>For production deployments where you don't want a daemon HTTP server listening on port 9202 or a JFR stream running 24/7, set <code>argus.mode=diagnostics</code>. You still get the analysis primitives as Spring beans plus actuator endpoints — without the runtime cost of the full mode.</p>
+
+                <pre><code>argus:
+  mode: diagnostics                # 'full' | 'diagnostics' | 'off'
+  doctor:
+    schedule:
+      enabled: true                # optional: run doctor every interval
+      interval-ms: 60000
+management:
+  endpoints:
+    web:
+      exposure:
+        include: argus-doctor,argus-gc</code></pre>
+
+                <span class="section-anchor" id="spring-api"></span>
+                <h3>Programmatic API beans</h3>
+
+                <p>Three injectable services let application code run Argus analyses directly:</p>
+
+                <pre><code>@Autowired DoctorService doctor;
+
+@GetMapping("/admin/health/jvm")
+public List&lt;Finding&gt; jvmHealth() {
+    return doctor.diagnoseLocal();   // or doctor.diagnoseRemote(pid)
+}</code></pre>
+
+                <ul>
+                    <li><code>DoctorService</code> — diagnoseLocal / diagnoseRemote(pid) / diagnose(snapshot)</li>
+                    <li><code>GcLogAnalyzerService</code> — analyze(Path) / analyze(List&lt;GcEvent&gt;)</li>
+                    <li><code>GcScoreService</code> — score(analysis [, gcAlgorithm]) / inferAlgorithm</li>
+                </ul>
+
+                <p>All three are <code>@ConditionalOnMissingBean</code> so applications can override with custom implementations.</p>
+
+                <span class="section-anchor" id="spring-actuator"></span>
+                <h3>Actuator endpoints</h3>
+
+                <pre><code>GET /actuator/argus-doctor          # diagnose the local JVM
+GET /actuator/argus-doctor/{pid}    # diagnose a remote JVM via jcmd
+GET /actuator/argus-gc              # GC log analysis + score</code></pre>
+
+                <p>Opt in via the standard <code>management.endpoints.web.exposure.include</code> gate. Responses are explicit <code>Map&lt;String, Object&gt;</code> shapes so the JSON contract is stable across Jackson versions.</p>
             </div>
 
             <!-- MICROMETER -->
