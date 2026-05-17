@@ -1,2 +1,3 @@
 io.argus.spring.ArgusAutoConfiguration
+io.argus.spring.ArgusDiagnosticsAutoConfiguration
 io.argus.spring.ArgusMicrometerAutoConfiguration

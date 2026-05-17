@@ -7,6 +7,7 @@ dependencies {
     api(project(":argus-agent"))
     api(project(":argus-server"))
     api(project(":argus-micrometer"))
+    api(project(":argus-diagnostics"))
 
     compileOnly("org.springframework.boot:spring-boot-autoconfigure:3.2.0")
     compileOnly("org.springframework.boot:spring-boot-actuator-autoconfigure:3.2.0")

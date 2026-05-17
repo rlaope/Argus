@@ -2,7 +2,13 @@ package io.argus.spring;
 
 import io.argus.agent.jfr.JfrStreamingEngine;
 import io.argus.core.config.AgentConfig;
+import io.argus.diagnostics.doctor.Finding;
 import io.argus.server.ArgusServer;
+import io.argus.spring.diagnostics.DoctorService;
+import io.argus.spring.diagnostics.GcLogAnalyzerService;
+import io.argus.spring.diagnostics.GcScoreService;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -109,6 +115,52 @@ class ArgusAutoConfigurationIntegrationTest {
                     assertThat(context).doesNotHaveBean(ArgusServer.class);
                     assertThat(context.getBean(ArgusProperties.class).getMode())
                             .isEqualTo(ArgusProperties.Mode.OFF);
+                });
+    }
+
+    @Test
+    void diagnosticsServicesAreAvailableInDiagnosticsMode() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class))
+                .withPropertyValues("argus.mode=diagnostics")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(DoctorService.class);
+                    assertThat(context).hasSingleBean(GcLogAnalyzerService.class);
+                    assertThat(context).hasSingleBean(GcScoreService.class);
+                    // No JFR / server side effects
+                    assertThat(context).doesNotHaveBean(JfrStreamingEngine.class);
+                    assertThat(context).doesNotHaveBean(ArgusServer.class);
+                    // DoctorService can actually diagnose the test JVM
+                    List<Finding> findings = context.getBean(DoctorService.class).diagnoseLocal();
+                    assertThat(findings).isNotNull();
+                });
+    }
+
+    @Test
+    void diagnosticsServicesAreSkippedWhenModeOff() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class))
+                .withPropertyValues("argus.mode=off")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(DoctorService.class);
+                    assertThat(context).doesNotHaveBean(GcLogAnalyzerService.class);
+                    assertThat(context).doesNotHaveBean(GcScoreService.class);
+                });
+    }
+
+    @Test
+    void diagnosticsServicesAreSkippedWhenEnabledFalse() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class))
+                .withPropertyValues("argus.enabled=false")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(DoctorService.class);
                 });
     }
 
