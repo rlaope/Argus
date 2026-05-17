@@ -2,8 +2,8 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
-import io.argus.cli.doctor.JvmSnapshot;
-import io.argus.cli.doctor.JvmSnapshotCollector;
+import io.argus.diagnostics.doctor.JvmSnapshot;
+import io.argus.diagnostics.doctor.JvmSnapshotCollector;
 import io.argus.cli.model.ProfileResult;
 import io.argus.cli.model.ProfileSnapshot;
 import io.argus.cli.provider.ProfileProvider;

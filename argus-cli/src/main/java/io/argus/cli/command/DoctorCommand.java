@@ -2,9 +2,10 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
-import io.argus.cli.doctor.*;
+import io.argus.diagnostics.doctor.*;
+import io.argus.cli.doctor.ProfileRules;
 import io.argus.cli.provider.jdk.AsProfCapabilities;
-import io.argus.cli.doctor.rules.MaxPauseRule;
+import io.argus.diagnostics.doctor.rules.MaxPauseRule;
 import io.argus.cli.export.HtmlExporter;
 import io.argus.cli.model.ProfileSnapshot;
 import io.argus.cli.model.ProfileResult;

@@ -1,5 +1,8 @@
 package io.argus.cli.doctor;
 
+import io.argus.diagnostics.doctor.Finding;
+import io.argus.diagnostics.doctor.Severity;
+
 import io.argus.cli.model.MethodSample;
 import io.argus.cli.model.ProfileSnapshot;
 

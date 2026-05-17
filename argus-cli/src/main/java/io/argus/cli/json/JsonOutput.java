@@ -1,5 +1,7 @@
 package io.argus.cli.json;
 
+import io.argus.diagnostics.json.JsonWritable;
+
 /**
  * Thin entry point for JSON rendering: models own the schema via {@link JsonWritable#writeJson(StringBuilder)},
  * commands call {@link #println(JsonWritable)} (or {@link #render(JsonWritable)} when they need the string).

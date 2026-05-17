@@ -1,5 +1,8 @@
 package io.argus.cli.provider.jdk;
 
+import io.argus.diagnostics.jcmd.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JdkParseUtils;
+
 import io.argus.cli.model.StringTableResult;
 import io.argus.cli.provider.StringTableProvider;
 

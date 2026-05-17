@@ -5,7 +5,7 @@ import io.argus.cli.config.Messages;
 import io.argus.cli.jmx.JmxAttachment;
 import io.argus.cli.jmx.JmxAttachmentException;
 import io.argus.cli.provider.ProviderRegistry;
-import io.argus.cli.provider.jdk.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;

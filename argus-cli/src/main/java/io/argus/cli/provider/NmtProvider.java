@@ -1,6 +1,6 @@
 package io.argus.cli.provider;
 
-import io.argus.cli.model.NmtResult;
+import io.argus.diagnostics.model.NmtResult;
 
 public interface NmtProvider extends DiagnosticProvider {
 

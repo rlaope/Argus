@@ -1,8 +1,8 @@
 package io.argus.cli.harness.rules;
 
-import io.argus.cli.doctor.Finding;
-import io.argus.cli.doctor.JvmSnapshot;
-import io.argus.cli.doctor.Severity;
+import io.argus.diagnostics.doctor.Finding;
+import io.argus.diagnostics.doctor.JvmSnapshot;
+import io.argus.diagnostics.doctor.Severity;
 import io.argus.cli.harness.HarnessSession;
 import io.argus.cli.harness.TimedSnapshot;
 import org.junit.jupiter.api.Test;

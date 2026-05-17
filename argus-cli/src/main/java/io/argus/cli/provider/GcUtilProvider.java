@@ -1,6 +1,6 @@
 package io.argus.cli.provider;
 
-import io.argus.cli.model.GcUtilResult;
+import io.argus.diagnostics.model.GcUtilResult;
 
 public interface GcUtilProvider extends DiagnosticProvider {
 

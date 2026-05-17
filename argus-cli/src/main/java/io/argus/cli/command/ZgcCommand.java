@@ -7,13 +7,13 @@ import io.argus.cli.jfr.JfrCaptureSession;
 import io.argus.cli.jmx.JmxAttachment;
 import io.argus.cli.jmx.JmxAttachmentException;
 import io.argus.cli.provider.ProviderRegistry;
-import io.argus.cli.provider.jdk.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.cli.util.CommandUtils;
-import io.argus.cli.zgc.ZgcBaseline;
-import io.argus.cli.zgc.ZgcDiagnosis;
-import io.argus.cli.zgc.ZgcJfrCollector;
+import io.argus.diagnostics.zgc.ZgcBaseline;
+import io.argus.diagnostics.zgc.ZgcDiagnosis;
+import io.argus.diagnostics.zgc.ZgcJfrCollector;
 import io.argus.core.command.CommandGroup;
 
 import javax.management.MBeanServerConnection;

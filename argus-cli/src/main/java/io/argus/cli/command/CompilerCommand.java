@@ -3,7 +3,7 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.json.JsonOutput;
-import io.argus.cli.model.CompilerResult;
+import io.argus.diagnostics.model.CompilerResult;
 import io.argus.cli.provider.CompilerProvider;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;

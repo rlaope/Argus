@@ -1,5 +1,9 @@
 package io.argus.cli.gclog;
 
+import io.argus.diagnostics.gclog.GcEvent;
+import io.argus.diagnostics.gclog.GcLogAnalysis;
+import io.argus.diagnostics.gclog.GcLogAnalyzer;
+
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

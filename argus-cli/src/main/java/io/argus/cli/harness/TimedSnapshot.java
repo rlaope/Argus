@@ -1,6 +1,6 @@
 package io.argus.cli.harness;
 
-import io.argus.cli.doctor.JvmSnapshot;
+import io.argus.diagnostics.doctor.JvmSnapshot;
 
 /**
  * A {@link JvmSnapshot} paired with the wall-clock time it was captured.

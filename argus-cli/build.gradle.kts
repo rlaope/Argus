@@ -9,6 +9,7 @@ application {
 
 dependencies {
     implementation(project(":argus-core"))
+    implementation(project(":argus-diagnostics"))
     implementation("org.jline:jline:3.26.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.0")
 }
@@ -53,7 +54,7 @@ tasks.register<Exec>("nativeImage") {
 
 // Fat JAR for standalone execution
 tasks.register<Jar>("fatJar") {
-    dependsOn(tasks.jar, ":argus-core:jar")
+    dependsOn(tasks.jar, ":argus-core:jar", ":argus-diagnostics:jar")
     archiveClassifier.set("all")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {

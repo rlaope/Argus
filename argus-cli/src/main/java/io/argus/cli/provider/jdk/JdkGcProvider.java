@@ -1,7 +1,10 @@
 package io.argus.cli.provider.jdk;
 
+import io.argus.diagnostics.jcmd.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JdkParseUtils;
+
 import io.argus.cli.model.GcResult;
-import io.argus.cli.model.GcUtilResult;
+import io.argus.diagnostics.model.GcUtilResult;
 import io.argus.cli.provider.GcProvider;
 
 import java.util.ArrayList;
@@ -15,7 +18,7 @@ import java.util.regex.Pattern;
  *
  * <p>jcmd GC.heap_info does not expose collection counts or aggregate pause
  * time, so the canonical source for those is jstat (matches the approach
- * used by {@link io.argus.cli.doctor.JvmSnapshotCollector}).
+ * used by {@link io.argus.diagnostics.doctor.JvmSnapshotCollector}).
  */
 public final class JdkGcProvider implements GcProvider {
 
@@ -75,7 +78,7 @@ public final class JdkGcProvider implements GcProvider {
             Process process = pb.start();
             String output = new String(process.getInputStream().readAllBytes()).trim();
             process.waitFor();
-            GcUtilResult gcutil = JdkGcUtilProvider.parseOutput(output);
+            GcUtilResult gcutil = io.argus.diagnostics.jcmd.JdkGcUtilProvider.parseOutput(output);
             totalEvents = gcutil.ygc() + gcutil.fgc();
             totalPauseMs = gcutil.gct() * 1000.0;
             collectors.add(new GcResult.CollectorInfo(

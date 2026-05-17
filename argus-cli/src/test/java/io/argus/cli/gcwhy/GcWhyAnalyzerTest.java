@@ -1,6 +1,6 @@
 package io.argus.cli.gcwhy;
 
-import io.argus.cli.gclog.GcEvent;
+import io.argus.diagnostics.gclog.GcEvent;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

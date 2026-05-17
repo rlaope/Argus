@@ -1,5 +1,8 @@
 package io.argus.cli.provider.jdk;
 
+import io.argus.diagnostics.jcmd.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JdkParseUtils;
+
 import io.argus.cli.model.ClassLoaderResult;
 import io.argus.cli.model.ClassLoaderResult.ClassLoaderInfo;
 import io.argus.cli.provider.ClassLoaderProvider;
