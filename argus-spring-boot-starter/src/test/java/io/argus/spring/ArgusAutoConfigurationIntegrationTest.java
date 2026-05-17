@@ -4,11 +4,15 @@ import io.argus.agent.jfr.JfrStreamingEngine;
 import io.argus.core.config.AgentConfig;
 import io.argus.diagnostics.doctor.Finding;
 import io.argus.server.ArgusServer;
+import io.argus.spring.actuate.ArgusActuatorAutoConfiguration;
+import io.argus.spring.actuate.ArgusDoctorEndpoint;
+import io.argus.spring.actuate.ArgusGcLogEndpoint;
 import io.argus.spring.diagnostics.DoctorService;
 import io.argus.spring.diagnostics.GcLogAnalyzerService;
 import io.argus.spring.diagnostics.GcScoreService;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -161,6 +165,82 @@ class ArgusAutoConfigurationIntegrationTest {
                 .withPropertyValues("argus.enabled=false")
                 .run(context -> {
                     assertThat(context).doesNotHaveBean(DoctorService.class);
+                });
+    }
+
+    @Test
+    void actuatorEndpointsAreRegisteredInDiagnosticsMode() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class,
+                        ArgusActuatorAutoConfiguration.class))
+                .withPropertyValues("argus.mode=diagnostics")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(ArgusDoctorEndpoint.class);
+                    assertThat(context).hasSingleBean(ArgusGcLogEndpoint.class);
+                });
+    }
+
+    @Test
+    void argusDoctorEndpointReturnsValidShape() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class,
+                        ArgusActuatorAutoConfiguration.class))
+                .withPropertyValues("argus.mode=diagnostics")
+                .run(context -> {
+                    Map<String, Object> body = context.getBean(ArgusDoctorEndpoint.class).diagnoseLocal();
+                    assertThat(body).containsKeys(
+                            "target", "exitCode", "findingCount", "severityCount",
+                            "suggestedFlags", "findings");
+                    assertThat(body.get("target")).isEqualTo("local");
+                });
+    }
+
+    @Test
+    void argusGcLogEndpointReturnsNoLogConfiguredWhenPathUnset() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class,
+                        ArgusActuatorAutoConfiguration.class))
+                .withPropertyValues("argus.mode=diagnostics")
+                .run(context -> {
+                    Map<String, Object> body = context.getBean(ArgusGcLogEndpoint.class).analyze();
+                    assertThat(body).containsEntry("status", "no_log_configured");
+                    assertThat(body).containsKey("hint");
+                });
+    }
+
+    @Test
+    void argusGcLogEndpointReportsLogNotFoundForBogusPath() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class,
+                        ArgusActuatorAutoConfiguration.class))
+                .withPropertyValues(
+                        "argus.mode=diagnostics",
+                        "argus.doctor.gc-log-path=/tmp/does-not-exist-argus-test.log")
+                .run(context -> {
+                    Map<String, Object> body = context.getBean(ArgusGcLogEndpoint.class).analyze();
+                    assertThat(body).containsEntry("status", "log_not_found");
+                });
+    }
+
+    @Test
+    void actuatorEndpointsAreSkippedWhenModeOff() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class,
+                        ArgusActuatorAutoConfiguration.class))
+                .withPropertyValues("argus.mode=off")
+                .run(context -> {
+                    assertThat(context).doesNotHaveBean(ArgusDoctorEndpoint.class);
+                    assertThat(context).doesNotHaveBean(ArgusGcLogEndpoint.class);
                 });
     }
 
