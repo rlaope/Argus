@@ -181,8 +181,28 @@ public class ArgusProperties {
         /** Optional path to a GC log file; consumed by the {@code /actuator/argus-gc} endpoint. */
         private String gcLogPath;
 
+        private Schedule schedule = new Schedule();
+
         public String getGcLogPath() { return gcLogPath; }
         public void setGcLogPath(String gcLogPath) { this.gcLogPath = gcLogPath; }
+
+        public Schedule getSchedule() { return schedule; }
+        public void setSchedule(Schedule schedule) { this.schedule = schedule; }
+
+        /** Background scheduled doctor — opt-in, off by default. */
+        public static class Schedule {
+            /** When true, a {@code @Scheduled} bean runs doctor diagnosis on a fixed interval. */
+            private boolean enabled = false;
+
+            /** Fixed delay between successive doctor runs, in milliseconds. */
+            private long intervalMs = 60000L;
+
+            public boolean isEnabled() { return enabled; }
+            public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+            public long getIntervalMs() { return intervalMs; }
+            public void setIntervalMs(long intervalMs) { this.intervalMs = intervalMs; }
+        }
     }
 
     public static class Metrics {
