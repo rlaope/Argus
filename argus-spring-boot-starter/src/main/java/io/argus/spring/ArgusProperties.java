@@ -59,6 +59,7 @@ public class ArgusProperties {
     private Profiling profiling = new Profiling();
     private Contention contention = new Contention();
     private Correlation correlation = new Correlation();
+    private Doctor doctor = new Doctor();
     private Metrics metrics = new Metrics();
 
     // -- Top-level getters/setters --
@@ -95,6 +96,9 @@ public class ArgusProperties {
 
     public Correlation getCorrelation() { return correlation; }
     public void setCorrelation(Correlation correlation) { this.correlation = correlation; }
+
+    public Doctor getDoctor() { return doctor; }
+    public void setDoctor(Doctor doctor) { this.doctor = doctor; }
 
     public Metrics getMetrics() { return metrics; }
     public void setMetrics(Metrics metrics) { this.metrics = metrics; }
@@ -170,6 +174,15 @@ public class ArgusProperties {
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    }
+
+    /** Doctor / GC-log analysis configuration. Consumed by the diagnostics auto-config + actuator endpoints. */
+    public static class Doctor {
+        /** Optional path to a GC log file; consumed by the {@code /actuator/argus-gc} endpoint. */
+        private String gcLogPath;
+
+        public String getGcLogPath() { return gcLogPath; }
+        public void setGcLogPath(String gcLogPath) { this.gcLogPath = gcLogPath; }
     }
 
     public static class Metrics {
