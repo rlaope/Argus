@@ -54,7 +54,7 @@ tasks.register<Exec>("nativeImage") {
 
 // Fat JAR for standalone execution
 tasks.register<Jar>("fatJar") {
-    dependsOn(tasks.jar, ":argus-core:jar")
+    dependsOn(tasks.jar, ":argus-core:jar", ":argus-diagnostics:jar")
     archiveClassifier.set("all")
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     manifest {
