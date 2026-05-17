@@ -7,7 +7,7 @@ import io.argus.cli.classleak.ClassLoaderEntry;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;
-import io.argus.cli.provider.jdk.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JcmdExecutor;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;

@@ -3,7 +3,7 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.json.JsonOutput;
-import io.argus.cli.model.AgeDistribution;
+import io.argus.diagnostics.model.AgeDistribution;
 import io.argus.cli.model.GcNewResult;
 import io.argus.cli.provider.GcAgeProvider;
 import io.argus.cli.provider.GcNewProvider;

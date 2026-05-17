@@ -3,7 +3,7 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.model.GcResult;
-import io.argus.cli.model.GcUtilResult;
+import io.argus.diagnostics.model.GcUtilResult;
 import io.argus.cli.model.HeapResult;
 import io.argus.cli.model.HistoResult;
 import io.argus.cli.model.InfoResult;

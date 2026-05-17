@@ -1,7 +1,7 @@
 package io.argus.cli.command;
 
-import io.argus.cli.doctor.JvmSnapshot;
-import io.argus.cli.model.NmtResult;
+import io.argus.diagnostics.doctor.JvmSnapshot;
+import io.argus.diagnostics.model.NmtResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

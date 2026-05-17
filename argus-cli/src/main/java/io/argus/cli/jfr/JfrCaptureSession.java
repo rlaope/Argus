@@ -1,6 +1,6 @@
 package io.argus.cli.jfr;
 
-import io.argus.cli.provider.jdk.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JcmdExecutor;
 
 import java.io.Closeable;
 import java.io.IOException;

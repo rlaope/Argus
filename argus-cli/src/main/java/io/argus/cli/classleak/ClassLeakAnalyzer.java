@@ -1,6 +1,6 @@
 package io.argus.cli.classleak;
 
-import io.argus.cli.provider.jdk.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JcmdExecutor;
 
 import java.util.ArrayList;
 import java.util.List;

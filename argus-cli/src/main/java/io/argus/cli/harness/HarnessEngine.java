@@ -1,9 +1,9 @@
 package io.argus.cli.harness;
 
-import io.argus.cli.doctor.DoctorEngine;
-import io.argus.cli.doctor.Finding;
-import io.argus.cli.doctor.JvmSnapshot;
-import io.argus.cli.doctor.JvmSnapshotCollector;
+import io.argus.diagnostics.doctor.DoctorEngine;
+import io.argus.diagnostics.doctor.Finding;
+import io.argus.diagnostics.doctor.JvmSnapshot;
+import io.argus.diagnostics.doctor.JvmSnapshotCollector;
 
 import java.time.Duration;
 import java.util.ArrayList;

@@ -1,6 +1,6 @@
 package io.argus.cli.model;
 
-import io.argus.cli.json.JsonWritable;
+import io.argus.diagnostics.json.JsonWritable;
 
 /**
  * Class loading statistics from jstat -class.

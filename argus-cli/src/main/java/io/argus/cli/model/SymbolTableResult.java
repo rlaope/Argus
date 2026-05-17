@@ -1,6 +1,6 @@
 package io.argus.cli.model;
 
-import io.argus.cli.json.JsonWritable;
+import io.argus.diagnostics.json.JsonWritable;
 
 /**
  * Symbol table statistics from jcmd VM.symboltable.

@@ -9,6 +9,7 @@ include("argus-agent")
 include("argus-server")
 include("argus-frontend")
 include("argus-cli")
+include("argus-diagnostics")
 include("argus-micrometer")
 include("argus-spring-boot-starter")
 

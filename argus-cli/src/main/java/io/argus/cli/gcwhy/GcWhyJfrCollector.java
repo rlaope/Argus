@@ -1,6 +1,6 @@
 package io.argus.cli.gcwhy;
 
-import io.argus.cli.gclog.GcEvent;
+import io.argus.diagnostics.gclog.GcEvent;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordedObject;
 import jdk.jfr.consumer.RecordingFile;

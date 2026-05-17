@@ -1,7 +1,7 @@
 package io.argus.cli.harness;
 
-import io.argus.cli.doctor.Finding;
-import io.argus.cli.doctor.Severity;
+import io.argus.diagnostics.doctor.Finding;
+import io.argus.diagnostics.doctor.Severity;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 

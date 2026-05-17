@@ -1,6 +1,6 @@
 package io.argus.cli.gcwhy;
 
-import io.argus.cli.gclog.GcEvent;
+import io.argus.diagnostics.gclog.GcEvent;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

@@ -1,7 +1,7 @@
 package io.argus.cli.harness.rules;
 
-import io.argus.cli.doctor.Finding;
-import io.argus.cli.doctor.Severity;
+import io.argus.diagnostics.doctor.Finding;
+import io.argus.diagnostics.doctor.Severity;
 import io.argus.cli.harness.HarnessSession;
 import io.argus.cli.harness.TimedSnapshot;
 import io.argus.cli.harness.TrendRule;

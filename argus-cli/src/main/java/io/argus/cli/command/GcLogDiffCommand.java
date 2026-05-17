@@ -2,9 +2,9 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
-import io.argus.cli.gclog.GcLogAnalysis;
-import io.argus.cli.gclog.GcLogAnalyzer;
-import io.argus.cli.gclog.GcLogParser;
+import io.argus.diagnostics.gclog.GcLogAnalysis;
+import io.argus.diagnostics.gclog.GcLogAnalyzer;
+import io.argus.diagnostics.gclog.GcLogParser;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;

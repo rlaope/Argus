@@ -2,8 +2,8 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
-import io.argus.cli.gclog.GcEvent;
-import io.argus.cli.gclog.GcLogParser;
+import io.argus.diagnostics.gclog.GcEvent;
+import io.argus.diagnostics.gclog.GcLogParser;
 import io.argus.cli.gcwhy.GcWhyAnalyzer;
 import io.argus.cli.gcwhy.GcWhyJfrCollector;
 import io.argus.cli.gcwhy.GcWhyResult;

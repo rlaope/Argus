@@ -1,5 +1,8 @@
 package io.argus.cli.provider.jdk;
 
+import io.argus.diagnostics.jcmd.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JdkParseUtils;
+
 import io.argus.cli.model.MetaspaceResult;
 import io.argus.cli.model.MetaspaceResult.SpaceInfo;
 import io.argus.cli.provider.MetaspaceProvider;

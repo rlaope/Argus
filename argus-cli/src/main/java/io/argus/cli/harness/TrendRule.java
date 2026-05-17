@@ -1,13 +1,13 @@
 package io.argus.cli.harness;
 
-import io.argus.cli.doctor.Finding;
+import io.argus.diagnostics.doctor.Finding;
 
 import java.util.List;
 
 /**
  * A rule that evaluates a time-series window of JVM samples and produces
  * zero or more {@link Finding}s for trend-based anomalies (leaks, regressions,
- * spikes) that single-snapshot {@link io.argus.cli.doctor.HealthRule}s cannot
+ * spikes) that single-snapshot {@link io.argus.diagnostics.doctor.HealthRule}s cannot
  * detect.
  *
  * <p>Rules are stateless and given an immutable {@link HarnessSession}. They

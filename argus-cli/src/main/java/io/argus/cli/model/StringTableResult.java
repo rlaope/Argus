@@ -1,6 +1,6 @@
 package io.argus.cli.model;
 
-import io.argus.cli.json.JsonWritable;
+import io.argus.diagnostics.json.JsonWritable;
 
 /**
  * String table (interned strings) statistics.

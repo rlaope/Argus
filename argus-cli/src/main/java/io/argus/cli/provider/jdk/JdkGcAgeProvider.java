@@ -1,6 +1,9 @@
 package io.argus.cli.provider.jdk;
 
-import io.argus.cli.model.AgeDistribution;
+import io.argus.diagnostics.jcmd.JcmdExecutor;
+import io.argus.diagnostics.jcmd.JdkParseUtils;
+
+import io.argus.diagnostics.model.AgeDistribution;
 import io.argus.cli.provider.GcAgeProvider;
 
 import java.util.ArrayList;
