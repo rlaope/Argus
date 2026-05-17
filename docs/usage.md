@@ -116,27 +116,99 @@ All settings are passed as `-D` system properties:
 
 ## Spring Boot Integration
 
-Add `argus-spring-boot-starter` to your Spring Boot 3.2+ application for zero-config JVM monitoring:
+Add `argus-spring-boot-starter` to your Spring Boot 3.2+ application:
 
 ```kotlin
 implementation("io.argus:argus-spring-boot-starter:1.4.0")
 ```
 
-Configure via `application.yml`:
+### Choose a posture: `argus.mode`
+
+| `argus.mode` | What runs | When to use |
+|---|---|---|
+| `full` *(default)* | JFR streaming + ArgusServer on port 9202 + every diagnostic bean + actuator endpoints | Demos, local development, dedicated monitoring sidecars |
+| `diagnostics` | Doctor / GC log / GC score beans + actuator endpoints + optional scheduled doctor — **no** JFR stream, **no** port 9202 | Production self-diagnosis without a daemon listener |
+| `off` | Nothing | Equivalent to `argus.enabled=false` |
 
 ```yaml
 argus:
-  server:
-    port: 9202
-  gc:
-    enabled: true
-  cpu:
-    enabled: true
-  allocation:
-    enabled: true
+  mode: diagnostics                # production-safe default
 ```
 
-The dashboard starts automatically. Health status available at `/actuator/health/argus`. Micrometer metrics auto-registered when on classpath.
+### Programmatic API
+
+The starter exposes three injectable services so application code can run Argus analyses on demand:
+
+```java
+@Autowired DoctorService doctor;
+
+@GetMapping("/admin/health/jvm")
+public List<Finding> jvmHealth() {
+    return doctor.diagnoseLocal();        // or doctor.diagnoseRemote(pid)
+}
+```
+
+| Bean | API |
+|---|---|
+| `DoctorService` | `diagnoseLocal()`, `diagnoseRemote(pid)`, `diagnose(snapshot)`, `lastCollectionWarnings()` |
+| `GcLogAnalyzerService` | `analyze(Path)`, `analyze(List<GcEvent>)` |
+| `GcScoreService` | `score(analysis)`, `score(analysis, gcAlgorithm)`, `inferAlgorithm(analysis)` |
+
+All three are `@ConditionalOnMissingBean` so applications can override with custom implementations.
+
+### Actuator endpoints
+
+| HTTP | Returns |
+|---|---|
+| `GET /actuator/argus-doctor` | JVM health findings (severity histogram + suggested flags + full finding list) for the local JVM |
+| `GET /actuator/argus-doctor/{pid}` | Same shape, for a remote JVM via `jcmd` |
+| `GET /actuator/argus-gc` | GC log analysis + score (reads `argus.doctor.gc-log-path`; status-coded response when the path is unset / missing / unparseable) |
+| `GET /actuator/health/argus` | JFR engine + server status (only present in `mode=full`) |
+
+Opt in with the standard Actuator gate:
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: argus-doctor,argus-gc,health
+```
+
+### Scheduled doctor + structured logging
+
+Opt in to a background doctor that runs on a fixed interval and emits one slf4j log line per finding — designed for direct ingestion by Loki / Datadog / Vector / Logstash:
+
+```yaml
+argus:
+  doctor:
+    schedule:
+      enabled: true             # off by default
+      interval-ms: 60000        # 1 min
+```
+
+Output (logger name `argus.doctor`, severity mapped to log level):
+
+```
+argus.doctor severity=CRITICAL category=GC      title="Frequent GC events: 350 events/min"
+argus.doctor severity=WARNING  category=Threads title="Blocked thread ratio: 12%"
+argus.doctor severity=INFO     category=Memory  title="Heap usage: 4.2 GB / 8.0 GB"
+```
+
+### Use the diagnostics library outside Spring
+
+`argus-diagnostics` ships as a framework-agnostic JAR — usable from Quarkus, Micronaut, IDE plugins, or plain `java -jar` apps:
+
+```kotlin
+implementation("io.argus:argus-diagnostics:1.4.0")
+```
+
+```java
+import io.argus.diagnostics.doctor.DoctorEngine;
+import io.argus.diagnostics.doctor.JvmSnapshotCollector;
+
+var findings = DoctorEngine.diagnose(JvmSnapshotCollector.collectLocal());
+```
 
 ---
 

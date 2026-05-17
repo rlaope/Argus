@@ -109,6 +109,45 @@ implementation 'io.argus:argus-spring-boot-starter:1.4.0'
 
 The `/prometheus` and `/argus` endpoints are auto-registered alongside your application's existing endpoints.
 
+#### Method C.1: Diagnostics-only mode (production-safe)
+
+For production deployments where you don't want a daemon HTTP server listening on port 9202 or a JFR stream running 24/7, set `argus.mode=diagnostics`. You still get `@Autowired DoctorService`, `/actuator/argus-doctor`, `/actuator/argus-gc`, and the optional scheduled doctor — without any of the runtime overhead of `mode=full`.
+
+```yaml
+# application.yml
+argus:
+  mode: diagnostics
+  doctor:
+    schedule:
+      enabled: true
+      interval-ms: 60000        # 1 minute
+management:
+  endpoints:
+    web:
+      exposure:
+        include: argus-doctor,argus-gc,health
+```
+
+K8s manifest delta — no extra port, no extra service:
+
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+        - name: my-app
+          ports:
+            - containerPort: 8080      # only your app port; argus is in-process
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            # Optional: feed your existing GC log into /actuator/argus-gc
+            - name: ARGUS_DOCTOR_GC_LOG_PATH
+              value: /var/log/jvm/gc.log
+```
+
+Findings emitted by the scheduled doctor appear in stdout as standard slf4j log lines (logger name `argus.doctor`), so Loki / Datadog / Promtail / Fluent Bit pick them up without extra config.
+
 ---
 
 ## Prometheus Integration

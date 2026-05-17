@@ -33,7 +33,8 @@ Full rationale and procedures: [`docs/contributing.md`](docs/contributing.md).
 
 (Currently empty. Harness MVP work + the explicit follow-ups the user asked for have all landed. Decisions:)
 
-- ~~Spring Boot Starter integration~~ and ~~argus-server REST/WS + frontend Harness panel~~: **dropped.** The harness is intended for Claude Code use only, not for in-production infrastructure self-monitoring. Add either back here only if that intent changes.
+- **Spring Boot Starter diagnostics layer**: **shipped** — `argus.mode=full|diagnostics|off`, programmatic `DoctorService` / `GcLogAnalyzerService` / `GcScoreService` beans, `/actuator/argus-doctor`, `/actuator/argus-gc`, and a scheduled doctor with structured slf4j logging. The framework-agnostic `argus-diagnostics` module was extracted from `argus-cli` so non-Spring JVM apps can embed it too. See [`docs/usage.md`](docs/usage.md) and [`docs/kubernetes.md`](docs/kubernetes.md) for the public surface; tracking issue #216.
+- ~~argus-server REST/WS + frontend Harness panel~~: **dropped.** The harness is intended for Claude Code use only, not for in-production infrastructure self-monitoring. Add it back here only if that intent changes.
 - ~~i18n drift backfill~~: **false alarm.** All four locale files have 532 keys (parity); the original 15-line discrepancy is just comments and blank lines.
 - ~~Apply forrestchang/andrej-karpathy-skills~~: **done** — vendored to `.claude/skills/karpathy-guidelines/SKILL.md` (MIT, attribution preserved).
 - ~~install.sh `--run` flag~~: **done** — `install.sh` and `install.ps1` accept `[--run|-Run] <argus-subcommand> [args…]` and exec into argus after install.

@@ -4,6 +4,17 @@ All notable changes to Argus are documented here. Format follows [Keep a Changel
 
 ## [Unreleased]
 
+### Added
+- **`argus-diagnostics` module** — framework-agnostic JVM analysis library extracted from `argus-cli`. Contains the doctor engine (13 health rules), GC log parser + analyzer, GC scoring, ZGC diagnosis, and the jcmd-based snapshot collector. Java 11 bytecode, depends only on `argus-core`. Non-Spring JVM apps (Quarkus, Micronaut, IDE plugins, plain JARs) can now embed the same analysis primitives the CLI uses. CLI behavior unchanged.
+- **`argus-spring-boot-starter`: `argus.mode=full|diagnostics|off` posture knob** — new property letting production apps opt into a lightweight analysis-only path without spinning up the JFR streaming engine or the embedded `ArgusServer:9202`. `mode=full` (default) preserves v1.4.0 behavior; `mode=diagnostics` keeps the analysis beans + actuator endpoints; `mode=off` is equivalent to `argus.enabled=false`.
+- **`argus-spring-boot-starter`: programmatic API beans** — `DoctorService`, `GcLogAnalyzerService`, `GcScoreService` are now `@Autowired`-injectable. All three are `@ConditionalOnMissingBean` so applications can override with custom implementations.
+- **`argus-spring-boot-starter`: actuator endpoints** — `/actuator/argus-doctor` (local + `/{pid}` remote variants) and `/actuator/argus-gc` (driven by `argus.doctor.gc-log-path`). Responses are explicit `Map<String,Object>` shapes for stable JSON contracts across Jackson versions. Opt-in via the standard `management.endpoints.web.exposure.include` gate.
+- **`argus-spring-boot-starter`: scheduled doctor + structured slf4j logging** — opt-in via `argus.doctor.schedule.enabled=true`. Background `@Scheduled` bean runs `DoctorService.diagnoseLocal()` on a fixed interval (default 60 s) and emits one structured log line per finding (severity → log level mapping: CRITICAL → ERROR, WARNING → WARN, INFO → INFO). Format `key=value` is parseable by Loki / Datadog / Vector / Logstash without bespoke per-field regex.
+
+### Changed
+- `argus-spring-boot-starter` now `api`-depends on `argus-diagnostics`, exposing `Finding`, `JvmSnapshot`, `GcLogAnalysis`, `GcScoreResult` etc. to consumer apps via the transitive classpath.
+- Documentation: `docs/usage.md`, `docs/kubernetes.md`, and `site/integrations.html` updated with the new posture knob, programmatic API, actuator endpoints, and a "diagnostics-only" K8s recipe (Method C.1).
+
 ## [1.4.0] - 2026-05-13
 
 ### Added
