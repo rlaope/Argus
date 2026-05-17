@@ -28,7 +28,28 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "argus")
 public class ArgusProperties {
 
+    /**
+     * Runtime posture for the Argus starter.
+     *
+     * <ul>
+     *   <li>{@link #FULL} — auto-launch {@code JfrStreamingEngine} + embedded
+     *       {@code ArgusServer:9202} and register every diagnostic bean. Default;
+     *       matches the v1.4.0 behavior.</li>
+     *   <li>{@link #DIAGNOSTICS} — skip JFR streaming and the daemon HTTP server;
+     *       expose only the analysis-side beans (doctor / GC log / GC score) so
+     *       production apps can self-diagnose without a daemon listener.</li>
+     *   <li>{@link #OFF} — functionally equivalent to {@code argus.enabled=false};
+     *       no Argus beans are created.</li>
+     * </ul>
+     */
+    public enum Mode {
+        FULL,
+        DIAGNOSTICS,
+        OFF
+    }
+
     private boolean enabled = true;
+    private Mode mode = Mode.FULL;
     private int bufferSize = 65536;
     private Server server = new Server();
     private Gc gc = new Gc();
@@ -44,6 +65,9 @@ public class ArgusProperties {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public Mode getMode() { return mode; }
+    public void setMode(Mode mode) { this.mode = mode; }
 
     public int getBufferSize() { return bufferSize; }
     public void setBufferSize(int bufferSize) { this.bufferSize = bufferSize; }

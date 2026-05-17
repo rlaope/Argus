@@ -13,6 +13,7 @@ import io.argus.core.event.VirtualThreadEvent;
 import io.argus.server.ArgusServer;
 
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -68,12 +69,14 @@ public class ArgusAutoConfiguration implements DisposableBean {
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "argus", name = "mode", havingValue = "full", matchIfMissing = true)
     public ArgusBuffers argusBuffers(AgentConfig config) {
         return new ArgusBuffers(config);
     }
 
     @Bean
     @ConditionalOnMissingBean
+    @ConditionalOnProperty(prefix = "argus", name = "mode", havingValue = "full", matchIfMissing = true)
     public JfrStreamingEngine argusJfrEngine(AgentConfig config, ArgusBuffers buffers) {
         engine = new JfrStreamingEngine(
                 buffers.eventBuffer(),
@@ -101,6 +104,7 @@ public class ArgusAutoConfiguration implements DisposableBean {
     @Bean
     @ConditionalOnMissingBean
     @ConditionalOnProperty(prefix = "argus.server", name = "enabled", havingValue = "true", matchIfMissing = true)
+    @ConditionalOnBean(ArgusBuffers.class)
     public ArgusServer argusServer(AgentConfig config, ArgusBuffers buffers) {
         server = new ArgusServer(
                 config.getServerPort(),

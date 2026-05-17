@@ -1,6 +1,8 @@
 package io.argus.spring;
 
+import io.argus.agent.jfr.JfrStreamingEngine;
 import io.argus.core.config.AgentConfig;
+import io.argus.server.ArgusServer;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -75,6 +77,47 @@ class ArgusAutoConfigurationIntegrationTest {
         new ApplicationContextRunner()
                 .withUserConfiguration(EnablePropsOnlyConfig.class)
                 .run(context -> assertThat(context).hasSingleBean(ArgusProperties.class));
+    }
+
+    @Test
+    void argusModeDiagnosticsSkipsJfrEngineAndServer() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(ArgusAutoConfiguration.class))
+                .withPropertyValues("argus.mode=diagnostics")
+                .run(context -> {
+                    // AgentConfig + ArgusProperties stay available for downstream diagnostics beans
+                    assertThat(context).hasSingleBean(ArgusProperties.class);
+                    assertThat(context).hasSingleBean(AgentConfig.class);
+                    // JFR streaming + daemon server are NOT created in diagnostics mode
+                    assertThat(context).doesNotHaveBean(JfrStreamingEngine.class);
+                    assertThat(context).doesNotHaveBean(ArgusServer.class);
+                    // Mode field is bound correctly
+                    assertThat(context.getBean(ArgusProperties.class).getMode())
+                            .isEqualTo(ArgusProperties.Mode.DIAGNOSTICS);
+                });
+    }
+
+    @Test
+    void argusModeOffSkipsJfrEngineAndServer() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(ArgusAutoConfiguration.class))
+                .withPropertyValues("argus.mode=off")
+                .run(context -> {
+                    // OFF mode behaves like DIAGNOSTICS for JFR/server beans; the
+                    // diagnostics-side beans will additionally be gated off in slice 3.
+                    assertThat(context).doesNotHaveBean(JfrStreamingEngine.class);
+                    assertThat(context).doesNotHaveBean(ArgusServer.class);
+                    assertThat(context.getBean(ArgusProperties.class).getMode())
+                            .isEqualTo(ArgusProperties.Mode.OFF);
+                });
+    }
+
+    @Test
+    void argusModeUnsetDefaultsToFull() {
+        new ApplicationContextRunner()
+                .withUserConfiguration(EnablePropsOnlyConfig.class)
+                .run(context -> assertThat(context.getBean(ArgusProperties.class).getMode())
+                        .isEqualTo(ArgusProperties.Mode.FULL));
     }
 
     @EnableConfigurationProperties(ArgusProperties.class)
