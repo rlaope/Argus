@@ -10,6 +10,8 @@ import io.argus.spring.actuate.ArgusGcLogEndpoint;
 import io.argus.spring.diagnostics.DoctorService;
 import io.argus.spring.diagnostics.GcLogAnalyzerService;
 import io.argus.spring.diagnostics.GcScoreService;
+import io.argus.spring.schedule.ArgusScheduledDoctor;
+import io.argus.spring.schedule.ArgusScheduledDoctorAutoConfiguration;
 
 import java.util.List;
 import java.util.Map;
@@ -242,6 +244,49 @@ class ArgusAutoConfigurationIntegrationTest {
                     assertThat(context).doesNotHaveBean(ArgusDoctorEndpoint.class);
                     assertThat(context).doesNotHaveBean(ArgusGcLogEndpoint.class);
                 });
+    }
+
+    @Test
+    void scheduledDoctorRegisteredWhenEnabled() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class,
+                        ArgusScheduledDoctorAutoConfiguration.class))
+                .withPropertyValues(
+                        "argus.mode=diagnostics",
+                        "argus.doctor.schedule.enabled=true",
+                        "argus.doctor.schedule.interval-ms=600000")
+                .run(context -> {
+                    assertThat(context).hasSingleBean(ArgusScheduledDoctor.class);
+                    // Direct method call exercises the diagnose + log path without
+                    // waiting for the scheduler to fire.
+                    context.getBean(ArgusScheduledDoctor.class).runOnce();
+                });
+    }
+
+    @Test
+    void scheduledDoctorSkippedByDefault() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class,
+                        ArgusScheduledDoctorAutoConfiguration.class))
+                .withPropertyValues("argus.mode=diagnostics")
+                .run(context -> assertThat(context).doesNotHaveBean(ArgusScheduledDoctor.class));
+    }
+
+    @Test
+    void scheduledDoctorSkippedWhenEnabledFalse() {
+        new ApplicationContextRunner()
+                .withConfiguration(AutoConfigurations.of(
+                        ArgusAutoConfiguration.class,
+                        ArgusDiagnosticsAutoConfiguration.class,
+                        ArgusScheduledDoctorAutoConfiguration.class))
+                .withPropertyValues(
+                        "argus.enabled=false",
+                        "argus.doctor.schedule.enabled=true")
+                .run(context -> assertThat(context).doesNotHaveBean(ArgusScheduledDoctor.class));
     }
 
     @Test
