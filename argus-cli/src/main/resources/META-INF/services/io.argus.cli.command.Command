@@ -50,6 +50,7 @@ io.argus.cli.command.PsCommand
 io.argus.cli.command.ReportCommand
 io.argus.cli.command.SearchClassCommand
 io.argus.cli.command.SlowlogCommand
+io.argus.cli.command.SnapshotCommand
 io.argus.cli.command.SpringCommand
 io.argus.cli.command.StringTableCommand
 io.argus.cli.command.SuggestCommand
