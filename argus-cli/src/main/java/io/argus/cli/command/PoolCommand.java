@@ -40,7 +40,7 @@ public final class PoolCommand implements Command {
         if (args.length > 0) {
             String head = args[0];
             if ("--help".equals(head) || "-h".equals(head) || "help".equals(head)) {
-                printUsage(messages);
+                System.out.println(messages.get("cmd.pool.usage"));
                 return;
             }
             if ("jdbc".equals(head)) {
@@ -58,13 +58,7 @@ public final class PoolCommand implements Command {
     }
 
     private static String[] shift(String[] args) {
-        String[] out = new String[args.length - 1];
-        System.arraycopy(args, 1, out, 0, out.length);
-        return out;
-    }
-
-    private void printUsage(Messages messages) {
-        System.out.println(messages.get("cmd.pool.usage"));
+        return java.util.Arrays.copyOfRange(args, 1, args.length);
     }
 
     private void executeThreadPoolListing(String[] args, CliConfig config,

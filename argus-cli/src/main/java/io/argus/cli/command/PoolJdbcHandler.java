@@ -3,6 +3,7 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.jmx.JmxAttachment;
+import io.argus.cli.render.RichRenderer;
 
 import javax.management.MBeanServerConnection;
 import javax.management.MalformedObjectNameException;
@@ -24,15 +25,10 @@ import java.util.TreeSet;
  */
 final class PoolJdbcHandler {
 
-    /** Verdict severities for a single JDBC pool. */
     enum Verdict { OK, WARN, CRIT }
 
     static final double UTILIZATION_WARN = 0.85;
 
-    /**
-     * Pure decision function — testable without a live JVM.
-     * CRIT: any waiting threads. WARN: utilization at/above {@value #UTILIZATION_WARN}. OK: otherwise.
-     */
     static Verdict computeVerdict(int active, int max, int waiting) {
         if (waiting > 0) return Verdict.CRIT;
         if (max > 0 && (double) active / (double) max >= UTILIZATION_WARN) return Verdict.WARN;
@@ -85,7 +81,7 @@ final class PoolJdbcHandler {
         for (PoolRow r : rows) {
             Verdict v = computeVerdict(r.active, r.max, r.waiting);
             System.out.printf("  %-32s %7d %7d %7d %9d   %s%n",
-                    truncate(r.name, 32), r.active, r.idle, r.total, r.waiting, v.name());
+                    RichRenderer.truncate(r.name, 32), r.active, r.idle, r.total, r.waiting, v.name());
         }
         long crit = rows.stream().filter(r -> computeVerdict(r.active, r.max, r.waiting) == Verdict.CRIT).count();
         long warn = rows.stream().filter(r -> computeVerdict(r.active, r.max, r.waiting) == Verdict.WARN).count();
@@ -168,10 +164,6 @@ final class PoolJdbcHandler {
             return name.substring(6, name.length() - 1);
         }
         return on.toString();
-    }
-
-    private static String truncate(String s, int n) {
-        return s.length() <= n ? s : s.substring(0, n - 1) + "…";
     }
 
     private String toJson(long pid, List<PoolRow> rows) {

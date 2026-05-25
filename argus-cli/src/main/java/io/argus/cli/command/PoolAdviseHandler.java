@@ -3,6 +3,7 @@ package io.argus.cli.command;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.jmx.JmxAttachment;
+import io.argus.cli.render.RichRenderer;
 
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
@@ -30,10 +31,6 @@ final class PoolAdviseHandler {
     static final long DEFAULT_WINDOW_MS = 5_000L;
     static final long SAMPLE_INTERVAL_MS = 250L;
 
-    /**
-     * Pure recommendation function — testable without sampling.
-     * Returns ceil(p99 * 1.5), floored at {@link #MIN_RECOMMENDED}.
-     */
     static int recommendSize(int p99Active) {
         int scaled = (int) Math.ceil(p99Active * 1.5);
         return Math.max(MIN_RECOMMENDED, scaled);
@@ -89,7 +86,7 @@ final class PoolAdviseHandler {
             int rec = recommendSize(g.p99Active);
             String cfg = g.configuredSize > 0 ? String.valueOf(g.configuredSize) : "-";
             System.out.printf("  %-30s %10d %9.1f%% %12s %12d%n",
-                    truncate(g.prefix, 30), g.p99Active, g.blockingRatio * 100.0, cfg, rec);
+                    RichRenderer.truncate(g.prefix, 30), g.p99Active, g.blockingRatio * 100.0, cfg, rec);
         }
         System.out.println(messages.get("pool.advise.rationale"));
     }
@@ -234,10 +231,6 @@ final class PoolAdviseHandler {
             catch (NumberFormatException ignored) {}
         }
         return null;
-    }
-
-    private static String truncate(String s, int n) {
-        return s.length() <= n ? s : s.substring(0, n - 1) + "…";
     }
 
     private String toJson(long pid, long windowMs, List<GroupStats> stats) {
