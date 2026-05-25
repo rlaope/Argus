@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 67 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
+Complete reference for all 68 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
 
 ## Global Options
 
@@ -104,6 +104,7 @@ CPU, allocation, lock, and wall-clock profiling via async-profiler; flame graph 
 - `argus slowlog` — real-time slow method detection (JFR streaming)
 - `argus trace` — method call tree from thread-dump sampling
 - `argus benchmark` — sampling-based throughput estimate for a method
+- `argus snapshot` — forensic bundle (threads + histogram + doctor + JFR + optional heap dump) as a single tar.gz
 
 ---
 
@@ -197,12 +198,15 @@ Thread state summaries, full thread dumps, deadlock detection, and thread pool d
 | `argus nmt` | [Memory & GC](commands/memory-gc.md#argus-nmt-pid) |
 | `argus perfcounter` | [Monitoring](commands/monitoring.md#argus-perfcounter-pid) |
 | `argus pool` | [Threads](commands/threads.md#argus-pool-pid) |
+| `argus pool jdbc` | [Threads](commands/threads.md#argus-pool-jdbc-pid) |
+| `argus pool advise` | [Threads](commands/threads.md#argus-pool-advise-pid) |
 | `argus profile` | [Profiling & Tracing](commands/profiling-tracing.md#argus-profile-pid) |
 | `argus profile-gate` | [Profiling & Tracing](commands/profiling-tracing.md#argus-profile-gate-before-after) |
 | `argus ps` | [Monitoring](commands/monitoring.md#argus-ps) |
 | `argus report` | [Monitoring](commands/monitoring.md#argus-report-pid) |
 | `argus sc` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-sc-pid-pattern) |
 | `argus slowlog` | [Profiling & Tracing](commands/profiling-tracing.md#argus-slowlog-pid) |
+| `argus snapshot` | [Profiling & Tracing](commands/profiling-tracing.md#argus-snapshot-pid) |
 | `argus spring` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-spring-pid) |
 | `argus stringtable` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-stringtable-pid) |
 | `argus suggest` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-suggest) |

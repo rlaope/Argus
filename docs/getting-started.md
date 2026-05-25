@@ -365,7 +365,7 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
 | Feature | Java 11+ | Java 17+ | Java 21+ |
 |---------|:--------:|:--------:|:--------:|
-| CLI (67 commands) | ✅ | ✅ | ✅ |
+| CLI (68 commands) | ✅ | ✅ | ✅ |
 | Dashboard & Web UI | — | ✅ | ✅ |
 | GC Analysis | CLI only | ✅ MXBean | ✅ JFR |
 | Virtual Thread Monitoring | — | — | ✅ JFR |
