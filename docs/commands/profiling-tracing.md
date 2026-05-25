@@ -12,6 +12,7 @@ Commands for capturing and analyzing runtime performance data. This category cov
 - [argus slowlog \<pid\>](#argus-slowlog-pid)
 - [argus trace \<pid\> \<class.method\>](#argus-trace-pid-classmethod)
 - [argus benchmark \<pid\> \<class.method\>](#argus-benchmark-pid-classmethod)
+- [argus snapshot \<pid\>](#argus-snapshot-pid)
 
 ---
 
@@ -499,6 +500,86 @@ Options:
 - `--iterations=N` — Approximate iteration count (maps to duration; 10 iters ≈ 1s)
 - `--warmup=N` — Warmup iteration count before measurement (default: 50)
 - `--duration=N` — Measurement duration in seconds (default: 30)
+
+---
+
+## argus snapshot \<pid\>
+
+Collects multiple diagnostics from a target JVM into a single `tar.gz` forensic bundle for incident response. Designed for the moment something goes wrong in production and you want to ship one self-contained artifact to a teammate, ticket, or post-mortem ledger instead of running half a dozen `jcmd` invocations by hand.
+
+```bash
+$ argus snapshot 39113 --output=/tmp/incident
+```
+
+```
+Collecting diagnostics from PID 39113...
+  [v] info.txt (88.7 KB)
+  [v] threads.txt (244.3 KB)
+  [v] histo.txt (107.6 KB)
+  [v] doctor.txt (37 B)
+  [-] heap.hprof (skipped: --safe mode (STW > 1s expected; pass --full to include))
+Compressing to tar.gz...
+Snapshot saved: /tmp/incident/argus-snapshot-39113-20260525-103301.tar.gz (45.4 KB)
+```
+
+### What's collected
+
+| Item | Source | Notes |
+|---|---|---|
+| `info.txt` | `jcmd VM.info` | JVM version, args, system properties, GC settings |
+| `threads.txt` | `jcmd Thread.print` ×3 (5s apart) | Three dumps separated by `=== dump N @ <ts> ===` for catching short-lived contention |
+| `histo.txt` | `jcmd GC.class_histogram` | Live-object class histogram |
+| `doctor.txt` | `DoctorEngine.diagnose` | Output of `argus doctor` against the same PID |
+| `heap.hprof` | `jcmd GC.heap_dump` | **`--full` only.** Full heap dump; large, STW-inducing |
+| `manifest.json` | (generated) | Per-item status + bundle metadata; see schema below |
+
+### Options
+
+- `<pid>` — Target JVM PID. Defaults to the current process (self-attach) if omitted.
+- `--output=<dir>` — Output directory. Default: `./argus-snapshot-<yyyyMMdd-HHmmss>`. Missing intermediate directories are created.
+- `--safe` *(default)* — Skip heap dump and any other operation that would cause a long stop-the-world pause. Safe for production.
+- `--full` — Include the heap dump. Implies a STW pause proportional to live-heap size; do not use during a serving incident without consideration.
+- `--help`, `-h` — Print usage.
+
+`--safe` and `--full` are mutually exclusive; passing both exits with code 1.
+
+### Manifest schema (v1)
+
+```json
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-05-25T01:25:58.474195Z",
+  "argusVersion": "1.4.0",
+  "target": {
+    "pid": 39113,
+    "jvmVersion": "OpenJDK 64-Bit Server VM version 17.0.18+8",
+    "jvmArgs": "-XX:+UseG1GC ...",
+    "hostname": "host.example"
+  },
+  "mode": "safe",
+  "items": [
+    {"name": "info.txt",    "source": "jcmd VM.info",          "status": "ok",      "bytes": 84352},
+    {"name": "threads.txt", "source": "jcmd Thread.print x3",  "status": "ok",      "bytes": 250146},
+    {"name": "histo.txt",   "source": "jcmd GC.class_histogram","status": "ok",     "bytes": 112005},
+    {"name": "doctor.txt",  "source": "DoctorEngine.diagnose", "status": "ok",      "bytes": 37},
+    {"name": "heap.hprof",  "source": "jcmd GC.heap_dump",     "status": "skipped", "reason": "--safe"}
+  ]
+}
+```
+
+`status` is one of `ok`, `skipped` (intentional, e.g. `--safe`), or `error`. On `error`, an `error` field carries the underlying message — failures of individual items do not abort the bundle.
+
+### When to use
+
+- An incident is in progress and you want one artifact you can attach to a Slack thread, ticket, or post-mortem.
+- You need to ship diagnostics to a teammate who cannot attach to the target JVM (different host, security boundary).
+- You want a frozen-in-time set of diagnostics to compare against a later snapshot.
+
+### Limitations / explicitly deferred
+
+- No `argus replay <bundle>` viewer yet — bundles are tar.gz archives meant to be unpacked and read manually or piped into other tools. A first-class replay command is on the roadmap.
+- `doctor.txt` reflects whatever the live `DoctorEngine` rule set surfaces for the target. Healthy small JVMs produce a 37-byte "All checks passed" line; this is not a bug, it's the doctor being honest.
+- Older JDKs may reject the `GC.heap_dump` positional path used here. Tested on JDK 17 and JDK 21.
 
 ---
 

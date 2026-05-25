@@ -9,7 +9,7 @@ Welcome to the Project Argus documentation.
 
 ## Reference
 
-- [CLI Command Reference](cli-commands.md) — Index of all 67 commands with category navigation and A–Z lookup
+- [CLI Command Reference](cli-commands.md) — Index of all 68 commands with category navigation and A–Z lookup
   - [commands/monitoring.md](commands/monitoring.md) — ps, info, env, top, watch, report, diff, alert, cluster, perfcounter, tui
   - [commands/memory-gc.md](commands/memory-gc.md) — gc, heap, histo, nmt, buffers, metaspace, gclog, gcscore, zgc, and more
   - [commands/profiling-tracing.md](commands/profiling-tracing.md) — profile, flame, jfr, jfranalyze, slowlog, trace, benchmark
