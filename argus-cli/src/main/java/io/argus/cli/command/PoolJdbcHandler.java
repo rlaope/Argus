@@ -5,7 +5,9 @@ import io.argus.cli.config.Messages;
 import io.argus.cli.jmx.JmxAttachment;
 
 import javax.management.MBeanServerConnection;
+import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -90,14 +92,14 @@ final class PoolJdbcHandler {
         System.out.println(messages.get("pool.jdbc.verdict.summary", crit, warn, rows.size()));
     }
 
-    private List<PoolRow> collect(MBeanServerConnection mbs) throws Exception {
+    private List<PoolRow> collect(MBeanServerConnection mbs) throws IOException {
         List<PoolRow> out = new ArrayList<>();
         out.addAll(collectHikari(mbs));
         out.addAll(collectTomcat(mbs));
         return out;
     }
 
-    private List<PoolRow> collectHikari(MBeanServerConnection mbs) {
+    private List<PoolRow> collectHikari(MBeanServerConnection mbs) throws IOException {
         List<PoolRow> out = new ArrayList<>();
         try {
             Set<ObjectName> pools = mbs.queryNames(new ObjectName("com.zaxxer.hikari:type=Pool (*),*"), null);
@@ -113,8 +115,8 @@ final class PoolJdbcHandler {
                 int max = readMaxForHikari(mbs, on);
                 out.add(new PoolRow(extractHikariPoolName(on), active, idle, total, waiting, max, "hikari"));
             }
-        } catch (Exception ignored) {
-            // Swallow — Hikari MBeans simply not registered.
+        } catch (MalformedObjectNameException impossible) {
+            // The query patterns are constants, so this is unreachable.
         }
         return out;
     }
@@ -130,7 +132,7 @@ final class PoolJdbcHandler {
         }
     }
 
-    private List<PoolRow> collectTomcat(MBeanServerConnection mbs) {
+    private List<PoolRow> collectTomcat(MBeanServerConnection mbs) throws IOException {
         List<PoolRow> out = new ArrayList<>();
         try {
             Set<ObjectName> pools = mbs.queryNames(new ObjectName("tomcat.jdbc:type=ConnectionPool,*"), null);
@@ -145,7 +147,8 @@ final class PoolJdbcHandler {
                 if (name == null) name = on.toString();
                 out.add(new PoolRow(name, active, idle, total, waiting, max, "tomcat-jdbc"));
             }
-        } catch (Exception ignored) {
+        } catch (MalformedObjectNameException impossible) {
+            // The query patterns are constants, so this is unreachable.
         }
         return out;
     }

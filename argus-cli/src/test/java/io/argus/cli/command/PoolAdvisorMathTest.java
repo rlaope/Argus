@@ -66,4 +66,14 @@ class PoolAdvisorMathTest {
         assertNull(PoolAdviseHandler.prefixOf("main"));
         assertNull(PoolAdviseHandler.prefixOf("Reference Handler"));
     }
+
+    @Test
+    void prefixOfFiltersJdkAndContainerInternalPools() {
+        assertNull(PoolAdviseHandler.prefixOf("RMI TCP Accept-0"));
+        assertNull(PoolAdviseHandler.prefixOf("RMI Scheduler(0)"));
+        assertNull(PoolAdviseHandler.prefixOf("GC Thread#3"));
+        assertNull(PoolAdviseHandler.prefixOf("Catalina-utility-1"));
+        assertNull(PoolAdviseHandler.prefixOf("G1 Conc#0"));
+        assertNull(PoolAdviseHandler.prefixOf("ParGC Thread#0"));
+    }
 }

@@ -201,10 +201,19 @@ final class PoolAdviseHandler {
 
     /**
      * Maps a raw thread name to a stable group prefix. Returns null for threads
-     * that should not be grouped (single-purpose daemon threads).
+     * that should not be grouped (single-purpose daemon threads + JDK/container-
+     * internal pools the user cannot resize).
      */
     static String prefixOf(String threadName) {
         if (threadName == null || threadName.isEmpty()) return null;
+        if (threadName.startsWith("RMI TCP Accept")
+                || threadName.startsWith("RMI Scheduler")
+                || threadName.startsWith("GC Thread")
+                || threadName.startsWith("Catalina-utility")
+                || threadName.startsWith("G1 ")
+                || threadName.startsWith("ParGC")) {
+            return null;
+        }
         if (threadName.startsWith("http-nio-")) {
             int second = threadName.indexOf('-', 9);
             return second > 0 ? threadName.substring(0, second) : threadName;
