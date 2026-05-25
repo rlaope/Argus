@@ -13,12 +13,17 @@ import io.argus.core.command.CommandGroup;
 import java.util.Map;
 
 /**
- * Shows thread pool analysis grouped by pool name.
+ * Dispatches the `argus pool` family of subcommands.
+ *
+ * <ul>
+ *   <li>{@code argus pool <pid>} — existing thread-pool grouping table (default).</li>
+ *   <li>{@code argus pool jdbc <pid>} — JDBC connection pool state (HikariCP + Tomcat JDBC).</li>
+ *   <li>{@code argus pool advise <pid>} — thread-pool sizing advisor via ThreadMXBean sampling.</li>
+ * </ul>
  */
 public final class PoolCommand implements Command {
 
     private static final int WIDTH = RichRenderer.DEFAULT_WIDTH;
-    private static final int BAR_WIDTH = 12;
 
     @Override
     public String name() { return "pool"; }
@@ -32,6 +37,38 @@ public final class PoolCommand implements Command {
 
     @Override
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
+        if (args.length > 0) {
+            String head = args[0];
+            if ("--help".equals(head) || "-h".equals(head) || "help".equals(head)) {
+                printUsage(messages);
+                return;
+            }
+            if ("jdbc".equals(head)) {
+                String[] rest = shift(args);
+                new PoolJdbcHandler().run(rest, config, messages);
+                return;
+            }
+            if ("advise".equals(head)) {
+                String[] rest = shift(args);
+                new PoolAdviseHandler().run(rest, config, messages);
+                return;
+            }
+        }
+        executeThreadPoolListing(args, config, registry, messages);
+    }
+
+    private static String[] shift(String[] args) {
+        String[] out = new String[args.length - 1];
+        System.arraycopy(args, 1, out, 0, out.length);
+        return out;
+    }
+
+    private void printUsage(Messages messages) {
+        System.out.println(messages.get("cmd.pool.usage"));
+    }
+
+    private void executeThreadPoolListing(String[] args, CliConfig config,
+                                          ProviderRegistry registry, Messages messages) {
         long pid = CommandUtils.parsePidOrExit(args, messages);
 
         String sourceOverride = null;
@@ -57,13 +94,11 @@ public final class PoolCommand implements Command {
         System.out.println(RichRenderer.boxHeader(useColor, messages.get("header.pool"), WIDTH, "pid:" + pid, "source:" + source));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
-        // Summary
         String summary = messages.get("label.threads") + ": " + result.totalThreads()
                 + "    " + messages.get("pool.groups") + ": " + result.totalPools();
         System.out.println(RichRenderer.boxLine(summary, WIDTH));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
-        // Table header
         String bold = AnsiStyle.style(useColor, AnsiStyle.BOLD);
         String reset = AnsiStyle.style(useColor, AnsiStyle.RESET);
         String dim = AnsiStyle.style(useColor, AnsiStyle.DIM);
@@ -73,7 +108,7 @@ public final class PoolCommand implements Command {
                 + "  " + messages.get("label.state") + reset;
         System.out.println(RichRenderer.boxLine(headerLine, WIDTH));
 
-        String sep = dim + "\u2500".repeat(WIDTH - 6) + reset;
+        String sep = dim + "─".repeat(WIDTH - 6) + reset;
         System.out.println(RichRenderer.boxLine(sep, WIDTH));
 
         int shown = 0;
