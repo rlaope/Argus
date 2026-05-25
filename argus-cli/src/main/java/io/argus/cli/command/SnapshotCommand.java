@@ -231,7 +231,12 @@ public final class SnapshotCommand implements Command {
                                  List<byte[]> contents, Messages messages) {
         Path tmpHprof = outPath.resolve("heap-" + pid + "-" + timestamp + ".hprof");
         try {
-            JcmdExecutor.execute(pid, "GC.heap_dump filename=" + tmpHprof.toAbsolutePath());
+            // jcmd's GC.heap_dump takes the path positionally; `filename=...` is not
+            // recognised in JDK 17+ and is interpreted as the literal filename "filename".
+            String jcmdOutput = JcmdExecutor.execute(pid, "GC.heap_dump " + tmpHprof.toAbsolutePath());
+            if (!Files.exists(tmpHprof)) {
+                throw new IOException("jcmd did not create the dump file. jcmd output: " + jcmdOutput);
+            }
             byte[] bytes = Files.readAllBytes(tmpHprof);
             Files.deleteIfExists(tmpHprof);
             items.add(new ManifestItem("heap.hprof", "jcmd GC.heap_dump", "ok", bytes.length, null, null));
