@@ -68,6 +68,16 @@ class PoolAdvisorMathTest {
     }
 
     @Test
+    void prefixOfHandlesLongNumericSuffixesAndCustomFactories() {
+        // System.nanoTime() suffixes overflow Integer.parseInt — must work
+        assertEquals("argus-qa-worker", PoolAdviseHandler.prefixOf("argus-qa-worker-123456789012345678"));
+        // hex-style identifier should NOT match the trailing-digit fallback (not all digits)
+        assertNull(PoolAdviseHandler.prefixOf("custom-bridge-abc123"));
+        // Empty trailing token after dash
+        assertNull(PoolAdviseHandler.prefixOf("trailing-"));
+    }
+
+    @Test
     void prefixOfFiltersJdkAndContainerInternalPools() {
         assertNull(PoolAdviseHandler.prefixOf("RMI TCP Accept-0"));
         assertNull(PoolAdviseHandler.prefixOf("RMI Scheduler(0)"));

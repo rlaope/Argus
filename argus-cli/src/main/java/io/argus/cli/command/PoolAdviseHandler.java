@@ -227,10 +227,18 @@ final class PoolAdviseHandler {
         if (threadName.contains("-")) {
             int last = threadName.lastIndexOf('-');
             String tail = threadName.substring(last + 1);
-            try { Integer.parseInt(tail); return threadName.substring(0, last); }
-            catch (NumberFormatException ignored) {}
+            if (!tail.isEmpty() && isAllDigits(tail)) {
+                return threadName.substring(0, last);
+            }
         }
         return null;
+    }
+
+    private static boolean isAllDigits(String s) {
+        for (int i = 0; i < s.length(); i++) {
+            if (!Character.isDigit(s.charAt(i))) return false;
+        }
+        return true;
     }
 
     private String toJson(long pid, long windowMs, List<GroupStats> stats) {
