@@ -5,7 +5,19 @@
 **Content-Type:** `application/json` (all request and response bodies)  
 **Auth:** None (day-1; ingress-level auth deferred to follow-up ADR)
 
-> **Security warning:** The aggregator API has no authentication or authorization on day-1. It must not be exposed outside the cluster network. Deploy behind a K8s `ClusterIP` service and use ingress-level controls (network policy, mTLS, or ingress auth annotations) to restrict access. The `/fleet/targets` and `DELETE /fleet/targets/{podId}` endpoints allow arbitrary scrape target registration/removal — exposure to untrusted callers is a significant risk. See the follow-up AuthN/AuthZ ADR before promoting to a production environment.
+---
+
+## Security Model
+
+All endpoints are **unauthenticated by design** (v1alpha1). The aggregator is intended to live inside a Kubernetes cluster, accessed only by:
+
+- **argus-operator** — `POST /fleet/targets`, `DELETE /fleet/targets/{podId}`
+- **argus-frontend** — `GET /fleet/list`, `GET /fleet/pod/{podId}`, `GET /fleet/summary`, `GET /fleet/alerts`
+- **Prometheus scraper** — `GET /metrics`
+
+**DO NOT expose the aggregator service externally.** The Helm chart ships a `NetworkPolicy` that restricts ingress to in-cluster components when `operator.enabled=true`. Verify this policy is active before deploying to a production cluster.
+
+Future (post-v1alpha1): bearer token or mTLS on `POST /fleet/targets` and `DELETE /fleet/targets/{podId}`.
 
 ---
 
@@ -285,8 +297,19 @@ Registers one scrape target. Called by argus-operator when it discovers a new ar
 
 | Code | Condition |
 |------|-----------|
-| 400  | Missing required field, invalid `port` (≤0 or >65535) |
+| 400  | Missing required field, invalid `port` (≤0 or >65535), or `host` rejected by allowlist (see below) |
 | 500  | Internal aggregator error |
+
+#### Host Allowlist (SSRF prevention)
+
+The `host` field must be either an in-cluster DNS name (ending in `.svc.cluster.local` or `.local`) or an address in a private CIDR (RFC 1918: `10/8`, `172.16/12`, `192.168/16`). The aggregator rejects the following with `400 Bad Request` to prevent server-side request forgery:
+
+- Link-local addresses (`169.254.0.0/16`, `fe80::/10`)
+- Loopback addresses (`127.0.0.0/8`, `::1`)
+- Unspecified address (`0.0.0.0`, `::`)
+- Any host that resolves outside the above allowlist at registration time
+
+See `HostAllowlist` in `argus-aggregator` for the implementation.
 
 #### Idempotency
 
@@ -424,9 +447,7 @@ Example:
 
 ## Pod ID Encoding
 
-`podId` is always `"<namespace>/<podName>"` in JSON bodies and query string values.
-
-When used as a **URL path segment** (e.g. `/fleet/pod/{podId}`, `/fleet/targets/{podId}`), the `/` separator must be percent-encoded as `%2F` so the router treats the entire string as a single path segment.
+`podId` has the shape `{namespace}/{podName}`. In JSON bodies and query string values the literal `/` is used as-is. When used as a **URL path segment** (e.g. `/fleet/pod/{podId}`, `/fleet/targets/{podId}`), the entire podId MUST be URL-encoded so the router treats it as a single segment.
 
 Encoding rules:
 
@@ -444,7 +465,28 @@ Full URL examples:
 
 > **Important for implementors:** Do not double-encode. If you are building a URL with `URLEncoder.encode(podId, UTF_8)` in Java, that will encode `/` to `%2F` correctly. Do not then also call a generic URL encoder on the full path — that would turn `%2F` into `%252F`, which the router will not match.
 
+### Server-side podId validation
+
+The aggregator validates every podId received in a URL path segment and rejects with `400 Bad Request` if any of the following are true:
+
+- Contains a null byte (` `)
+- Contains the path-traversal sequence `..`
+- Total length exceeds 253 characters (K8s name length limit for namespace + `/` + podName)
+- Does not contain exactly one `/` separator
+
 Namespace names and pod names follow standard K8s naming (lowercase alphanumeric and `-`). They will never contain characters that require additional percent-encoding beyond the `/` separator.
+
+---
+
+## Webhook URL Validation
+
+Webhook URLs referenced by alert rules (inline `webhookUrl` on `AlertRule`, and `ArgusFleet.alertWebhook` in the operator CRD) are validated before use:
+
+- Only `http` and `https` schemes are accepted.
+- The resolved host must not be a loopback address (`127.0.0.0/8`, `::1`), link-local address (`169.254.0.0/16`, `fe80::/10`), or unspecified address (`0.0.0.0`).
+- Invalid webhook URLs cause the alert rule to be rejected at load time with a configuration error (not silently swallowed).
+
+This applies both to webhooks configured inline on alert rules and to `ArgusFleet.alertWebhook` set via the operator CRD field.
 
 ---
 
@@ -487,3 +529,4 @@ HTTP handlers live in `io.argus.aggregator.http.FleetController`.
 |------|--------|
 | 2026-05-26 | Initial v1alpha1 contract |
 | 2026-05-26 | Add security warning (no auth day-1, ClusterIP-only); clarify podId URL encoding rules + double-encode warning |
+| 2026-05-26 | Promote security warning to full "Security Model" section; add podId server-side validation rules (null byte, .., length >253); add SSRF host allowlist to POST /fleet/targets; add webhook URL validation section |
