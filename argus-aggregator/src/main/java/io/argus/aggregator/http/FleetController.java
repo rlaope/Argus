@@ -49,6 +49,7 @@ import java.util.Set;
  */
 public final class FleetController {
 
+    private static final System.Logger LOG = System.getLogger(FleetController.class.getName());
     private static final List<String> ALLOWED_SEVERITIES = List.of("critical", "warning", "info");
     private static final int MAX_PODID_LENGTH = 253;
 
@@ -328,7 +329,11 @@ public final class FleetController {
             // side. We don't re-parse so the wire shape stays decoupled.
             sendJson(ctx, request, safeStatus(resp.status()), resp.body());
         } catch (PodHttpClient.ProxyException e) {
-            sendError(ctx, request, 502, "pod unreachable: " + e.getMessage());
+            // Log the detail (incl. pod IP) server-side for diagnostics; keep
+            // the client-facing message free of internal addressing.
+            LOG.log(System.Logger.Level.WARNING,
+                    () -> "console proxy: pod unreachable [" + e.getMessage() + "]");
+            sendError(ctx, request, 502, "pod unreachable");
         }
     }
 
@@ -365,8 +370,11 @@ public final class FleetController {
             return;
         }
         // Defense-in-depth: cmd is appended to a URL, so reject obviously bad
-        // input early. The pod side will additionally reject unknown ids.
-        if (cmd.length() > 64 || !cmd.matches("[a-zA-Z0-9_-]+")) {
+        // input early. Curated command ids are lowercase ASCII; lock the
+        // proxy filter to the same alphabet so what reaches the upstream
+        // request line is bounded to [a-z0-9_-]. URLEncoder is a no-op on
+        // those bytes, ruling out CRLF/NUL/space smuggling.
+        if (cmd.length() > 64 || !cmd.matches("[a-z0-9_-]+")) {
             sendError(ctx, request, 400, "invalid cmd");
             return;
         }
@@ -382,7 +390,11 @@ public final class FleetController {
                             cmd, java.nio.charset.StandardCharsets.UTF_8));
             sendJson(ctx, request, safeStatus(resp.status()), resp.body());
         } catch (PodHttpClient.ProxyException e) {
-            sendError(ctx, request, 502, "pod unreachable: " + e.getMessage());
+            // Log the detail (incl. pod IP) server-side for diagnostics; keep
+            // the client-facing message free of internal addressing.
+            LOG.log(System.Logger.Level.WARNING,
+                    () -> "console proxy: pod unreachable [" + e.getMessage() + "]");
+            sendError(ctx, request, 502, "pod unreachable");
         }
     }
 

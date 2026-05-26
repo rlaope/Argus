@@ -9,7 +9,21 @@ import java.util.Set;
 public final class DiagnosticUtil {
 
     private static final Set<String> SENSITIVE_KEYS = Set.of(
-            "PASSWORD", "SECRET", "KEY", "TOKEN", "CREDENTIAL", "AUTH", "PRIVATE");
+            // Common credential markers
+            "PASSWORD", "PASSWD", "PASSPHRASE",
+            "SECRET", "KEY", "TOKEN", "CREDENTIAL", "AUTH", "PRIVATE",
+            "BEARER", "SESSION", "DSN",
+            "PEM", "CERT", "SIGNATURE",
+            // Connection-string envs that commonly carry user:password inline
+            "DATABASE_URL", "JDBC_URL", "MONGODB_URI", "REDIS_URL",
+            "AMQP_URL", "RABBITMQ_URL", "POSTGRES_URL", "MYSQL_URL");
+
+    // Connection strings like "scheme://user:password@host[:port]/path" leak
+    // credentials in the value even when the key name is generic (e.g.
+    // "url", "endpoint"). Mask any value whose shape matches.
+    private static final java.util.regex.Pattern CONN_STRING_WITH_USERINFO =
+            java.util.regex.Pattern.compile(
+                    "^[a-zA-Z][a-zA-Z0-9+.-]*://[^/@\\s]*:[^/@\\s]+@.*");
 
     private DiagnosticUtil() {}
 
@@ -22,15 +36,26 @@ public final class DiagnosticUtil {
     }
 
     public static String maskIfSensitive(String key, String value) {
-        String upper = key.toUpperCase();
+        String upper = key == null ? "" : key.toUpperCase();
         for (String sensitive : SENSITIVE_KEYS) {
             if (upper.contains(sensitive)) {
-                return value != null && value.length() > 4
-                        ? value.substring(0, 2) + "****" + value.substring(value.length() - 2)
-                        : "****";
+                return maskValue(value);
             }
         }
+        // Value-shape masking: catch credentials in values whose key name
+        // alone would not raise a flag. Important now that diagnostic
+        // commands like sysprops/env are reachable cross-pod via the
+        // aggregator proxy — the blast radius for a leaked secret is wider.
+        if (value != null && CONN_STRING_WITH_USERINFO.matcher(value).matches()) {
+            return maskValue(value);
+        }
         return value;
+    }
+
+    private static String maskValue(String value) {
+        if (value == null) return "****";
+        if (value.length() <= 4) return "****";
+        return value.substring(0, 2) + "****" + value.substring(value.length() - 2);
     }
 
     public static String executeJcmd(String command, String arg) {
