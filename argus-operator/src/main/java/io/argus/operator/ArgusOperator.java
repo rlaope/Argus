@@ -18,7 +18,7 @@ import java.util.concurrent.CountDownLatch;
  * argus-operator entrypoint.
  *
  * Configuration via env vars:
- *   - ARGUS_AGGREGATOR_URL    (default: http://argus-aggregator.argus-system.svc.cluster.local:9100)
+ *   - ARGUS_AGGREGATOR_URL    (default: http://argus-aggregator.argus-system.svc.cluster.local:9300)
  *   - ARGUS_WATCH_NAMESPACE   (default: "" — cluster-wide)
  *   - ARGUS_RESYNC_PERIOD_MS  (default: 60000)
  */
@@ -27,7 +27,7 @@ public final class ArgusOperator {
     private static final Logger LOG = LoggerFactory.getLogger(ArgusOperator.class);
 
     private static final String DEFAULT_AGGREGATOR_URL =
-            "http://argus-aggregator.argus-system.svc.cluster.local:9100";
+            "http://argus-aggregator.argus-system.svc.cluster.local:9300";
 
     private ArgusOperator() {
     }
@@ -41,9 +41,10 @@ public final class ArgusOperator {
                 aggregatorUrl, watchNamespace.isEmpty() ? "<cluster-wide>" : watchNamespace, resyncPeriodMs);
 
         AggregatorClient aggregator = new AggregatorClient(aggregatorUrl);
-        try (KubernetesClient client = new KubernetesClientBuilder().build()) {
-            FleetReconciler fleetReconciler = new FleetReconciler(client);
-            TargetReconciler targetReconciler = new TargetReconciler(client, fleetReconciler, aggregator);
+        try (KubernetesClient client = new KubernetesClientBuilder().build();
+             TargetReconciler targetReconciler = new TargetReconciler(
+                     client, new FleetReconciler(client), aggregator)) {
+            FleetReconciler fleetReconciler = targetReconciler.fleetReconciler();
 
             SharedIndexInformer<ArgusFleet> fleetInformer = watchNamespace.isEmpty()
                     ? client.resources(ArgusFleet.class).inAnyNamespace().inform(fleetReconciler, resyncPeriodMs)
