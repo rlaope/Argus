@@ -1,6 +1,11 @@
 /* Argus theme toggle — persists across pages via localStorage.
    Load this BEFORE the first paint via inline include at the top of <head>. */
 (function() {
+    // Idempotency guard: if this script is accidentally loaded twice (e.g. bundler
+    // includes it twice or a future page has two <script> tags), the second invocation
+    // must not attach a second set of click listeners that would toggle theme twice per click.
+    if (window.__argusTheme) return;
+
     const STORAGE_KEY = 'argus-theme';
     const valid = ['light', 'dark'];
 
@@ -67,5 +72,16 @@
         init();
     }
 
-    window.__argusTheme = { toggle, apply, read };
+    // Cross-tab synchronization: when localStorage changes in another tab, apply the
+    // new theme and re-render buttons so all tabs stay consistent without a reload.
+    window.addEventListener('storage', function(e) {
+        if (e.key === STORAGE_KEY && valid.includes(e.newValue)) {
+            apply(e.newValue);
+            renderButton();
+        }
+    });
+
+    // Object.freeze prevents any same-origin third-party script (e.g. a compromised CDN
+    // dependency) from reassigning toggle/apply/read and silently breaking theme control.
+    window.__argusTheme = Object.freeze({ toggle, apply, read });
 })();

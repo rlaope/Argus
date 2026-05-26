@@ -6,7 +6,7 @@
     <title>Argus Console</title>
     <link rel="stylesheet" href="/css/console.css">
     <link rel="stylesheet" href="/css/theme.css">
-    <script>(function(){try{var t=localStorage.getItem('argus-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+    <script src="/js/theme-preboot.js"></script>
     <script src="/js/theme.js"></script>
 </head>
 <body>
@@ -151,9 +151,10 @@
                     group.appendChild(row);
                     panel.appendChild(group);
                 }
-                setupCommandSearch();
             } catch (e) {
                 appendOutput('Failed to load commands: ' + e.message, 'error');
+            } finally {
+                setupCommandSearch();
             }
         }
 
@@ -169,7 +170,7 @@
                 const q = input.value.trim().toLowerCase();
                 let visible = 0;
                 allBtns.forEach(btn => {
-                    const match = !q || btn.dataset.searchKey.includes(q);
+                    const match = !q || (btn.dataset.searchKey || '').includes(q);
                     btn.style.display = match ? '' : 'none';
                     if (match) visible++;
                 });
@@ -197,7 +198,9 @@
             isRunning = true;
 
             document.querySelectorAll('.cmd-btn').forEach(b => b.classList.remove('active'));
-            const activeBtn = [...document.querySelectorAll('.cmd-btn')].find(b => b.textContent === cmd);
+            const buttons = [...document.querySelectorAll('.cmd-btn')];
+            const activeBtn = buttons.find(b => b.textContent === cmd && b.style.display !== 'none')
+                               || buttons.find(b => b.textContent === cmd);
             if (activeBtn) activeBtn.classList.add('active');
 
             // Type command animation
