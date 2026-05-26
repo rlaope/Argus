@@ -26,12 +26,15 @@ public final class ServerCommandExecutor {
     private static final ServerContext CONTEXT = new ServerContext();
 
     /**
-     * Returns all available commands as a map of id → CommandInfo.
+     * Returns all commands that are suitable for one-click invocation from the web Console.
+     * Filters out commands that override {@link DiagnosticCommand#supportsWebConsole()} to false
+     * (destructive ones like {@code gcrun}, file-output, long-running, etc.).
      * Used by {@code /api/commands} endpoint.
      */
     public static Map<String, CommandInfo> getAvailableCommands() {
         Map<String, CommandInfo> result = new LinkedHashMap<>();
         for (DiagnosticCommand cmd : REGISTRY.all()) {
+            if (!cmd.supportsWebConsole()) continue;
             result.put(cmd.id(), new CommandInfo(
                     cmd.id(),
                     cmd.group().displayName().toLowerCase(),
@@ -43,8 +46,16 @@ public final class ServerCommandExecutor {
     /**
      * Execute a command by id and return the text output.
      * Used by {@code /api/exec?cmd=xxx} endpoint.
+     *
+     * <p>Defense in depth: rejects any command whose {@link DiagnosticCommand#supportsWebConsole()}
+     * returns false, even if the caller knows its id. Keeps {@code /api/exec} aligned with
+     * {@code /api/commands}.
      */
     public static String execute(String command) {
+        DiagnosticCommand cmd = REGISTRY.find(command);
+        if (cmd != null && !cmd.supportsWebConsole()) {
+            return "Command '" + command + "' is not available via the web console.";
+        }
         return REGISTRY.execute(command, CONTEXT);
     }
 

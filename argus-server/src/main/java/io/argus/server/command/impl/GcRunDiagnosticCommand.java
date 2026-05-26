@@ -10,6 +10,7 @@ public final class GcRunDiagnosticCommand implements DiagnosticCommand {
     @Override public CommandGroup group() { return CommandGroup.MEMORY; }
     @Override public String description() { return "Trigger System.gc()"; }
     @Override public boolean supportsExternal() { return false; }
+    @Override public boolean supportsWebConsole() { return false; } // destructive (forces GC)
 
     @Override
     public String execute(CommandContext ctx) {
