@@ -87,12 +87,34 @@ public final class JsonReader {
                 switch (next) {
                     case '"':  sb.append('"'); i++; break;
                     case '\\': sb.append('\\'); i++; break;
+                    case '/':  sb.append('/'); i++; break;
                     case 'n':  sb.append('\n'); i++; break;
                     case 'r':  sb.append('\r'); i++; break;
                     case 't':  sb.append('\t'); i++; break;
                     case 'b':  sb.append('\b'); i++; break;
                     case 'f':  sb.append('\f'); i++; break;
-                    default:   sb.append(c); break;
+                    case 'u':
+                        if (i + 5 < s.length()) {
+                            String hex = s.substring(i + 2, i + 6);
+                            try {
+                                sb.append((char) Integer.parseInt(hex, 16));
+                                i += 5;
+                            } catch (NumberFormatException nfe) {
+                                // Malformed escape — preserve literally.
+                                sb.append(c).append(next);
+                                i++;
+                            }
+                        } else {
+                            sb.append(c).append(next);
+                            i++;
+                        }
+                        break;
+                    default:
+                        // Unknown escape — preserve both characters verbatim so
+                        // the original input is not silently mutilated.
+                        sb.append(c).append(next);
+                        i++;
+                        break;
                 }
             } else {
                 sb.append(c);

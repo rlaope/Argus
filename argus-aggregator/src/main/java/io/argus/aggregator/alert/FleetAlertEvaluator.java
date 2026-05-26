@@ -45,10 +45,9 @@ public final class FleetAlertEvaluator {
             AlertRule rule = outcome.rule();
             String alertId = AlertEvent.alertIdFor(podId, rule.name());
             if (outcome.breached()) {
-                AlertEvent existing = registry.activeAlerts().stream()
-                        .filter(a -> a.alertId().equals(alertId))
-                        .findFirst().orElse(null);
-                Instant firedAt = existing != null ? existing.firedAt() : Instant.now();
+                Instant firedAt = registry.getAlert(alertId)
+                        .map(AlertEvent::firedAt)
+                        .orElseGet(Instant::now);
                 registry.recordAlert(new AlertEvent(
                         alertId, podId, rule.name(), rule.metric(),
                         outcome.value(), rule.threshold(), rule.comparator(),

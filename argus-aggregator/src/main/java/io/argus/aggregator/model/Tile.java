@@ -1,5 +1,8 @@
 package io.argus.aggregator.model;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 /**
  * Full tile descriptor for one pod. Used in /fleet/list and /fleet/pod/{podId}.
  *
@@ -18,7 +21,12 @@ public record Tile(
         int alertCount,
         String drillDownUrl
 ) {
+    /**
+     * Builds the drill-down URL for the frontend. {@code podId} contains a
+     * {@code /} separator ({@code namespace/podName}) which must be percent-
+     * encoded so the URL has a single path segment after {@code /pod/}.
+     */
     public static String drillDownUrlFor(String podId) {
-        return "/pod/" + podId;
+        return "/pod/" + URLEncoder.encode(podId, StandardCharsets.UTF_8);
     }
 }

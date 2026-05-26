@@ -10,14 +10,20 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Thread-safe in-memory store mapping {@code podId} → {@link PodTarget} and
  * keeping a per-target {@link PodRingBuffer} of recent metric samples.
  *
- * <p>Also tracks currently-firing alert events keyed by {@code <podId>/<ruleName>}
- * so the alert overlay endpoint can be answered cheaply.
+ * <p>Mutations on the targets map use {@link ConcurrentHashMap#compute} so
+ * read-modify-write is atomic against concurrent scrapes / registrations on
+ * the same {@code podId}.
+ *
+ * <p>Also tracks currently-firing alert events keyed by
+ * {@code <podId>/<ruleName>} so the alert overlay endpoint can be answered
+ * cheaply.
  */
 public final class FleetRegistry {
 
@@ -32,29 +38,28 @@ public final class FleetRegistry {
     }
 
     /**
-     * Registers (or idempotently updates) a target. Returns true when this was
-     * a new registration; false when it updated an existing record.
+     * Registers (or idempotently updates) a target atomically.
+     *
+     * <p>When updating an existing target, {@code registeredAt}, the latest
+     * {@code lastScrapeAt}, and {@code scrapeOk} are preserved — only the
+     * address / identity fields are refreshed. Atomic via {@code compute}.
      */
     public RegistrationResult register(String podId, String namespace, String podName,
                                        String deployment, String host, int port) {
         Instant now = Instant.now();
-        PodTarget existing = targets.get(podId);
-        if (existing != null) {
-            PodTarget updated = existing.withAddress(host, port);
-            // Refresh other identity fields too if changed
-            updated = new PodTarget(podId, namespace, podName,
-                    deployment == null ? "" : deployment,
-                    host, port,
-                    existing.registeredAt(), existing.lastScrapeAt(), existing.scrapeOk());
-            targets.put(podId, updated);
-            return new RegistrationResult(updated, true);
-        }
-        PodTarget fresh = new PodTarget(podId, namespace, podName,
-                deployment == null ? "" : deployment,
-                host, port, now, null, false);
-        targets.put(podId, fresh);
-        buffers.put(podId, new PodRingBuffer(retentionSeconds));
-        return new RegistrationResult(fresh, false);
+        String dep = deployment == null ? "" : deployment;
+        final boolean[] wasUpdate = {false};
+        PodTarget result = targets.compute(podId, (k, prev) -> {
+            if (prev == null) {
+                buffers.computeIfAbsent(k, x -> new PodRingBuffer(retentionSeconds));
+                return new PodTarget(podId, namespace, podName, dep, host, port, now, null, false);
+            }
+            wasUpdate[0] = true;
+            return new PodTarget(
+                    podId, namespace, podName, dep, host, port,
+                    prev.registeredAt(), prev.lastScrapeAt(), prev.scrapeOk());
+        });
+        return new RegistrationResult(result, wasUpdate[0]);
     }
 
     /** Removes a target and drops all associated state. */
@@ -80,13 +85,17 @@ public final class FleetRegistry {
         return buffers.get(podId);
     }
 
-    /** Stores the most recent scrape result for a target. */
+    /**
+     * Atomically stores the most recent scrape result for a target.
+     *
+     * <p>The {@code targets} update is performed via {@code compute} so it
+     * does not race against concurrent registrations. Returns silently if
+     * the target was deregistered between scrape kickoff and result arrival.
+     */
     public void recordScrape(String podId, TileMetrics metrics, boolean ok) {
-        PodTarget existing = targets.get(podId);
-        if (existing == null) return;
-        PodTarget updated = existing.withScrape(Instant.now(), ok);
-        targets.put(podId, updated);
-        if (metrics != null) {
+        Instant now = Instant.now();
+        targets.computeIfPresent(podId, (k, prev) -> prev.withScrape(now, ok));
+        if (metrics != null && targets.containsKey(podId)) {
             latestMetrics.put(podId, metrics);
         }
     }
@@ -109,6 +118,11 @@ public final class FleetRegistry {
     /** Clears a specific alert (rule no longer breached). */
     public void clearAlert(String alertId) {
         activeAlerts.remove(alertId);
+    }
+
+    /** Direct lookup by stable alertId (cheap; used by FleetAlertEvaluator). */
+    public Optional<AlertEvent> getAlert(String alertId) {
+        return Optional.ofNullable(activeAlerts.get(alertId));
     }
 
     /** Returns all active (firing) alerts, ordered by alertId. */
@@ -135,6 +149,30 @@ public final class FleetRegistry {
             if (e.podId().equals(podId)) n++;
         }
         return n;
+    }
+
+    /**
+     * Computes a {@code podId -> activeAlertCount} map in one pass.
+     * Used by {@link io.argus.aggregator.http.SummaryComputer} and
+     * {@link io.argus.aggregator.http.TileBuilder#buildWith} to avoid
+     * O(targets × alerts) scans when rendering large fleets.
+     */
+    public Map<String, Integer> alertCountsByPod() {
+        Map<String, Integer> out = new HashMap<>();
+        for (AlertEvent e : activeAlerts.values()) {
+            out.merge(e.podId(), 1, Integer::sum);
+        }
+        return out;
+    }
+
+    /** Computes a {@code podId -> severity-set} map in one pass. */
+    public Map<String, java.util.Set<String>> alertSeveritiesByPod() {
+        Map<String, java.util.Set<String>> out = new HashMap<>();
+        for (AlertEvent e : activeAlerts.values()) {
+            out.computeIfAbsent(e.podId(), k -> new java.util.HashSet<>())
+               .add(e.severity() == null ? "" : e.severity().toLowerCase());
+        }
+        return out;
     }
 
     private void clearAlertsForPod(String podId) {

@@ -204,12 +204,19 @@ public final class JsonWriter {
     }
 
     private static void appendNumberOrNull(StringBuilder sb, Double v) {
-        if (v == null) {
+        if (v == null || Double.isNaN(v) || Double.isInfinite(v)) {
             sb.append("null");
-        } else if (Double.isNaN(v) || Double.isInfinite(v)) {
-            sb.append("null");
+            return;
+        }
+        // Avoid scientific notation ("1.0E308") — both JSON consumers and
+        // Prometheus text format are fragile around it. Integer-valued doubles
+        // render as plain integers; non-integers render via BigDecimal's
+        // toPlainString for full precision without exponents.
+        double d = v;
+        if (d == Math.floor(d) && Math.abs(d) < 1e15) {
+            sb.append((long) d);
         } else {
-            sb.append(v);
+            sb.append(java.math.BigDecimal.valueOf(d).toPlainString());
         }
     }
 

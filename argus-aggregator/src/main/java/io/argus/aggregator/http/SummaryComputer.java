@@ -3,11 +3,13 @@ package io.argus.aggregator.http;
 import io.argus.aggregator.model.FleetSummary;
 import io.argus.aggregator.model.PodTarget;
 import io.argus.aggregator.model.Tile;
-import io.argus.aggregator.model.TileColor;
 import io.argus.aggregator.model.TileMetrics;
 import io.argus.aggregator.store.FleetRegistry;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Computes a {@link FleetSummary} roll-up from the live state of a
@@ -19,6 +21,8 @@ public final class SummaryComputer {
 
     public static FleetSummary compute(FleetRegistry registry) {
         List<PodTarget> targets = registry.listTargets();
+        Map<String, Integer> alertCounts = registry.alertCountsByPod();
+        Map<String, Set<String>> alertSeverities = registry.alertSeveritiesByPod();
         int total = targets.size();
         int up = 0, down = 0;
         int green = 0, yellow = 0, red = 0, grey = 0;
@@ -38,7 +42,9 @@ public final class SummaryComputer {
             if (t.scrapeOk()) up++; else down++;
             TileMetrics m = registry.latestMetrics(t.podId());
             if (m == null) m = TileMetrics.empty();
-            Tile tile = TileBuilder.build(t, registry);
+            int alertCount = alertCounts.getOrDefault(t.podId(), 0);
+            Set<String> sev = alertSeverities.getOrDefault(t.podId(), Collections.emptySet());
+            Tile tile = TileBuilder.buildWith(t, m, alertCount, sev);
             switch (tile.color()) {
                 case GREEN -> green++;
                 case YELLOW -> yellow++;

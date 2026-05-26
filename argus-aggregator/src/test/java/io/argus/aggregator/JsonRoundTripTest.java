@@ -95,4 +95,34 @@ class JsonRoundTripTest {
         assertNull(JsonReader.parseFlatObject("not json"));
         assertNull(JsonReader.parseFlatObject(""));
     }
+
+    @Test
+    void readerHandlesUnicodeEscape() {
+        Map<String, String> parsed = JsonReader.parseFlatObject("{\"k\":\"a\\u0041b\"}");
+        assertNotNull(parsed);
+        assertEquals("aAb", parsed.get("k"));
+    }
+
+    @Test
+    void readerHandlesSlashAndStandardEscapes() {
+        Map<String, String> parsed = JsonReader.parseFlatObject(
+                "{\"path\":\"\\/foo\\/bar\",\"tab\":\"a\\tb\"}");
+        assertNotNull(parsed);
+        assertEquals("/foo/bar", parsed.get("path"));
+        assertEquals("a\tb", parsed.get("tab"));
+    }
+
+    @Test
+    void writerAvoidsScientificNotation() {
+        FleetSummary s = new FleetSummary(
+                0, 0, 0, 0, 0, 0, 0, 0,
+                new FleetSummary.MinMaxAvg(0.00000001, 1000000.0, 0.5),
+                FleetSummary.MinMaxAvg.empty(),
+                FleetSummary.MinMaxAvg.empty(),
+                0L, 0, null, null);
+        String json = JsonWriter.summary(s);
+        assertFalse(json.contains("E"), "scientific notation leaked: " + json);
+        assertFalse(json.contains("e+"), "scientific notation leaked: " + json);
+        assertFalse(json.contains("e-"), "scientific notation leaked: " + json);
+    }
 }
