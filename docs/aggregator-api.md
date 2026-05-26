@@ -5,6 +5,8 @@
 **Content-Type:** `application/json` (all request and response bodies)  
 **Auth:** None (day-1; ingress-level auth deferred to follow-up ADR)
 
+> **Security warning:** The aggregator API has no authentication or authorization on day-1. It must not be exposed outside the cluster network. Deploy behind a K8s `ClusterIP` service and use ingress-level controls (network policy, mTLS, or ingress auth annotations) to restrict access. The `/fleet/targets` and `DELETE /fleet/targets/{podId}` endpoints allow arbitrary scrape target registration/removal — exposure to untrusted callers is a significant risk. See the follow-up AuthN/AuthZ ADR before promoting to a production environment.
+
 ---
 
 ## Overview
@@ -422,14 +424,27 @@ Example:
 
 ## Pod ID Encoding
 
-`podId` is always `"<namespace>/<podName>"` in JSON bodies. When used as a URL path segment it must be percent-encoded: `/` → `%2F`.
+`podId` is always `"<namespace>/<podName>"` in JSON bodies and query string values.
 
-Examples:
+When used as a **URL path segment** (e.g. `/fleet/pod/{podId}`, `/fleet/targets/{podId}`), the `/` separator must be percent-encoded as `%2F` so the router treats the entire string as a single path segment.
 
-| Raw podId | URL path segment |
-|-----------|-----------------|
-| `prod/payment-5c7d9f-xkz2q` | `prod%2Fpayment-5c7d9f-xkz2q` |
-| `monitoring/argus-agent-0` | `monitoring%2Fargus-agent-0` |
+Encoding rules:
+
+| Context | Encoding | Example input | Encoded form |
+|---------|----------|---------------|--------------|
+| JSON body / query param | none (literal `/`) | `prod/payment-5c7d9f-xkz2q` | `prod/payment-5c7d9f-xkz2q` |
+| URL path segment | `/` → `%2F` | `prod/payment-5c7d9f-xkz2q` | `prod%2Fpayment-5c7d9f-xkz2q` |
+
+Full URL examples:
+
+| Raw podId | Full URL |
+|-----------|----------|
+| `prod/payment-5c7d9f-xkz2q` | `GET /fleet/pod/prod%2Fpayment-5c7d9f-xkz2q` |
+| `monitoring/argus-agent-0` | `DELETE /fleet/targets/monitoring%2Fargus-agent-0` |
+
+> **Important for implementors:** Do not double-encode. If you are building a URL with `URLEncoder.encode(podId, UTF_8)` in Java, that will encode `/` to `%2F` correctly. Do not then also call a generic URL encoder on the full path — that would turn `%2F` into `%252F`, which the router will not match.
+
+Namespace names and pod names follow standard K8s naming (lowercase alphanumeric and `-`). They will never contain characters that require additional percent-encoding beyond the `/` separator.
 
 ---
 
@@ -471,3 +486,4 @@ HTTP handlers live in `io.argus.aggregator.http.FleetController`.
 | Date | Change |
 |------|--------|
 | 2026-05-26 | Initial v1alpha1 contract |
+| 2026-05-26 | Add security warning (no auth day-1, ClusterIP-only); clarify podId URL encoding rules + double-encode warning |
