@@ -1,4 +1,4 @@
-package io.argus.cli.cluster;
+package io.argus.core.cluster;
 
 import org.junit.jupiter.api.Test;
 

@@ -1,0 +1,703 @@
+/* ================================================================
+   ARGUS — Fleet Command Center Styles
+   Extends style.css. Inherits all CSS variables from :root.
+================================================================ */
+
+/* ----------------------------------------------------------------
+   ACTIVE NAV BUTTON
+---------------------------------------------------------------- */
+.btn-active {
+    background: var(--ink);
+    border-color: var(--ink);
+    color: #fff;
+}
+.btn-active:hover {
+    background: var(--ink-2);
+    border-color: var(--ink-2);
+    color: #fff;
+}
+
+/* ----------------------------------------------------------------
+   FLEET SUMMARY STRIP
+---------------------------------------------------------------- */
+.fleet-summary-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 0.75rem var(--page-pad);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky;
+    top: 57px; /* below header */
+    z-index: 40;
+}
+
+.fleet-summary-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    padding: 0.2rem 1.25rem 0.2rem 0;
+}
+
+.fleet-summary-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.fleet-summary-value {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.fleet-summary-item--green  .fleet-summary-value { color: var(--green); }
+.fleet-summary-item--yellow .fleet-summary-value { color: var(--amber); }
+.fleet-summary-item--red    .fleet-summary-value { color: var(--red); }
+.fleet-summary-item--grey   .fleet-summary-value { color: var(--ink-3); }
+
+.fleet-summary-value--alerts { color: var(--red); }
+.fleet-summary-value--ts {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    font-weight: 400;
+    padding-top: 0.2rem;
+}
+
+.fleet-summary-sep {
+    width: 1px;
+    height: 2rem;
+    background: var(--border);
+    margin-right: 1.25rem;
+    flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------------
+   FLEET TOOLBAR
+---------------------------------------------------------------- */
+.fleet-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.625rem var(--page-pad);
+    border-bottom: 1px solid var(--border-light);
+    background: var(--off-white);
+}
+
+.fleet-toolbar-left {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.fleet-toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.fleet-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.fleet-filter-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-3);
+}
+
+.fleet-select {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+    padding: 0.3rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.8125rem;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    min-width: 120px;
+}
+.fleet-select:focus { outline: none; border-color: var(--ink-3); }
+
+.fleet-search-input {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+    padding: 0.3rem 0.625rem;
+    border-radius: 3px;
+    font-size: 0.8125rem;
+    font-family: var(--font-sans);
+    width: 180px;
+}
+.fleet-search-input:focus { outline: none; border-color: var(--ink-3); }
+.fleet-search-input::placeholder { color: var(--ink-4); }
+
+.fleet-color-filters {
+    display: flex;
+    gap: 0.375rem;
+}
+
+.fleet-color-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.25rem 0.625rem;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    font-size: 0.75rem;
+    font-family: var(--font-sans);
+    color: var(--ink-3);
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+    opacity: 0.45;
+}
+.fleet-color-btn.active { opacity: 1; }
+
+.fleet-color-btn--green.active  { border-color: rgba(46,125,50,0.4);  color: var(--green); background: rgba(46,125,50,0.05); }
+.fleet-color-btn--yellow.active { border-color: rgba(249,168,37,0.4); color: var(--amber); background: rgba(249,168,37,0.05); }
+.fleet-color-btn--red.active    { border-color: rgba(198,40,40,0.4);  color: var(--red);   background: rgba(198,40,40,0.05); }
+.fleet-color-btn--grey.active   { border-color: var(--border);         color: var(--ink-3); background: var(--off-white); }
+
+.fleet-color-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.fleet-color-dot--green  { background: var(--green); }
+.fleet-color-dot--yellow { background: var(--amber); }
+.fleet-color-dot--red    { background: var(--red); }
+.fleet-color-dot--grey   { background: var(--ink-4); }
+
+.fleet-tile-count {
+    font-size: 0.8125rem;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------
+   FLEET MAIN LAYOUT
+---------------------------------------------------------------- */
+.fleet-main {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    height: calc(100vh - 57px - 56px - 49px); /* viewport minus header, summary, toolbar */
+}
+
+.fleet-grid-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem var(--page-pad);
+    min-width: 0;
+}
+
+/* ----------------------------------------------------------------
+   FLEET GRID — CSS Grid, performance-optimized for 1000+ tiles
+---------------------------------------------------------------- */
+.fleet-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 6px;
+    /* contain paint to avoid layout thrash during large re-renders */
+    contain: layout style;
+}
+
+/* ----------------------------------------------------------------
+   FLEET TILE
+---------------------------------------------------------------- */
+.fleet-tile {
+    position: relative;
+    border-radius: 4px;
+    padding: 0.5rem 0.625rem;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.1s;
+    user-select: none;
+    /* will-change for GPU compositing on large grids */
+    will-change: transform;
+    min-height: 72px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.fleet-tile:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.12);
+    z-index: 1;
+}
+
+.fleet-tile.selected {
+    box-shadow: 0 0 0 2px var(--blue);
+    border-color: var(--blue) !important;
+    z-index: 2;
+}
+
+/* Color variants */
+.fleet-tile--green {
+    background: rgba(46, 125, 50, 0.08);
+    border-color: rgba(46, 125, 50, 0.25);
+}
+.fleet-tile--green:hover { border-color: var(--green); }
+
+.fleet-tile--yellow {
+    background: rgba(249, 168, 37, 0.09);
+    border-color: rgba(249, 168, 37, 0.3);
+}
+.fleet-tile--yellow:hover { border-color: var(--amber); }
+
+.fleet-tile--red {
+    background: rgba(198, 40, 40, 0.08);
+    border-color: rgba(198, 40, 40, 0.25);
+}
+.fleet-tile--red:hover { border-color: var(--red); }
+
+.fleet-tile--grey {
+    background: var(--off-white);
+    border-color: var(--border);
+}
+.fleet-tile--grey:hover { border-color: var(--ink-3); }
+
+/* Tile color indicator stripe */
+.fleet-tile::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3px;
+    height: 100%;
+    border-radius: 4px 0 0 4px;
+}
+.fleet-tile--green::before  { background: var(--green); }
+.fleet-tile--yellow::before { background: var(--amber); }
+.fleet-tile--red::before    { background: var(--red); }
+.fleet-tile--grey::before   { background: var(--ink-4); }
+
+/* Alert pulse on red tiles */
+@keyframes fleet-tile-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(198, 40, 40, 0); }
+    50%       { box-shadow: 0 0 0 3px rgba(198, 40, 40, 0.15); }
+}
+.fleet-tile--red.has-alerts {
+    animation: fleet-tile-pulse 2.5s ease-in-out infinite;
+}
+
+.fleet-tile-name {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--ink);
+    word-break: break-all;
+    line-height: 1.3;
+    padding-left: 4px;
+}
+
+.fleet-tile-ns {
+    font-size: 0.5625rem;
+    color: var(--ink-3);
+    padding-left: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.fleet-tile-metrics {
+    display: flex;
+    gap: 4px;
+    padding-left: 4px;
+    margin-top: auto;
+    flex-wrap: wrap;
+}
+
+.fleet-tile-metric {
+    font-family: var(--font-mono);
+    font-size: 0.5625rem;
+    color: var(--ink-3);
+    background: rgba(0,0,0,0.04);
+    padding: 1px 4px;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+.fleet-tile-metric--warn  { color: var(--amber); }
+.fleet-tile-metric--crit  { color: var(--red); font-weight: 700; }
+
+/* Alert count badge */
+.fleet-tile-alert-badge {
+    position: absolute;
+    top: 4px;
+    right: 5px;
+    background: var(--red);
+    color: #fff;
+    font-size: 0.5rem;
+    font-weight: 700;
+    min-width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 3px;
+}
+
+/* Unreachable overlay */
+.fleet-tile--grey .fleet-tile-name { color: var(--ink-3); }
+
+/* ----------------------------------------------------------------
+   FLEET EMPTY STATE
+---------------------------------------------------------------- */
+.fleet-empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 4rem 2rem;
+    color: var(--ink-4);
+    text-align: center;
+}
+.fleet-empty-icon { font-size: 2.5rem; }
+.fleet-empty-state p { font-size: 0.875rem; color: var(--ink-3); }
+.fleet-empty-state code {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    background: var(--off-white);
+    border: 1px solid var(--border-light);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+}
+
+/* ----------------------------------------------------------------
+   FLEET SIDE PANEL
+---------------------------------------------------------------- */
+.fleet-side-panel {
+    width: 320px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    overflow: hidden;
+}
+.fleet-side-panel[hidden] { display: none; }
+
+.fleet-panel-header {
+    padding: 1rem 1.25rem 0.875rem;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--off-white);
+}
+
+.fleet-panel-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.375rem;
+}
+
+.fleet-panel-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.fleet-panel-color-dot--green  { background: var(--green); }
+.fleet-panel-color-dot--yellow { background: var(--amber); }
+.fleet-panel-color-dot--red    { background: var(--red); }
+.fleet-panel-color-dot--grey   { background: var(--ink-4); }
+
+.fleet-panel-pod-name {
+    font-family: var(--font-mono);
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: var(--ink);
+    word-break: break-all;
+    flex: 1;
+    line-height: 1.3;
+}
+
+.fleet-panel-close {
+    background: none;
+    border: none;
+    font-size: 1.25rem;
+    color: var(--ink-3);
+    cursor: pointer;
+    line-height: 1;
+    padding: 0.125rem 0.25rem;
+    border-radius: 3px;
+    flex-shrink: 0;
+    transition: color 0.12s, background 0.12s;
+}
+.fleet-panel-close:hover { color: var(--ink); background: var(--off-white); }
+
+.fleet-panel-meta {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    line-height: 1.4;
+}
+
+.fleet-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+/* Panel metrics row */
+.fleet-panel-metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.625rem;
+}
+
+.fleet-panel-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    background: var(--off-white);
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 0.5rem 0.75rem;
+}
+
+.fleet-panel-metric-label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+}
+
+.fleet-panel-metric-value {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+}
+
+.fleet-panel-metric-value--warn { color: var(--amber); }
+.fleet-panel-metric-value--crit { color: var(--red); }
+
+/* Panel sections */
+.fleet-panel-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.fleet-panel-section-title {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.fleet-panel-alert-count {
+    background: var(--red);
+    color: #fff;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    padding: 0.05rem 0.4rem;
+    border-radius: 10px;
+    display: none;
+}
+.fleet-panel-alert-count.visible { display: inline-flex; align-items: center; }
+
+.fleet-panel-alerts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.fleet-panel-alert-item {
+    padding: 0.5rem 0.75rem;
+    border-radius: 3px;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+.fleet-panel-alert-item--critical { background: rgba(198,40,40,0.07); border-left: 3px solid var(--red); }
+.fleet-panel-alert-item--warning  { background: rgba(249,168,37,0.09); border-left: 3px solid var(--amber); }
+.fleet-panel-alert-item--info     { background: rgba(21,101,192,0.07); border-left: 3px solid var(--blue); }
+
+.fleet-panel-alert-name {
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 0.8125rem;
+}
+.fleet-panel-alert-detail {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+}
+
+.fleet-panel-empty {
+    font-size: 0.8125rem;
+    color: var(--ink-4);
+    font-style: italic;
+    padding: 0.25rem 0;
+}
+
+/* Scrape info table */
+.fleet-panel-scrape-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.fleet-panel-scrape-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--border-light);
+    padding-bottom: 0.25rem;
+}
+.fleet-panel-scrape-row:last-child { border-bottom: none; }
+
+.fleet-panel-scrape-label {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    flex-shrink: 0;
+}
+
+.fleet-panel-scrape-val {
+    font-size: 0.75rem;
+    color: var(--ink);
+    text-align: right;
+    word-break: break-all;
+}
+.fleet-panel-scrape-val.mono { font-family: var(--font-mono); font-size: 0.6875rem; }
+
+.fleet-panel-scrape-ok--yes { color: var(--green); font-weight: 600; }
+.fleet-panel-scrape-ok--no  { color: var(--red); font-weight: 600; }
+
+/* Drill-down button */
+.fleet-panel-drill {
+    margin-top: auto;
+    padding-top: 0.5rem;
+}
+
+.fleet-panel-drill-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+/* ----------------------------------------------------------------
+   GROUPING HEADERS (namespace/deployment dividers)
+---------------------------------------------------------------- */
+.fleet-group-header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.375rem 0 0.25rem;
+    margin-top: 0.5rem;
+}
+
+.fleet-group-header:first-child { margin-top: 0; }
+
+.fleet-group-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.fleet-group-line {
+    flex: 1;
+    height: 1px;
+    background: var(--border-light);
+}
+
+.fleet-group-count {
+    font-size: 0.6875rem;
+    color: var(--ink-4);
+    font-family: var(--font-mono);
+    white-space: nowrap;
+}
+
+/* ----------------------------------------------------------------
+   LOADING SKELETON
+---------------------------------------------------------------- */
+@keyframes fleet-skeleton-shimmer {
+    0%   { background-position: -400px 0; }
+    100% { background-position: 400px 0; }
+}
+
+.fleet-tile-skeleton {
+    border-radius: 4px;
+    min-height: 72px;
+    background: linear-gradient(90deg, var(--off-white) 25%, var(--border-light) 50%, var(--off-white) 75%);
+    background-size: 800px 100%;
+    animation: fleet-skeleton-shimmer 1.4s infinite;
+}
+
+/* ----------------------------------------------------------------
+   RESPONSIVE
+---------------------------------------------------------------- */
+@media (max-width: 1100px) {
+    .fleet-side-panel { width: 280px; }
+}
+
+@media (max-width: 900px) {
+    .fleet-main {
+        flex-direction: column;
+        height: auto;
+        overflow: visible;
+    }
+    .fleet-grid-area {
+        overflow-y: visible;
+        padding: 0.75rem 1rem;
+    }
+    .fleet-side-panel {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border);
+    }
+    .fleet-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .fleet-summary-strip { padding: 0.5rem 1rem; }
+    .fleet-toolbar { padding: 0.5rem 1rem; }
+    .fleet-grid-area { padding: 0.5rem 1rem; }
+    .fleet-grid {
+        grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+        gap: 4px;
+    }
+    .fleet-summary-sep { display: none; }
+    .fleet-summary-item { padding: 0.25rem 0.75rem 0.25rem 0; }
+}

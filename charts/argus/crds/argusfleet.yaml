@@ -1,0 +1,122 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: argusfleets.argus.io
+  labels:
+    argus.io/crd: "true"
+  annotations:
+    argus.io/lifecycle: alpha
+spec:
+  group: argus.io
+  scope: Namespaced
+  names:
+    kind: ArgusFleet
+    listKind: ArgusFleetList
+    plural: argusfleets
+    singular: argusfleet
+    shortNames:
+      - af
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      subresources:
+        status: {}
+      additionalPrinterColumns:
+        - name: Aggregator
+          type: string
+          jsonPath: .spec.aggregatorEndpoint
+        - name: Interval
+          type: integer
+          jsonPath: .spec.scrapeIntervalSeconds
+        - name: Targets
+          type: integer
+          jsonPath: .status.registeredTargets
+        - name: Phase
+          type: string
+          jsonPath: .status.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          required:
+            - spec
+          properties:
+            spec:
+              type: object
+              required:
+                - aggregatorEndpoint
+              properties:
+                aggregatorEndpoint:
+                  type: string
+                  description: "Base URL of argus-aggregator (e.g. http://argus-aggregator.argus-system.svc.cluster.local:9300). MUST NOT contain credentials in the URL."
+                  pattern: '^https?://[^[:space:]]+$'
+                scrapeIntervalSeconds:
+                  type: integer
+                  minimum: 1
+                  default: 15
+                retentionSeconds:
+                  type: integer
+                  minimum: 60
+                  default: 3600
+                alertWebhook:
+                  type: string
+                  description: "Optional webhook URL for alert routing. MUST NOT contain credentials in the URL."
+                  pattern: '^https?://[^[:space:]]+$'
+                namespaceSelector:
+                  type: object
+                  description: "Optional namespace label selector. If unset, the fleet only governs pods in its own namespace."
+                  properties:
+                    matchLabels:
+                      type: object
+                      additionalProperties:
+                        type: string
+                    matchExpressions:
+                      type: array
+                      items:
+                        type: object
+                        required: [key, operator]
+                        properties:
+                          key:
+                            type: string
+                          operator:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+                podSelector:
+                  type: object
+                  description: "Optional pod label selector (in addition to argus.io/scrape=true)."
+                  properties:
+                    matchLabels:
+                      type: object
+                      additionalProperties:
+                        type: string
+                    matchExpressions:
+                      type: array
+                      items:
+                        type: object
+                        required: [key, operator]
+                        properties:
+                          key:
+                            type: string
+                          operator:
+                            type: string
+                          values:
+                            type: array
+                            items:
+                              type: string
+            status:
+              type: object
+              properties:
+                registeredTargets:
+                  type: integer
+                lastReconcileAt:
+                  type: string
+                phase:
+                  type: string
+                message:
+                  type: string

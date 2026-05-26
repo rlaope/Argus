@@ -1,9 +1,9 @@
 package io.argus.cli.command;
 
-import io.argus.cli.cluster.ClusterHealthAggregator;
-import io.argus.cli.cluster.ClusterHealthAggregator.AggregateStats;
-import io.argus.cli.cluster.ClusterHealthAggregator.InstanceMetrics;
-import io.argus.cli.cluster.PrometheusTextParser;
+import io.argus.core.cluster.ClusterHealthAggregator;
+import io.argus.core.cluster.ClusterHealthAggregator.AggregateStats;
+import io.argus.core.cluster.ClusterHealthAggregator.InstanceMetrics;
+import io.argus.core.cluster.PrometheusTextParser;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;

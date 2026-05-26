@@ -1,4 +1,4 @@
-package io.argus.cli.cluster;
+package io.argus.core.cluster;
 
 import java.util.List;
 
@@ -7,7 +7,6 @@ import java.util.List;
  */
 public final class ClusterHealthAggregator {
 
-    /** Known Prometheus metric name candidates for each dimension. */
     private static final String[] HEAP_METRICS = {
         "argus_heap_used_percent",
         "jvm_memory_used_bytes",
@@ -35,10 +34,6 @@ public final class ClusterHealthAggregator {
 
     private ClusterHealthAggregator() {}
 
-
-    /**
-     * Extracts per-instance metrics from the raw Prometheus map.
-     */
     public static InstanceMetrics extract(String target, java.util.Map<String, Double> raw) {
         double heap = pick(raw, HEAP_METRICS, -1.0);
         double gc   = pick(raw, GC_METRICS,   -1.0);
@@ -48,9 +43,6 @@ public final class ClusterHealthAggregator {
         return new InstanceMetrics(target, heap, gc, cpu, leak > 0.5, (long) vt, true);
     }
 
-    /**
-     * Computes aggregate statistics from a list of reachable instance metrics.
-     */
     public static AggregateStats aggregate(List<InstanceMetrics> instances) {
         List<InstanceMetrics> up = instances.stream().filter(InstanceMetrics::reachable)
                 .collect(java.util.stream.Collectors.toList());
@@ -88,7 +80,6 @@ public final class ClusterHealthAggregator {
             if (m.leakSuspected()) leakCount++;
         }
 
-        // Worst instance: highest GC overhead, then heap
         InstanceMetrics worst = up.stream()
             .filter(m -> m.gcOverhead() >= 0)
             .max(java.util.Comparator.comparingDouble(InstanceMetrics::gcOverhead))

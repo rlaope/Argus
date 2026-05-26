@@ -1,7 +1,7 @@
 package io.argus.cli.command;
 
 import io.argus.cli.alert.AlertEngine;
-import io.argus.cli.alert.AlertRule;
+import io.argus.core.alert.AlertRule;
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.cli.provider.ProviderRegistry;

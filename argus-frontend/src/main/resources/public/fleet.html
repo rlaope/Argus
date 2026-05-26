@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus - Fleet Command Center</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/fleet.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+    <!-- ================================================================
+         HEADER
+    ================================================================ -->
+    <header>
+        <div class="logo">
+            <img src="/img/argus_logo.png" alt="Argus" class="logo-img">
+            <h1>Argus</h1>
+        </div>
+        <div class="header-actions">
+            <a href="/" class="btn" title="Single JVM Dashboard">Dashboard</a>
+            <a href="/fleet.html" class="btn btn-active" title="Fleet Command Center">Fleet</a>
+            <a href="/console.html" class="btn" title="Interactive Console">Console</a>
+            <a href="https://github.com/rlaope/Argus" target="_blank" class="btn btn-icon" title="GitHub" style="text-decoration:none;"><svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
+            <div id="fleet-poll-status" class="status disconnected">
+                <span class="status-dot"></span>
+                <span class="status-text">Connecting</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- ================================================================
+         FLEET SUMMARY STRIP
+    ================================================================ -->
+    <div class="fleet-summary-strip">
+        <div class="fleet-summary-item">
+            <span class="fleet-summary-label">Total Pods</span>
+            <span class="fleet-summary-value" id="fleet-total">—</span>
+        </div>
+        <div class="fleet-summary-sep"></div>
+        <div class="fleet-summary-item fleet-summary-item--green">
+            <span class="fleet-summary-label">Healthy</span>
+            <span class="fleet-summary-value" id="fleet-green">—</span>
+        </div>
+        <div class="fleet-summary-sep"></div>
+        <div class="fleet-summary-item fleet-summary-item--yellow">
+            <span class="fleet-summary-label">Warning</span>
+            <span class="fleet-summary-value" id="fleet-yellow">—</span>
+        </div>
+        <div class="fleet-summary-sep"></div>
+        <div class="fleet-summary-item fleet-summary-item--red">
+            <span class="fleet-summary-label">Critical</span>
+            <span class="fleet-summary-value" id="fleet-red">—</span>
+        </div>
+        <div class="fleet-summary-sep"></div>
+        <div class="fleet-summary-item fleet-summary-item--grey">
+            <span class="fleet-summary-label">Unreachable</span>
+            <span class="fleet-summary-value" id="fleet-grey">—</span>
+        </div>
+        <div class="fleet-summary-sep"></div>
+        <div class="fleet-summary-item">
+            <span class="fleet-summary-label">Active Alerts</span>
+            <span class="fleet-summary-value fleet-summary-value--alerts" id="fleet-alerts">—</span>
+        </div>
+        <div class="fleet-summary-sep"></div>
+        <div class="fleet-summary-item">
+            <span class="fleet-summary-label">Heap Avg</span>
+            <span class="fleet-summary-value" id="fleet-heap-avg">—</span>
+        </div>
+        <div class="fleet-summary-sep"></div>
+        <div class="fleet-summary-item">
+            <span class="fleet-summary-label">GC Avg</span>
+            <span class="fleet-summary-value" id="fleet-gc-avg">—</span>
+        </div>
+        <div class="fleet-summary-sep"></div>
+        <div class="fleet-summary-item">
+            <span class="fleet-summary-label">Last Updated</span>
+            <span class="fleet-summary-value fleet-summary-value--ts" id="fleet-last-updated">—</span>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         FLEET TOOLBAR
+    ================================================================ -->
+    <div class="fleet-toolbar">
+        <div class="fleet-toolbar-left">
+            <div class="fleet-filter-group">
+                <label class="fleet-filter-label" for="filter-namespace">Namespace</label>
+                <select id="filter-namespace" class="fleet-select">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="fleet-filter-group">
+                <label class="fleet-filter-label" for="filter-deployment">Deployment</label>
+                <select id="filter-deployment" class="fleet-select">
+                    <option value="">All</option>
+                </select>
+            </div>
+            <div class="fleet-filter-group">
+                <label class="fleet-filter-label">Status</label>
+                <div class="fleet-color-filters">
+                    <button class="fleet-color-btn fleet-color-btn--green active" data-color="green" title="Healthy">
+                        <span class="fleet-color-dot fleet-color-dot--green"></span> Healthy
+                    </button>
+                    <button class="fleet-color-btn fleet-color-btn--yellow active" data-color="yellow" title="Warning">
+                        <span class="fleet-color-dot fleet-color-dot--yellow"></span> Warning
+                    </button>
+                    <button class="fleet-color-btn fleet-color-btn--red active" data-color="red" title="Critical">
+                        <span class="fleet-color-dot fleet-color-dot--red"></span> Critical
+                    </button>
+                    <button class="fleet-color-btn fleet-color-btn--grey active" data-color="grey" title="Unreachable">
+                        <span class="fleet-color-dot fleet-color-dot--grey"></span> Unreachable
+                    </button>
+                </div>
+            </div>
+            <div class="fleet-filter-group">
+                <label class="fleet-filter-label" for="filter-search">Search Pod</label>
+                <input type="text" id="filter-search" class="fleet-search-input" placeholder="pod name...">
+            </div>
+        </div>
+        <div class="fleet-toolbar-right">
+            <span class="fleet-tile-count" id="fleet-tile-count">0 pods</span>
+            <button id="fleet-refresh-btn" class="btn btn-small">Refresh</button>
+        </div>
+    </div>
+
+    <!-- ================================================================
+         MAIN: TILE GRID + SIDE PANEL
+    ================================================================ -->
+    <div class="fleet-main">
+
+        <!-- Tile Grid -->
+        <div class="fleet-grid-area">
+            <div id="fleet-grid" class="fleet-grid">
+                <div class="fleet-empty-state" id="fleet-empty-state">
+                    <div class="fleet-empty-icon">&#9711;</div>
+                    <p>No pods registered. Deploy argus-agent with <code>argus.io/scrape=true</code> label.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Side Panel -->
+        <div class="fleet-side-panel" id="fleet-side-panel" hidden>
+            <div class="fleet-panel-header">
+                <div class="fleet-panel-title-row">
+                    <span class="fleet-panel-color-dot" id="panel-color-dot"></span>
+                    <h2 class="fleet-panel-pod-name" id="panel-pod-name">—</h2>
+                    <button class="fleet-panel-close" id="fleet-panel-close" title="Close">&times;</button>
+                </div>
+                <div class="fleet-panel-meta" id="panel-meta">—</div>
+            </div>
+
+            <div class="fleet-panel-body">
+
+                <!-- Key metrics -->
+                <div class="fleet-panel-metrics" id="panel-metrics">
+                    <div class="fleet-panel-metric">
+                        <span class="fleet-panel-metric-label">Heap</span>
+                        <span class="fleet-panel-metric-value" id="panel-heap">—</span>
+                    </div>
+                    <div class="fleet-panel-metric">
+                        <span class="fleet-panel-metric-label">GC Overhead</span>
+                        <span class="fleet-panel-metric-value" id="panel-gc">—</span>
+                    </div>
+                    <div class="fleet-panel-metric">
+                        <span class="fleet-panel-metric-label">CPU</span>
+                        <span class="fleet-panel-metric-value" id="panel-cpu">—</span>
+                    </div>
+                    <div class="fleet-panel-metric">
+                        <span class="fleet-panel-metric-label">Active VT</span>
+                        <span class="fleet-panel-metric-value" id="panel-vt">—</span>
+                    </div>
+                </div>
+
+                <!-- Active alerts -->
+                <div class="fleet-panel-section">
+                    <h3 class="fleet-panel-section-title">Active Alerts <span class="fleet-panel-alert-count" id="panel-alert-count"></span></h3>
+                    <div id="panel-alerts" class="fleet-panel-alerts">
+                        <div class="fleet-panel-empty">No active alerts</div>
+                    </div>
+                </div>
+
+                <!-- Scrape info -->
+                <div class="fleet-panel-section">
+                    <h3 class="fleet-panel-section-title">Scrape Info</h3>
+                    <div class="fleet-panel-scrape-info" id="panel-scrape-info">
+                        <div class="fleet-panel-scrape-row">
+                            <span class="fleet-panel-scrape-label">Endpoint</span>
+                            <span class="fleet-panel-scrape-val mono" id="panel-scrape-url">—</span>
+                        </div>
+                        <div class="fleet-panel-scrape-row">
+                            <span class="fleet-panel-scrape-label">Last Scrape</span>
+                            <span class="fleet-panel-scrape-val" id="panel-last-scrape">—</span>
+                        </div>
+                        <div class="fleet-panel-scrape-row">
+                            <span class="fleet-panel-scrape-label">Status</span>
+                            <span class="fleet-panel-scrape-val" id="panel-scrape-ok">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drill-down link -->
+                <div class="fleet-panel-drill">
+                    <a id="panel-drill-link" href="#" class="btn btn-primary fleet-panel-drill-btn">
+                        Open JVM Dashboard
+                    </a>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>Argus Fleet Command Center &mdash; JVM Observability Platform &middot; <a href="https://github.com/rlaope/Argus" target="_blank" style="color:var(--ink-3,#888);text-decoration:none;">GitHub</a></p>
+    </footer>
+
+    <script type="module" src="/js/fleet.js"></script>
+</body>
+</html>

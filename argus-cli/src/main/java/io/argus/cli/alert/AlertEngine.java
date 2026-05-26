@@ -1,8 +1,11 @@
 package io.argus.cli.alert;
 
-import io.argus.cli.cluster.PrometheusTextParser;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
+import io.argus.core.alert.AlertEvaluator;
+import io.argus.core.alert.AlertRule;
+import io.argus.core.alert.WebhookSender;
+import io.argus.core.cluster.PrometheusTextParser;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -11,10 +14,8 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Polls a Prometheus endpoint at a configurable interval, evaluates alert rules
@@ -30,18 +31,15 @@ public final class AlertEngine {
 
     private final String target;
     private final int intervalSeconds;
-    private final List<AlertRule> rules;
     private final boolean useColor;
+    private final AlertEvaluator evaluator;
     private final WebhookSender webhookSender;
-
-    /** Tracks which rule names are currently in a fired (breached) state. */
-    private final Set<String> firedAlerts = new HashSet<>();
 
     public AlertEngine(String target, int intervalSeconds, List<AlertRule> rules, boolean useColor) {
         this.target = target;
         this.intervalSeconds = intervalSeconds;
-        this.rules = rules;
         this.useColor = useColor;
+        this.evaluator = new AlertEvaluator(rules);
         this.webhookSender = new WebhookSender();
     }
 
@@ -54,7 +52,7 @@ public final class AlertEngine {
                 WIDTH, target, "checking every " + intervalLabel));
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
-        String rulesLine = "  Rules: " + rules.size() + " active";
+        String rulesLine = "  Rules: " + evaluator.rules().size() + " active";
         System.out.println(RichRenderer.boxLine(
                 AnsiStyle.style(useColor, AnsiStyle.BOLD) + rulesLine
                         + AnsiStyle.style(useColor, AnsiStyle.RESET), WIDTH));
@@ -86,39 +84,27 @@ public final class AlertEngine {
         String now = LocalTime.now().format(TIME_FMT);
         Map<String, Double> metrics = fetchMetrics(client);
 
-        for (AlertRule rule : rules) {
-            Double rawValue = metrics.get(rule.metric());
-            if (rawValue == null) {
-                // Metric not found — treat as zero for threshold evaluation
-                rawValue = 0.0;
-            }
-            double value = rawValue;
-            boolean breached = rule.isBreached(value);
-
+        for (AlertEvaluator.Outcome outcome : evaluator.evaluate(metrics)) {
+            AlertRule rule = outcome.rule();
+            double value = outcome.value();
+            String displayValue = formatValue(rule, value);
             String line;
-            if (breached) {
-                String displayValue = formatValue(rule, value);
-                String thresholdDisplay = formatThreshold(rule);
-                boolean alreadyFired = firedAlerts.contains(rule.name());
-                if (!alreadyFired) {
-                    firedAlerts.add(rule.name());
+            if (outcome.breached()) {
+                if (outcome.firstFire()) {
                     webhookSender.send(rule, value, target);
                     line = "  [" + now + "] "
-                            + AnsiStyle.style(useColor, AnsiStyle.YELLOW) + "\u26a0 "
-                            + rule.name() + ": " + displayValue + " EXCEEDED \u2192 webhook sent"
+                            + AnsiStyle.style(useColor, AnsiStyle.YELLOW) + "⚠ "
+                            + rule.name() + ": " + displayValue + " EXCEEDED → webhook sent"
                             + AnsiStyle.style(useColor, AnsiStyle.RESET);
                 } else {
                     line = "  [" + now + "] "
-                            + AnsiStyle.style(useColor, AnsiStyle.YELLOW) + "\u26a0 "
+                            + AnsiStyle.style(useColor, AnsiStyle.YELLOW) + "⚠ "
                             + rule.name() + ": " + displayValue + " EXCEEDED (ongoing)"
                             + AnsiStyle.style(useColor, AnsiStyle.RESET);
                 }
             } else {
-                // Resolved — clear dedup state
-                firedAlerts.remove(rule.name());
-                String displayValue = formatValue(rule, value);
                 line = "  [" + now + "] "
-                        + AnsiStyle.style(useColor, AnsiStyle.GREEN) + "\u2713 "
+                        + AnsiStyle.style(useColor, AnsiStyle.GREEN) + "✓ "
                         + rule.name() + ": " + displayValue
                         + AnsiStyle.style(useColor, AnsiStyle.RESET);
             }
@@ -154,17 +140,9 @@ public final class AlertEngine {
         if (rule.threshold() <= 1.0 && rule.metric().contains("suspected")) {
             return value >= 1.0 ? "detected" : "not detected";
         }
-        // Show as percentage if metric name contains "ratio" or "overhead"
         if (rule.metric().contains("ratio") || rule.metric().contains("overhead")) {
             return String.format("%.1f%%", value * 100);
         }
         return String.format("%.1f", value);
-    }
-
-    private static String formatThreshold(AlertRule rule) {
-        if (rule.metric().contains("ratio") || rule.metric().contains("overhead")) {
-            return String.format("%.0f%%", rule.threshold() * 100);
-        }
-        return String.format("%.1f", rule.threshold());
     }
 }

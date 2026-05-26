@@ -1,0 +1,36 @@
+{{- if .Values.operator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "argus.fullname" . }}-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: operator
+spec:
+  replicas: {{ .Values.operator.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "argus.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: operator
+  template:
+    metadata:
+      labels:
+        {{- include "argus.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: operator
+    spec:
+      serviceAccountName: {{ include "argus.fullname" . }}-operator
+      containers:
+        - name: operator
+          image: "{{ .Values.operator.image.repository }}:{{ .Values.operator.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.operator.image.pullPolicy | default "IfNotPresent" }}
+          env:
+            - name: ARGUS_AGGREGATOR_URL
+              value: {{ .Values.operator.aggregatorUrl | quote }}
+            - name: ARGUS_WATCH_NAMESPACE
+              value: {{ .Values.operator.watchNamespace | default "" | quote }}
+            - name: ARGUS_RESYNC_PERIOD_MS
+              value: {{ .Values.operator.resyncPeriodMs | default 60000 | quote }}
+          resources:
+            {{- toYaml (.Values.operator.resources | default dict) | nindent 12 }}
+{{- end }}

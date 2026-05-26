@@ -1,0 +1,63 @@
+{{- if .Values.operator.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "argus.fullname" . }}-operator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: operator
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "argus.fullname" . }}-operator
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: operator
+rules:
+  # Watch pods cluster-wide to discover argus-agent scrape targets.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Resolve pod namespaces for ArgusFleet namespaceSelector matching.
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  # ArgusFleet: read fleets + update their /status subresource (operator never
+  # creates or deletes ArgusFleet resources — that is a user/helm responsibility).
+  - apiGroups: ["argus.io"]
+    resources: ["argusfleets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argus.io"]
+    resources: ["argusfleets/status"]
+    verbs: ["get", "update", "patch"]
+  # ArgusTarget: operator owns the full lifecycle of these CRs.
+  - apiGroups: ["argus.io"]
+    resources: ["argustargets", "argustargets/status"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Leases for leader election (single-replica today, but reserve the perm).
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Emit events for visibility.
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "argus.fullname" . }}-operator
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "argus.fullname" . }}-operator
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "argus.fullname" . }}-operator
+    namespace: {{ .Release.Namespace }}
+{{- end }}
