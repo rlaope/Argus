@@ -57,4 +57,21 @@ public interface DiagnosticCommand {
      * Default: true.
      */
     default boolean supportsExternal() { return true; }
+
+    /**
+     * Whether this command is suitable for one-click invocation via the web Console.
+     * Default: true.
+     *
+     * <p>Override to {@code false} when the command:
+     * <ul>
+     *   <li>Produces files (heap dumps, snapshots, JFR recordings) — no upload/download flow in console</li>
+     *   <li>Requires arguments beyond a PID (compare PID1 PID2, benchmark Class.method) — picker UX not supported yet</li>
+     *   <li>Runs indefinitely or streams (watch, top, tui, harness, alert, slowlog) — incompatible with request/response</li>
+     *   <li>Mutates JVM state (gcrun, vmset, vmlog) — too risky for click-to-run from a browser</li>
+     *   <li>Is CI/setup-only (profile-gate, ci, init) — no value in a live console</li>
+     * </ul>
+     *
+     * <p>CLI behavior is unaffected — all commands remain available via {@code argus &lt;name&gt;}.
+     */
+    default boolean supportsWebConsole() { return true; }
 }

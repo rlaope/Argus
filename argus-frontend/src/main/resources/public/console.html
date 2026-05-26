@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Argus Console</title>
     <link rel="stylesheet" href="/css/console.css">
+    <link rel="stylesheet" href="/css/theme.css">
+    <script>(function(){try{var t=localStorage.getItem('argus-theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t;}catch(e){}})();</script>
+    <script src="/js/theme.js"></script>
 </head>
 <body>
 
@@ -16,6 +19,8 @@
         </div>
         <div class="header-actions">
             <a href="/" class="btn">Dashboard</a>
+            <a href="/fleet.html" class="btn" title="Fleet Command Center">Fleet</a>
+            <button type="button" class="argus-theme-toggle" aria-label="Toggle theme"></button>
             <a href="https://github.com/rlaope/Argus" target="_blank" class="btn btn-icon" title="GitHub">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
             </a>
@@ -42,13 +47,23 @@
             </div>
         </section>
 
-        <!-- Command Buttons (BOTTOM) -->
-        <section class="commands-panel" id="commands-panel">
-            <!-- Groups rendered dynamically from /api/commands -->
+        <!-- Command search + Buttons (BOTTOM) -->
+        <section class="commands-section">
+            <div class="commands-search-row">
+                <input type="search" id="commands-search" class="commands-search"
+                       placeholder="Filter commands… (e.g. gc, thread, heap)"
+                       autocomplete="off" spellcheck="false">
+                <span class="commands-search-count" id="commands-search-count"></span>
+            </div>
+            <section class="commands-panel" id="commands-panel">
+                <!-- Groups rendered dynamically from /api/commands -->
+            </section>
         </section>
     </main>
 
     <script>
+        // Display names for known command groups. Unknown groups (e.g. future
+        // additions from server-side SPI) are still rendered — see humanizeGroup().
         const GROUP_LABELS = {
             system: 'System',
             memory: 'Memory & GC',
@@ -56,6 +71,18 @@
             runtime: 'Class & Runtime',
             diagnostic: 'Diagnostics'
         };
+
+        // Render order for known groups. Unknown groups are appended after these,
+        // sorted alphabetically, so newly-registered groups become visible immediately
+        // without a frontend change.
+        const GROUP_ORDER = ['system', 'memory', 'threads', 'runtime', 'diagnostic'];
+
+        function humanizeGroup(key) {
+            if (GROUP_LABELS[key]) return GROUP_LABELS[key];
+            // Title-case the first letter, replace - / _ with spaces.
+            return key.replace(/[-_]/g, ' ')
+                .replace(/\b\w/g, c => c.toUpperCase());
+        }
 
         const terminalBody = document.getElementById('terminal-body');
         const terminalTitle = document.getElementById('terminal-title');
@@ -86,7 +113,18 @@
                 const panel = document.getElementById('commands-panel');
                 panel.innerHTML = '';
 
-                for (const [groupId, label] of Object.entries(GROUP_LABELS)) {
+                // Render known groups first in the canonical order, then any
+                // additional groups returned by the server alphabetically. This
+                // makes newly-registered command groups visible without a
+                // frontend change — they just appear at the end with a
+                // humanized title.
+                const seen = new Set(GROUP_ORDER);
+                const renderOrder = [
+                    ...GROUP_ORDER,
+                    ...Object.keys(grouped).filter(g => !seen.has(g)).sort()
+                ];
+
+                for (const groupId of renderOrder) {
                     const cmds = grouped[groupId];
                     if (!cmds || cmds.length === 0) continue;
 
@@ -94,7 +132,7 @@
                     group.className = 'commands-group';
 
                     const h3 = document.createElement('h3');
-                    h3.textContent = label;
+                    h3.textContent = humanizeGroup(groupId);
                     group.appendChild(h3);
 
                     const row = document.createElement('div');
@@ -104,7 +142,8 @@
                         const btn = document.createElement('button');
                         btn.className = 'cmd-btn';
                         btn.textContent = cmd.id;
-                        btn.title = cmd.description;
+                        btn.title = cmd.description || cmd.id;
+                        btn.dataset.searchKey = (cmd.id + ' ' + (cmd.description || '')).toLowerCase();
                         btn.addEventListener('click', () => executeCommand(cmd.id));
                         row.appendChild(btn);
                     });
@@ -112,9 +151,45 @@
                     group.appendChild(row);
                     panel.appendChild(group);
                 }
+                setupCommandSearch();
             } catch (e) {
                 appendOutput('Failed to load commands: ' + e.message, 'error');
             }
+        }
+
+        function setupCommandSearch() {
+            const input = document.getElementById('commands-search');
+            const countEl = document.getElementById('commands-search-count');
+            if (!input || !countEl) return;
+            const allBtns = Array.from(document.querySelectorAll('.cmd-btn'));
+            const totalCount = allBtns.length;
+            countEl.textContent = totalCount + ' commands';
+
+            function apply() {
+                const q = input.value.trim().toLowerCase();
+                let visible = 0;
+                allBtns.forEach(btn => {
+                    const match = !q || btn.dataset.searchKey.includes(q);
+                    btn.style.display = match ? '' : 'none';
+                    if (match) visible++;
+                });
+                // Hide groups whose buttons are all filtered out
+                document.querySelectorAll('.commands-group').forEach(g => {
+                    const any = Array.from(g.querySelectorAll('.cmd-btn'))
+                        .some(b => b.style.display !== 'none');
+                    g.style.display = any ? '' : 'none';
+                });
+                countEl.textContent = q
+                    ? visible + ' / ' + totalCount + ' match'
+                    : totalCount + ' commands';
+            }
+
+            input.addEventListener('input', apply);
+            // Esc clears
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') { input.value = ''; apply(); }
+            });
+            apply();
         }
 
         async function executeCommand(cmd) {

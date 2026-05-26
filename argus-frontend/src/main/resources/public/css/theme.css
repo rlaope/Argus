@@ -1,0 +1,154 @@
+/* ================================================================
+   Argus theme — light (default) + dark.
+   Switched via <html data-theme="dark"> set by theme.js (localStorage).
+================================================================ */
+
+:root[data-theme="dark"] {
+    --bg: #0d1117;
+    --bg-1: #0d1117;
+    --bg-2: #161b22;
+    --off-white: #161b22;
+    --surface: #161b22;
+    --ink: #e6edf3;
+    --ink-2: #c9d1d9;
+    --ink-3: #8b949e;
+    --ink-4: #6e7681;
+    --border: #21262d;
+    --border-light: #1c2128;
+    --green: #56d364;
+    --amber: #f9c14f;
+    --red:   #f47067;
+    --blue:  #58a6ff;
+
+    /* Terminal tokens — keep contrast inside the dark terminal panel.
+       Without these, console.css's light defaults (#1a1a1a body + light text)
+       continue to apply, which still works visually but the bright dark-mode
+       --red/--amber/--green tokens defined above would otherwise leak into
+       terminal text on a near-black backdrop with degraded contrast. */
+    --terminal-bg: #0a0e14;
+    --terminal-text: #d9e0e8;
+    --terminal-prompt: #56d364;
+    --terminal-cmd: #e6edf3;
+}
+
+:root[data-theme="dark"] body {
+    background: var(--bg);
+    color: var(--ink);
+}
+
+:root[data-theme="dark"] header {
+    background: var(--bg-2);
+    border-bottom: 1px solid var(--border);
+}
+:root[data-theme="dark"] header h1 { color: var(--ink); }
+
+:root[data-theme="dark"] .btn {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--ink-2);
+}
+:root[data-theme="dark"] .btn:hover {
+    border-color: var(--ink-4);
+    color: var(--ink);
+}
+
+:root[data-theme="dark"] .btn-active,
+:root[data-theme="dark"] .btn-active:hover {
+    background: var(--bg);
+    border-color: var(--blue);
+    color: var(--blue);
+    box-shadow: inset 0 -2px 0 var(--blue);
+}
+
+:root[data-theme="dark"] footer {
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+    color: var(--ink-3);
+}
+:root[data-theme="dark"] footer a { color: var(--ink-3); }
+
+/* Fleet-specific dark overrides — applied on top of fleet.css */
+:root[data-theme="dark"] .fleet-summary-strip { background: var(--bg-2); }
+:root[data-theme="dark"] .fleet-toolbar       { background: var(--bg); border-bottom-color: var(--border); }
+:root[data-theme="dark"] .fleet-main          { background: var(--bg); }
+:root[data-theme="dark"] .fleet-side-panel    { background: var(--bg-2); border-left-color: var(--border); }
+:root[data-theme="dark"] .fleet-panel-header  { background: var(--bg-2); border-bottom-color: var(--border); }
+
+:root[data-theme="dark"] .fleet-select,
+:root[data-theme="dark"] .fleet-search-input,
+:root[data-theme="dark"] .fleet-color-btn {
+    background: var(--bg-2);
+    border-color: var(--border);
+    color: var(--ink);
+}
+:root[data-theme="dark"] .fleet-color-btn { color: var(--ink-3); }
+:root[data-theme="dark"] .fleet-color-btn--green.active  { border-color: var(--green);  color: var(--green);  background: rgba(86,211,100,0.08); }
+:root[data-theme="dark"] .fleet-color-btn--yellow.active { border-color: var(--amber); color: var(--amber); background: rgba(249,193,79,0.08); }
+:root[data-theme="dark"] .fleet-color-btn--red.active    { border-color: var(--red);   color: var(--red);   background: rgba(244,112,103,0.08); }
+:root[data-theme="dark"] .fleet-color-btn--grey.active   { border-color: var(--ink-3); color: var(--ink-2); background: var(--bg-2); }
+
+:root[data-theme="dark"] .fleet-tile {
+    background: var(--bg-2);
+    border-color: var(--border);
+}
+:root[data-theme="dark"] .fleet-tile--green  { background: rgba(86,211,100,0.06); border-color: rgba(86,211,100,0.25); }
+:root[data-theme="dark"] .fleet-tile--yellow { background: rgba(249,193,79,0.06); border-color: rgba(249,193,79,0.25); }
+:root[data-theme="dark"] .fleet-tile--red    { background: rgba(244,112,103,0.06); border-color: rgba(244,112,103,0.25); }
+:root[data-theme="dark"] .fleet-tile--grey   { background: var(--bg-2); border-color: var(--border); }
+
+:root[data-theme="dark"] .fleet-tile:hover   { background: #1d2330; border-color: var(--ink-4); }
+:root[data-theme="dark"] .fleet-tile--green:hover  { border-color: var(--green); }
+:root[data-theme="dark"] .fleet-tile--yellow:hover { border-color: var(--amber); }
+:root[data-theme="dark"] .fleet-tile--red:hover    { border-color: var(--red); }
+:root[data-theme="dark"] .fleet-tile--grey:hover   { border-color: var(--ink-3); }
+
+:root[data-theme="dark"] .fleet-tile-metric { background: rgba(255,255,255,0.04); border-color: var(--border); color: var(--ink-2); }
+
+:root[data-theme="dark"] .fleet-panel-metric {
+    background: var(--bg);
+    border-color: var(--border);
+}
+:root[data-theme="dark"] .fleet-panel-alert-item { background: var(--bg); }
+:root[data-theme="dark"] .fleet-panel-empty { color: var(--ink-4); }
+
+:root[data-theme="dark"] .fleet-panel-scrape-row { border-bottom-color: var(--border); }
+:root[data-theme="dark"] .fleet-empty-state code {
+    background: var(--bg-2);
+    border-color: var(--border);
+    color: var(--amber);
+}
+
+:root[data-theme="dark"] .fleet-tile-skeleton {
+    background: linear-gradient(90deg, var(--bg-2) 25%, var(--border) 50%, var(--bg-2) 75%);
+}
+
+/* ----------------------------------------------------------------
+   Theme toggle button — small, top right
+---------------------------------------------------------------- */
+.argus-theme-toggle {
+    background: transparent;
+    border: 1px solid var(--border, #e2e2e2);
+    color: var(--ink-3, #888);
+    border-radius: 3px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: color 0.12s, border-color 0.12s, background 0.12s;
+}
+.argus-theme-toggle:hover {
+    color: var(--ink, #222);
+    border-color: var(--ink-3, #888);
+}
+:root[data-theme="dark"] .argus-theme-toggle {
+    border-color: var(--border);
+    color: var(--ink-3);
+}
+:root[data-theme="dark"] .argus-theme-toggle:hover {
+    color: var(--ink);
+    border-color: var(--ink-4);
+    background: var(--bg-2);
+}
