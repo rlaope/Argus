@@ -6,6 +6,7 @@ import io.argus.core.command.DiagnosticCommand;
 import java.lang.management.ManagementFactory;
 import java.lang.management.RuntimeMXBean;
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -37,7 +38,7 @@ public final class ServerCommandExecutor {
             if (!cmd.supportsWebConsole()) continue;
             result.put(cmd.id(), new CommandInfo(
                     cmd.id(),
-                    cmd.group().displayName().toLowerCase(),
+                    cmd.group().displayName().toLowerCase(Locale.ROOT),
                     cmd.description()));
         }
         return result;
