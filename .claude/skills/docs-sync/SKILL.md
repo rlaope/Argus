@@ -1,6 +1,6 @@
 ---
 name: docs-sync
-description: Audit and update Argus user-facing docs (README, docs/**/*.md, site/index.html) against the code truth. Detects version drift, command-count drift, i18n parity violations, and stale CLI examples. Use before a release, or any time the user asks to "sync docs", "update docs", "fix docs drift", "verify docs".
+description: Audit and update Argus user-facing docs (README, docs/**/*.md, site/*.html) against the code truth. Detects version drift, command-count drift, i18n parity violations, and stale CLI examples. Use before a release, or any time the user asks to "sync docs", "update docs", "fix docs drift", "verify docs".
 argument-hint: "[--check] [--fix]"
 ---
 
@@ -39,7 +39,7 @@ Keep Argus public-facing documentation aligned with the actual codebase.
 | `docs/usage.md` | Spring Boot starter version |
 | `docs/kubernetes.md` | Container image tag |
 | `docs/troubleshooting.md` | Error messages match `messages_en.properties` |
-| `site/index.html` | Version badge, command-count badge + prose + heading, code samples (especially the spring-boot-starter snippet around line 970) |
+| `site/*.html` | Version badge, command-count badge + prose + headings on every page (index.html, commands.html, comparison.html, dashboard.html, scenarios.html, integrations.html, reference.html), code samples |
 
 ## Procedure
 
@@ -77,19 +77,19 @@ For each target file, search for any line that mentions a version or command cou
 Useful greps:
 ```bash
 # Version drift
-grep -rEn 'v?[0-9]+\.[0-9]+\.[0-9]+' README.md docs/ site/index.html \
+grep -rEn 'v?[0-9]+\.[0-9]+\.[0-9]+' README.md docs/ site/*.html \
   | grep -v -E '(java|jdk|jvm|netty|micrometer|junit|spring|node|graalvm|grafana|prometheus|3\.[0-9]|11\+|17\+|21\+)' \
   | head -50
 
 # Command-count drift (per-file listing)
-grep -rnE '[0-9]{2}\+? ?(commands|Commands)' README.md docs/ site/index.html
+grep -rnE '[0-9]{2}\+? ?(commands|Commands)' README.md docs/ site/*.html
 
 # Command-count internal consistency (catches the trap where the SAME README
 # says "67 commands" on line 14 and "66 diagnostic commands" on line 64 — listing
 # alone doesn't fail; collapse all occurrences plus the runtime help banner to a
 # unique-value set and fail if there's more than one).
 COUNT_OCCURRENCES=$(grep -rhEo '[0-9]{2,3} (diagnostic )?commands?' \
-    README.md docs/ site/index.html 2>/dev/null \
+    README.md docs/ site/*.html 2>/dev/null \
   | sed -E 's/ diagnostic / /' \
   | awk '{print $1}' \
   | sort -u)
@@ -121,7 +121,7 @@ Compare the A–Z index in `docs/cli-commands.md` against the actual `*Command.j
 
 ### 4. CLI example drift (best effort)
 
-For any code block in `README.md` or `site/index.html` of the form `argus <subcommand> ...`, verify `<subcommand>` exists in the command set computed in step 1. Flag unknowns.
+For any code block in `README.md` or `site/*.html` of the form `argus <subcommand> ...`, verify `<subcommand>` exists in the command set computed in step 1. Flag unknowns.
 
 ### 5. Fix policy
 
