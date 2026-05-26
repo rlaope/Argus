@@ -7,6 +7,14 @@ import io.fabric8.kubernetes.api.model.LabelSelector;
 
 public class ArgusFleetSpec {
 
+    /**
+     * Base URL of argus-aggregator (e.g.
+     * {@code http://argus-aggregator.argus-system.svc.cluster.local:9300}).
+     * <p>
+     * <b>MUST NOT</b> contain credentials in the URL (no {@code user:pass@}). The value
+     * is logged at INFO by the operator on every reconcile and is exposed as an
+     * additionalPrinterColumn on {@code kubectl get argusfleets}.
+     */
     @Required
     @JsonProperty("aggregatorEndpoint")
     private String aggregatorEndpoint;
