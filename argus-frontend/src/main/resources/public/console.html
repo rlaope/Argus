@@ -20,6 +20,11 @@
         <div class="header-actions">
             <a href="/" class="btn">Dashboard</a>
             <a href="/fleet.html" class="btn" title="Fleet Command Center">Fleet</a>
+            <!-- Pod picker: only shown in cluster mode (when /api/pods returns 200). -->
+            <label class="pod-picker" id="pod-picker-wrap" hidden>
+                <span class="pod-picker-label">Pod</span>
+                <select id="pod-picker" aria-label="Select pod"></select>
+            </label>
             <button type="button" class="argus-theme-toggle" aria-label="Toggle theme"></button>
             <a href="https://github.com/rlaope/Argus" target="_blank" class="btn btn-icon" title="GitHub">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -87,9 +92,112 @@
         const terminalBody = document.getElementById('terminal-body');
         const terminalTitle = document.getElementById('terminal-title');
         let isRunning = false;
+        // Cluster mode is decided by the presence of /api/pods on the
+        // current origin. When true, the page is being served by the
+        // aggregator and commands must be proxied with ?pod=<id>.
+        let clusterMode = false;
+        let selectedPodId = null;
 
-        async function init() {
-            // Fetch process info for terminal title
+        const POD_STORAGE_KEY = 'argus.console.pod';
+
+        async function detectClusterMode() {
+            try {
+                const res = await fetch('/api/pods');
+                if (!res.ok) return null;
+                const data = await res.json();
+                if (!data || !Array.isArray(data.pods)) return null;
+                clusterMode = true;
+                return data.pods;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function renderPodPicker(pods) {
+            const wrap = document.getElementById('pod-picker-wrap');
+            const select = document.getElementById('pod-picker');
+            wrap.hidden = false;
+            select.replaceChildren();
+
+            if (!pods.length) {
+                const opt = document.createElement('option');
+                opt.value = '';
+                opt.textContent = 'No pods registered';
+                opt.disabled = true;
+                opt.selected = true;
+                select.appendChild(opt);
+                return;
+            }
+
+            // Group by deployment (fallback: namespace) so large fleets stay readable.
+            const byGroup = {};
+            pods.forEach(p => {
+                const key = p.deployment || p.namespace || 'other';
+                (byGroup[key] = byGroup[key] || []).push(p);
+            });
+
+            const stored = readStoredPod();
+            const knownIds = new Set(pods.map(p => p.podId));
+            const initial = (stored && knownIds.has(stored)) ? stored : pods[0].podId;
+
+            Object.keys(byGroup).sort().forEach(group => {
+                const og = document.createElement('optgroup');
+                og.label = group;
+                byGroup[group].sort((a, b) => a.podName.localeCompare(b.podName))
+                    .forEach(p => {
+                        const opt = document.createElement('option');
+                        opt.value = p.podId;
+                        opt.textContent = p.podName + (p.scrapeOk ? '' : ' ·offline');
+                        if (p.podId === initial) opt.selected = true;
+                        og.appendChild(opt);
+                    });
+                select.appendChild(og);
+            });
+
+            selectedPodId = initial;
+            writeStoredPod(initial);
+
+            select.addEventListener('change', async () => {
+                selectedPodId = select.value;
+                writeStoredPod(selectedPodId);
+                await loadCommands();
+                updateTerminalTitle();
+            });
+        }
+
+        function readStoredPod() {
+            try { return window.localStorage.getItem(POD_STORAGE_KEY); }
+            catch (e) { return null; }
+        }
+        function writeStoredPod(podId) {
+            try { window.localStorage.setItem(POD_STORAGE_KEY, podId); }
+            catch (e) { /* localStorage disabled — selection just doesn't persist */ }
+        }
+
+        function commandsEndpoint() {
+            if (clusterMode && selectedPodId) {
+                return '/api/pods/' + encodeURIComponent(selectedPodId) + '/commands';
+            }
+            return '/api/commands';
+        }
+
+        function execEndpoint(cmd) {
+            const c = encodeURIComponent(cmd);
+            if (clusterMode && selectedPodId) {
+                return '/api/exec?pod=' + encodeURIComponent(selectedPodId) + '&cmd=' + c;
+            }
+            return '/api/exec?cmd=' + c;
+        }
+
+        function execMethod() {
+            return clusterMode ? 'POST' : 'GET';
+        }
+
+        async function updateTerminalTitle() {
+            if (clusterMode && selectedPodId) {
+                terminalTitle.textContent = 'argus — ' + selectedPodId;
+                return;
+            }
             try {
                 const pres = await fetch('/api/process');
                 const pdata = await pres.json();
@@ -97,11 +205,24 @@
             } catch (e) {
                 terminalTitle.textContent = 'argus@jvm';
             }
+        }
 
-            // Fetch commands and render grouped buttons
+        async function init() {
+            const pods = await detectClusterMode();
+            if (clusterMode) renderPodPicker(pods);
+            await updateTerminalTitle();
+            await loadCommands();
+        }
+
+        async function loadCommands() {
             try {
-                const res = await fetch('/api/commands');
+                const res = await fetch(commandsEndpoint());
                 const data = await res.json();
+
+                if (!data || !Array.isArray(data.commands)) {
+                    appendOutput('Pod returned no commands list.', 'error');
+                    return;
+                }
 
                 const grouped = {};
                 data.commands.forEach(c => {
@@ -158,15 +279,20 @@
             }
         }
 
+        // Search wiring runs once. Each loadCommands() call rebuilds the
+        // button DOM, so `apply` reads the button list fresh each time
+        // rather than capturing it in a closure. This preserves the user's
+        // typed query and focus across pod switches (rebuilding the input
+        // would discard both).
+        let searchWired = false;
         function setupCommandSearch() {
             const input = document.getElementById('commands-search');
             const countEl = document.getElementById('commands-search-count');
             if (!input || !countEl) return;
-            const allBtns = Array.from(document.querySelectorAll('.cmd-btn'));
-            const totalCount = allBtns.length;
-            countEl.textContent = totalCount + ' commands';
 
             function apply() {
+                const allBtns = Array.from(document.querySelectorAll('.cmd-btn'));
+                const totalCount = allBtns.length;
                 const q = input.value.trim().toLowerCase();
                 let visible = 0;
                 allBtns.forEach(btn => {
@@ -174,7 +300,6 @@
                     btn.style.display = match ? '' : 'none';
                     if (match) visible++;
                 });
-                // Hide groups whose buttons are all filtered out
                 document.querySelectorAll('.commands-group').forEach(g => {
                     const any = Array.from(g.querySelectorAll('.cmd-btn'))
                         .some(b => b.style.display !== 'none');
@@ -185,11 +310,13 @@
                     : totalCount + ' commands';
             }
 
-            input.addEventListener('input', apply);
-            // Esc clears
-            input.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape') { input.value = ''; apply(); }
-            });
+            if (!searchWired) {
+                input.addEventListener('input', apply);
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') { input.value = ''; apply(); }
+                });
+                searchWired = true;
+            }
             apply();
         }
 
@@ -232,14 +359,20 @@
             scrollToBottom();
 
             try {
-                const res = await fetch('/api/exec?cmd=' + encodeURIComponent(cmd));
+                const res = await fetch(execEndpoint(cmd), { method: execMethod() });
                 const data = await res.json();
                 loading.remove();
 
                 if (data.error) {
-                    appendOutput(data.error, 'error');
+                    // Two shapes possible:
+                    //  - argus-server: { error: "string" }
+                    //  - aggregator:   { error: { code, message } }
+                    const msg = (typeof data.error === 'string')
+                        ? data.error
+                        : (data.error.message || JSON.stringify(data.error));
+                    appendOutput(msg, 'error');
                 } else {
-                    appendOutput(data.output, 'success');
+                    appendOutput(data.output != null ? data.output : '(no output)', 'success');
                 }
             } catch (e) {
                 loading.remove();
