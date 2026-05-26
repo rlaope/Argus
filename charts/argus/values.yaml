@@ -77,3 +77,21 @@ networkPolicy:
     - namespaceSelector:
         matchLabels:
           app.kubernetes.io/name: prometheus
+
+# argus-operator: K8s controller that auto-discovers argus-agent pods
+# (label argus.io/scrape=true) and registers them with argus-aggregator via REST.
+# Installs ArgusFleet + ArgusTarget CRDs (apiVersion argus.io/v1alpha1, alpha).
+operator:
+  enabled: false
+  replicas: 1
+  image:
+    repository: ghcr.io/rlaope/argus-operator
+    tag: ""
+    pullPolicy: IfNotPresent
+  # Base URL for argus-aggregator's REST API (see docs/aggregator-api.md).
+  aggregatorUrl: "http://argus-aggregator.argus-system.svc.cluster.local:9100"
+  # Restrict watch to a single namespace; empty = cluster-wide.
+  watchNamespace: ""
+  # Informer resync period in ms.
+  resyncPeriodMs: 60000
+  resources: {}
