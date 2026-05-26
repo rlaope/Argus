@@ -19,6 +19,16 @@
     --amber: #f9c14f;
     --red:   #f47067;
     --blue:  #58a6ff;
+
+    /* Terminal tokens — keep contrast inside the dark terminal panel.
+       Without these, console.css's light defaults (#1a1a1a body + light text)
+       continue to apply, which still works visually but the bright dark-mode
+       --red/--amber/--green tokens defined above would otherwise leak into
+       terminal text on a near-black backdrop with degraded contrast. */
+    --terminal-bg: #0a0e14;
+    --terminal-text: #d9e0e8;
+    --terminal-prompt: #56d364;
+    --terminal-cmd: #e6edf3;
 }
 
 :root[data-theme="dark"] body {

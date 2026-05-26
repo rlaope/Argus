@@ -1228,6 +1228,11 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             String output = ServerCommandExecutor.execute(cmd.trim());
             String json = "{\"command\":\"" + escapeJson(cmd) + "\",\"output\":\"" + escapeJson(output) + "\"}";
             HttpResponseHelper.sendJson(ctx, request, json);
+        } catch (io.argus.server.command.WebConsoleRejectedException e) {
+            // Curated-out command — route to the error channel so the frontend
+            // renders it in error styling (not green/success).
+            String json = "{\"command\":\"" + escapeJson(cmd) + "\",\"error\":\"" + escapeJson(e.getMessage()) + "\"}";
+            HttpResponseHelper.sendJson(ctx, request, json);
         } catch (Exception e) {
             String json = "{\"command\":\"" + escapeJson(cmd) + "\",\"error\":\"" + escapeJson(e.getMessage()) + "\"}";
             HttpResponseHelper.sendJson(ctx, request, json);

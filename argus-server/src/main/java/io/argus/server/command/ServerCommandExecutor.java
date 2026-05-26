@@ -48,15 +48,22 @@ public final class ServerCommandExecutor {
      * Used by {@code /api/exec?cmd=xxx} endpoint.
      *
      * <p>Defense in depth: rejects any command whose {@link DiagnosticCommand#supportsWebConsole()}
-     * returns false, even if the caller knows its id. Keeps {@code /api/exec} aligned with
-     * {@code /api/commands}.
+     * returns false by throwing {@link WebConsoleRejectedException}, even if the caller knows
+     * its id. Keeps {@code /api/exec} aligned with {@code /api/commands}, and routes the
+     * rejection through the HTTP error path so the frontend renders it as an error instead of
+     * a success.
+     *
+     * @throws WebConsoleRejectedException if the command exists but opts out of the web console
      */
     public static String execute(String command) {
         DiagnosticCommand cmd = REGISTRY.find(command);
-        if (cmd != null && !cmd.supportsWebConsole()) {
-            return "Command '" + command + "' is not available via the web console.";
+        if (cmd == null) {
+            return "Unknown command: " + command;
         }
-        return REGISTRY.execute(command, CONTEXT);
+        if (!cmd.supportsWebConsole()) {
+            throw new WebConsoleRejectedException(command);
+        }
+        return cmd.execute(CONTEXT);
     }
 
     /**

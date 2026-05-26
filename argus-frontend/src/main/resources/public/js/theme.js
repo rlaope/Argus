@@ -17,8 +17,20 @@
         return 'light';
     }
 
+    let warnedNoStorage = false;
     function write(theme) {
-        try { localStorage.setItem(STORAGE_KEY, theme); } catch (_) { /* ignore */ }
+        try {
+            localStorage.setItem(STORAGE_KEY, theme);
+        } catch (e) {
+            // Safari private mode (pre-15) throws QuotaExceededError on every write;
+            // sandboxed iframes throw SecurityError. Warn ONCE so engineers can diagnose
+            // why the theme isn't sticking across reloads, instead of silently failing.
+            if (!warnedNoStorage && typeof console !== 'undefined' && console.warn) {
+                warnedNoStorage = true;
+                console.warn('[argus-theme] localStorage unavailable (' + (e && e.name) +
+                    '); theme will reset on next reload.');
+            }
+        }
     }
 
     apply(read());
