@@ -1,4 +1,4 @@
-package io.argus.cli.alert;
+package io.argus.core.alert;
 
 /**
  * A single alerting rule that compares a Prometheus metric value against a threshold.
@@ -33,7 +33,7 @@ public final class AlertRule {
         if ("<".equals(comparator)) return value < threshold;
         if ("<=".equals(comparator)) return value <= threshold;
         if (">=".equals(comparator)) return value >= threshold;
-        return value > threshold; // ">" and fallback
+        return value > threshold;
     }
 
     @Override

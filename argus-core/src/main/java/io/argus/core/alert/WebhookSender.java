@@ -1,4 +1,4 @@
-package io.argus.cli.alert;
+package io.argus.core.alert;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -71,7 +71,6 @@ public final class WebhookSender {
         }
     }
 
-    /** Converts "gc-overhead" → "GcOverhead" for use in alert names. */
     private static String toTitleCase(String s) {
         StringBuilder sb = new StringBuilder();
         boolean nextUpper = true;

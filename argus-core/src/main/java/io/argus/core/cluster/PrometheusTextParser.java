@@ -1,4 +1,4 @@
-package io.argus.cli.cluster;
+package io.argus.core.cluster;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -29,19 +29,13 @@ public final class PrometheusTextParser {
             if (line.isEmpty() || line.startsWith("#")) {
                 continue;
             }
-            // Split off the value (last whitespace-delimited token)
-            // Prometheus line: metric_name{labels} value [timestamp]
-            // or:              metric_name value [timestamp]
             int lastSpace = line.lastIndexOf(' ');
             if (lastSpace < 0) continue;
-            // Check for optional timestamp (third token)
             String valueToken = line.substring(lastSpace + 1).trim();
             String rest = line.substring(0, lastSpace).trim();
 
-            // If rest still has a space the value token might be a timestamp; strip it
             int secondSpace = rest.lastIndexOf(' ');
             if (secondSpace >= 0) {
-                // rest = "metric{...} value", valueToken was timestamp — re-parse
                 String candidate = rest.substring(secondSpace + 1).trim();
                 if (isNumeric(candidate)) {
                     valueToken = candidate;
@@ -57,7 +51,6 @@ public final class PrometheusTextParser {
                 continue;
             }
 
-            // Extract base metric name (strip labels block)
             String metricName;
             int braceOpen = rest.indexOf('{');
             if (braceOpen >= 0) {
