@@ -1,12 +1,23 @@
 package io.argus.aggregator.http;
 
+// SECURITY: All endpoints in this controller are unauthenticated by design
+// (alpha). The operator + frontend reach the aggregator over an in-cluster
+// K8s Service only. DO NOT expose this port to the public internet or to
+// untrusted callers. Production deployments must enforce a NetworkPolicy
+// that restricts ingress to the operator + frontend service accounts. The
+// /fleet/targets POST/DELETE endpoints accept arbitrary scrape targets —
+// exposure is an SSRF vector. See docs/aggregator-api.md "Security warning"
+// section.
+
 import io.argus.aggregator.model.AlertEvent;
 import io.argus.aggregator.model.MetricSample;
 import io.argus.aggregator.model.PodTarget;
 import io.argus.aggregator.model.Tile;
 import io.argus.aggregator.model.TileColor;
+import io.argus.aggregator.model.TileMetrics;
 import io.argus.aggregator.store.FleetRegistry;
 import io.argus.aggregator.store.PodRingBuffer;
+import io.argus.core.net.HostAllowlist;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -27,8 +38,10 @@ import io.netty.util.CharsetUtil;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Top-level HTTP request dispatcher for the aggregator. Implements the API
@@ -37,6 +50,7 @@ import java.util.Map;
 public final class FleetController {
 
     private static final List<String> ALLOWED_SEVERITIES = List.of("critical", "warning", "info");
+    private static final int MAX_PODID_LENGTH = 253;
 
     private final FleetRegistry registry;
     private final PrometheusMetricsExporter prometheus;
@@ -86,7 +100,7 @@ public final class FleetController {
                 return true;
             }
         } catch (Exception e) {
-            sendError(ctx, request, 500, "internal error: " + e.getMessage());
+            sendError(ctx, request, 500, "internal error");
             return true;
         }
         return false;
@@ -109,11 +123,17 @@ public final class FleetController {
         }
 
         List<PodTarget> targets = registry.listTargets();
+        Map<String, Integer> alertCounts = registry.alertCountsByPod();
+        Map<String, Set<String>> alertSeverities = registry.alertSeveritiesByPod();
         List<Tile> tiles = new ArrayList<>();
         for (PodTarget t : targets) {
-            Tile tile = TileBuilder.build(t, registry);
             if (namespace != null && !namespace.equals(t.namespace())) continue;
             if (deployment != null && !deployment.equals(t.deployment())) continue;
+            TileMetrics metrics = registry.latestMetrics(t.podId());
+            if (metrics == null) metrics = TileMetrics.empty();
+            int alertCount = alertCounts.getOrDefault(t.podId(), 0);
+            Set<String> sev = alertSeverities.getOrDefault(t.podId(), Collections.emptySet());
+            Tile tile = TileBuilder.buildWith(t, metrics, alertCount, sev);
             if (color != null && tile.color() != color) continue;
             tiles.add(tile);
         }
@@ -122,10 +142,14 @@ public final class FleetController {
     }
 
     private void handleFleetPod(ChannelHandlerContext ctx, FullHttpRequest request, String encodedId) {
-        String podId = URLDecoder.decode(encodedId, StandardCharsets.UTF_8);
+        String podId = decodeAndValidatePodId(encodedId);
+        if (podId == null) {
+            sendError(ctx, request, 400, "invalid podId");
+            return;
+        }
         PodTarget target = registry.get(podId);
         if (target == null) {
-            sendError(ctx, request, 404, "pod '" + podId + "' not registered");
+            sendError(ctx, request, 404, "pod not registered");
             return;
         }
         Tile tile = TileBuilder.build(target, registry);
@@ -159,6 +183,15 @@ public final class FleetController {
             sendError(ctx, request, 400, "missing required field");
             return;
         }
+        // podId shape: must equal "<namespace>/<podName>" and be a sane K8s id length
+        if (!podId.equals(namespace + "/" + podName)) {
+            sendError(ctx, request, 400, "podId must equal '<namespace>/<podName>'");
+            return;
+        }
+        if (podId.length() > MAX_PODID_LENGTH || podId.indexOf('\0') >= 0 || podId.contains("..")) {
+            sendError(ctx, request, 400, "podId fails sanity check");
+            return;
+        }
         int port;
         try {
             port = Integer.parseInt(portStr);
@@ -170,6 +203,16 @@ public final class FleetController {
             sendError(ctx, request, 400, "invalid port");
             return;
         }
+        // SECURITY: SSRF defense — reject hosts that point at loopback,
+        // link-local, cloud metadata IPs, or other forbidden ranges. The
+        // aggregator scrapes whatever it accepts here, so an unrestricted
+        // host field would let any caller turn the aggregator into an
+        // attacker-controlled outbound HTTP fetcher.
+        String reason = HostAllowlist.rejectionReason(host);
+        if (reason != null) {
+            sendError(ctx, request, 400, "host rejected: " + reason);
+            return;
+        }
         FleetRegistry.RegistrationResult result = registry.register(
                 podId, namespace, podName, deployment, host, port);
         String responseBody = JsonWriter.registrationResponse(
@@ -179,7 +222,11 @@ public final class FleetController {
     }
 
     private void handleDeleteTarget(ChannelHandlerContext ctx, FullHttpRequest request, String encodedId) {
-        String podId = URLDecoder.decode(encodedId, StandardCharsets.UTF_8);
+        String podId = decodeAndValidatePodId(encodedId);
+        if (podId == null) {
+            sendError(ctx, request, 400, "invalid podId");
+            return;
+        }
         registry.deregister(podId);
         sendNoContent(ctx, request);
     }
@@ -206,6 +253,27 @@ public final class FleetController {
     private void handleMetrics(ChannelHandlerContext ctx, FullHttpRequest request) {
         String body = prometheus.render();
         sendText(ctx, request, HttpResponseStatus.OK, body, "text/plain; version=0.0.4; charset=utf-8");
+    }
+
+    // ── Validation helpers ──────────────────────────────────────────────────
+
+    /**
+     * Decodes a percent-encoded {@code podId} path segment and applies
+     * defense-in-depth sanity checks. Returns {@code null} when the input is
+     * unsafe (the caller will respond {@code 400}).
+     */
+    private static String decodeAndValidatePodId(String encoded) {
+        if (encoded == null || encoded.isEmpty()) return null;
+        String decoded;
+        try {
+            decoded = URLDecoder.decode(encoded, StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+        if (decoded.length() > MAX_PODID_LENGTH) return null;
+        if (decoded.indexOf('\0') >= 0) return null;
+        if (decoded.contains("..")) return null;
+        return decoded;
     }
 
     // ── Response helpers ────────────────────────────────────────────────────

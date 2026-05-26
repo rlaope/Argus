@@ -1,6 +1,9 @@
 package io.argus.core.alert;
 
+import io.argus.core.net.HostAllowlist;
+
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -35,9 +38,25 @@ public final class WebhookSender {
     /**
      * Posts an alert notification to the webhook URL of the given rule.
      * Failures are logged to stderr but do not throw.
+     *
+     * <p>SECURITY: validates scheme is {@code http|https} and host is not
+     * loopback / link-local / IMDS via {@link HostAllowlist}. A malformed or
+     * forbidden URL is logged and dropped.
      */
     public void send(AlertRule rule, double value, String instance) {
         if (rule.webhookUrl() == null || rule.webhookUrl().isBlank()) {
+            return;
+        }
+        URI uri;
+        try {
+            uri = new URI(rule.webhookUrl());
+        } catch (URISyntaxException e) {
+            System.err.println("[alert] reject webhook: invalid URI for rule '" + rule.name() + "'");
+            return;
+        }
+        String reason = HostAllowlist.rejectionReasonForUri(uri);
+        if (reason != null) {
+            System.err.println("[alert] reject webhook: " + reason + " for rule '" + rule.name() + "'");
             return;
         }
         String alertName = "Argus" + toTitleCase(rule.name());
@@ -53,7 +72,7 @@ public final class WebhookSender {
 
         try {
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(rule.webhookUrl()))
+                    .uri(uri)
                     .timeout(Duration.ofSeconds(10))
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(json))

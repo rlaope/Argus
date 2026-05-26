@@ -41,6 +41,25 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class ArgusAggregator {
 
     private static final System.Logger LOG = System.getLogger(ArgusAggregator.class.getName());
+
+    /**
+     * Canonical default port for argus-aggregator.
+     *
+     * <p>SECURITY: the server binds {@code 0.0.0.0} by default so it can be
+     * reached from inside a K8s cluster. All endpoints are unauthenticated
+     * on day-1 — production deployments MUST sit behind a {@code ClusterIP}
+     * Service plus a NetworkPolicy that restricts ingress to the operator
+     * and frontend service accounts. The {@code /fleet/targets} POST/DELETE
+     * endpoints accept arbitrary scrape targets — exposure to untrusted
+     * callers is an SSRF risk. See {@code docs/aggregator-api.md}'s
+     * "Security warning" section.
+     *
+     * <p>If this value changes, also update:
+     * <ul>
+     *   <li>{@code charts/argus/values.yaml} → {@code operator.aggregatorUrl}</li>
+     *   <li>{@code argus-operator/.../ArgusOperator.DEFAULT_AGGREGATOR_URL}</li>
+     * </ul>
+     */
     private static final int DEFAULT_PORT = 9300;
     private static final long DEFAULT_SCRAPE_INTERVAL_SECONDS = 5;
     private static final long DEFAULT_RETENTION_SECONDS = 3600;
