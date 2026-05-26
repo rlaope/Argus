@@ -1,0 +1,47 @@
+{{- if and .Values.operator.enabled (.Values.aggregator.networkPolicy.enabled | default true) }}
+# Aggregator REST API is currently unauthenticated (day-1 alpha).
+# This NetworkPolicy locks aggregator ingress to:
+#   - the argus-operator ServiceAccount pods (register/delete targets)
+#   - argus-frontend pods (read fleet/list, fleet/pod/{podId}, fleet/summary)
+#   - other pods in the same namespace that opt in via the
+#     argus.io/aggregator-client=true label (e.g. Prometheus scraping /metrics)
+# Adjust .Values.aggregator.networkPolicy.* to relax for your environment.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "argus.fullname" . }}-aggregator
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "argus.labels" . | nindent 4 }}
+    app.kubernetes.io/component: aggregator
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "argus.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: aggregator
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        # 1) operator pods (write path)
+        - podSelector:
+            matchLabels:
+              {{- include "argus.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: operator
+        # 2) frontend pods (read path)
+        - podSelector:
+            matchLabels:
+              {{- include "argus.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: frontend
+        # 3) explicit opt-in clients in the same namespace (e.g. Prometheus
+        #    scrape sidecar). Default-denies anyone without the label.
+        - podSelector:
+            matchLabels:
+              argus.io/aggregator-client: "true"
+        {{- with .Values.aggregator.networkPolicy.extraFrom }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.aggregator.port | default 9300 }}
+{{- end }}

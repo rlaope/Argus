@@ -20,13 +20,21 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
-  # Optionally inspect deployments/replicasets to resolve owner names.
-  - apiGroups: ["apps"]
-    resources: ["deployments", "replicasets", "statefulsets"]
+  # Resolve pod namespaces for ArgusFleet namespaceSelector matching.
+  - apiGroups: [""]
+    resources: ["namespaces"]
     verbs: ["get", "list", "watch"]
-  # Full control over argus.io v1alpha1 custom resources.
+  # ArgusFleet: read fleets + update their /status subresource (operator never
+  # creates or deletes ArgusFleet resources — that is a user/helm responsibility).
   - apiGroups: ["argus.io"]
-    resources: ["argusfleets", "argusfleets/status", "argustargets", "argustargets/status"]
+    resources: ["argusfleets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["argus.io"]
+    resources: ["argusfleets/status"]
+    verbs: ["get", "update", "patch"]
+  # ArgusTarget: operator owns the full lifecycle of these CRs.
+  - apiGroups: ["argus.io"]
+    resources: ["argustargets", "argustargets/status"]
     verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   # Leases for leader election (single-replica today, but reserve the perm).
   - apiGroups: ["coordination.k8s.io"]

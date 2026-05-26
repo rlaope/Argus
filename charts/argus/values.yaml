@@ -78,9 +78,27 @@ networkPolicy:
         matchLabels:
           app.kubernetes.io/name: prometheus
 
+# argus-aggregator: Netty REST service that aggregates fleet data.
+# Owned by the W1 aggregator-core module. The operator NetworkPolicy lives
+# in this chart and references the values below; the aggregator deployment
+# is templated by the aggregator-owned templates (see W1).
+aggregator:
+  enabled: false
+  port: 9300
+  networkPolicy:
+    # Lock aggregator REST ingress to operator + frontend + opt-in
+    # (label argus.io/aggregator-client=true) pods. Defaults to true whenever
+    # the operator is enabled, since the REST API is currently unauthenticated.
+    enabled: true
+    # Append additional NetworkPolicy 'from:' entries (raw YAML) for
+    # environment-specific scrapers (e.g. a managed Prometheus namespace).
+    extraFrom: []
+
 # argus-operator: K8s controller that auto-discovers argus-agent pods
 # (label argus.io/scrape=true) and registers them with argus-aggregator via REST.
-# Installs ArgusFleet + ArgusTarget CRDs (apiVersion argus.io/v1alpha1, alpha).
+# ArgusFleet + ArgusTarget CRDs (apiVersion argus.io/v1alpha1, alpha) are
+# installed unconditionally from charts/argus/crds/ — they are inert without
+# the operator and are safe to leave in the cluster.
 operator:
   enabled: false
   replicas: 1
@@ -89,7 +107,7 @@ operator:
     tag: ""
     pullPolicy: IfNotPresent
   # Base URL for argus-aggregator's REST API (see docs/aggregator-api.md).
-  aggregatorUrl: "http://argus-aggregator.argus-system.svc.cluster.local:9100"
+  aggregatorUrl: "http://argus-aggregator.argus-system.svc.cluster.local:9300"
   # Restrict watch to a single namespace; empty = cluster-wide.
   watchNamespace: ""
   # Informer resync period in ms.
