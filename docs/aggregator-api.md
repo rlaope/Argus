@@ -419,6 +419,78 @@ Exposes the following metric families:
 
 ---
 
+## Console Proxy Endpoints
+
+When the browser console is served by the aggregator (cluster mode), it picks a
+pod from the registered fleet and proxies command execution through the
+aggregator. The aggregator forwards to each pod's argus-server using the
+`host:port` the operator already registered (which `HostAllowlist` validated
+at registration). No new trust surface — these endpoints inherit the same
+in-cluster-only access posture as the rest of the API.
+
+### `GET /api/pods`
+
+Lightweight pod list for the console picker. Identity fields only — no
+metrics, no host/port (those stay server-side).
+
+#### Response `200 OK`
+
+```json
+{
+  "pods": [
+    {
+      "podId":      "prod/payment-1",
+      "namespace":  "prod",
+      "podName":    "payment-1",
+      "deployment": "payment",
+      "scrapeOk":   true
+    }
+  ],
+  "count": 1
+}
+```
+
+Sorted by `podId`. Empty list (`"pods":[]`, `"count":0`) when no targets
+registered — never 404.
+
+### `GET /api/pods/{podId}/commands`
+
+Proxies `GET /api/commands` on the selected pod's argus-server. Response body
+passes through verbatim (the pod side already curates via
+`supportsWebConsole()`).
+
+#### Error Codes
+
+| Code | Condition |
+|------|-----------|
+| 400  | Malformed `podId` (null byte, path traversal, length > 253) |
+| 404  | Pod not in `FleetRegistry` |
+| 502  | Pod unreachable (connect refused, timeout) |
+
+### `POST /api/exec?pod={podId}&cmd={cmd}`
+
+Proxies `GET /api/exec?cmd={cmd}` on the selected pod's argus-server. POST on
+this side so the browser doesn't cache; GET on the upstream side because the
+pod's exec endpoint accepts both and GET is simpler. Body is empty (params
+are in the querystring).
+
+Response passes through verbatim. Pod-side `WebConsoleRejectedException` surfaces
+as `{"error": "Command '...' is not available via the web console."}` — the
+console renders that in error styling, not success.
+
+#### Error Codes (aggregator side)
+
+| Code | Condition |
+|------|-----------|
+| 400  | Missing `pod` or `cmd`; malformed `podId`; `cmd` longer than 64 chars or outside `[A-Za-z0-9_-]+` |
+| 404  | Pod not in `FleetRegistry` |
+| 502  | Pod unreachable (connect refused, timeout) |
+
+The `cmd` regex is defense-in-depth only — the pod side independently rejects
+unknown command ids.
+
+---
+
 ## Error Response Shape
 
 All `4xx` and `5xx` responses use this envelope:

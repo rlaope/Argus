@@ -49,15 +49,23 @@ import java.util.Set;
  */
 public final class FleetController {
 
+    private static final System.Logger LOG = System.getLogger(FleetController.class.getName());
     private static final List<String> ALLOWED_SEVERITIES = List.of("critical", "warning", "info");
     private static final int MAX_PODID_LENGTH = 253;
 
     private final FleetRegistry registry;
     private final PrometheusMetricsExporter prometheus;
+    private final PodHttpClient podClient;
 
     public FleetController(FleetRegistry registry, PrometheusMetricsExporter prometheus) {
+        this(registry, prometheus, new PodHttpClient());
+    }
+
+    public FleetController(FleetRegistry registry, PrometheusMetricsExporter prometheus,
+                           PodHttpClient podClient) {
         this.registry = registry;
         this.prometheus = prometheus;
+        this.podClient = podClient;
     }
 
     /** Returns true if the request was handled. */
@@ -97,6 +105,27 @@ public final class FleetController {
             }
             if (HttpMethod.GET.equals(method) && path.equals("/health")) {
                 sendPlain(ctx, request, HttpResponseStatus.OK, "ok");
+                return true;
+            }
+            // ── Console proxy routes ────────────────────────────────────────
+            // These let the browser console pick a pod from the fleet and run
+            // diagnostic commands against it without kubectl exec. The
+            // aggregator forwards to each pod's argus-server using the
+            // host:port that the operator already registered (and that
+            // HostAllowlist already validated at registration time).
+            if (HttpMethod.GET.equals(method) && path.equals("/api/pods")) {
+                handleListPods(ctx, request);
+                return true;
+            }
+            if (HttpMethod.GET.equals(method) && path.startsWith("/api/pods/")
+                    && path.endsWith("/commands")) {
+                String mid = path.substring("/api/pods/".length(),
+                        path.length() - "/commands".length());
+                handleProxyCommands(ctx, request, mid);
+                return true;
+            }
+            if (HttpMethod.POST.equals(method) && path.equals("/api/exec")) {
+                handleProxyExec(ctx, request, decoder.parameters());
                 return true;
             }
         } catch (Exception e) {
@@ -255,6 +284,120 @@ public final class FleetController {
         sendText(ctx, request, HttpResponseStatus.OK, body, "text/plain; version=0.0.4; charset=utf-8");
     }
 
+    // ── Console proxy handlers ──────────────────────────────────────────────
+
+    /**
+     * Lightweight pod list for the console picker. Returns identity fields only
+     * (no metrics) so the picker stays cheap even on large fleets.
+     */
+    private void handleListPods(ChannelHandlerContext ctx, FullHttpRequest request) {
+        List<PodTarget> targets = registry.listTargets();
+        StringBuilder sb = new StringBuilder(256 + targets.size() * 128);
+        sb.append("{\"pods\":[");
+        for (int i = 0; i < targets.size(); i++) {
+            PodTarget t = targets.get(i);
+            if (i > 0) sb.append(',');
+            sb.append('{')
+              .append("\"podId\":\"").append(JsonWriter.escape(t.podId())).append("\",")
+              .append("\"namespace\":\"").append(JsonWriter.escape(t.namespace())).append("\",")
+              .append("\"podName\":\"").append(JsonWriter.escape(t.podName())).append("\",")
+              .append("\"deployment\":\"").append(JsonWriter.escape(t.deployment())).append("\",")
+              .append("\"scrapeOk\":").append(t.scrapeOk())
+              .append('}');
+        }
+        sb.append("],\"count\":").append(targets.size()).append('}');
+        sendJson(ctx, request, HttpResponseStatus.OK, sb.toString());
+    }
+
+    /** Proxies {@code GET /api/commands} on the selected pod's argus-server. */
+    private void handleProxyCommands(ChannelHandlerContext ctx, FullHttpRequest request,
+                                     String encodedPodId) {
+        String podId = decodeAndValidatePodId(encodedPodId);
+        if (podId == null) {
+            sendError(ctx, request, 400, "invalid podId");
+            return;
+        }
+        PodTarget target = registry.get(podId);
+        if (target == null) {
+            sendError(ctx, request, 404, "pod not registered");
+            return;
+        }
+        try {
+            PodHttpClient.Response resp = podClient.get(target.scrapeUrl(), "/api/commands");
+            // Pass status + body through verbatim — pod argus-server already
+            // emits JSON, and curating happens via supportsWebConsole on its
+            // side. We don't re-parse so the wire shape stays decoupled.
+            sendJson(ctx, request, safeStatus(resp.status()), resp.body());
+        } catch (PodHttpClient.ProxyException e) {
+            // Log the detail (incl. pod IP) server-side for diagnostics; keep
+            // the client-facing message free of internal addressing.
+            LOG.log(System.Logger.Level.WARNING,
+                    () -> "console proxy: pod unreachable [" + e.getMessage() + "]");
+            sendError(ctx, request, 502, "pod unreachable");
+        }
+    }
+
+    /**
+     * Clamp upstream status to a valid HTTP code. Netty's {@code valueOf}
+     * is permissive about out-of-range ints and will happily emit invalid
+     * lines like {@code HTTP/1.1 0 Unknown Status} — intermediaries reject
+     * those, hiding the underlying error from the user.
+     */
+    private static HttpResponseStatus safeStatus(int upstream) {
+        if (upstream >= 100 && upstream <= 599) {
+            return HttpResponseStatus.valueOf(upstream);
+        }
+        return HttpResponseStatus.BAD_GATEWAY;
+    }
+
+    /**
+     * Proxies {@code GET /api/exec?cmd=…} on the selected pod's argus-server.
+     * Method is POST on the aggregator side so the browser does not cache the
+     * response; the upstream call is GET because argus-server's exec endpoint
+     * accepts both and GET is the simpler path.
+     */
+    private void handleProxyExec(ChannelHandlerContext ctx, FullHttpRequest request,
+                                 Map<String, List<String>> params) {
+        String podId = firstParam(params, "pod");
+        String cmd = firstParam(params, "cmd");
+        if (podId == null || cmd == null) {
+            sendError(ctx, request, 400, "missing 'pod' or 'cmd' parameter");
+            return;
+        }
+        String validated = decodeAndValidatePodId(podId);
+        if (validated == null) {
+            sendError(ctx, request, 400, "invalid podId");
+            return;
+        }
+        // Defense-in-depth: cmd is appended to a URL, so reject obviously bad
+        // input early. Curated command ids are lowercase ASCII; lock the
+        // proxy filter to the same alphabet so what reaches the upstream
+        // request line is bounded to [a-z0-9_-]. URLEncoder is a no-op on
+        // those bytes, ruling out CRLF/NUL/space smuggling.
+        if (cmd.length() > 64 || !cmd.matches("[a-z0-9_-]+")) {
+            sendError(ctx, request, 400, "invalid cmd");
+            return;
+        }
+        PodTarget target = registry.get(validated);
+        if (target == null) {
+            sendError(ctx, request, 404, "pod not registered");
+            return;
+        }
+        try {
+            PodHttpClient.Response resp = podClient.get(
+                    target.scrapeUrl(),
+                    "/api/exec?cmd=" + java.net.URLEncoder.encode(
+                            cmd, java.nio.charset.StandardCharsets.UTF_8));
+            sendJson(ctx, request, safeStatus(resp.status()), resp.body());
+        } catch (PodHttpClient.ProxyException e) {
+            // Log the detail (incl. pod IP) server-side for diagnostics; keep
+            // the client-facing message free of internal addressing.
+            LOG.log(System.Logger.Level.WARNING,
+                    () -> "console proxy: pod unreachable [" + e.getMessage() + "]");
+            sendError(ctx, request, 502, "pod unreachable");
+        }
+    }
+
     // ── Validation helpers ──────────────────────────────────────────────────
 
     /**
@@ -273,6 +416,15 @@ public final class FleetController {
         if (decoded.length() > MAX_PODID_LENGTH) return null;
         if (decoded.indexOf('\0') >= 0) return null;
         if (decoded.contains("..")) return null;
+        // Enforce the documented shape: exactly one '/' separating namespace
+        // and podName, neither side empty. handleRegisterTarget already
+        // checks this on the write side; the proxy/read path was relying on
+        // the registry to miss-then-404 for malformed ids, but the doc
+        // contract promises 400. Keep them aligned.
+        int slash = decoded.indexOf('/');
+        if (slash <= 0 || slash != decoded.lastIndexOf('/') || slash == decoded.length() - 1) {
+            return null;
+        }
         return decoded;
     }
 

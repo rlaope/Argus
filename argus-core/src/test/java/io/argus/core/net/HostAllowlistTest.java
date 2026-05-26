@@ -110,4 +110,66 @@ class HostAllowlistTest {
     void uriValidationRejectsImds() {
         assertNotNull(HostAllowlist.rejectionReasonForUri(URI.create("http://169.254.169.254/latest/meta-data/")));
     }
+
+    // ── Authority-grammar reserved characters ─────────────────────────────
+    // These slipped past the original string-shape regex because they are not
+    // legitimate hostname characters but also do not appear in any explicit
+    // deny rule. Concatenating them into "http://" + host + ":" + port lets
+    // an attacker re-route URL parsing (e.g. userinfo injection).
+
+    @Test
+    void rejectsUserinfoInjection() {
+        assertNotNull(HostAllowlist.rejectionReason("attacker@169.254.169.254"));
+    }
+
+    @Test
+    void rejectsPathInjection() {
+        assertNotNull(HostAllowlist.rejectionReason("evil.com/exploit"));
+        assertNotNull(HostAllowlist.rejectionReason("evil.com?q=1"));
+        assertNotNull(HostAllowlist.rejectionReason("evil.com#frag"));
+    }
+
+    @Test
+    void rejectsControlCharsInHost() {
+        assertNotNull(HostAllowlist.rejectionReason("evil\r\nHost: imds"));
+        assertNotNull(HostAllowlist.rejectionReason("evil .com"));
+    }
+
+    @Test
+    void rejectsPercentEncoded() {
+        // %-encoded bytes never belong in a raw host field. Forbid them so an
+        // attacker cannot smuggle reserved chars past the allowlist.
+        assertNotNull(HostAllowlist.rejectionReason("evil%40169.254.169.254"));
+    }
+
+    // ── Numeric IPv4 encodings (decimal/hex/short form) ───────────────────
+    // The original regex only caught the standard dotted-quad form;
+    // java.net.InetAddress.getByName resolves all of these to the same IMDS IP.
+
+    @Test
+    void rejectsDecimalIntegerImds() {
+        // 2852039166 == 169.254.169.254
+        assertNotNull(HostAllowlist.rejectionReason("2852039166"));
+    }
+
+    @Test
+    void rejectsHexIntegerImds() {
+        // 0xa9fea9fe == 169.254.169.254
+        assertNotNull(HostAllowlist.rejectionReason("0xa9fea9fe"));
+    }
+
+    @Test
+    void rejectsShortFormIpv4() {
+        // "127.1" and "169.4262" resolve as IPv4 literals via java.net.InetAddress.
+        assertNotNull(HostAllowlist.rejectionReason("127.1"));
+        assertNotNull(HostAllowlist.rejectionReason("169.4262"));
+    }
+
+    // ── IPv4-mapped / -embedded IPv6 ──────────────────────────────────────
+
+    @Test
+    void rejectsIpv4MappedIpv6Imds() {
+        assertNotNull(HostAllowlist.rejectionReason("::ffff:169.254.169.254"));
+        assertNotNull(HostAllowlist.rejectionReason("[::ffff:127.0.0.1]"));
+    }
 }
