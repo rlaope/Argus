@@ -540,6 +540,33 @@ function updateGCDisplay(data) {
         elements.gcType.textContent = names.length > 0 ? names.join(', ') : '—';
     }
     renderGCCauses(data);
+    renderCollectorBreakdown(data);
+}
+
+function renderCollectorBreakdown(data) {
+    const section = document.getElementById('gc-collector-section');
+    const list = document.getElementById('gc-collector-breakdown');
+    if (!section || !list) return;
+    const rows = (data.collectorBreakdown || []).slice();
+    if (rows.length === 0) {
+        section.hidden = true;
+        return;
+    }
+    section.hidden = false;
+    rows.sort((a, b) => (b.pauseMs || 0) - (a.pauseMs || 0));
+    const totalPause = rows.reduce((s, r) => s + (r.pauseMs || 0), 0);
+    const tbody = rows.map(r => {
+        const pause = parseFloat(r.pauseMs) || 0;
+        const share = totalPause > 0 ? (pause / totalPause * 100).toFixed(1) : '0.0';
+        const name = escapeHtml(r.gcName || 'Unknown');
+        const cause = escapeHtml(r.gcCause || 'Unknown');
+        const isG1Concern = (r.gcName && r.gcName.includes('Old Generation') && r.count > 0)
+                || (r.gcCause && r.gcCause.includes('Humongous'));
+        const rowClass = isG1Concern ? ' class="warn-row"' : '';
+        return `<tr${rowClass}><td class="mono">${name}</td><td class="mono">${cause}</td><td class="mono right">${formatNumber(r.count || 0)}</td><td class="mono right">${pause.toFixed(1)}ms</td><td class="mono right">${share}%</td></tr>`;
+    }).join('');
+    list.innerHTML = '<table class="simple-table"><thead><tr><th>Collector</th><th>Cause</th><th>Count</th><th>Pause</th><th>Share</th></tr></thead><tbody>'
+            + tbody + '</tbody></table>';
 }
 
 function renderGCCauses(data) {

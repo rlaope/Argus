@@ -145,6 +145,14 @@ public final class ZgcJfrCollector {
                             markEndNs += durNs; markEndCount++;
                         } else if (name.contains("Pause Relocate Start")) {
                             relocStartNs += durNs; relocStartCount++;
+                        } else if (name.contains("Concurrent Mark")
+                                && !name.contains("Free")
+                                && !name.contains("Roots")) {
+                            d.concurrentMarkMs += durNs / 1_000_000.0;
+                            d.concurrentMarkSamples++;
+                        } else if (name.contains("Concurrent Relocate")) {
+                            d.concurrentRelocateMs += durNs / 1_000_000.0;
+                            d.concurrentRelocateSamples++;
                         }
                         break;
                     }
@@ -168,6 +176,24 @@ public final class ZgcJfrCollector {
                         String topFrame = extractTopUserFrame(event);
                         if (topFrame != null) {
                             allocCounts.merge(topFrame, 1L, Long::sum);
+                        }
+                        break;
+                    }
+                    case "jdk.ZPageAllocation": {
+                        d.zPageAllocationCount++;
+                        break;
+                    }
+                    case "jdk.ZUncommit": {
+                        d.zUncommitEvents++;
+                        // ZUncommit reports `to`/`from` (committed range collapsed back); sum the delta.
+                        try {
+                            long from = event.getLong("from");
+                            long to   = event.getLong("to");
+                            if (from > to) d.zUncommittedBytes += (from - to);
+                        } catch (Exception ignored) {
+                            // Fallback: try `size` field on older JDKs.
+                            try { d.zUncommittedBytes += event.getLong("size"); }
+                            catch (Exception ignored2) {}
                         }
                         break;
                     }

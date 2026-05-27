@@ -187,6 +187,17 @@
                 </div>
             </section>
 
+            <!-- Per-Collector Breakdown (G1 / ZGC slicing) — hidden until data arrives -->
+            <section class="content-section" id="gc-collector-section" hidden>
+                <div class="section-header">
+                    <h3>Per-Collector Breakdown</h3>
+                    <p class="section-desc">GC pause time and event count sliced by collector and cause. Surfaces G1 Mixed vs Young vs Full and ZGC Major vs Minor.</p>
+                </div>
+                <div id="gc-collector-breakdown" class="data-table">
+                    <div class="empty-state">Waiting for collector data...</div>
+                </div>
+            </section>
+
             <!-- CPU -->
             <section class="content-section">
                 <div class="section-header">

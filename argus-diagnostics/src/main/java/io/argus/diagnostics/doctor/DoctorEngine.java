@@ -32,7 +32,10 @@ public final class DoctorEngine {
             new ZgcCycleOverlapRule(),
             new G1FullGcRule(),
             new G1RegionSizeRule(),
-            new G1IhopConfigurationRule()
+            new G1IhopConfigurationRule(),
+            new G1EvacuationFailureRule(),
+            new G1MixedStarvationRule(),
+            new G1HumongousPressureRule()
     );
 
     /**

@@ -130,6 +130,24 @@ public final class ZgcDiagnosis {
     /** Total number of allocation events seen in the JFR capture (for the header n= label). */
     public long totalAllocEvents;
 
+    // ── Page allocation / uncommit (from jdk.ZPageAllocation / jdk.ZUncommit) ──
+    /** Total ZPageAllocation events seen during the capture (committed page count). */
+    public long zPageAllocationCount;
+    /** Total bytes uncommitted (released back to OS) during the capture. */
+    public long zUncommittedBytes;
+    /** Count of ZUncommit events observed. */
+    public int  zUncommitEvents;
+
+    // ── Concurrent phase totals (from jdk.GarbageCollection name labels) ──
+    /** Sum of Concurrent Mark phase durations (ms). */
+    public double concurrentMarkMs;
+    /** Sum of Concurrent Relocate phase durations (ms). */
+    public double concurrentRelocateMs;
+    /** Count of Concurrent Mark phase samples. */
+    public int    concurrentMarkSamples;
+    /** Count of Concurrent Relocate phase samples. */
+    public int    concurrentRelocateSamples;
+
     // ── Derived booleans ────────────────────────────────────────────────────
     /** True when any GCHeapSummary sample shows committed > softMaxHeapBytes. */
     public boolean softMaxBreached;

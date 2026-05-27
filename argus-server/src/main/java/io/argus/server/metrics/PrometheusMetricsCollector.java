@@ -206,6 +206,48 @@ public final class PrometheusMetricsCollector {
                 "Heap usage ratio (used/committed)",
                 analysis.currentHeapCommitted() > 0
                         ? (double) analysis.currentHeapUsed() / analysis.currentHeapCommitted() : 0);
+
+        // Per-collector × per-cause breakdown. Enables Grafana dashboards to slice
+        // by collector (G1 Young vs G1 Old vs ZGC Major) and by cause (G1 Evacuation Pause,
+        // Humongous Allocation, Allocation Failure, …).
+        var pauseBreakdown = gcAnalyzer.getPauseBreakdownNanos();
+        var eventBreakdown = gcAnalyzer.getEventBreakdown();
+        if (!pauseBreakdown.isEmpty()) {
+            sb.append("# HELP argus_gc_pause_breakdown_seconds_total ")
+                    .append("Cumulative GC pause time per collector and cause\n");
+            sb.append("# TYPE argus_gc_pause_breakdown_seconds_total counter\n");
+            for (var entry : pauseBreakdown.entrySet()) {
+                String[] parts = entry.getKey().split("\\|", 2);
+                String gcName  = parts.length > 0 ? parts[0] : "Unknown";
+                String gcCause = parts.length > 1 ? parts[1] : "Unknown";
+                String labels = KubernetesLabels.mergeLabels(
+                        "{gc_name=\"" + escapeLabel(gcName)
+                                + "\",gc_cause=\"" + escapeLabel(gcCause) + "\"}");
+                sb.append("argus_gc_pause_breakdown_seconds_total")
+                        .append(labels)
+                        .append(' ')
+                        .append(String.format("%.6f", entry.getValue() / 1_000_000_000.0))
+                        .append('\n');
+            }
+        }
+        if (!eventBreakdown.isEmpty()) {
+            sb.append("# HELP argus_gc_events_breakdown_total ")
+                    .append("Cumulative GC event count per collector and cause\n");
+            sb.append("# TYPE argus_gc_events_breakdown_total counter\n");
+            for (var entry : eventBreakdown.entrySet()) {
+                String[] parts = entry.getKey().split("\\|", 2);
+                String gcName  = parts.length > 0 ? parts[0] : "Unknown";
+                String gcCause = parts.length > 1 ? parts[1] : "Unknown";
+                String labels = KubernetesLabels.mergeLabels(
+                        "{gc_name=\"" + escapeLabel(gcName)
+                                + "\",gc_cause=\"" + escapeLabel(gcCause) + "\"}");
+                sb.append("argus_gc_events_breakdown_total")
+                        .append(labels)
+                        .append(' ')
+                        .append(entry.getValue())
+                        .append('\n');
+            }
+        }
     }
 
     private void appendCPUMetrics(StringBuilder sb) {

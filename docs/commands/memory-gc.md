@@ -678,11 +678,16 @@ The diff classifies each row as INFO / WARN / REGRESSION. Newly-present Full GC,
 
 **Companion doctor rules** (run via `argus doctor <PID>`):
 
-| Rule | Severity | Fires when |
-|------|----------|-----------|
-| G1FullGcRule | CRITICAL | `G1 Old Generation` collector count > 0 |
-| G1RegionSizeRule | WARNING | Heap > 32 GB without `-XX:G1HeapRegionSize`, or tiny explicit region on a non-tiny heap |
-| G1IhopConfigurationRule | WARNING | `-XX:-G1UseAdaptiveIHOP` with manual IHOP ≥ 70% |
+| Rule | Severity | Fires when | Source |
+|------|----------|-----------|--------|
+| G1FullGcRule | CRITICAL | `G1 Old Generation` collector count > 0 | MXBean |
+| G1RegionSizeRule | WARNING | Heap > 32 GB without `-XX:G1HeapRegionSize`, or tiny explicit region on a non-tiny heap | VM flags + heap |
+| G1IhopConfigurationRule | WARNING | `-XX:-G1UseAdaptiveIHOP` with manual IHOP ≥ 70% | VM flags |
+| G1EvacuationFailureRule | CRITICAL | "To-space exhausted" / "Evacuation Failure" in GC log | GC log |
+| G1MixedStarvationRule | WARNING | ≥ 2 concurrent mark cycles complete with no Mixed pause | GC log |
+| G1HumongousPressureRule | WARNING | ≥ 3 humongous-allocation cycles, or peak ≥ 10 humongous regions with default region size | GC log |
+
+The last three rules consume `G1Stats` parsed by `JvmSnapshotCollector` from the file referenced by `-Xlog:gc:file=<path>` (max 10 MB). Without that flag the rules stay silent.
 
 ---
 

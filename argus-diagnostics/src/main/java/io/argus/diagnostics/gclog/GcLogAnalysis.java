@@ -26,6 +26,7 @@ public final class GcLogAnalysis {
     private final GcRateAnalyzer.RateAnalysis rateAnalysis;
     private final GcLeakDetector.LeakAnalysis leakAnalysis;
     private final AllocationStallSummary allocationStalls;
+    private final G1Stats g1Stats;
 
     public GcLogAnalysis(int totalEvents, int pauseEvents, int fullGcEvents, int concurrentEvents,
                          double durationSec, double throughputPercent,
@@ -37,6 +38,38 @@ public final class GcLogAnalysis {
                 durationSec, throughputPercent, totalPauseMs, maxPauseMs,
                 p50PauseMs, p95PauseMs, p99PauseMs, avgPauseMs, peakHeapKB, avgHeapAfterKB,
                 causeBreakdown, recommendations, null, null, null);
+    }
+
+    public GcLogAnalysis(int totalEvents, int pauseEvents, int fullGcEvents, int concurrentEvents,
+                         double durationSec, double throughputPercent,
+                         long totalPauseMs, long maxPauseMs, long p50PauseMs, long p95PauseMs,
+                         long p99PauseMs, long avgPauseMs, long peakHeapKB, long avgHeapAfterKB,
+                         Map<String, CauseStats> causeBreakdown,
+                         List<TuningRecommendation> recommendations,
+                         GcRateAnalyzer.RateAnalysis rateAnalysis,
+                         GcLeakDetector.LeakAnalysis leakAnalysis,
+                         AllocationStallSummary allocationStalls,
+                         G1Stats g1Stats) {
+        this.totalEvents = totalEvents;
+        this.pauseEvents = pauseEvents;
+        this.fullGcEvents = fullGcEvents;
+        this.concurrentEvents = concurrentEvents;
+        this.durationSec = durationSec;
+        this.throughputPercent = throughputPercent;
+        this.totalPauseMs = totalPauseMs;
+        this.maxPauseMs = maxPauseMs;
+        this.p50PauseMs = p50PauseMs;
+        this.p95PauseMs = p95PauseMs;
+        this.p99PauseMs = p99PauseMs;
+        this.avgPauseMs = avgPauseMs;
+        this.peakHeapKB = peakHeapKB;
+        this.avgHeapAfterKB = avgHeapAfterKB;
+        this.causeBreakdown = causeBreakdown;
+        this.recommendations = recommendations;
+        this.rateAnalysis = rateAnalysis;
+        this.leakAnalysis = leakAnalysis;
+        this.allocationStalls = allocationStalls;
+        this.g1Stats = g1Stats == null ? G1Stats.empty() : g1Stats;
     }
 
     public GcLogAnalysis(int totalEvents, int pauseEvents, int fullGcEvents, int concurrentEvents,
@@ -62,25 +95,11 @@ public final class GcLogAnalysis {
                          GcRateAnalyzer.RateAnalysis rateAnalysis,
                          GcLeakDetector.LeakAnalysis leakAnalysis,
                          AllocationStallSummary allocationStalls) {
-        this.totalEvents = totalEvents;
-        this.pauseEvents = pauseEvents;
-        this.fullGcEvents = fullGcEvents;
-        this.concurrentEvents = concurrentEvents;
-        this.durationSec = durationSec;
-        this.throughputPercent = throughputPercent;
-        this.totalPauseMs = totalPauseMs;
-        this.maxPauseMs = maxPauseMs;
-        this.p50PauseMs = p50PauseMs;
-        this.p95PauseMs = p95PauseMs;
-        this.p99PauseMs = p99PauseMs;
-        this.avgPauseMs = avgPauseMs;
-        this.peakHeapKB = peakHeapKB;
-        this.avgHeapAfterKB = avgHeapAfterKB;
-        this.causeBreakdown = causeBreakdown;
-        this.recommendations = recommendations;
-        this.rateAnalysis = rateAnalysis;
-        this.leakAnalysis = leakAnalysis;
-        this.allocationStalls = allocationStalls;
+        this(totalEvents, pauseEvents, fullGcEvents, concurrentEvents,
+                durationSec, throughputPercent, totalPauseMs, maxPauseMs,
+                p50PauseMs, p95PauseMs, p99PauseMs, avgPauseMs, peakHeapKB, avgHeapAfterKB,
+                causeBreakdown, recommendations, rateAnalysis, leakAnalysis,
+                allocationStalls, null);
     }
 
     public int totalEvents() { return totalEvents; }
@@ -103,6 +122,8 @@ public final class GcLogAnalysis {
     public GcLeakDetector.LeakAnalysis leakAnalysis() { return leakAnalysis; }
     /** Returns the ZGC Allocation Stall summary, or null if no stalls were observed. */
     public AllocationStallSummary allocationStalls() { return allocationStalls; }
+    /** Returns the G1-specific aggregate stats; always non-null, may be {@code G1Stats.empty()}. */
+    public G1Stats g1Stats() { return g1Stats; }
 
     public static final class CauseStats {
         private final String cause;

@@ -1,5 +1,7 @@
 package io.argus.diagnostics.doctor;
 
+import io.argus.diagnostics.gclog.G1Stats;
+import io.argus.diagnostics.gclog.GcLogParser;
 import io.argus.diagnostics.model.CompilerResult;
 import io.argus.diagnostics.model.GcUtilResult;
 import io.argus.diagnostics.model.NmtResult;
@@ -9,6 +11,8 @@ import io.argus.diagnostics.jcmd.JdkGcUtilProvider;
 import io.argus.diagnostics.jcmd.JdkNmtProvider;
 
 import java.lang.management.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -23,6 +27,13 @@ public final class JvmSnapshotCollector {
 
     private static final Pattern JCMD_HEAP_TOTAL_USED_KB = Pattern.compile("total\\s+(\\d+)K.*used\\s+(\\d+)K");
     private static final Pattern JCMD_HEAP_POOL_PARSE = Pattern.compile("(\\w[\\w\\s-]*)\\s+(?:total\\s+)?(\\d+)K.*used\\s+(\\d+)K");
+
+    /** Extracts the GC log file path from -Xlog:gc*:file=<path> style flags. Captures only the file= portion. */
+    private static final Pattern GC_LOG_FILE_FLAG = Pattern.compile(
+            "-Xlog:gc[^:\\s]*:(?:file=)?([^:\\s,]+)", Pattern.CASE_INSENSITIVE);
+
+    /** Maximum GC log size we'll re-parse in the snapshot path (10 MB). */
+    private static final long MAX_LOG_BYTES = 10L * 1024 * 1024;
 
     /**
      * Collect snapshot — routes to local or remote based on PID.
@@ -109,6 +120,9 @@ public final class JvmSnapshotCollector {
         CodeCacheSnapshot cc = collectCodeCache(pid);
         Map<String, Long> nmt = collectNmtCommittedKb(pid);
 
+        List<String> vmArgs = List.copyOf(rt.getInputArguments());
+        G1Stats g1Stats = extractG1Stats(vmArgs, gcAlgorithm);
+
         return new JvmSnapshot(
                 heap.getUsed(), heap.getMax(), heap.getCommitted(),
                 mem.getNonHeapMemoryUsage().getUsed(),
@@ -121,9 +135,10 @@ public final class JvmSnapshotCollector {
                 cl.getLoadedClassCount(), cl.getTotalLoadedClassCount(), cl.getUnloadedClassCount(),
                 mem.getObjectPendingFinalizationCount(),
                 rt.getVmName(), rt.getVmVersion(), gcAlgorithm,
-                List.copyOf(rt.getInputArguments()),
+                vmArgs,
                 maxRecentPauseMs,
-                cc.usedKb, cc.sizeKb, nmt
+                cc.usedKb, cc.sizeKb, nmt,
+                g1Stats
         );
     }
 
@@ -297,6 +312,9 @@ public final class JvmSnapshotCollector {
         CodeCacheSnapshot cc = collectCodeCache(pid);
         Map<String, Long> nmt = collectNmtCommittedKb(pid);
 
+        List<String> remoteVmArgs = List.copyOf(vmFlags);
+        G1Stats g1Stats = extractG1Stats(remoteVmArgs, gcAlgorithm);
+
         return new JvmSnapshot(
                 heapUsed, heapMax, heapCommitted, nonHeapUsed,
                 Map.copyOf(pools),
@@ -307,10 +325,48 @@ public final class JvmSnapshotCollector {
                 List.of(),
                 0, 0, 0, 0,
                 vmName, vmVersion, gcAlgorithm,
-                List.copyOf(vmFlags),
+                remoteVmArgs,
                 maxRecentPauseMs,
-                cc.usedKb, cc.sizeKb, nmt
+                cc.usedKb, cc.sizeKb, nmt,
+                g1Stats
         );
+    }
+
+    /**
+     * Extracts G1-specific stats by detecting {@code -Xlog:gc*:file=<path>} in
+     * the VM arguments and parsing the log file. Returns {@link G1Stats#empty()}
+     * when:
+     * <ul>
+     *   <li>the collector is not G1,</li>
+     *   <li>no GC log file flag is present,</li>
+     *   <li>the log file is missing, unreadable, or larger than {@link #MAX_LOG_BYTES}.</li>
+     * </ul>
+     * Best-effort — failures are added to {@link #warnings} but never throw.
+     */
+    static G1Stats extractG1Stats(List<String> vmArgs, String gcAlgorithm) {
+        if (vmArgs == null || vmArgs.isEmpty()) return G1Stats.empty();
+        if (gcAlgorithm == null || !gcAlgorithm.contains("G1")) return G1Stats.empty();
+
+        Path logPath = null;
+        for (String flag : vmArgs) {
+            Matcher m = GC_LOG_FILE_FLAG.matcher(flag);
+            if (m.find()) {
+                logPath = Path.of(m.group(1));
+                break;
+            }
+        }
+        if (logPath == null) return G1Stats.empty();
+
+        try {
+            if (!Files.isReadable(logPath)) return G1Stats.empty();
+            long size = Files.size(logPath);
+            if (size <= 0 || size > MAX_LOG_BYTES) return G1Stats.empty();
+            GcLogParser.ParseResult result = GcLogParser.parseWithPhases(logPath);
+            return result.g1Stats();
+        } catch (Exception e) {
+            warnings.get().add("GC log parse failed for " + logPath + ": " + e.getMessage());
+            return G1Stats.empty();
+        }
     }
 
     /** Best-effort code-cache totals; returns zeros on failure (doctor degrades gracefully). */
