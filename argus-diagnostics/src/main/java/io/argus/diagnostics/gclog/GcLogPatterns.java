@@ -37,5 +37,26 @@ public final class GcLogPatterns {
     public static final Pattern GC_PHASE = Pattern.compile(
             "GC\\((\\d+)\\)\\s+(.+?):\\s+(\\d+\\.?\\d*)ms");
 
+    // ── G1-specific patterns ──────────────────────────────────────────────
+    /** Fires on "To-space exhausted" or "Evacuation Failure" lines. */
+    public static final Pattern G1_EVAC_FAILURE = Pattern.compile(
+            "To-space exhausted|Evacuation Failure");
+
+    /** Captures humongous region delta from "Humongous regions: N->M" lines. */
+    public static final Pattern G1_HUMONGOUS_LINE = Pattern.compile(
+            "Humongous regions: (\\d+)->(\\d+)");
+
+    /** Matches G1 mixed pauses: "Pause Young (Mixed) ..." */
+    public static final Pattern G1_MIXED_PAUSE = Pattern.compile(
+            "Pause Young \\(Mixed\\)");
+
+    /** Matches "Pause Young (Prepare Mixed) ..." — concurrent cycle finished, mixed scheduled. */
+    public static final Pattern G1_PREPARE_MIXED = Pattern.compile(
+            "Pause Young \\(Prepare Mixed\\)");
+
+    /** Matches "Concurrent Mark Cycle" begin/end markers. */
+    public static final Pattern G1_CONCURRENT_BEG = Pattern.compile(
+            "Concurrent Mark Cycle");
+
     private GcLogPatterns() {}
 }

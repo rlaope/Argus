@@ -24,6 +24,7 @@ Commands for inspecting heap memory, garbage collection activity, and memory lea
 - [argus gcwhy](#argus-gcwhy)
 - [argus gcprofile](#argus-gcprofile)
 - [argus heapanalyze \<file.hprof\>](#argus-heapanalyze-filehprof)
+- [argus g1 \<pid\>](#argus-g1-pid)
 - [argus zgc \<pid\>](#argus-zgc-pid)
 
 ---
@@ -603,6 +604,85 @@ Options:
 - `--format=json` — JSON output
 
 Exit codes: `0` = success, `2` = parse error.
+
+---
+
+## argus g1 \<pid\>
+
+One-shot G1GC health verdict from a live JFR capture. Pre-checks via JMX that the target JVM is using G1, then starts a `JFR.start` recording with `settings=profile`, waits for the capture window, dumps and parses the recording, and prints a structured report with a HEALTHY / WARNING / UNHEALTHY verdict.
+
+```
+argus g1 <PID> [--duration=N] [--save=PATH] [--diff=PATH] [--watch[=N]] [--interval=N]
+```
+
+```bash
+$ argus g1 <PID>
+$ argus g1 <PID> --duration=60    # extend capture to 60s (5–120 range)
+$ argus g1 <PID> --save=/tmp/g1-baseline.txt
+$ argus g1 <PID> --diff=/tmp/g1-baseline.txt
+$ argus g1 <PID> --watch --interval=60
+$ argus g1 <PID> --watch=10 --interval=60
+```
+
+**Sample output (WARNING with humongous pressure):**
+
+```
+G1 Diagnosis (PID 18420, JDK 21, Adaptive IHOP)
+═══════════════════════════════════════════════
+  Config     target 200ms · region 8MB · IHOP 45%
+  Heap         committed 4.0 GiB / max 8.0 GiB
+  Regions      eden 200 · survivor 12 · old 320 · humongous 18 / total 1024
+  Cycles       42 young, 5 mixed, 2 concurrent, 0 full (avg young 38.2ms, avg mixed 92.1ms, max 184.5ms)
+  Evacuation   ✓ no failures · young 1.8 GB · old 240 MB
+  MMU          min 88.3%, avg 95.1%
+  IHOP         predicted 45.0% / actual 46.2%
+  Humongous    ⚠ 3 cycle(s) triggered by humongous allocation
+               Top humongous-class alloc sites during capture (n=512 events)
+                1. com.example.report.ReportBuilder.buildPdf(ReportBuilder.java:88)   (210 allocs, max 12 MB)
+                2. com.example.cache.LocalCache.preload(LocalCache.java:42)           (180 allocs, max 8.4 MB)
+
+Verdict: WARNING  — humongous allocation cycles observed.
+Recommend:
+  • Raise -XX:G1HeapRegionSize=16m so humongous threshold rises above common allocations
+```
+
+**Verdict table:**
+
+| Verdict | Condition |
+|---------|-----------|
+| UNHEALTHY | Full GC observed **or** evacuation failure ("to-space exhausted") |
+| WARNING | Mixed-cycle starvation, IHOP timing off, humongous allocation cycles, **or** max pause > 2 × target |
+| HEALTHY | None of the above |
+
+**Options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--duration=N` | 30 | JFR capture window in seconds (clamped to 5–120) |
+| `--save=PATH` | | Capture once, render normally, and persist a baseline to PATH |
+| `--diff=PATH` | | Capture once, compare against baseline at PATH, render diff table (suppresses normal verdict) |
+| `--watch[=N]` | | Loop indefinitely (`--watch`) or for N iterations (`--watch=N`). Each iteration captures using `--interval`, prints a 1-line summary. Every 5th iteration prints the full diagnosis table. Ctrl-C prints a final summary and cleans up JFR. |
+| `--interval=N` | 30 | JFR capture duration and watch loop period in seconds (clamped to 10–300) |
+
+**Subscribed JFR events:** `jdk.G1GarbageCollection` (cycle type), `jdk.G1HeapSummary` (region counts), `jdk.G1EvacuationYoungStatistics` / `jdk.G1EvacuationOldStatistics` (evac bytes + failure flag), `jdk.G1MMU` (mutator utilization), `jdk.G1AdaptiveIHOP` (predicted vs. actual threshold), `jdk.GarbageCollection` (Full GC + Mixed labels for older JDKs), `jdk.ObjectAllocationOutsideTLAB` (humongous-class hotspots, gated on `bytes ≥ regionSize/2`).
+
+**Trend tracking:**
+
+```bash
+argus g1 12345 --save=/tmp/g1-baseline.txt
+# … later, after deploy or config change …
+argus g1 12345 --diff=/tmp/g1-baseline.txt
+```
+
+The diff classifies each row as INFO / WARN / REGRESSION. Newly-present Full GC, evacuation failure, or mixed starvation are REGRESSION. Max-pause increases > 50% and MMU drops > 20% are REGRESSION.
+
+**Companion doctor rules** (run via `argus doctor <PID>`):
+
+| Rule | Severity | Fires when |
+|------|----------|-----------|
+| G1FullGcRule | CRITICAL | `G1 Old Generation` collector count > 0 |
+| G1RegionSizeRule | WARNING | Heap > 32 GB without `-XX:G1HeapRegionSize`, or tiny explicit region on a non-tiny heap |
+| G1IhopConfigurationRule | WARNING | `-XX:-G1UseAdaptiveIHOP` with manual IHOP ≥ 70% |
 
 ---
 
