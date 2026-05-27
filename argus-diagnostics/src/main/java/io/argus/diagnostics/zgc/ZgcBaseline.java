@@ -381,6 +381,47 @@ public final class ZgcBaseline {
                 (!baseBreach && curBreach) ? "NEW" : (curBreach ? "persists" : "none"),
                 breachSeverity));
 
+        // ── Residual ZGC signals (page allocation / uncommit / concurrent phases) ──
+        // Only emit rows when either side has non-zero data, so older baselines
+        // (pre-1.5.0) don't clutter the diff with all-zero rows.
+
+        // Page allocation churn
+        long basePages = baseline.zPageAllocationCount;
+        long curPages  = current.zPageAllocationCount;
+        if (basePages > 0 || curPages > 0) {
+            long pageDelta = curPages - basePages;
+            Severity pageSeverity = INFO;
+            if (basePages > 0 && pageDelta > basePages) pageSeverity = WARN; // doubled
+            rows.add(new DiffRow("zPageAllocationCount",
+                    String.valueOf(basePages), String.valueOf(curPages),
+                    (pageDelta >= 0 ? "+" : "") + pageDelta, pageSeverity));
+        }
+
+        // Uncommit bytes
+        long baseUncommit = baseline.zUncommittedBytes;
+        long curUncommit  = current.zUncommittedBytes;
+        if (baseUncommit > 0 || curUncommit > 0) {
+            long uncDelta = curUncommit - baseUncommit;
+            rows.add(new DiffRow("zUncommittedBytes",
+                    DiagnosticsFormat.formatBytes(baseUncommit),
+                    DiagnosticsFormat.formatBytes(curUncommit),
+                    formatBytesDelta(uncDelta), INFO));
+        }
+
+        // Concurrent Mark phase time
+        double baseMark = baseline.concurrentMarkMs;
+        double curMark  = current.concurrentMarkMs;
+        if (baseMark > 0 || curMark > 0) {
+            double markDelta = curMark - baseMark;
+            Severity markSev = INFO;
+            if (baseMark > 0 && markDelta / baseMark > 0.50) markSev = WARN;
+            rows.add(new DiffRow("concurrentMarkMs",
+                    String.format(Locale.ROOT, "%.2fms", baseMark),
+                    String.format(Locale.ROOT, "%.2fms", curMark),
+                    String.format(Locale.ROOT, "%+.2fms", markDelta),
+                    markSev));
+        }
+
         return rows;
     }
 

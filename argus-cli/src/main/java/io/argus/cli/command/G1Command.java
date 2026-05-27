@@ -28,6 +28,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -288,7 +289,7 @@ public final class G1Command implements Command {
                 + current.concurrentCycles + "c";
 
         String pauseColor = reset;
-        String pauseStr = String.format("%.1fms", current.maxPauseMs);
+        String pauseStr = String.format(Locale.ROOT, "%.1fms", current.maxPauseMs);
         if (previous != null && previous.maxPauseMs > 0
                 && current.maxPauseMs / previous.maxPauseMs > 1.5) {
             pauseColor = yellow;
@@ -328,7 +329,7 @@ public final class G1Command implements Command {
         Instant now = Instant.now();
         long elapsedMinutes = Duration.between(baseline.capturedAt, now).toMinutes();
         String elapsedLabel = elapsedMinutes >= 60
-                ? String.format("%.1f hr", elapsedMinutes / 60.0)
+                ? String.format(Locale.ROOT, "%.1f hr", elapsedMinutes / 60.0)
                 : elapsedMinutes + " min";
         System.out.println(bold + messages.get("cli.g1.diff.header",
                 ISO_FMT.format(baseline.capturedAt),
@@ -537,9 +538,9 @@ public final class G1Command implements Command {
         System.out.println("  " + bold + messages.get("cli.g1.cycles.label") + reset
                 + "       " + d.youngCycles + " young, " + d.mixedCycles + " mixed, "
                 + d.concurrentCycles + " concurrent, " + d.fullGcCycles + " full"
-                + " (avg young " + String.format("%.2fms", d.avgYoungPauseMs)
-                + (d.mixedCycles > 0 ? ", avg mixed " + String.format("%.2fms", d.avgMixedPauseMs) : "")
-                + ", max " + String.format("%.2fms", d.maxPauseMs) + ")");
+                + " (avg young " + String.format(Locale.ROOT, "%.2fms", d.avgYoungPauseMs)
+                + (d.mixedCycles > 0 ? ", avg mixed " + String.format(Locale.ROOT, "%.2fms", d.avgMixedPauseMs) : "")
+                + ", max " + String.format(Locale.ROOT, "%.2fms", d.maxPauseMs) + ")");
 
         // Evacuation
         System.out.println("  " + bold + messages.get("cli.g1.evac.label") + reset
@@ -553,8 +554,8 @@ public final class G1Command implements Command {
         // MMU
         if (d.avgMmuPercent > 0) {
             System.out.println("  " + bold + messages.get("cli.g1.mmu.label") + reset
-                    + "         min " + String.format("%.1f%%", d.minMmuPercent)
-                    + ", avg " + String.format("%.1f%%", d.avgMmuPercent));
+                    + "         min " + String.format(Locale.ROOT, "%.1f%%", d.minMmuPercent)
+                    + ", avg " + String.format(Locale.ROOT, "%.1f%%", d.avgMmuPercent));
         }
 
         // IHOP
@@ -562,8 +563,8 @@ public final class G1Command implements Command {
             String ihopMark = d.ihopMistimed ? yel + "⚠" + reset + " " : "";
             System.out.println("  " + bold + messages.get("cli.g1.ihop.label") + reset
                     + "        " + ihopMark
-                    + "predicted " + String.format("%.1f%%", d.predictedIhopPercent)
-                    + " / actual " + String.format("%.1f%%", d.actualIhopPercent));
+                    + "predicted " + String.format(Locale.ROOT, "%.1f%%", d.predictedIhopPercent)
+                    + " / actual " + String.format(Locale.ROOT, "%.1f%%", d.actualIhopPercent));
         }
 
         // Humongous
@@ -575,7 +576,7 @@ public final class G1Command implements Command {
             if (!d.humongousHotspots.isEmpty()) {
                 System.out.println("               "
                         + messages.get("cli.g1.humongous.alloc.header",
-                                String.format("%,d", d.totalHumongousAllocEvents)));
+                                String.format(Locale.ROOT, "%,d", d.totalHumongousAllocEvents)));
                 for (int i = 0; i < d.humongousHotspots.size(); i++) {
                     G1Diagnosis.HumongousHotspot h = d.humongousHotspots.get(i);
                     System.out.printf("               %2d. %-60s %s%n",
