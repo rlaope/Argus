@@ -3,6 +3,8 @@
  * Start/Stop JFR recordings, timer, download link.
  */
 
+const f = (p, i) => (window.__argusCluster?.fetch || fetch)(p, i);
+
 let _recording = false;
 let _startedAt = null;
 let _timerInterval = null;
@@ -26,7 +28,7 @@ async function _startRecording() {
     const duration = durationInput ? parseInt(durationInput.value, 10) || 60 : 60;
 
     try {
-        const res = await fetch('/api/jfr/start', {
+        const res = await f('/api/jfr/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ duration }),
@@ -44,7 +46,7 @@ async function _startRecording() {
 async function _stopRecording() {
     _stopTimer();
     try {
-        const res = await fetch('/api/jfr/stop', { method: 'POST' });
+        const res = await f('/api/jfr/stop', { method: 'POST' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         _recording = false;
         _setStatus('available');

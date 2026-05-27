@@ -77,10 +77,13 @@ public final class PrometheusMetricsCollector {
 
     /**
      * Collects all enabled metrics and formats them as Prometheus exposition text.
+     * Includes {@code argus_scrape_duration_seconds} as the final metric, timing
+     * the collection itself.
      *
      * @return Prometheus text format string
      */
     public String collectMetrics() {
+        long startNanos = System.nanoTime();
         StringBuilder sb = new StringBuilder(4096);
 
         appendVirtualThreadMetrics(sb);
@@ -112,6 +115,13 @@ public final class PrometheusMetricsCollector {
         }
 
         appendBuildInfo(sb);
+
+        double durationSeconds = (System.nanoTime() - startNanos) / 1_000_000_000.0;
+        sb.append("# HELP argus_scrape_duration_seconds Time taken to collect metrics\n");
+        sb.append("# TYPE argus_scrape_duration_seconds gauge\n");
+        sb.append("argus_scrape_duration_seconds ")
+                .append(String.format("%.6f", durationSeconds))
+                .append('\n');
 
         return sb.toString();
     }

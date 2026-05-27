@@ -32,6 +32,9 @@ import { initProfiler } from './profiler.js';
 import { initCompare } from './compare.js';
 import { initJfrManager } from './jfr-manager.js';
 
+// Cluster-aware fetch: routes through pod proxy when in cluster mode.
+const f = (p, i) => (window.__argusCluster?.fetch || fetch)(p, i);
+
 // DOM elements
 const elements = {
     // Metrics
@@ -301,7 +304,7 @@ function setupEventListeners() {
     // Flame graph reset (clears server data + resets chart)
     if (elements.flamegraphReset) {
         elements.flamegraphReset.addEventListener('click', async () => {
-            await fetch('/flame-graph?reset=true');
+            await f('/flame-graph?reset=true');
             flameChart = null;
             flameGraphPaused = false;
             if (elements.flamegraphPause) {
@@ -445,7 +448,7 @@ function updateCounters() {
 
 async function fetchMetrics() {
     try {
-        const response = await fetch('/metrics');
+        const response = await f('/metrics');
         if (response.ok) {
             const data = await response.json();
             counts.total = data.totalEvents || 0;
@@ -463,7 +466,7 @@ async function fetchMetrics() {
 
 async function fetchPinningAnalysis() {
     try {
-        const response = await fetch('/pinning-analysis');
+        const response = await f('/pinning-analysis');
         if (response.ok) {
             const data = await response.json();
             renderHotspots(data);
@@ -475,7 +478,7 @@ async function fetchPinningAnalysis() {
 
 async function fetchGCAnalysis() {
     try {
-        const response = await fetch('/gc-analysis');
+        const response = await f('/gc-analysis');
         if (response.ok) {
             const data = await response.json();
             updateGCDisplay(data);
@@ -489,7 +492,7 @@ async function fetchGCAnalysis() {
 
 async function fetchCPUMetrics() {
     try {
-        const response = await fetch('/cpu-metrics');
+        const response = await f('/cpu-metrics');
         if (response.ok) {
             const data = await response.json();
             updateCPUDisplay(data);
@@ -773,7 +776,7 @@ function handleExport() {
 
 async function fetchAllocationAnalysis() {
     try {
-        const response = await fetch('/allocation-analysis');
+        const response = await f('/allocation-analysis');
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
@@ -788,7 +791,7 @@ async function fetchAllocationAnalysis() {
 
 async function fetchMetaspaceMetrics() {
     try {
-        const response = await fetch('/metaspace-metrics');
+        const response = await f('/metaspace-metrics');
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
@@ -803,7 +806,7 @@ async function fetchMetaspaceMetrics() {
 
 async function fetchMethodProfiling() {
     try {
-        const response = await fetch('/method-profiling');
+        const response = await f('/method-profiling');
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
@@ -818,7 +821,7 @@ async function fetchMethodProfiling() {
 
 async function fetchContentionAnalysis() {
     try {
-        const response = await fetch('/contention-analysis');
+        const response = await f('/contention-analysis');
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
@@ -838,7 +841,7 @@ let flameGraphPaused = false;
 async function fetchFlameGraph() {
     if (flameGraphPaused) return;
     try {
-        const response = await fetch('/flame-graph');
+        const response = await f('/flame-graph');
         if (response.ok) {
             const data = await response.json();
             if (!data.error && data.value > 0) {
@@ -894,7 +897,7 @@ function renderFlameGraph(data) {
 
 async function fetchCorrelation() {
     try {
-        const response = await fetch('/correlation');
+        const response = await f('/correlation');
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
@@ -992,7 +995,7 @@ function updateRecommendations(data) {
 
 async function fetchCarrierThreads() {
     try {
-        const response = await fetch('/carrier-threads');
+        const response = await f('/carrier-threads');
         if (response.ok) {
             const data = await response.json();
             updateCarrierDisplay(data);
@@ -1022,7 +1025,7 @@ function updateCarrierDisplay(data) {
 
 async function fetchConfig() {
     try {
-        const response = await fetch('/config');
+        const response = await f('/config');
         if (response.ok) {
             const data = await response.json();
             renderFeatureFlags(data.features);

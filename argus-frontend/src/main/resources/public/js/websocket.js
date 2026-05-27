@@ -25,6 +25,13 @@ export function initWebSocket(elements, handlers) {
 }
 
 function connect() {
+    // In cluster mode the aggregator does not proxy WebSockets yet.
+    // Show a neutral status and skip the reconnect loop entirely.
+    if (window.__argusCluster?.isClusterMode?.()) {
+        setClusterMode();
+        return;
+    }
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/events`;
 
@@ -65,6 +72,16 @@ function connect() {
             console.error('[Argus] Failed to parse message:', e);
         }
     };
+}
+
+function setClusterMode() {
+    if (statusElement) {
+        statusElement.classList.remove('connected', 'disconnected');
+        statusElement.classList.add('cluster');
+    }
+    if (statusTextElement) {
+        statusTextElement.textContent = 'Cluster mode (no live stream)';
+    }
 }
 
 function setConnected(connected) {

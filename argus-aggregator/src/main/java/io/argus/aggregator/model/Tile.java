@@ -24,9 +24,10 @@ public record Tile(
     /**
      * Builds the drill-down URL for the frontend. {@code podId} contains a
      * {@code /} separator ({@code namespace/podName}) which must be percent-
-     * encoded so the URL has a single path segment after {@code /pod/}.
+     * encoded. The Dashboard is served at {@code /} (index.html) and reads the
+     * {@code pod} query param to load the pod context.
      */
     public static String drillDownUrlFor(String podId) {
-        return "/pod/" + URLEncoder.encode(podId, StandardCharsets.UTF_8);
+        return "/?pod=" + URLEncoder.encode(podId, StandardCharsets.UTF_8);
     }
 }

@@ -3,6 +3,8 @@
  * Start/Stop recording, status indicator, results table.
  */
 
+const f = (p, i) => (window.__argusCluster?.fetch || fetch)(p, i);
+
 let _recording = false;
 let _startedAt = null;
 let _timerInterval = null;
@@ -19,7 +21,7 @@ export function initProfiler() {
 
 async function _startRecording() {
     try {
-        const res = await fetch('/api/profiler/start', { method: 'POST' });
+        const res = await f('/api/profiler/start', { method: 'POST' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         _recording = true;
         _startedAt = Date.now();
@@ -35,7 +37,7 @@ async function _stopRecording() {
     _recording = false;
     _setStatus('loading');
     try {
-        const res = await fetch('/api/profiler/stop', { method: 'POST' });
+        const res = await f('/api/profiler/stop', { method: 'POST' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         _setStatus('idle');

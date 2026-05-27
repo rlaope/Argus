@@ -2,6 +2,8 @@
  * Thread view management for Argus Dashboard
  */
 import { threadStates, stateCounts } from './state.js';
+
+const f = (p, i) => (window.__argusCluster?.fetch || fetch)(p, i);
 import { escapeHtml, formatDurationMs, formatTimestamp, formatDuration } from './utils.js';
 
 let threadModal = null;
@@ -196,7 +198,7 @@ async function showThreadDetails(thread) {
 
     // Fetch thread events
     try {
-        const response = await fetch(`/threads/${thread.threadId}/events`);
+        const response = await f(`/threads/${thread.threadId}/events`);
         if (response.ok) {
             const data = await response.json();
             modalElements.eventCount.textContent = data.eventCount;
@@ -260,7 +262,7 @@ async function captureSingleThreadDump(threadId) {
     currentDumpText = '';
 
     try {
-        const response = await fetch(`/threads/${threadId}/dump`);
+        const response = await f(`/threads/${threadId}/dump`);
         if (response.ok) {
             const data = await response.json();
             displaySingleThreadDump(data);
@@ -302,7 +304,7 @@ export async function captureAllThreadsDump() {
     currentDumpText = '';
 
     try {
-        const response = await fetch('/thread-dump');
+        const response = await f('/thread-dump');
         if (response.ok) {
             const data = await response.json();
             displayAllThreadsDump(data);

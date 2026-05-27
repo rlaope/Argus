@@ -34,6 +34,7 @@ class ConsoleProxyControllerTest {
     /** Records every forwarded {@code baseUrl + path} and returns a canned response. */
     private static final class StubPodClient extends PodHttpClient {
         final List<String> calls = new ArrayList<>();
+        final List<String> postCalls = new ArrayList<>();
         int status = 200;
         String body = "{}";
         boolean throwError = false;
@@ -43,6 +44,16 @@ class ConsoleProxyControllerTest {
             calls.add(baseUrl + path);
             if (throwError) throw new ProxyException("ConnectException: refused", new RuntimeException());
             return new Response(status, body);
+        }
+
+        @Override
+        public Response post(String baseUrl, String path, String body, String contentType)
+                throws ProxyException {
+            String url = baseUrl + path;
+            calls.add(url);
+            postCalls.add(url);
+            if (throwError) throw new ProxyException("ConnectException: refused", new RuntimeException());
+            return new Response(status, this.body);
         }
     }
 
@@ -241,5 +252,93 @@ class ConsoleProxyControllerTest {
         h.stub.body = "{}";
         FullHttpResponse resp = h.send(post("/api/exec?pod=ns%2Fp&cmd=gc"));
         assertEquals(HttpResponseStatus.BAD_GATEWAY, resp.status());
+    }
+
+    // ── /pod/{id}/{path} generic proxy ────────────────────────────────────
+
+    @Test
+    void podProxyGetMetricsForwardsToCorrectUrl() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"jvm\":\"ok\"}";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/metrics"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals("{\"jvm\":\"ok\"}", resp.content().toString(CharsetUtil.UTF_8));
+        assertEquals(List.of("http://10.0.0.1:9202/metrics"), h.stub.calls);
+    }
+
+    @Test
+    void podProxyGetGcAnalysisForwardsCorrectly() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"gcEvents\":[]}";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/gc-analysis"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals(List.of("http://10.0.0.1:9202/gc-analysis"), h.stub.calls);
+    }
+
+    @Test
+    void podProxyReturns403ForNonAllowlistedPath() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/secret-internal-path"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(resp.content().toString(CharsetUtil.UTF_8).contains("path not proxyable"));
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to non-allowlisted path");
+    }
+
+    @Test
+    void podProxyReturns404WhenPodNotRegistered() {
+        Harness h = new Harness();
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Funknown/metrics"));
+        assertEquals(HttpResponseStatus.NOT_FOUND, resp.status());
+        assertTrue(resp.content().toString(CharsetUtil.UTF_8).contains("pod not registered"));
+        assertTrue(h.stub.calls.isEmpty(), "must not forward for unregistered pod");
+    }
+
+    @Test
+    void podProxyReturns400ForPathTraversalInPodId() {
+        Harness h = new Harness();
+
+        FullHttpResponse resp = h.send(get("/pod/..%2Fetc%2Fpasswd/metrics"));
+        assertEquals(HttpResponseStatus.BAD_REQUEST, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward on path traversal podId");
+    }
+
+    @Test
+    void podProxyPostJfrStartForwardsAsPost() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"started\":true}";
+        h.stub.status = 202;
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/jfr/start"));
+        assertEquals(HttpResponseStatus.valueOf(202), resp.status());
+        assertEquals(List.of("http://10.0.0.1:9202/api/jfr/start"), h.stub.postCalls);
+    }
+
+    @Test
+    void podProxyGetThreadsNumericIdPassesAllowlist() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"events\":[]}";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/threads/123/events"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals(List.of("http://10.0.0.1:9202/threads/123/events"), h.stub.calls);
+    }
+
+    @Test
+    void podProxyGetThreadsNonNumericIdReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/threads/abc/events"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward non-numeric thread id");
     }
 }
