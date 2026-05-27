@@ -57,7 +57,12 @@ async function _stopRecording() {
 }
 
 function _download() {
-    window.location.href = '/api/jfr/download';
+    // TODO: aggregator allowlist needs /api/jfr/download for cluster-mode JFR download to function.
+    var path = '/api/jfr/download';
+    if (window.__argusCluster && window.__argusCluster.isClusterMode() && window.__argusCluster.selectedPod()) {
+        path = '/pod/' + encodeURIComponent(window.__argusCluster.selectedPod()) + path;
+    }
+    window.location.href = path;
 }
 
 function _startTimer(maxSeconds) {

@@ -80,10 +80,6 @@ public final class FleetController {
             Pattern.compile("/api/doctor"),
             Pattern.compile("/api/process"),
             Pattern.compile("/api/exec"),
-            Pattern.compile("/api/jfr/start"),
-            Pattern.compile("/api/jfr/stop"),
-            Pattern.compile("/api/profiler/start"),
-            Pattern.compile("/api/profiler/stop"),
             Pattern.compile("/threads/\\d+/events"),
             Pattern.compile("/threads/\\d+/dump")
     );
@@ -543,7 +539,7 @@ public final class FleetController {
             } else {
                 resp = podClient.get(target.scrapeUrl(), forwardPath);
             }
-            sendJson(ctx, request, safeStatus(resp.status()), resp.body());
+            sendText(ctx, request, safeStatus(resp.status()), resp.body(), resp.contentType());
         } catch (PodHttpClient.ProxyException e) {
             LOG.log(System.Logger.Level.WARNING,
                     () -> "pod proxy: pod unreachable [" + e.getMessage() + "]");

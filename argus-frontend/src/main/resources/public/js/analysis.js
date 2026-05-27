@@ -3,6 +3,8 @@
  * Handles file input, validation, upload, and result rendering.
  */
 
+const f = (p, i) => (window.__argusCluster?.fetch || fetch)(p, i);
+
 const COMMANDS = {
     gclog: {
         title: 'GC Log Analysis',
@@ -121,7 +123,8 @@ async function submitAnalysis() {
     document.getElementById('analysis-submit-btn').disabled = true;
 
     try {
-        const resp = await fetch(cmd.endpoint, { method: 'POST', body: formData });
+        // File analysis uploads use cluster routing so the file lands on the selected pod.
+        const resp = await f(cmd.endpoint, { method: 'POST', body: formData });
         if (!resp.ok) {
             const text = await resp.text().catch(() => resp.statusText);
             throw new Error(`Server error ${resp.status}: ${text}`);

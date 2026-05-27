@@ -37,13 +37,14 @@ class ConsoleProxyControllerTest {
         final List<String> postCalls = new ArrayList<>();
         int status = 200;
         String body = "{}";
+        String contentType = "application/json";
         boolean throwError = false;
 
         @Override
         public Response get(String baseUrl, String path) throws ProxyException {
             calls.add(baseUrl + path);
             if (throwError) throw new ProxyException("ConnectException: refused", new RuntimeException());
-            return new Response(status, body);
+            return new Response(status, body, contentType);
         }
 
         @Override
@@ -53,7 +54,7 @@ class ConsoleProxyControllerTest {
             calls.add(url);
             postCalls.add(url);
             if (throwError) throw new ProxyException("ConnectException: refused", new RuntimeException());
-            return new Response(status, this.body);
+            return new Response(status, this.body, this.contentType);
         }
     }
 
@@ -310,18 +311,6 @@ class ConsoleProxyControllerTest {
     }
 
     @Test
-    void podProxyPostJfrStartForwardsAsPost() {
-        Harness h = new Harness();
-        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
-        h.stub.body = "{\"started\":true}";
-        h.stub.status = 202;
-
-        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/jfr/start"));
-        assertEquals(HttpResponseStatus.valueOf(202), resp.status());
-        assertEquals(List.of("http://10.0.0.1:9202/api/jfr/start"), h.stub.postCalls);
-    }
-
-    @Test
     void podProxyGetThreadsNumericIdPassesAllowlist() {
         Harness h = new Harness();
         h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
@@ -340,5 +329,89 @@ class ConsoleProxyControllerTest {
         FullHttpResponse resp = h.send(get("/pod/ns%2Fp/threads/abc/events"));
         assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
         assertTrue(h.stub.calls.isEmpty(), "must not forward non-numeric thread id");
+    }
+
+    // ── Fix 1: /thread-dump is allowlisted ────────────────────────────────
+
+    @Test
+    void podProxyThreadDumpProxies() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"threads\":[]}";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/thread-dump"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals(List.of("http://10.0.0.1:9202/thread-dump"), h.stub.calls);
+    }
+
+    // ── Fix 2: dead JFR/profiler paths return 403 ────────────────────────
+
+    @Test
+    void podProxyJfrStartReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/jfr/start"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(resp.content().toString(CharsetUtil.UTF_8).contains("path not proxyable"));
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to dead JFR route");
+    }
+
+    @Test
+    void podProxyJfrStopReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/jfr/stop"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to dead JFR route");
+    }
+
+    @Test
+    void podProxyProfilerStartReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/profiler/start"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to dead profiler route");
+    }
+
+    @Test
+    void podProxyProfilerStopReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/profiler/stop"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to dead profiler route");
+    }
+
+    // ── Fix 3: upstream Content-Type is forwarded ─────────────────────────
+
+    @Test
+    void podProxyForwardsUpstreamContentType() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "# HELP jvm_gc_pause_seconds\n# TYPE jvm_gc_pause_seconds histogram\n";
+        h.stub.contentType = "text/plain; charset=utf-8";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/metrics"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals("text/plain; charset=utf-8",
+                resp.headers().get(io.netty.handler.codec.http.HttpHeaderNames.CONTENT_TYPE));
+    }
+
+    @Test
+    void podProxyDefaultsToApplicationJsonWhenUpstreamOmitsContentType() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"ok\":true}";
+        // default contentType on stub is already "application/json"
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/gc-analysis"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals("application/json",
+                resp.headers().get(io.netty.handler.codec.http.HttpHeaderNames.CONTENT_TYPE));
     }
 }

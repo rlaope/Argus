@@ -37,7 +37,7 @@
 
     function readUrlPod() {
         var m = new URLSearchParams(window.location.search).get('pod');
-        return m ? decodeURIComponent(m) : null;
+        return m ? m : null;
     }
 
     function writeUrlPod(podId) {
@@ -154,19 +154,25 @@
         setBannerForPod(podId, pod);
     }
 
+    var probeResolve;
+    var probeReady = new Promise(function (r) { probeResolve = r; });
+
     function start() {
         fetch('/api/pods')
             .then(function (res) { return res.ok ? res.json() : null; })
             .then(function (data) {
-                if (!data || !Array.isArray(data.pods)) return; // standalone mode
-                state.clusterMode = true;
-                state.pods = data.pods;
-                renderPicker(data.pods);
+                if (data && Array.isArray(data.pods)) {
+                    state.clusterMode = true;
+                    state.pods = data.pods;
+                    renderPicker(data.pods);
+                }
             })
-            .catch(function () { /* standalone — silent */ });
+            .catch(function () { /* standalone — silent */ })
+            .finally(function () { probeResolve(); });
     }
 
-    function clusterFetchImpl(path, init) {
+    async function clusterFetchImpl(path, init) {
+        await probeReady;
         // Bypass for absolute URLs.
         if (typeof path === 'string' && (path.indexOf('http://') === 0 || path.indexOf('https://') === 0)) {
             return fetch(path, init);

@@ -54,7 +54,8 @@ public class PodHttpClient {
                     .GET()
                     .build();
             HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
-            return new Response(resp.statusCode(), resp.body());
+            String ct = resp.headers().firstValue("content-type").orElse("application/json");
+            return new Response(resp.statusCode(), resp.body(), ct);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ProxyException("interrupted", e);
@@ -89,7 +90,8 @@ public class PodHttpClient {
                     .POST(HttpRequest.BodyPublishers.ofString(body))
                     .build();
             HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
-            return new Response(resp.statusCode(), resp.body());
+            String ct = resp.headers().firstValue("content-type").orElse("application/json");
+            return new Response(resp.statusCode(), resp.body(), ct);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ProxyException("interrupted", e);
@@ -100,8 +102,8 @@ public class PodHttpClient {
         }
     }
 
-    /** Upstream HTTP response captured as raw body + status. */
-    public record Response(int status, String body) {}
+    /** Upstream HTTP response captured as raw body + status + content-type. */
+    public record Response(int status, String body, String contentType) {}
 
     /** Wraps a connect / IO / timeout failure on the pod side. */
     public static final class ProxyException extends Exception {
