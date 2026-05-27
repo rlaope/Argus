@@ -364,6 +364,7 @@ public final class G1Command implements Command {
             case "humongousCycles":    return messages.get("cli.g1.diff.row.humongous");
             case "maxPause":           return messages.get("cli.g1.diff.row.maxpause");
             case "minMmu":             return messages.get("cli.g1.diff.row.mmu");
+            case "ihopMistimed":       return messages.get("cli.g1.diff.row.ihop");
             default:                   return key;
         }
     }

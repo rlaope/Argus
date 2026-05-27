@@ -186,15 +186,10 @@ public final class ZgcJfrCollector {
                     case "jdk.ZUncommit": {
                         d.zUncommitEvents++;
                         // ZUncommit reports `to`/`from` (committed range collapsed back); sum the delta.
-                        try {
-                            long from = event.getLong("from");
-                            long to   = event.getLong("to");
-                            if (from > to) d.zUncommittedBytes += (from - to);
-                        } catch (Exception ignored) {
-                            // Fallback: try `size` field on older JDKs.
-                            try { d.zUncommittedBytes += event.getLong("size"); }
-                            catch (Exception ignored2) {}
-                        }
+                        // Narrow catches to the JFR API exceptions for missing/typed fields so that
+                        // truly unexpected errors propagate instead of being swallowed silently.
+                        long delta = readUncommitDelta(event);
+                        if (delta > 0) d.zUncommittedBytes += delta;
                         break;
                     }
                     default:
@@ -236,6 +231,29 @@ public final class ZgcJfrCollector {
 
     private static String safeGetString(RecordedEvent event, String field) {
         try { return event.getString(field); } catch (Exception e) { return ""; }
+    }
+
+    /**
+     * Reads the bytes released by a {@code jdk.ZUncommit} event. The JFR field names
+     * are JDK-version-dependent — newer JDKs expose {@code from}/{@code to} (the
+     * collapsed committed range); older JDKs expose a single {@code size} field.
+     * Returns 0 when neither shape is present so the metric stays consistent.
+     * Narrow exceptions ({@link IllegalArgumentException}, {@link NullPointerException},
+     * {@link ClassCastException}) — anything else escapes so we don't mask real bugs.
+     */
+    static long readUncommitDelta(RecordedEvent event) {
+        try {
+            long from = event.getLong("from");
+            long to   = event.getLong("to");
+            return from > to ? (from - to) : 0;
+        } catch (IllegalArgumentException | NullPointerException | ClassCastException expected) {
+            // Field shape changed across JDK versions — try fallback.
+        }
+        try {
+            return event.getLong("size");
+        } catch (IllegalArgumentException | NullPointerException | ClassCastException expected) {
+            return 0;
+        }
     }
 
     /**

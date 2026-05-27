@@ -90,16 +90,31 @@ public final class G1JfrCollector {
                     }
                     case "jdk.G1HeapSummary": {
                         // Last sample wins — we want the most recent snapshot.
-                        int eden = safeGetInt(event, "edenUsedRegions");
-                        int sur  = safeGetInt(event, "survivorUsedRegions");
-                        int old  = safeGetInt(event, "oldUsedRegions");
-                        int hum  = safeGetInt(event, "humongousUsedRegions");
-                        int tot  = safeGetInt(event, "numberOfRegions");
-                        if (eden > 0 || sur > 0 || old > 0 || hum > 0) {
-                            d.edenRegions      = eden;
-                            d.survivorRegions  = sur;
-                            d.oldRegions       = old;
-                            d.humongousRegions = hum;
+                        //
+                        // jdk.G1HeapSummary in OpenJDK 11–21 emits SIZE-based fields
+                        // (edenUsedSize, edenTotalSize, survivorUsedSize, oldGenUsedSize,
+                        // humongousUsedSize) plus regionSize + numberOfRegions. The earlier
+                        // implementation read non-existent *UsedRegions fields and silently
+                        // got zero everywhere. We now derive region counts by dividing the
+                        // used-size by regionSize.
+                        long regionSize = safeGetLong(event, "regionSize");
+                        if (regionSize <= 0 && regionSizeBytes > 0) regionSize = regionSizeBytes;
+                        int tot = safeGetInt(event, "numberOfRegions");
+                        long edenUsed     = safeGetLong(event, "edenUsedSize");
+                        long survivorUsed = safeGetLong(event, "survivorUsedSize");
+                        long oldUsed      = safeGetLong(event, "oldGenUsedSize");
+                        long humUsed      = safeGetLong(event, "humongousUsedSize");
+                        if (regionSize > 0) {
+                            int eden = (int) ((edenUsed + regionSize - 1) / regionSize);
+                            int sur  = (int) ((survivorUsed + regionSize - 1) / regionSize);
+                            int old  = (int) ((oldUsed + regionSize - 1) / regionSize);
+                            int hum  = (int) ((humUsed + regionSize - 1) / regionSize);
+                            if (eden > 0 || sur > 0 || old > 0 || hum > 0) {
+                                d.edenRegions      = eden;
+                                d.survivorRegions  = sur;
+                                d.oldRegions       = old;
+                                d.humongousRegions = hum;
+                            }
                         }
                         if (tot > 0) d.totalRegions = tot;
                         break;

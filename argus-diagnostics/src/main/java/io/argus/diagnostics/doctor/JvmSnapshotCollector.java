@@ -28,9 +28,15 @@ public final class JvmSnapshotCollector {
     private static final Pattern JCMD_HEAP_TOTAL_USED_KB = Pattern.compile("total\\s+(\\d+)K.*used\\s+(\\d+)K");
     private static final Pattern JCMD_HEAP_POOL_PARSE = Pattern.compile("(\\w[\\w\\s-]*)\\s+(?:total\\s+)?(\\d+)K.*used\\s+(\\d+)K");
 
-    /** Extracts the GC log file path from -Xlog:gc*:file=<path> style flags. Captures only the file= portion. */
+    /**
+     * Extracts the GC log file path from -Xlog flags of the form
+     * {@code -Xlog:gc:file=<path>} or {@code -Xlog:gc*=info:file=<path>:time,level}.
+     * Requires the literal {@code :file=} marker — flags that only log to stdout/stderr
+     * (no file=) intentionally do not match, so callers know there is no log to tail.
+     * Captures the path verbatim into group 1.
+     */
     private static final Pattern GC_LOG_FILE_FLAG = Pattern.compile(
-            "-Xlog:gc[^:\\s]*:(?:file=)?([^:\\s,]+)", Pattern.CASE_INSENSITIVE);
+            "-Xlog:gc[^\\s]*?:file=([^:\\s,]+)", Pattern.CASE_INSENSITIVE);
 
     /** Maximum GC log size we'll re-parse in the snapshot path (10 MB). */
     private static final long MAX_LOG_BYTES = 10L * 1024 * 1024;

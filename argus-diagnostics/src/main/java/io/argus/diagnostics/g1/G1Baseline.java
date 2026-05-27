@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -218,16 +219,16 @@ public final class G1Baseline {
         sb.append("mixedCycles=").append(d.mixedCycles).append('\n');
         sb.append("concurrentCycles=").append(d.concurrentCycles).append('\n');
         sb.append("fullGcCycles=").append(d.fullGcCycles).append('\n');
-        sb.append("avgYoungPauseMs=").append(String.format("%.6f", d.avgYoungPauseMs)).append('\n');
-        sb.append("avgMixedPauseMs=").append(String.format("%.6f", d.avgMixedPauseMs)).append('\n');
-        sb.append("maxPauseMs=").append(String.format("%.6f", d.maxPauseMs)).append('\n');
+        sb.append("avgYoungPauseMs=").append(String.format(Locale.ROOT, "%.6f", d.avgYoungPauseMs)).append('\n');
+        sb.append("avgMixedPauseMs=").append(String.format(Locale.ROOT, "%.6f", d.avgMixedPauseMs)).append('\n');
+        sb.append("maxPauseMs=").append(String.format(Locale.ROOT, "%.6f", d.maxPauseMs)).append('\n');
         sb.append("bytesCopiedYoung=").append(d.bytesCopiedYoung).append('\n');
         sb.append("bytesCopiedOld=").append(d.bytesCopiedOld).append('\n');
         sb.append("evacuationFailures=").append(d.evacuationFailures).append('\n');
-        sb.append("avgMmuPercent=").append(String.format("%.6f", d.avgMmuPercent)).append('\n');
-        sb.append("minMmuPercent=").append(String.format("%.6f", d.minMmuPercent)).append('\n');
-        sb.append("predictedIhopPercent=").append(String.format("%.6f", d.predictedIhopPercent)).append('\n');
-        sb.append("actualIhopPercent=").append(String.format("%.6f", d.actualIhopPercent)).append('\n');
+        sb.append("avgMmuPercent=").append(String.format(Locale.ROOT, "%.6f", d.avgMmuPercent)).append('\n');
+        sb.append("minMmuPercent=").append(String.format(Locale.ROOT, "%.6f", d.minMmuPercent)).append('\n');
+        sb.append("predictedIhopPercent=").append(String.format(Locale.ROOT, "%.6f", d.predictedIhopPercent)).append('\n');
+        sb.append("actualIhopPercent=").append(String.format(Locale.ROOT, "%.6f", d.actualIhopPercent)).append('\n');
         sb.append("humongousAllocationCycles=").append(d.humongousAllocationCycles).append('\n');
         sb.append("fullGcSeen=").append(d.fullGcSeen).append('\n');
         sb.append("evacuationFailureSeen=").append(d.evacuationFailureSeen).append('\n');
@@ -348,12 +349,19 @@ public final class G1Baseline {
         double curMax  = current.maxPauseMs;
         double maxDelta = curMax - baseMax;
         Severity pauseSeverity = INFO;
-        if (baseMax > 0 && maxDelta / baseMax > 0.50) pauseSeverity = REGRESSION;
-        else if (maxDelta > 0)                         pauseSeverity = WARN;
+        if (baseMax > 0 && maxDelta / baseMax > 0.50) {
+            pauseSeverity = REGRESSION;
+        } else if (baseMax == 0 && curMax > 20.0) {
+            // 0 → N: baseline had no pause data; first observed pause above 20 ms is a regression
+            // (warm-up / known-clean state worsened to a measurable pause).
+            pauseSeverity = REGRESSION;
+        } else if (maxDelta > 0) {
+            pauseSeverity = WARN;
+        }
         rows.add(new DiffRow("maxPause",
-                String.format("%.2fms", baseMax),
-                String.format("%.2fms", curMax),
-                String.format("%+.2fms", maxDelta),
+                String.format(Locale.ROOT, "%.2fms", baseMax),
+                String.format(Locale.ROOT, "%.2fms", curMax),
+                String.format(Locale.ROOT, "%+.2fms", maxDelta),
                 pauseSeverity));
 
         // Min MMU (drop > 20% = regression)
@@ -364,10 +372,22 @@ public final class G1Baseline {
         if (baseMmu > 0 && (baseMmu - curMmu) / baseMmu > 0.20) mmuSeverity = REGRESSION;
         else if (mmuDelta < 0) mmuSeverity = WARN;
         rows.add(new DiffRow("minMmu",
-                String.format("%.1f%%", baseMmu),
-                String.format("%.1f%%", curMmu),
-                String.format("%+.1f%%", mmuDelta),
+                String.format(Locale.ROOT, "%.1f%%", baseMmu),
+                String.format(Locale.ROOT, "%.1f%%", curMmu),
+                String.format(Locale.ROOT, "%+.1f%%", mmuDelta),
                 mmuSeverity));
+
+        // IHOP mistimed (boolean): newly set = REGRESSION, persists = WARN.
+        boolean baseIhop = baseline.ihopMistimed;
+        boolean curIhop  = current.ihopMistimed;
+        Severity ihopSeverity = INFO;
+        if (!baseIhop && curIhop) ihopSeverity = REGRESSION;
+        else if (curIhop)         ihopSeverity = WARN;
+        rows.add(new DiffRow("ihopMistimed",
+                baseIhop ? "yes" : "no",
+                curIhop  ? "yes" : "no",
+                (!baseIhop && curIhop) ? "NEW" : (curIhop ? "persists" : "none"),
+                ihopSeverity));
 
         return rows;
     }
@@ -427,7 +447,17 @@ public final class G1Baseline {
         if (raw.isEmpty()) return out;
         String[] parts = raw.split("(?<!\\\\);");
         for (String part : parts) {
-            String unescaped = part.replace("\\;", ";").replace("\\|", "|").replace("\\\\", "\\");
+            // Unescape order is the inverse of escapeField (which escapes backslash FIRST,
+            // then delimiters). Here we unescape delimiters FIRST, then backslash LAST —
+            // otherwise inputs like `\\\\;` collapse the double-backslash before we have
+            // a chance to recognise it as escaping the semicolon, and the semicolon
+            // delimiter is lost. Using placeholders that cannot appear in the source
+            // makes the order safe regardless.
+            String unescaped = part
+                    .replace("\\\\", " BS ")  // protect escaped backslash
+                    .replace("\\;",  ";")                 // unescape semicolon
+                    .replace("\\|",  "|")                 // unescape pipe
+                    .replace(" BS ", "\\");    // restore backslash
             if (!unescaped.isBlank()) out.add(unescaped);
         }
         return out;
