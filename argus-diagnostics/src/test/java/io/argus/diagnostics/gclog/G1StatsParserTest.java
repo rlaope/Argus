@@ -22,8 +22,7 @@ class G1StatsParserTest {
     }
 
     @Test
-    void evacuation_failure_counted() throws Exception {
-        @TempDir Path tmp = Files.createTempDirectory("g1log");
+    void evacuation_failure_counted(@TempDir Path tmp) throws Exception {
         Path log = writeLog(tmp, ""
                 + "[0.500s][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 256M->250M(512M) 12.5ms\n"
                 + "[0.800s][info][gc] GC(2) To-space exhausted\n"
@@ -33,8 +32,7 @@ class G1StatsParserTest {
     }
 
     @Test
-    void humongous_signals_collected() throws Exception {
-        @TempDir Path tmp = Files.createTempDirectory("g1log");
+    void humongous_signals_collected(@TempDir Path tmp) throws Exception {
         Path log = writeLog(tmp, ""
                 + "[0.500s][info][gc] GC(1) Pause Young (Normal) (G1 Humongous Allocation) 256M->250M(512M) 12.5ms\n"
                 + "[0.700s][info][gc,heap] GC(2) Humongous regions: 4->6\n"
@@ -45,8 +43,7 @@ class G1StatsParserTest {
     }
 
     @Test
-    void mixed_vs_prepare_mixed_distinguished() throws Exception {
-        @TempDir Path tmp = Files.createTempDirectory("g1log");
+    void mixed_vs_prepare_mixed_distinguished(@TempDir Path tmp) throws Exception {
         Path log = writeLog(tmp, ""
                 + "[1.000s][info][gc] GC(1) Pause Young (Prepare Mixed) (G1 Evacuation Pause) 256M->250M(512M) 12.5ms\n"
                 + "[2.000s][info][gc] GC(2) Pause Young (Mixed) (G1 Evacuation Pause) 250M->245M(512M) 14.2ms\n"
@@ -57,8 +54,7 @@ class G1StatsParserTest {
     }
 
     @Test
-    void concurrent_cycle_markers_counted() throws Exception {
-        @TempDir Path tmp = Files.createTempDirectory("g1log");
+    void concurrent_cycle_markers_counted(@TempDir Path tmp) throws Exception {
         Path log = writeLog(tmp, ""
                 + "[1.000s][info][gc] GC(1) Concurrent Mark Cycle\n"
                 + "[2.000s][info][gc] GC(2) Concurrent Mark Cycle\n");
@@ -67,8 +63,7 @@ class G1StatsParserTest {
     }
 
     @Test
-    void mixed_starvation_suspected_when_concurrent_without_mixed() throws Exception {
-        @TempDir Path tmp = Files.createTempDirectory("g1log");
+    void mixed_starvation_suspected_when_concurrent_without_mixed(@TempDir Path tmp) throws Exception {
         Path log = writeLog(tmp, ""
                 + "[1.000s][info][gc] GC(1) Concurrent Mark Cycle\n"
                 + "[2.000s][info][gc] GC(2) Concurrent Mark Cycle\n");
@@ -77,8 +72,7 @@ class G1StatsParserTest {
     }
 
     @Test
-    void non_g1_log_yields_empty_stats() throws Exception {
-        @TempDir Path tmp = Files.createTempDirectory("g1log");
+    void non_g1_log_yields_empty_stats(@TempDir Path tmp) throws Exception {
         Path log = writeLog(tmp, ""
                 + "[0.500s][info][gc] GC(1) Pause Mark Start 0.4ms\n"
                 + "[0.800s][info][gc] GC(1) Pause Mark End 2.1ms\n");
@@ -88,8 +82,7 @@ class G1StatsParserTest {
     }
 
     @Test
-    void full_gc_seen_on_pause_full() throws Exception {
-        @TempDir Path tmp = Files.createTempDirectory("g1log");
+    void full_gc_seen_on_pause_full(@TempDir Path tmp) throws Exception {
         Path log = writeLog(tmp, ""
                 + "[1.000s][info][gc] GC(1) Pause Full (G1 Compaction Pause) 512M->500M(512M) 850ms\n");
         GcLogParser.ParseResult result = GcLogParser.parseWithPhases(log);
