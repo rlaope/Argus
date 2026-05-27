@@ -42,6 +42,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Top-level HTTP request dispatcher for the aggregator. Implements the API
@@ -52,6 +53,36 @@ public final class FleetController {
     private static final System.Logger LOG = System.getLogger(FleetController.class.getName());
     private static final List<String> ALLOWED_SEVERITIES = List.of("critical", "warning", "info");
     private static final int MAX_PODID_LENGTH = 253;
+
+    /**
+     * Allowlist of paths that may be proxied through {@code GET|POST /pod/{id}/{path}}.
+     * Each pattern is anchored (matches the full remaining path after the podId segment,
+     * including any querystring that was stripped before matching). Tightly scoped to
+     * known argus-server endpoints; everything else returns 403.
+     */
+    private static final List<Pattern> PROXY_ALLOWLIST = List.of(
+            Pattern.compile("/metrics"),
+            Pattern.compile("/config"),
+            Pattern.compile("/health"),
+            Pattern.compile("/active-threads"),
+            Pattern.compile("/thread-dump"),
+            Pattern.compile("/gc-analysis"),
+            Pattern.compile("/cpu-metrics"),
+            Pattern.compile("/allocation-analysis"),
+            Pattern.compile("/metaspace-metrics"),
+            Pattern.compile("/method-profiling"),
+            Pattern.compile("/contention-analysis"),
+            Pattern.compile("/pinning-analysis"),
+            Pattern.compile("/carrier-threads"),
+            Pattern.compile("/correlation"),
+            Pattern.compile("/flame-graph"),
+            Pattern.compile("/api/commands"),
+            Pattern.compile("/api/doctor"),
+            Pattern.compile("/api/process"),
+            Pattern.compile("/api/exec"),
+            Pattern.compile("/threads/\\d+/events"),
+            Pattern.compile("/threads/\\d+/dump")
+    );
 
     private final FleetRegistry registry;
     private final PrometheusMetricsExporter prometheus;
@@ -126,6 +157,17 @@ public final class FleetController {
             }
             if (HttpMethod.POST.equals(method) && path.equals("/api/exec")) {
                 handleProxyExec(ctx, request, decoder.parameters());
+                return true;
+            }
+            // ── Generic pod-path proxy ──────────────────────────────────────
+            // GET|POST /pod/{encodedPodId}/{remaining-path}
+            // Lets the dashboard fetch any allowlisted endpoint on a specific
+            // pod without the browser needing to know the pod's IP/port.
+            if ((HttpMethod.GET.equals(method) || HttpMethod.POST.equals(method))
+                    && path.startsWith("/pod/")) {
+                // Pass the raw URI (not the decoded path) so the percent-encoded
+                // podId segment (e.g. "ns%2Fp") reaches handlePodProxy intact.
+                handlePodProxy(ctx, request, request.uri(), method, decoder.rawQuery());
                 return true;
             }
         } catch (Exception e) {
@@ -394,6 +436,113 @@ public final class FleetController {
             // the client-facing message free of internal addressing.
             LOG.log(System.Logger.Level.WARNING,
                     () -> "console proxy: pod unreachable [" + e.getMessage() + "]");
+            sendError(ctx, request, 502, "pod unreachable");
+        }
+    }
+
+    /**
+     * Generic pod-path proxy: {@code GET|POST /pod/{encodedPodId}/{remaining-path}}.
+     *
+     * <ol>
+     *   <li>Decodes and validates the first path segment after {@code /pod/} via
+     *       {@link #decodeAndValidatePodId} (rejects NULL bytes, {@code ..}, wrong
+     *       slash count, length cap).</li>
+     *   <li>Looks up the {@link PodTarget} in the registry; returns 404 if absent.</li>
+     *   <li>Matches the remaining path against {@link #PROXY_ALLOWLIST}; returns 403
+     *       if not matched.</li>
+     *   <li>For {@code /api/exec} applies the same cmd-regex check as
+     *       {@link #handleProxyExec}.</li>
+     *   <li>Forwards the request (GET or POST) to the pod and streams back the
+     *       response with a clamped status code.</li>
+     * </ol>
+     */
+    private void handlePodProxy(ChannelHandlerContext ctx, FullHttpRequest request,
+                                String rawUri, HttpMethod method, String rawQuery) {
+        // rawUri is the unmodified request.uri(), e.g. "/pod/ns%2Fp/metrics?foo=bar"
+        // Strip querystring before parsing path segments so '?' doesn't leak into remaining.
+        String fullPath = rawUri;
+        int qmark = fullPath.indexOf('?');
+        if (qmark >= 0) fullPath = fullPath.substring(0, qmark);
+
+        // fullPath is now /pod/{encodedPodId}/{remaining}
+        // Strip leading /pod/
+        String afterPrefix = fullPath.substring("/pod/".length()); // "encodedPodId/remaining"
+
+        // Split on the first '/' to separate encoded podId from remaining path
+        int sep = afterPrefix.indexOf('/');
+        String encodedPodId;
+        String remaining;
+        if (sep < 0) {
+            // No slash after podId — remaining path is empty, which won't match
+            // any allowlist entry; still validate podId and return 403 rather than
+            // a misleading 400.
+            encodedPodId = afterPrefix;
+            remaining = "";
+        } else {
+            encodedPodId = afterPrefix.substring(0, sep);
+            remaining = afterPrefix.substring(sep); // includes leading '/'
+        }
+
+        String podId = decodeAndValidatePodId(encodedPodId);
+        if (podId == null) {
+            sendError(ctx, request, 400, "invalid podId");
+            return;
+        }
+
+        PodTarget target = registry.get(podId);
+        if (target == null) {
+            sendError(ctx, request, 404, "pod not registered");
+            return;
+        }
+
+        // Allowlist check — match against the path portion only (no querystring)
+        boolean allowed = false;
+        for (Pattern p : PROXY_ALLOWLIST) {
+            if (p.matcher(remaining).matches()) {
+                allowed = true;
+                break;
+            }
+        }
+        if (!allowed) {
+            sendError(ctx, request, 403, "path not proxyable");
+            return;
+        }
+
+        // Extra validation for /api/exec: enforce the same cmd regex as
+        // handleProxyExec so the general proxy cannot be used to bypass it.
+        if (remaining.equals("/api/exec")) {
+            QueryStringDecoder qs = rawQuery != null && !rawQuery.isEmpty()
+                    ? new QueryStringDecoder("/?" + rawQuery)
+                    : new QueryStringDecoder("/");
+            String cmd = firstParam(qs.parameters(), "cmd");
+            if (cmd == null || cmd.length() > 64 || !cmd.matches("[a-z0-9_-]+")) {
+                sendError(ctx, request, 400, "invalid cmd");
+                return;
+            }
+        }
+
+        // Build the forwarded path with original querystring
+        String forwardPath = rawQuery != null && !rawQuery.isEmpty()
+                ? remaining + "?" + rawQuery
+                : remaining;
+
+        String forwardUrl = target.scrapeUrl() + forwardPath;
+        LOG.log(System.Logger.Level.DEBUG, () -> "pod proxy: forwarding " + method + " " + forwardUrl);
+
+        try {
+            PodHttpClient.Response resp;
+            if (HttpMethod.POST.equals(method)) {
+                String body = request.content().toString(CharsetUtil.UTF_8);
+                String contentType = request.headers().get(HttpHeaderNames.CONTENT_TYPE);
+                if (contentType == null) contentType = "application/json";
+                resp = podClient.post(target.scrapeUrl(), forwardPath, body, contentType);
+            } else {
+                resp = podClient.get(target.scrapeUrl(), forwardPath);
+            }
+            sendText(ctx, request, safeStatus(resp.status()), resp.body(), resp.contentType());
+        } catch (PodHttpClient.ProxyException e) {
+            LOG.log(System.Logger.Level.WARNING,
+                    () -> "pod proxy: pod unreachable [" + e.getMessage() + "]");
             sendError(ctx, request, 502, "pod unreachable");
         }
     }

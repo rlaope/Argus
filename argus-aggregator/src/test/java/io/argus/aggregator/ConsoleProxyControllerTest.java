@@ -34,15 +34,27 @@ class ConsoleProxyControllerTest {
     /** Records every forwarded {@code baseUrl + path} and returns a canned response. */
     private static final class StubPodClient extends PodHttpClient {
         final List<String> calls = new ArrayList<>();
+        final List<String> postCalls = new ArrayList<>();
         int status = 200;
         String body = "{}";
+        String contentType = "application/json";
         boolean throwError = false;
 
         @Override
         public Response get(String baseUrl, String path) throws ProxyException {
             calls.add(baseUrl + path);
             if (throwError) throw new ProxyException("ConnectException: refused", new RuntimeException());
-            return new Response(status, body);
+            return new Response(status, body, contentType);
+        }
+
+        @Override
+        public Response post(String baseUrl, String path, String body, String contentType)
+                throws ProxyException {
+            String url = baseUrl + path;
+            calls.add(url);
+            postCalls.add(url);
+            if (throwError) throw new ProxyException("ConnectException: refused", new RuntimeException());
+            return new Response(status, this.body, this.contentType);
         }
     }
 
@@ -241,5 +253,165 @@ class ConsoleProxyControllerTest {
         h.stub.body = "{}";
         FullHttpResponse resp = h.send(post("/api/exec?pod=ns%2Fp&cmd=gc"));
         assertEquals(HttpResponseStatus.BAD_GATEWAY, resp.status());
+    }
+
+    // ── /pod/{id}/{path} generic proxy ────────────────────────────────────
+
+    @Test
+    void podProxyGetMetricsForwardsToCorrectUrl() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"jvm\":\"ok\"}";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/metrics"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals("{\"jvm\":\"ok\"}", resp.content().toString(CharsetUtil.UTF_8));
+        assertEquals(List.of("http://10.0.0.1:9202/metrics"), h.stub.calls);
+    }
+
+    @Test
+    void podProxyGetGcAnalysisForwardsCorrectly() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"gcEvents\":[]}";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/gc-analysis"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals(List.of("http://10.0.0.1:9202/gc-analysis"), h.stub.calls);
+    }
+
+    @Test
+    void podProxyReturns403ForNonAllowlistedPath() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/secret-internal-path"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(resp.content().toString(CharsetUtil.UTF_8).contains("path not proxyable"));
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to non-allowlisted path");
+    }
+
+    @Test
+    void podProxyReturns404WhenPodNotRegistered() {
+        Harness h = new Harness();
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Funknown/metrics"));
+        assertEquals(HttpResponseStatus.NOT_FOUND, resp.status());
+        assertTrue(resp.content().toString(CharsetUtil.UTF_8).contains("pod not registered"));
+        assertTrue(h.stub.calls.isEmpty(), "must not forward for unregistered pod");
+    }
+
+    @Test
+    void podProxyReturns400ForPathTraversalInPodId() {
+        Harness h = new Harness();
+
+        FullHttpResponse resp = h.send(get("/pod/..%2Fetc%2Fpasswd/metrics"));
+        assertEquals(HttpResponseStatus.BAD_REQUEST, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward on path traversal podId");
+    }
+
+    @Test
+    void podProxyGetThreadsNumericIdPassesAllowlist() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"events\":[]}";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/threads/123/events"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals(List.of("http://10.0.0.1:9202/threads/123/events"), h.stub.calls);
+    }
+
+    @Test
+    void podProxyGetThreadsNonNumericIdReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/threads/abc/events"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward non-numeric thread id");
+    }
+
+    // ── Fix 1: /thread-dump is allowlisted ────────────────────────────────
+
+    @Test
+    void podProxyThreadDumpProxies() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"threads\":[]}";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/thread-dump"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals(List.of("http://10.0.0.1:9202/thread-dump"), h.stub.calls);
+    }
+
+    // ── Fix 2: dead JFR/profiler paths return 403 ────────────────────────
+
+    @Test
+    void podProxyJfrStartReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/jfr/start"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(resp.content().toString(CharsetUtil.UTF_8).contains("path not proxyable"));
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to dead JFR route");
+    }
+
+    @Test
+    void podProxyJfrStopReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/jfr/stop"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to dead JFR route");
+    }
+
+    @Test
+    void podProxyProfilerStartReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/profiler/start"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to dead profiler route");
+    }
+
+    @Test
+    void podProxyProfilerStopReturns403() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+
+        FullHttpResponse resp = h.send(post("/pod/ns%2Fp/api/profiler/stop"));
+        assertEquals(HttpResponseStatus.FORBIDDEN, resp.status());
+        assertTrue(h.stub.calls.isEmpty(), "must not forward to dead profiler route");
+    }
+
+    // ── Fix 3: upstream Content-Type is forwarded ─────────────────────────
+
+    @Test
+    void podProxyForwardsUpstreamContentType() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "# HELP jvm_gc_pause_seconds\n# TYPE jvm_gc_pause_seconds histogram\n";
+        h.stub.contentType = "text/plain; charset=utf-8";
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/metrics"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals("text/plain; charset=utf-8",
+                resp.headers().get(io.netty.handler.codec.http.HttpHeaderNames.CONTENT_TYPE));
+    }
+
+    @Test
+    void podProxyDefaultsToApplicationJsonWhenUpstreamOmitsContentType() {
+        Harness h = new Harness();
+        h.registerPod("ns/p", "ns", "p", "10.0.0.1", 9202);
+        h.stub.body = "{\"ok\":true}";
+        // default contentType on stub is already "application/json"
+
+        FullHttpResponse resp = h.send(get("/pod/ns%2Fp/gc-analysis"));
+        assertEquals(HttpResponseStatus.OK, resp.status());
+        assertEquals("application/json",
+                resp.headers().get(io.netty.handler.codec.http.HttpHeaderNames.CONTENT_TYPE));
     }
 }

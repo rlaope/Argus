@@ -27,7 +27,7 @@ class JsonRoundTripTest {
                 Instant.parse("2026-05-26T10:00:30Z"),
                 true);
         TileMetrics m = new TileMetrics(50.0, 1.5, 30.0, 100, false);
-        Tile tile = new Tile("prod/p-1", TileColor.GREEN, target, m, 0, "/pod/prod/p-1");
+        Tile tile = new Tile("prod/p-1", TileColor.GREEN, target, m, 0, "/?pod=prod%2Fp-1");
         String json = JsonWriter.tileList(List.of(tile), 1, 1);
         assertTrue(json.contains("\"podId\":\"prod/p-1\""));
         assertTrue(json.contains("\"color\":\"green\""));
@@ -58,7 +58,7 @@ class JsonRoundTripTest {
                 Instant.parse("2026-05-26T10:00:30Z"),
                 true);
         TileMetrics m = new TileMetrics(50.0, 1.5, 30.0, 100, false);
-        Tile tile = new Tile("n/p", TileColor.GREEN, target, m, 0, "/pod/n/p");
+        Tile tile = new Tile("n/p", TileColor.GREEN, target, m, 0, "/?pod=n%2Fp");
         MetricSample sample = new MetricSample(
                 Instant.parse("2026-05-26T10:00:30Z"), 50.0, 1.5, 30.0, 100);
         AlertEvent alert = new AlertEvent(

@@ -4,6 +4,8 @@
  * Fetches /api/doctor and renders a health score gauge plus finding cards.
  */
 
+const f = (p, i) => (window.__argusCluster?.fetch || fetch)(p, i);
+
 let doctorInterval = null;
 
 /**
@@ -17,7 +19,7 @@ export function initDoctor() {
 
 async function fetchDoctorReport() {
     try {
-        const res = await fetch('/api/doctor');
+        const res = await f('/api/doctor');
         if (!res.ok) return;
         const data = await res.json();
         renderDoctorReport(data);

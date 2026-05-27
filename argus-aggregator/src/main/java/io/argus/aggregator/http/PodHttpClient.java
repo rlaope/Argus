@@ -54,7 +54,8 @@ public class PodHttpClient {
                     .GET()
                     .build();
             HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
-            return new Response(resp.statusCode(), resp.body());
+            String ct = resp.headers().firstValue("content-type").orElse("application/json");
+            return new Response(resp.statusCode(), resp.body(), ct);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new ProxyException("interrupted", e);
@@ -67,8 +68,42 @@ public class PodHttpClient {
         }
     }
 
-    /** Upstream HTTP response captured as raw body + status. */
-    public record Response(int status, String body) {}
+    /**
+     * Performs a POST against {@code baseUrl + path} with the given body and
+     * returns the response. Uses the same 2s connect / 10s request timeouts as
+     * {@link #get}.
+     *
+     * @param baseUrl     pod's {@code http://host:port} base
+     * @param path        request path (with optional querystring); must begin with {@code /}
+     * @param body        request body; may be empty but not null
+     * @param contentType value for the {@code Content-Type} header
+     * @throws ProxyException on connect/timeout/IO failure — caller maps to 502
+     */
+    public Response post(String baseUrl, String path, String body, String contentType)
+            throws ProxyException {
+        try {
+            URI uri = URI.create(baseUrl + path);
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(uri)
+                    .timeout(REQUEST_TIMEOUT)
+                    .header("Content-Type", contentType)
+                    .POST(HttpRequest.BodyPublishers.ofString(body))
+                    .build();
+            HttpResponse<String> resp = client.send(req, HttpResponse.BodyHandlers.ofString());
+            String ct = resp.headers().firstValue("content-type").orElse("application/json");
+            return new Response(resp.statusCode(), resp.body(), ct);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new ProxyException("interrupted", e);
+        } catch (IllegalArgumentException e) {
+            throw new ProxyException("bad URI: " + e.getMessage(), e);
+        } catch (Exception e) {
+            throw new ProxyException(e.getClass().getSimpleName() + ": " + e.getMessage(), e);
+        }
+    }
+
+    /** Upstream HTTP response captured as raw body + status + content-type. */
+    public record Response(int status, String body, String contentType) {}
 
     /** Wraps a connect / IO / timeout failure on the pod side. */
     public static final class ProxyException extends Exception {

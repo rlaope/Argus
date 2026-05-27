@@ -33,7 +33,7 @@ Keep every Argus distribution channel aligned with the project version and free 
 | Maven Central (starter) | `argus-spring-boot-starter/build.gradle.kts` | Spring Boot, Spring Context, Micrometer, configuration-processor versions |
 | Helm chart | `charts/argus/Chart.yaml`, `charts/argus/values.yaml`, `charts/argus/templates/*.yaml`, `charts/argus/README.md` | `version`, `appVersion`, `kubeVersion`, image tag, K8s API versions |
 | Docker compose | `deploy/docker-compose.yml` | image tags (must NOT be `:latest`) |
-| Dockerfiles | `Dockerfile`, `deploy/docker/Dockerfile.*` | base image tag (e.g., `eclipse-temurin:21-jre-alpine`) |
+| Dockerfiles | `Dockerfile`, `deploy/docker/Dockerfile.*` (production only; `*.example` files use `:latest` deliberately as templates) | base image tag (e.g., `eclipse-temurin:21-jre-alpine`) |
 | Install (Unix) | `install.sh` | `VERSION` fallback, `ASPROF_VERSION`, checksum verification logic |
 | Install (Windows) | `install.ps1` | `Version` fallback, example block |
 | Homebrew | `Formula/argus.rb` | `version`, `url`, `sha256`, `depends_on` JDK version |

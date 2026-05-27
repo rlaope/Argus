@@ -379,19 +379,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
-        long startNanos = System.nanoTime();
-        String metricsText = prometheusCollector.collectMetrics();
-        long durationNanos = System.nanoTime() - startNanos;
-
-        StringBuilder sb = new StringBuilder(metricsText.length() + 128);
-        sb.append(metricsText);
-        sb.append("# HELP argus_scrape_duration_seconds Time taken to collect metrics\n");
-        sb.append("# TYPE argus_scrape_duration_seconds gauge\n");
-        sb.append("argus_scrape_duration_seconds ")
-                .append(String.format("%.6f", durationNanos / 1_000_000_000.0))
-                .append('\n');
-
-        HttpResponseHelper.sendPrometheus(ctx, request, sb.toString());
+        HttpResponseHelper.sendPrometheus(ctx, request, prometheusCollector.collectMetrics());
     }
 
     private String serializeActiveThreads() {
