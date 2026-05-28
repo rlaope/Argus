@@ -110,7 +110,27 @@
                     </div>
                     <div class="feature-card">
                         <h4>Zero Overhead Design</h4>
-                        <p>Built on JFR and JMX MXBeans — the same low-overhead infrastructure that the JVM uses internally. No bytecode modification, no sampling bias.</p>
+                        <p>The core diagnostic path is built on JFR and JMX MXBeans — the same low-overhead infrastructure the JVM uses internally. No bytecode modification by default, no sampling bias.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>MAT-class Heap Analysis</h4>
+                        <p><code>argus heapanalyze --leak-suspects --dominators=N --path-to-root</code> builds a dominator tree, retained sizes, GC-roots reachability, and an automated leak-suspects report — offline, on multi-GB dumps, within a bounded analyzer heap.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Continuous Profiling</h4>
+                        <p>Disk-backed, time-windowed per-pod CPU/alloc profiles with merged-window flamegraph queries and differential flamegraphs across time ranges — no external TSDB.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Distributed-Tracing Correlation</h4>
+                        <p>GC pauses are correlated with in-flight W3C trace context and exported as OpenTelemetry spans, with trace-ID exemplars on pause-time metrics — see which traces a pause stalled in Tempo, Jaeger, or Grafana.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Opt-in Live Instrumentation</h4>
+                        <p><code>argus instrument {watch|trace|monitor} &lt;pid&gt; &lt;Class#method&gt;</code> captures args, return, exceptions, and timing on a running JVM via dynamic-attach bytecode instrumentation. Default OFF, isolated, auto-detaches with zero residual bytecode.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>OpenMetrics &amp; Grafana</h4>
+                        <p>OpenMetrics-compliant <code>/prometheus</code> export with per-collector GC pause histograms and trace-ID exemplars, plus a shipped Grafana dashboard and recording/alert rules.</p>
                     </div>
                 </div>
             </div>
