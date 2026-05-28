@@ -2,7 +2,7 @@ class Argus < Formula
   desc "JVM Monitoring Orchestration Tools — diagnostic CLI, dashboard, TUI, and rule-based doctor"
   homepage "https://github.com/rlaope/Argus"
   url "https://github.com/rlaope/Argus/releases/download/v1.5.0/argus-cli-1.5.0-all.jar"
-  sha256 "42ae225ebc68670097fe5adcf26872db089895df2b594e58b03d15415e4b0901"
+  sha256 "501cfb9dd612ec335186fe05649259fcecff193552e62be2820b26302cdbeea9"
   license "MIT"
 
   depends_on "openjdk@21"
