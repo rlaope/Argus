@@ -3,6 +3,7 @@ package io.argus.server.analysis;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -24,6 +25,20 @@ public final class CorrelationAnalyzer {
     private static final double GC_OVERHEAD_WARNING_THRESHOLD = 0.10; // 10%
     private static final double HIGH_ALLOCATION_RATE_THRESHOLD = 100 * 1024 * 1024; // 100 MB/s
 
+    /**
+     * Default significant-pause threshold (ms). GC pauses at/above this are
+     * "long enough to plausibly stall in-flight work" and are retained for the
+     * timing-overlap join and exported as OTel spans. Overridable via
+     * {@code argus.correlation.pause.threshold.ms}.
+     */
+    private static final double DEFAULT_SIGNIFICANT_PAUSE_MS = 50.0;
+
+    /** How long recorded pause windows are kept for overlap queries. */
+    private static final Duration PAUSE_WINDOW_RETENTION = Duration.ofMinutes(5);
+    private static final int MAX_PAUSE_WINDOWS = 500;
+
+    private final double significantPauseMs;
+
     private final List<CorrelatedEvent> gcCpuCorrelations = new CopyOnWriteArrayList<>();
     private final List<CorrelatedEvent> gcPinningCorrelations = new CopyOnWriteArrayList<>();
     private final List<Recommendation> recommendations = new CopyOnWriteArrayList<>();
@@ -32,6 +47,33 @@ public final class CorrelationAnalyzer {
     private final List<GCTimestamp> recentGCEvents = new CopyOnWriteArrayList<>();
     private final List<CPUSpikeTimestamp> recentCPUSpikes = new CopyOnWriteArrayList<>();
     private final List<PinningTimestamp> recentPinningEvents = new CopyOnWriteArrayList<>();
+
+    /** Recent significant GC pause windows, for the timing-overlap trace join. */
+    private final List<PauseWindow> recentPauseWindows = new CopyOnWriteArrayList<>();
+
+    /** Uses the default significant-pause threshold (50ms, overridable by system property). */
+    public CorrelationAnalyzer() {
+        double threshold = DEFAULT_SIGNIFICANT_PAUSE_MS;
+        try {
+            String prop = System.getProperty("argus.correlation.pause.threshold.ms");
+            if (prop != null && !prop.isBlank()) {
+                threshold = Double.parseDouble(prop.trim());
+            }
+        } catch (NumberFormatException ignored) {
+            // keep default
+        }
+        this.significantPauseMs = threshold;
+    }
+
+    /** Explicit-threshold constructor, primarily for tests. */
+    public CorrelationAnalyzer(double significantPauseMs) {
+        this.significantPauseMs = significantPauseMs;
+    }
+
+    /** The significant-pause threshold in milliseconds. */
+    public double significantPauseThresholdMs() {
+        return significantPauseMs;
+    }
 
     /**
      * Records a GC event for correlation analysis.
@@ -49,6 +91,62 @@ public final class CorrelationAnalyzer {
         // Check for correlations
         checkGCCPUCorrelation(timestamp, gcName, pauseTimeMs);
         checkGCPinningCorrelation(timestamp, gcName, pauseTimeMs);
+    }
+
+    /**
+     * Records a significant GC pause window for the timing-overlap trace join.
+     *
+     * <p>Pauses shorter than {@link #significantPauseThresholdMs()} are ignored:
+     * they are too short to plausibly stall in-flight work. The {@code traceId}
+     * is the W3C trace id captured on the recording thread at pause time, or
+     * {@code null} when no OTel context was active (timing-only mode).
+     *
+     * @param pauseStart    wall-clock start of the pause
+     * @param pauseEnd      wall-clock end of the pause
+     * @param gcName        collector name
+     * @param gcCause       GC cause
+     * @param pauseMs       pause duration in milliseconds
+     * @param reclaimedBytes heap bytes reclaimed (may be 0)
+     * @param traceId       active trace id at pause time, or {@code null}
+     * @return {@code true} if the pause was significant and recorded
+     */
+    public boolean recordPauseWindow(Instant pauseStart, Instant pauseEnd, String gcName,
+                                     String gcCause, double pauseMs, long reclaimedBytes,
+                                     String traceId) {
+        if (pauseMs < significantPauseMs) {
+            return false;
+        }
+        recentPauseWindows.add(new PauseWindow(pauseStart, pauseEnd, gcName, gcCause,
+                pauseMs, reclaimedBytes, traceId));
+        cleanOldPauseWindows();
+        return true;
+    }
+
+    /**
+     * Returns the significant GC pauses whose window overlaps {@code [from, to]}.
+     * A pause overlaps when its end is not before {@code from} and its start is
+     * not after {@code to}. These are the pauses long enough to plausibly stall
+     * any work in flight during the queried window; each carries its trace id
+     * when an OTel context was active at pause time.
+     *
+     * @param from window start (inclusive)
+     * @param to   window end (inclusive)
+     * @return overlapping pause windows, oldest first
+     */
+    public List<PauseWindow> pausesOverlapping(Instant from, Instant to) {
+        List<PauseWindow> out = new ArrayList<>();
+        for (PauseWindow w : recentPauseWindows) {
+            if (!w.pauseEnd().isBefore(from) && !w.pauseStart().isAfter(to)) {
+                out.add(w);
+            }
+        }
+        out.sort(Comparator.comparing(PauseWindow::pauseStart));
+        return out;
+    }
+
+    /** Returns recent significant pause windows (most recent last), capped for the surface. */
+    public List<PauseWindow> getRecentPauseWindows() {
+        return new ArrayList<>(recentPauseWindows);
     }
 
     /**
@@ -154,7 +252,9 @@ public final class CorrelationAnalyzer {
         return new CorrelationResult(
                 new ArrayList<>(gcCpuCorrelations),
                 new ArrayList<>(gcPinningCorrelations),
-                new ArrayList<>(recommendations)
+                new ArrayList<>(recommendations),
+                new ArrayList<>(recentPauseWindows),
+                significantPauseMs
         );
     }
 
@@ -168,6 +268,15 @@ public final class CorrelationAnalyzer {
         recentGCEvents.clear();
         recentCPUSpikes.clear();
         recentPinningEvents.clear();
+        recentPauseWindows.clear();
+    }
+
+    private void cleanOldPauseWindows() {
+        Instant cutoff = Instant.now().minus(PAUSE_WINDOW_RETENTION);
+        recentPauseWindows.removeIf(w -> w.pauseEnd().isBefore(cutoff));
+        while (recentPauseWindows.size() > MAX_PAUSE_WINDOWS) {
+            recentPauseWindows.remove(0);
+        }
     }
 
     private void checkGCCPUCorrelation(Instant gcTimestamp, String gcName, double pauseTimeMs) {
@@ -272,6 +381,22 @@ public final class CorrelationAnalyzer {
     }
 
     /**
+     * A significant GC pause window retained for the timing-overlap trace join.
+     *
+     * @param pauseStart     wall-clock start of the pause
+     * @param pauseEnd       wall-clock end of the pause
+     * @param gcName         collector name
+     * @param gcCause        GC cause
+     * @param pauseMs        pause duration in milliseconds
+     * @param reclaimedBytes heap bytes reclaimed (may be 0)
+     * @param traceId        active W3C trace id at pause time, or {@code null}
+     */
+    public record PauseWindow(Instant pauseStart, Instant pauseEnd, String gcName,
+                              String gcCause, double pauseMs, long reclaimedBytes,
+                              String traceId) {
+    }
+
+    /**
      * Types of recommendations.
      */
     public enum RecommendationType {
@@ -320,17 +445,29 @@ public final class CorrelationAnalyzer {
         private final List<CorrelatedEvent> gcCpuCorrelations;
         private final List<CorrelatedEvent> gcPinningCorrelations;
         private final List<Recommendation> recommendations;
+        private final List<PauseWindow> tracePauses;
+        private final double significantPauseThresholdMs;
 
         public CorrelationResult(List<CorrelatedEvent> gcCpuCorrelations,
                                  List<CorrelatedEvent> gcPinningCorrelations,
-                                 List<Recommendation> recommendations) {
+                                 List<Recommendation> recommendations,
+                                 List<PauseWindow> tracePauses,
+                                 double significantPauseThresholdMs) {
             this.gcCpuCorrelations = gcCpuCorrelations;
             this.gcPinningCorrelations = gcPinningCorrelations;
             this.recommendations = recommendations;
+            this.tracePauses = tracePauses;
+            this.significantPauseThresholdMs = significantPauseThresholdMs;
         }
 
         public List<CorrelatedEvent> gcCpuCorrelations() { return gcCpuCorrelations; }
         public List<CorrelatedEvent> gcPinningCorrelations() { return gcPinningCorrelations; }
         public List<Recommendation> recommendations() { return recommendations; }
+
+        /** Recent significant GC pauses with optional trace ids (timing-overlap join). */
+        public List<PauseWindow> tracePauses() { return tracePauses; }
+
+        /** The significant-pause threshold (ms) used to gate {@link #tracePauses()}. */
+        public double significantPauseThresholdMs() { return significantPauseThresholdMs; }
     }
 }

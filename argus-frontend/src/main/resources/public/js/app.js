@@ -993,6 +993,35 @@ function updateContentionDisplay(data) {
     if (elements.contentionTime) {
         elements.contentionTime.textContent = (data.totalContentionTimeMs || 0) + 'ms';
     }
+    renderContentionHotspots(data);
+}
+
+function renderContentionHotspots(data) {
+    const section = document.getElementById('contention-hotspots-section');
+    const list = document.getElementById('contention-hotspots');
+    if (!section || !list) return;
+    const rows = (data.hotspots || []).slice();
+    if (rows.length === 0) {
+        section.hidden = true;
+        return;
+    }
+    section.hidden = false;
+    rows.sort((a, b) => (b.totalTimeMs || 0) - (a.totalTimeMs || 0));
+    const tbody = rows.slice(0, 10).map(r => {
+        const monitor = escapeHtml(r.monitorClass || 'Unknown');
+        const total = parseFloat(r.totalTimeMs) || 0;
+        const avg = parseFloat(r.avgTimeMs) || 0;
+        const share = parseFloat(r.percentage) || 0;
+        return `<tr><td class="mono">${monitor}</td>`
+            + `<td class="mono right">${formatNumber(r.eventCount || 0)}</td>`
+            + `<td class="mono right">${formatNumber(total)}ms</td>`
+            + `<td class="mono right">${avg.toFixed(2)}ms</td>`
+            + `<td class="mono right">${formatNumber(r.enterCount || 0)}</td>`
+            + `<td class="mono right">${formatNumber(r.waitCount || 0)}</td>`
+            + `<td class="mono right">${share.toFixed(1)}%</td></tr>`;
+    }).join('');
+    list.innerHTML = '<table class="simple-table"><thead><tr><th>Monitor</th><th>Events</th><th>Total</th><th>Avg</th><th>Enter</th><th>Wait</th><th>Share</th></tr></thead><tbody>'
+            + tbody + '</tbody></table>';
 }
 
 function updateRecommendations(data) {

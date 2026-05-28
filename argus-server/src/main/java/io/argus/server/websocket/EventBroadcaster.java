@@ -71,6 +71,17 @@ public final class EventBroadcaster {
     private final FlameGraphAnalyzer flameGraphAnalyzer;
     private final ContentionAnalyzer contentionAnalyzer;
     private final CorrelationAnalyzer correlationAnalyzer;
+    /**
+     * Optional OTLP exporter for GC-pause span export. Set after construction
+     * by {@code ArgusServer} when OTLP is enabled; {@code null} otherwise.
+     */
+    private volatile io.argus.server.metrics.OtlpMetricsExporter otlpExporter;
+    /**
+     * Optional anomaly detector (W5). Set after construction by {@code ArgusServer};
+     * {@code null} disables anomaly-triggered profiling. Fed from the CPU and
+     * allocation drains so it sees the same live samples as the analyzers.
+     */
+    private volatile io.argus.server.analysis.AnomalyDetector anomalyDetector;
     private final ThreadStateManager threadStateManager;
     private final EventJsonSerializer serializer;
     private final ScheduledExecutorService scheduler;
@@ -159,6 +170,30 @@ public final class EventBroadcaster {
         this.stateScheduler = Executors.newSingleThreadScheduledExecutor(
                 r -> { Thread t = new Thread(r, "argus-state-broadcaster"); t.setDaemon(true); return t; }
         );
+    }
+
+    /**
+     * Wires the OTLP exporter used to push GC-pause spans. Optional: when
+     * {@code null} (OTLP disabled), no spans are exported and the GC drain only
+     * records timing-overlap pause windows for the {@code /correlation} surface.
+     */
+    public void setOtlpExporter(io.argus.server.metrics.OtlpMetricsExporter exporter) {
+        this.otlpExporter = exporter;
+    }
+
+    /**
+     * Wires the anomaly detector (W5) fed from the CPU and allocation drains.
+     * Optional: when {@code null} no anomaly detection runs.
+     */
+    public void setAnomalyDetector(io.argus.server.analysis.AnomalyDetector detector) {
+        this.anomalyDetector = detector;
+    }
+
+    /**
+     * Returns the wired anomaly detector, or {@code null} when none is set.
+     */
+    public io.argus.server.analysis.AnomalyDetector getAnomalyDetector() {
+        return anomalyDetector;
     }
 
     /**
@@ -256,6 +291,16 @@ public final class EventBroadcaster {
                 gcAnalyzer.recordGCEvent(event);
                 metrics.incrementGcEvent();
 
+                // Trace correlation: significant GC pauses are timing-overlap
+                // candidates and OTel span exports. The pause is a global
+                // stop-the-world event, so we best-effort capture whatever W3C
+                // trace context is active on this drain thread (null when no OTel
+                // SDK is present — graceful degradation to timing-only).
+                if (event.eventType() == io.argus.core.event.EventType.GC_PAUSE
+                        && event.duration() > 0) {
+                    handleGcPauseCorrelation(event);
+                }
+
                 // Broadcast GC event to clients
                 if (!clients.isEmpty()) {
                     String json = serializeGCEvent(event);
@@ -272,6 +317,12 @@ public final class EventBroadcaster {
                 cpuAnalyzer.recordCPUEvent(event);
                 metrics.incrementCpuEvent();
 
+                // W5: feed the same CPU sample to the anomaly detector (JVM CPU
+                // fraction 0.0-1.0). Fires only on a sustained over-threshold run.
+                if (anomalyDetector != null) {
+                    anomalyDetector.recordCpuSample(event.jvmTotal(), event.timestamp());
+                }
+
                 // Broadcast CPU event to clients
                 if (!clients.isEmpty()) {
                     String json = serializeCPUEvent(event);
@@ -286,6 +337,14 @@ public final class EventBroadcaster {
         if (allocationEventBuffer != null && allocationAnalyzer != null) {
             allocationEventBuffer.drain(event -> {
                 allocationAnalyzer.recordAllocationEvent(event);
+
+                // W5: feed the current allocation rate (KB/s) to the anomaly
+                // detector. The analyzer maintains a 1s rolling rate window, so we
+                // read it back after recording the event.
+                if (anomalyDetector != null) {
+                    double rateKbps = allocationAnalyzer.getCurrentAllocationRate() / 1024.0;
+                    anomalyDetector.recordAllocSample(rateKbps, event.timestamp());
+                }
             });
         }
 
@@ -311,6 +370,36 @@ public final class EventBroadcaster {
             contentionEventBuffer.drain(event -> {
                 contentionAnalyzer.recordContentionEvent(event);
             });
+        }
+    }
+
+    /**
+     * Records a significant GC pause for timing-overlap correlation and exports
+     * it as an OTel span (when OTLP is enabled). The trace id is captured
+     * best-effort from the active OTel context; the {@link CorrelationAnalyzer}
+     * applies the significance threshold (only sufficiently long pauses are kept
+     * / exported).
+     */
+    private void handleGcPauseCorrelation(GCEvent event) {
+        double pauseMs = event.durationMs();
+        // JFR GC events carry the pause START time (RecordedEvent.getStartTime via
+        // GCEventExtractor). The pause window is therefore [start, start+duration],
+        // NOT [end-duration, end] — computing it the other way shifted every window,
+        // span, and trace-overlap join one full pause-duration into the past.
+        java.time.Instant start = event.timestamp() != null ? event.timestamp() : java.time.Instant.now();
+        java.time.Instant end = start.plusNanos(event.duration());
+        String traceId = io.argus.server.metrics.TraceContextHolder.currentTraceId();
+
+        // Single source of truth for "significant": when a CorrelationAnalyzer is
+        // present it both applies the threshold and records the timing-overlap
+        // window; its return value reports whether the pause cleared the bar.
+        boolean significant = correlationAnalyzer != null
+                && correlationAnalyzer.recordPauseWindow(start, end, event.gcName(),
+                        event.gcCause(), pauseMs, event.memoryReclaimed(), traceId);
+
+        if (significant && otlpExporter != null) {
+            otlpExporter.enqueueGcPauseSpan(end.toEpochMilli(), event.gcName(),
+                    event.gcCause(), pauseMs, event.memoryReclaimed(), traceId);
         }
     }
 

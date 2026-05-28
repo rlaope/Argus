@@ -5,6 +5,7 @@ import java.util.Map;
 import io.argus.core.config.AgentConfig;
 import io.argus.server.command.ServerCommandExecutor;
 import io.argus.server.analysis.AllocationAnalyzer;
+import io.argus.server.analysis.AnomalyDetector;
 import io.argus.server.analysis.ContentionAnalyzer;
 import io.argus.server.analysis.CorrelationAnalyzer;
 import io.argus.server.analysis.FlameGraphAnalyzer;
@@ -55,6 +56,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
     private final CorrelationAnalyzer correlationAnalyzer;
     private final EventBroadcaster broadcaster;
     private final PrometheusMetricsCollector prometheusCollector;
+    private final AnomalyDetector anomalyDetector;
     private final StaticFileHandler staticFileHandler;
 
     private WebSocketServerHandshaker handshaker;
@@ -79,7 +81,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             CPUAnalyzer cpuAnalyzer,
             EventBroadcaster broadcaster) {
         this(null, clients, metrics, activeThreads, threadEvents, gcAnalyzer, cpuAnalyzer,
-                null, null, null, null, null, null, broadcaster, null);
+                null, null, null, null, null, null, broadcaster, null, null);
     }
 
     /**
@@ -117,6 +119,49 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             CorrelationAnalyzer correlationAnalyzer,
             EventBroadcaster broadcaster,
             PrometheusMetricsCollector prometheusCollector) {
+        this(config, clients, metrics, activeThreads, threadEvents, gcAnalyzer, cpuAnalyzer,
+                allocationAnalyzer, metaspaceAnalyzer, methodProfilingAnalyzer, flameGraphAnalyzer,
+                contentionAnalyzer, correlationAnalyzer, broadcaster, prometheusCollector, null);
+    }
+
+    /**
+     * Creates a new channel handler with full analyzer support plus the W5
+     * anomaly detector.
+     *
+     * @param config                  the agent configuration (null for defaults)
+     * @param clients                 the channel group for WebSocket clients
+     * @param metrics                 the server metrics tracker
+     * @param activeThreads           the active threads registry
+     * @param threadEvents            the per-thread events buffer
+     * @param gcAnalyzer              the GC analyzer
+     * @param cpuAnalyzer             the CPU analyzer
+     * @param allocationAnalyzer      the allocation analyzer
+     * @param metaspaceAnalyzer       the metaspace analyzer
+     * @param methodProfilingAnalyzer the method profiling analyzer
+     * @param flameGraphAnalyzer      the flame graph analyzer (null if profiling disabled)
+     * @param contentionAnalyzer      the contention analyzer
+     * @param correlationAnalyzer     the correlation analyzer
+     * @param broadcaster             the event broadcaster
+     * @param prometheusCollector     the Prometheus metrics collector (null if disabled)
+     * @param anomalyDetector         the anomaly detector (null if disabled)
+     */
+    public ArgusChannelHandler(
+            AgentConfig config,
+            ChannelGroup clients,
+            ServerMetrics metrics,
+            ActiveThreadsRegistry activeThreads,
+            ThreadEventsBuffer threadEvents,
+            GCAnalyzer gcAnalyzer,
+            CPUAnalyzer cpuAnalyzer,
+            AllocationAnalyzer allocationAnalyzer,
+            MetaspaceAnalyzer metaspaceAnalyzer,
+            MethodProfilingAnalyzer methodProfilingAnalyzer,
+            FlameGraphAnalyzer flameGraphAnalyzer,
+            ContentionAnalyzer contentionAnalyzer,
+            CorrelationAnalyzer correlationAnalyzer,
+            EventBroadcaster broadcaster,
+            PrometheusMetricsCollector prometheusCollector,
+            AnomalyDetector anomalyDetector) {
         this.config = config != null ? config : AgentConfig.defaults();
         this.clients = clients;
         this.metrics = metrics;
@@ -132,6 +177,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         this.correlationAnalyzer = correlationAnalyzer;
         this.broadcaster = broadcaster;
         this.prometheusCollector = prometheusCollector;
+        this.anomalyDetector = anomalyDetector;
         this.staticFileHandler = new StaticFileHandler();
         this.routes = buildRouteTable();
     }
@@ -165,6 +211,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
                 .exact("/method-profiling", (ctx, req, uri) -> handleMethodProfiling(ctx, req))
                 .exact("/contention-analysis", (ctx, req, uri) -> handleContentionAnalysis(ctx, req))
                 .exact("/correlation", (ctx, req, uri) -> handleCorrelation(ctx, req))
+                .exact("/anomalies", (ctx, req, uri) -> handleAnomalies(ctx, req))
                 // API endpoints
                 .exact("/api/process", (ctx, req, uri) -> {
                     String info = ServerCommandExecutor.getProcessInfo();
@@ -633,7 +680,7 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             sb.append("{");
             sb.append("\"gcName\":\"").append(escapeJson(gcName)).append("\",");
             sb.append("\"gcCause\":\"").append(escapeJson(gcCause)).append("\",");
-            sb.append("\"pauseMs\":").append(String.format("%.2f", pauseMs)).append(",");
+            sb.append("\"pauseMs\":").append(String.format(java.util.Locale.ROOT, "%.2f", pauseMs)).append(",");
             sb.append("\"count\":").append(count);
             sb.append("}");
         }
@@ -919,6 +966,51 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
         HttpResponseHelper.sendJson(ctx, request, sb.toString());
     }
 
+    private void handleAnomalies(ChannelHandlerContext ctx, FullHttpRequest request) {
+        if (anomalyDetector == null) {
+            HttpResponseHelper.sendJson(ctx, request, "{\"error\":\"Anomaly detection not enabled\"}");
+            return;
+        }
+
+        var recent = anomalyDetector.recentAnomalies();
+        var rec = anomalyDetector.captureRecommendation();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("{");
+        sb.append("\"captureRecommended\":").append(anomalyDetector.isCaptureRecommended()).append(",");
+
+        // Active capture recommendation (W5 anomaly-triggered profiling seam).
+        if (rec != null) {
+            sb.append("\"recommendation\":{");
+            sb.append("\"timestamp\":\"").append(rec.timestamp()).append("\",");
+            sb.append("\"triggerType\":\"").append(rec.triggerType().name()).append("\",");
+            sb.append("\"reason\":\"").append(escapeJson(rec.reason())).append("\"");
+            sb.append("},");
+        } else {
+            sb.append("\"recommendation\":null,");
+        }
+
+        // Recent anomaly events.
+        sb.append("\"anomalies\":[");
+        boolean first = true;
+        for (var ev : recent) {
+            if (!first) sb.append(",");
+            first = false;
+            sb.append("{");
+            sb.append("\"timestamp\":\"").append(ev.timestamp()).append("\",");
+            sb.append("\"type\":\"").append(ev.type().name()).append("\",");
+            sb.append("\"value\":").append(String.format(java.util.Locale.ROOT, "%.4f", ev.value())).append(",");
+            sb.append("\"threshold\":").append(String.format(java.util.Locale.ROOT, "%.4f", ev.threshold())).append(",");
+            sb.append("\"reason\":\"").append(escapeJson(ev.reason())).append("\"");
+            sb.append("}");
+        }
+        sb.append("]");
+
+        sb.append("}");
+
+        HttpResponseHelper.sendJson(ctx, request, sb.toString());
+    }
+
     private void handleCorrelation(ChannelHandlerContext ctx, FullHttpRequest request) {
         if (correlationAnalyzer == null) {
             HttpResponseHelper.sendJson(ctx, request, "{\"error\":\"Correlation analysis not enabled\"}");
@@ -971,6 +1063,36 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             sb.append("\"title\":\"").append(escapeJson(rec.title())).append("\",");
             sb.append("\"description\":\"").append(escapeJson(rec.description())).append("\",");
             sb.append("\"severity\":\"").append(rec.severity().name()).append("\"");
+            sb.append("}");
+        }
+        sb.append("],");
+
+        // Trace correlation: significant GC pauses (timing-overlap), each with an
+        // optional W3C trace id captured at pause time. Absent trace ids mean no
+        // OTel context was active (timing-only degradation).
+        sb.append("\"significantPauseThresholdMs\":")
+                .append(String.format(java.util.Locale.ROOT, "%.2f", analysis.significantPauseThresholdMs())).append(",");
+        sb.append("\"tracePauses\":[");
+        first = true;
+        for (var pause : analysis.tracePauses()) {
+            if (!first) sb.append(",");
+            first = false;
+            sb.append("{");
+            sb.append("\"pauseStart\":\"").append(pause.pauseStart()).append("\",");
+            sb.append("\"pauseEnd\":\"").append(pause.pauseEnd()).append("\",");
+            if (pause.gcName() != null) {
+                sb.append("\"gcName\":\"").append(escapeJson(pause.gcName())).append("\",");
+            }
+            if (pause.gcCause() != null) {
+                sb.append("\"gcCause\":\"").append(escapeJson(pause.gcCause())).append("\",");
+            }
+            sb.append("\"pauseMs\":").append(String.format(java.util.Locale.ROOT, "%.2f", pause.pauseMs())).append(",");
+            sb.append("\"reclaimedBytes\":").append(pause.reclaimedBytes()).append(",");
+            if (pause.traceId() != null) {
+                sb.append("\"traceId\":\"").append(escapeJson(pause.traceId())).append("\"");
+            } else {
+                sb.append("\"traceId\":null");
+            }
             sb.append("}");
         }
         sb.append("]");

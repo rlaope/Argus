@@ -319,6 +319,17 @@
                 </div>
             </section>
 
+            <!-- Lock Contention Top-N (aggregated monitor hotspots) — hidden until data arrives -->
+            <section class="content-section" id="contention-hotspots-section" hidden>
+                <div class="section-header">
+                    <h3>Lock Contention</h3>
+                    <p class="section-desc">Top contended monitors by total blocked time, with enter vs wait split and share of total contention. Focus here to find synchronization bottlenecks.</p>
+                </div>
+                <div id="contention-hotspots" class="data-table">
+                    <div class="empty-state">Waiting for contention data...</div>
+                </div>
+            </section>
+
             <!-- Flame Graph -->
             <section class="content-section">
                 <div class="section-header">
