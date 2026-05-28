@@ -514,6 +514,20 @@ All 30+ metrics available via Prometheus are also exported via OTLP:
 |------|----------|
 | Gauge | `argus_virtual_threads_active`, `argus_cpu_jvm_percent`, `argus_heap_used_bytes` |
 | Sum (monotonic) | `argus_virtual_threads_started_total`, `argus_gc_pause_time_seconds_total` |
+| Histogram | `argus_gc_pause_seconds` (`_bucket`/`_sum`/`_count`) — GC pause-time distribution |
+| Per-collector counter | `argus_gc_pause_breakdown_seconds_total{gc_name,gc_cause}`, `argus_gc_events_breakdown_total{gc_name,gc_cause}` |
+
+### OpenMetrics exposition
+
+The `/prometheus` endpoint negotiates format by `Accept` header:
+
+- Default (`Accept: text/plain` or absent) → Prometheus 0.0.4 text exposition.
+- `Accept: application/openmetrics-text` → OpenMetrics 1.0.0 (terminated with `# EOF`),
+  with trace-id **exemplars** on the GC pause histogram when a trace context is
+  active (exemplars are populated once tracing correlation is wired; the plumbing
+  ships now and is a no-op until then).
+
+The OpenMetrics output passes `promtool check metrics`.
 
 ## CLI Configuration
 

@@ -60,6 +60,15 @@ prometheusRule:
       threshold: 0.80
       duration: 5m
       severity: warning
+    gcPauseP99:
+      enabled: true
+      # seconds — alert when the 5m p99 GC pause exceeds this
+      threshold: 0.5
+      duration: 5m
+      severity: warning
+  # Prometheus recording rules (pre-computed series for dashboards/alerts)
+  recordingRules:
+    enabled: true
 
 # Grafana dashboard
 grafana:

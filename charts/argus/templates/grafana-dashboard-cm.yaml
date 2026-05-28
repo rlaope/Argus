@@ -12,4 +12,6 @@ metadata:
 data:
   argus-jvm-observability.json: |-
     {{ .Files.Get "dashboards/argus-jvm-observability.json" | nindent 4 }}
+  argus-gc-collectors.json: |-
+    {{ .Files.Get "dashboards/argus-gc-collectors.json" | nindent 4 }}
 {{- end }}

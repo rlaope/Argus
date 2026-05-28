@@ -36,6 +36,17 @@ public final class PrometheusMetricsCollector {
     private final ContentionAnalyzer contentionAnalyzer;
 
     /**
+     * Exemplar source: returns the current W3C trace id, or {@code null} when no
+     * trace context is active. Defaults to a no-op until the tracing-correlation
+     * workstream (W4) wires real context capture. Exemplars are only emitted in
+     * OpenMetrics output.
+     */
+    private volatile java.util.function.Supplier<String> traceIdSupplier = () -> null;
+
+    /** Set per-collection by {@link #collectMetrics(boolean)}; controls EOF marker + exemplars. */
+    private boolean openMetrics = false;
+
+    /**
      * Creates a new Prometheus metrics collector.
      *
      * @param config                 the agent configuration
@@ -76,15 +87,28 @@ public final class PrometheusMetricsCollector {
     }
 
     /**
-     * Collects all enabled metrics and formats them as Prometheus exposition text.
-     * Includes {@code argus_scrape_duration_seconds} as the final metric, timing
-     * the collection itself.
-     *
-     * @return Prometheus text format string
+     * Sets the exemplar trace-id source. Wired by the tracing-correlation
+     * workstream; until then the default supplier returns {@code null} and no
+     * exemplars are emitted.
      */
+    public void setTraceIdSupplier(java.util.function.Supplier<String> supplier) {
+        this.traceIdSupplier = supplier != null ? supplier : () -> null;
+    }
+
+    /** Classic Prometheus 0.0.4 text exposition (no {@code # EOF}, no exemplars). */
     public String collectMetrics() {
+        return collectMetrics(false);
+    }
+
+    /**
+     * Collects all enabled metrics. When {@code openMetrics} is true, emits
+     * OpenMetrics 1.0.0 text: terminated with {@code # EOF} and carrying
+     * exemplars on the GC pause histogram when a trace id is available.
+     */
+    public String collectMetrics(boolean openMetrics) {
         long startNanos = System.nanoTime();
         StringBuilder sb = new StringBuilder(4096);
+        this.openMetrics = openMetrics;
 
         appendVirtualThreadMetrics(sb);
         appendPinningMetrics(sb);
@@ -120,8 +144,13 @@ public final class PrometheusMetricsCollector {
         sb.append("# HELP argus_scrape_duration_seconds Time taken to collect metrics\n");
         sb.append("# TYPE argus_scrape_duration_seconds gauge\n");
         sb.append("argus_scrape_duration_seconds ")
-                .append(String.format("%.6f", durationSeconds))
+                .append(String.format(java.util.Locale.ROOT, "%.6f", durationSeconds))
                 .append('\n');
+
+        // OpenMetrics requires an explicit end-of-stream marker. Classic 0.0.4 omits it.
+        if (openMetrics) {
+            sb.append("# EOF\n");
+        }
 
         return sb.toString();
     }
@@ -153,7 +182,7 @@ public final class PrometheusMetricsCollector {
 
     private void appendCarrierThreadMetrics(StringBuilder sb) {
         var analysis = carrierAnalyzer.getAnalysis();
-        appendGauge(sb, "argus_carrier_threads_total",
+        appendGauge(sb, "argus_carrier_threads",
                 "Total number of carrier threads",
                 analysis.totalCarriers());
         appendCounter(sb, "argus_carrier_threads_virtual_handled_total",
@@ -247,6 +276,82 @@ public final class PrometheusMetricsCollector {
                         .append(entry.getValue())
                         .append('\n');
             }
+        }
+
+        appendPauseHistogram(sb);
+    }
+
+    /**
+     * Emits the GC pause-time distribution as a classic Prometheus histogram
+     * (`_bucket`/`_sum`/`_count`). In OpenMetrics mode, attaches a trace-id
+     * exemplar to the +Inf bucket when a trace context is available.
+     */
+    private void appendPauseHistogram(StringBuilder sb) {
+        var hist = gcAnalyzer.getPauseHistogram();
+        if (hist.count() == 0) return;
+
+        sb.append("# HELP argus_gc_pause_seconds GC pause time distribution\n");
+        sb.append("# TYPE argus_gc_pause_seconds histogram\n");
+
+        String baseLabels = KubernetesLabels.prometheusLabelSuffix(); // "" or "{k=v,...}"
+        double[] bounds = hist.upperBounds();
+        long[] counts = hist.cumulativeCounts();
+        String traceId = openMetrics ? safeTraceId() : null;
+
+        for (int i = 0; i < bounds.length; i++) {
+            sb.append("argus_gc_pause_seconds_bucket")
+                    .append(bucketLabels(baseLabels, formatBound(bounds[i])))
+                    .append(' ')
+                    .append(counts[i])
+                    .append('\n');
+        }
+        // +Inf bucket
+        sb.append("argus_gc_pause_seconds_bucket")
+                .append(bucketLabels(baseLabels, "+Inf"))
+                .append(' ')
+                .append(counts[counts.length - 1]);
+        if (traceId != null) {
+            // OpenMetrics exemplar: "# {trace_id="..."} <value> <timestamp>"
+            sb.append(" # {trace_id=\"").append(escapeLabel(traceId)).append("\"} ")
+                    .append(hist.sumSeconds() / Math.max(1, hist.count()));
+        }
+        sb.append('\n');
+
+        sb.append("argus_gc_pause_seconds_sum")
+                .append(baseLabels).append(' ')
+                .append(String.format(java.util.Locale.ROOT, "%.6f", hist.sumSeconds()))
+                .append('\n');
+        sb.append("argus_gc_pause_seconds_count")
+                .append(baseLabels).append(' ')
+                .append(hist.count())
+                .append('\n');
+    }
+
+    /** Merge the {@code le} label into the base K8s label set for a histogram bucket line. */
+    private static String bucketLabels(String baseLabels, String le) {
+        String leLabel = "le=\"" + le + "\"";
+        if (baseLabels == null || baseLabels.isEmpty()) {
+            return "{" + leLabel + "}";
+        }
+        // baseLabels looks like "{k=v,...}" — insert le before the closing brace.
+        return baseLabels.substring(0, baseLabels.length() - 1) + "," + leLabel + "}";
+    }
+
+    private static String formatBound(double bound) {
+        // Render bucket bounds without locale-dependent separators.
+        if (bound == Math.floor(bound)) {
+            return String.format(java.util.Locale.ROOT, "%.1f", bound);
+        }
+        return String.format(java.util.Locale.ROOT, "%s",
+                java.math.BigDecimal.valueOf(bound).stripTrailingZeros().toPlainString());
+    }
+
+    private String safeTraceId() {
+        try {
+            String id = traceIdSupplier.get();
+            return (id == null || id.isBlank()) ? null : id;
+        } catch (Exception e) {
+            return null;
         }
     }
 

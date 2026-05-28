@@ -1153,7 +1153,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_carrier_threads_total",
+          "expr": "argus_carrier_threads",
           "legendFormat": "Carrier Count"
         },
         {

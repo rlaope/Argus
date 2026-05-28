@@ -53,4 +53,30 @@ spec:
               {{ .Values.prometheusRule.rules.highCpu.threshold | mul 100 }}% threshold
               for {{ .Values.prometheusRule.rules.highCpu.duration }}.
         {{- end }}
+        {{- if .Values.prometheusRule.rules.gcPauseP99.enabled }}
+        - alert: ArgusGCPauseP99High
+          expr: argus:gc_pause:p99_5m > {{ .Values.prometheusRule.rules.gcPauseP99.threshold }}
+          for: {{ .Values.prometheusRule.rules.gcPauseP99.duration }}
+          labels:
+            severity: {{ .Values.prometheusRule.rules.gcPauseP99.severity }}
+          annotations:
+            summary: "High GC pause p99 on {{ "{{" }} $labels.instance {{ "}}" }}"
+            description: >-
+              The 5m p99 GC pause is {{ "{{" }} $value | humanizeDuration {{ "}}" }} on
+              {{ "{{" }} $labels.instance {{ "}}" }}, exceeding the
+              {{ .Values.prometheusRule.rules.gcPauseP99.threshold }}s threshold
+              for {{ .Values.prometheusRule.rules.gcPauseP99.duration }}.
+        {{- end }}
+    {{- if .Values.prometheusRule.recordingRules.enabled }}
+    - name: argus.recording
+      rules:
+        - record: argus:gc_pause:p99_5m
+          expr: histogram_quantile(0.99, sum(rate(argus_gc_pause_seconds_bucket[5m])) by (le, instance))
+        - record: argus:gc_pause:p50_5m
+          expr: histogram_quantile(0.50, sum(rate(argus_gc_pause_seconds_bucket[5m])) by (le, instance))
+        - record: argus:gc_pause_breakdown:rate5m
+          expr: sum(rate(argus_gc_pause_breakdown_seconds_total[5m])) by (instance, gc_name, gc_cause)
+        - record: argus:gc_events_breakdown:rate5m
+          expr: sum(rate(argus_gc_events_breakdown_total[5m])) by (instance, gc_name, gc_cause)
+    {{- end }}
 {{- end }}
