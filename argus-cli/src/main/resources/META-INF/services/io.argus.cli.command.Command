@@ -18,6 +18,7 @@ io.argus.cli.command.EventsCommand
 io.argus.cli.command.ExplainCommand
 io.argus.cli.command.FinalizerCommand
 io.argus.cli.command.FlameCommand
+io.argus.cli.command.G1Command
 io.argus.cli.command.GcCauseCommand
 io.argus.cli.command.GcCommand
 io.argus.cli.command.GcLogCommand

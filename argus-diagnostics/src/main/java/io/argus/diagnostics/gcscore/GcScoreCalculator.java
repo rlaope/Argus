@@ -37,7 +37,9 @@ public final class GcScoreCalculator {
      * means "unknown / use standard weights".
      */
     public static GcScoreResult compute(GcLogAnalysis a, String gcAlgorithm) {
-        boolean isZgc = gcAlgorithm != null && gcAlgorithm.toUpperCase().contains("ZGC");
+        String algo = gcAlgorithm == null ? "" : gcAlgorithm.toUpperCase();
+        boolean isZgc = algo.contains("ZGC");
+        boolean isG1  = !isZgc && algo.contains("G1");
 
         List<AxisScore> axes = new ArrayList<>();
 
@@ -60,10 +62,10 @@ public final class GcScoreCalculator {
             axes.add(scoreZgcAllocationPressure(a.totalEvents(), a.durationSec()));
         }
 
-        int overall = weightedOverall(axes, isZgc);
+        int overall = weightedOverall(axes, isZgc, isG1);
         String grade = grade(overall);
         String summary = summaryFor(grade);
-        List<String> hints = selectHints(axes, isZgc);
+        List<String> hints = selectHints(axes, isZgc, isG1);
 
         return new GcScoreResult(axes, overall, grade, summary, hints);
     }
@@ -193,7 +195,15 @@ public final class GcScoreCalculator {
      * Backward-compatible overload used by tests that call the method directly.
      */
     static int weightedOverall(List<AxisScore> axes) {
-        return weightedOverall(axes, false);
+        return weightedOverall(axes, false, false);
+    }
+
+    /**
+     * Two-arg variant retained for backward compatibility with callers that
+     * only branched on ZGC. Defaults isG1 to false.
+     */
+    static int weightedOverall(List<AxisScore> axes, boolean isZgc) {
+        return weightedOverall(axes, isZgc, false);
     }
 
     /**
@@ -206,13 +216,24 @@ public final class GcScoreCalculator {
      * weight is redistributed to throughput (0.30) and the new
      * "Allocation pressure (ZGC)" axis (index 6) at 0.15. This reflects that
      * sub-ms ZGC pauses are expected by design and should not dominate the score.
+     *
+     * <p>G1 weights: pause axes keep standard thresholds (G1 targets
+     * MaxGCPauseMillis = 200 ms), but Full-GC frequency is weighted higher
+     * (0.25 vs 0.15 standard) because Full GC under G1 is always a pathology
+     * — the saved weight comes from pause-p99 (0.22) and tail (0.13).
      */
-    static int weightedOverall(List<AxisScore> axes, boolean isZgc) {
+    static int weightedOverall(List<AxisScore> axes, boolean isZgc, boolean isG1) {
         // Standard weights: [p99, tail, throughput, fullGcFreq, allocRate, promoRatio]
         // ZGC weights:      [p99, tail, throughput, fullGcFreq, allocRate, promoRatio, allocPressure]
-        double[] weights = isZgc
-                ? new double[]{0.12, 0.08, 0.30, 0.15, 0.10, 0.10, 0.15}
-                : new double[]{0.25, 0.15, 0.25, 0.15, 0.10, 0.10};
+        // G1 weights:       [p99, tail, throughput, fullGcFreq, allocRate, promoRatio]
+        double[] weights;
+        if (isZgc) {
+            weights = new double[]{0.12, 0.08, 0.30, 0.15, 0.10, 0.10, 0.15};
+        } else if (isG1) {
+            weights = new double[]{0.22, 0.13, 0.20, 0.25, 0.10, 0.10};
+        } else {
+            weights = new double[]{0.25, 0.15, 0.25, 0.15, 0.10, 0.10};
+        }
         double sum = 0, wAvail = 0;
         for (int i = 0; i < axes.size(); i++) {
             AxisScore ax = axes.get(i);
@@ -252,19 +273,39 @@ public final class GcScoreCalculator {
      * Backward-compatible overload.
      */
     static List<String> selectHints(List<AxisScore> axes) {
-        return selectHints(axes, false);
+        return selectHints(axes, false, false);
     }
 
+    /** Backward-compatible two-arg overload (ZGC vs standard). */
     static List<String> selectHints(List<AxisScore> axes, boolean isZgc) {
+        return selectHints(axes, isZgc, false);
+    }
+
+    static List<String> selectHints(List<AxisScore> axes, boolean isZgc, boolean isG1) {
         List<String> hints = new ArrayList<>();
         for (AxisScore ax : axes) {
             if (ax.verdict() == AxisScore.Verdict.PASS || ax.verdict() == AxisScore.Verdict.NA) continue;
-            String hint = isZgc ? hintForZgc(ax) : hintFor(ax);
+            String hint;
+            if (isZgc)       hint = hintForZgc(ax);
+            else if (isG1)   hint = hintForG1(ax);
+            else             hint = hintFor(ax);
             if (hint != null) hints.add(hint);
             if (hints.size() >= 3) break;
         }
         if (hints.isEmpty()) hints.add("GC health looks good — no changes needed.");
         return hints;
+    }
+
+    private static String hintForG1(AxisScore ax) {
+        switch (ax.name()) {
+            case "Pause p99": return "G1 p99 above target — lower -XX:MaxGCPauseMillis (e.g. 150) or raise -Xmx to give G1 more headroom";
+            case "Pause tail (max)": return "G1 tail pauses spiking — check for humongous allocations (argus g1 <PID>) and consider -XX:G1HeapRegionSize tuning";
+            case "Throughput": return "Low throughput under G1 — raise -Xmx, raise -XX:ParallelGCThreads, or check for evacuation failures with argus g1 <PID>";
+            case "Full GC frequency": return "G1 Full GC observed — pathological under G1; raise -Xmx, lower -XX:InitiatingHeapOccupancyPercent, or inspect with argus heap";
+            case "Allocation rate": return "Very high allocation rate — run argus flame --type=alloc to find hot allocation sites";
+            case "Promotion ratio": return "High promotion ratio under G1 — survivors overflowing; raise -XX:MaxTenuringThreshold or increase young gen with -XX:G1NewSizePercent";
+            default: return null;
+        }
     }
 
     private static String hintFor(AxisScore ax) {

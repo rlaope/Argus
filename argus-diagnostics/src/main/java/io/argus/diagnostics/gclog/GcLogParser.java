@@ -22,18 +22,31 @@ public final class GcLogParser {
 
     /**
      * Result container for phase-aware parsing.
+     *
+     * <p>Carries an optional {@link G1Stats} accumulator populated alongside
+     * the generic event list when the log contains G1-specific lines
+     * (To-space exhausted, Humongous regions, Pause Young (Mixed), …).
+     * {@link #g1Stats()} returns {@link G1Stats#empty()} when no G1 signals
+     * were observed — callers should branch on {@link G1Stats#present()}.
      */
     public static final class ParseResult {
         private final List<GcEvent> events;
         private final List<GcPhaseEvent> phases;
+        private final G1Stats g1Stats;
 
         public ParseResult(List<GcEvent> events, List<GcPhaseEvent> phases) {
+            this(events, phases, G1Stats.empty());
+        }
+
+        public ParseResult(List<GcEvent> events, List<GcPhaseEvent> phases, G1Stats g1Stats) {
             this.events = events;
             this.phases = phases;
+            this.g1Stats = g1Stats == null ? G1Stats.empty() : g1Stats;
         }
 
         public List<GcEvent> events() { return events; }
         public List<GcPhaseEvent> phases() { return phases; }
+        public G1Stats g1Stats() { return g1Stats; }
 
         @Override
         public boolean equals(Object o) {
@@ -41,17 +54,19 @@ public final class GcLogParser {
             if (!(o instanceof ParseResult)) return false;
             ParseResult that = (ParseResult) o;
             return java.util.Objects.equals(events, that.events)
-                    && java.util.Objects.equals(phases, that.phases);
+                    && java.util.Objects.equals(phases, that.phases)
+                    && java.util.Objects.equals(g1Stats, that.g1Stats);
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(events, phases);
+            return java.util.Objects.hash(events, phases, g1Stats);
         }
 
         @Override
         public String toString() {
-            return "ParseResult[events=" + events + ", phases=" + phases + "]";
+            return "ParseResult[events=" + events + ", phases=" + phases
+                    + ", g1Stats=" + g1Stats + "]";
         }
     }
 
@@ -63,6 +78,15 @@ public final class GcLogParser {
         List<GcEvent> events = new ArrayList<>();
         List<GcPhaseEvent> phases = new ArrayList<>();
         FormatState state = new FormatState();
+
+        // G1-specific accumulators — populated alongside the generic event scan.
+        int g1EvacFailures = 0;
+        int g1HumongousAlloc = 0;
+        int g1HumongousPeak = 0;
+        int g1MixedPauses = 0;
+        int g1PrepareMixed = 0;
+        int g1ConcurrentMarkers = 0;
+        boolean g1FullGcSeen = false;
 
         try (BufferedReader reader = Files.newBufferedReader(logFile)) {
             String line;
@@ -77,11 +101,45 @@ public final class GcLogParser {
                     }
                 }
 
+                // G1-specific signal extraction. Cheap string-contains checks
+                // gate the more expensive regex matches.
+                if (line.contains("To-space exhausted") || line.contains("Evacuation Failure")) {
+                    g1EvacFailures++;
+                }
+                if (line.contains("Humongous Allocation")) {
+                    g1HumongousAlloc++;
+                }
+                if (line.contains("Humongous regions:")) {
+                    Matcher hm = GcLogPatterns.G1_HUMONGOUS_LINE.matcher(line);
+                    if (hm.find()) {
+                        try {
+                            int before = Integer.parseInt(hm.group(1));
+                            int after  = Integer.parseInt(hm.group(2));
+                            int peak = Math.max(before, after);
+                            if (peak > g1HumongousPeak) g1HumongousPeak = peak;
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+                if (line.contains("Pause Young (Prepare Mixed)")) {
+                    g1PrepareMixed++;
+                } else if (line.contains("Pause Young (Mixed)")) {
+                    g1MixedPauses++;
+                }
+                if (line.contains("Concurrent Mark Cycle") || line.contains("Concurrent Cycle")) {
+                    g1ConcurrentMarkers++;
+                }
+                if (line.contains("Pause Full")) {
+                    g1FullGcSeen = true;
+                }
+
                 GcEvent event = state.unified ? parseUnifiedLine(line, state) : parseLegacyLine(line);
                 if (event != null) events.add(event);
             }
         }
-        return new ParseResult(events, phases);
+
+        G1Stats g1 = new G1Stats(g1EvacFailures, g1HumongousAlloc, g1HumongousPeak,
+                g1MixedPauses, g1PrepareMixed, g1ConcurrentMarkers, g1FullGcSeen);
+        return new ParseResult(events, phases, g1);
     }
 
     private static GcPhaseEvent parsePhraseLine(String line) {

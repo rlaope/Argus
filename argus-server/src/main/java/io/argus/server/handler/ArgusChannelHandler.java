@@ -604,6 +604,28 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             sb.append("\"memoryReclaimed\":").append(gc.memoryReclaimed());
             sb.append("}");
         }
+        sb.append("],");
+
+        // Per-collector × per-cause breakdown — used by the frontend G1/ZGC widgets.
+        var pauseBreakdown = gcAnalyzer.getPauseBreakdownNanos();
+        var eventBreakdown = gcAnalyzer.getEventBreakdown();
+        sb.append("\"collectorBreakdown\":[");
+        boolean firstBd = true;
+        for (var entry : pauseBreakdown.entrySet()) {
+            if (!firstBd) sb.append(",");
+            firstBd = false;
+            String[] parts = entry.getKey().split("\\|", 2);
+            String gcName  = parts.length > 0 ? parts[0] : "Unknown";
+            String gcCause = parts.length > 1 ? parts[1] : "Unknown";
+            long count = eventBreakdown.getOrDefault(entry.getKey(), 0L);
+            double pauseMs = entry.getValue() / 1_000_000.0;
+            sb.append("{");
+            sb.append("\"gcName\":\"").append(escapeJson(gcName)).append("\",");
+            sb.append("\"gcCause\":\"").append(escapeJson(gcCause)).append("\",");
+            sb.append("\"pauseMs\":").append(String.format("%.2f", pauseMs)).append(",");
+            sb.append("\"count\":").append(count);
+            sb.append("}");
+        }
         sb.append("]");
 
         sb.append("}");

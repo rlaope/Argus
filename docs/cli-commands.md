@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 68 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
+Complete reference for all 69 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
 
 ## Global Options
 
@@ -88,6 +88,7 @@ Heap inspection, GC statistics, NIO buffers, metaspace, classloader leaks, GC lo
 - `argus gcwhy` — narrate the worst GC pause in plain English
 - `argus gcprofile` — JFR-based allocation profiling
 - `argus heapanalyze` — offline HPROF analysis (MAT alternative)
+- `argus g1` — G1GC live health verdict (HEALTHY/WARNING/UNHEALTHY)
 - `argus zgc` — ZGC live health verdict (HEALTHY/WARNING/UNHEALTHY)
 
 ---
@@ -172,6 +173,7 @@ Thread state summaries, full thread dumps, deadlock detection, and thread pool d
 | `argus explain` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-explain-term) |
 | `argus finalizer` | [Memory & GC](commands/memory-gc.md#argus-finalizer-pid) |
 | `argus flame` | [Profiling & Tracing](commands/profiling-tracing.md#argus-flame-pid) |
+| `argus g1` | [Memory & GC](commands/memory-gc.md#argus-g1-pid) |
 | `argus gc` | [Memory & GC](commands/memory-gc.md#argus-gc-pid) |
 | `argus gccause` | [Memory & GC](commands/memory-gc.md#argus-gccause-pid) |
 | `argus gclog` | [Memory & GC](commands/memory-gc.md#argus-gclog) |

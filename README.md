@@ -11,7 +11,7 @@
   <a href="https://github.com/rlaope/Argus/stargazers"><img src="https://img.shields.io/github/stars/rlaope/Argus" alt="GitHub stars"></a>
 </p>
 
-> **One CLI for all JVM diagnostics.** 68 commands, zero agent required, works on Java 11+.
+> **One CLI for all JVM diagnostics.** 69 commands, zero agent required, works on Java 11+.
 > The free alternative to GCEasy + jcmd + VisualVM combined — GC analysis, health diagnosis, flame graphs, async-profiler integration, ZGC live monitoring, and CI/CD profile gates.
 
 ---
@@ -61,7 +61,7 @@ Full reference: [docs/harness.md](docs/harness.md)
 
 ## Why Argus?
 
-- **68 diagnostic commands** — heap, GC, threads, profiling, flame graphs, NMT, class loaders, and more. No agent required.
+- **69 diagnostic commands** — heap, GC, threads, profiling, flame graphs, NMT, class loaders, and more. No agent required.
 - **Incident forensic bundle** — `argus snapshot <pid>` collects threads, histogram, doctor, JFR, and (optionally) a heap dump into one tar.gz for offline analysis.
 - **Connection-pool diagnostics** — `argus pool jdbc <pid>` reports HikariCP / Tomcat JDBC state; `argus pool advise` recommends thread-pool sizing from a ThreadMXBean sample.
 - **Live JVM attach** — attaches externally via `jcmd`/JMX; target JVM needs no restart and no `-javaagent` flag.

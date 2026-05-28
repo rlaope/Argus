@@ -27,6 +27,11 @@ public final class GCAnalyzer {
     private final Map<String, AtomicLong> causeDistribution = new ConcurrentHashMap<>();
     private final List<GCSummary> recentGCs = new CopyOnWriteArrayList<>();
 
+    /** Cumulative pause-time aggregates keyed by {@code gcName + "|" + gcCause}. */
+    private final Map<String, AtomicLong> pauseTimeNanosByCollectorAndCause = new ConcurrentHashMap<>();
+    /** Cumulative event counts keyed by {@code gcName + "|" + gcCause}. */
+    private final Map<String, AtomicLong> eventCountByCollectorAndCause   = new ConcurrentHashMap<>();
+
     // Latest heap state
     private volatile long lastHeapUsed = 0;
     private volatile long lastHeapCommitted = 0;
@@ -58,6 +63,17 @@ public final class GCAnalyzer {
         if (event.gcCause() != null) {
             causeDistribution.computeIfAbsent(event.gcCause(), k -> new AtomicLong())
                     .incrementAndGet();
+        }
+
+        // Track per-collector × per-cause aggregates (separate from cause-only distribution)
+        String gcName = event.gcName() != null ? event.gcName() : "Unknown";
+        String gcCause = event.gcCause() != null ? event.gcCause() : "Unknown";
+        String key = gcName + "|" + gcCause;
+        eventCountByCollectorAndCause
+                .computeIfAbsent(key, k -> new AtomicLong()).incrementAndGet();
+        if (event.duration() > 0) {
+            pauseTimeNanosByCollectorAndCause
+                    .computeIfAbsent(key, k -> new AtomicLong()).addAndGet(event.duration());
         }
 
         // Update heap state
@@ -194,12 +210,34 @@ public final class GCAnalyzer {
     /**
      * Clears all recorded data.
      */
+    /**
+     * Returns cumulative pause time (in nanoseconds) keyed by
+     * {@code gcName + "|" + gcCause}. Used by the Prometheus exporter to emit
+     * per-collector labels. Returns an unmodifiable snapshot.
+     */
+    public Map<String, Long> getPauseBreakdownNanos() {
+        Map<String, Long> out = new java.util.HashMap<>();
+        pauseTimeNanosByCollectorAndCause.forEach((k, v) -> out.put(k, v.get()));
+        return Map.copyOf(out);
+    }
+
+    /**
+     * Returns cumulative event count keyed by {@code gcName + "|" + gcCause}.
+     */
+    public Map<String, Long> getEventBreakdown() {
+        Map<String, Long> out = new java.util.HashMap<>();
+        eventCountByCollectorAndCause.forEach((k, v) -> out.put(k, v.get()));
+        return Map.copyOf(out);
+    }
+
     public void clear() {
         totalGCEvents.set(0);
         totalPauseTimeNanos.set(0);
         maxPauseTimeNanos.set(0);
         causeDistribution.clear();
         recentGCs.clear();
+        pauseTimeNanosByCollectorAndCause.clear();
+        eventCountByCollectorAndCause.clear();
         lastHeapUsed = 0;
         lastHeapCommitted = 0;
         lastGCTime = null;

@@ -29,7 +29,13 @@ public final class DoctorEngine {
             new FinalizerQueueRule(),
             new GcAlgorithmRule(),
             new ZgcSoftMaxBreachRule(),
-            new ZgcCycleOverlapRule()
+            new ZgcCycleOverlapRule(),
+            new G1FullGcRule(),
+            new G1RegionSizeRule(),
+            new G1IhopConfigurationRule(),
+            new G1EvacuationFailureRule(),
+            new G1MixedStarvationRule(),
+            new G1HumongousPressureRule()
     );
 
     /**

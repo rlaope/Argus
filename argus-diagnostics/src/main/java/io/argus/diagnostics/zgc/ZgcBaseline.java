@@ -9,6 +9,7 @@ import java.time.Instant;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -68,6 +69,15 @@ public final class ZgcBaseline {
     public final boolean softMaxBreached;
     public final boolean cycleOverlap;
 
+    // ── ZGC residual JFR signals (page allocation, uncommit, concurrent phases) ──
+    public final long   zPageAllocationCount;
+    public final long   zUncommittedBytes;
+    public final int    zUncommitEvents;
+    public final double concurrentMarkMs;
+    public final double concurrentRelocateMs;
+    public final int    concurrentMarkSamples;
+    public final int    concurrentRelocateSamples;
+
     /** Each entry is {@code "frame|pct"}, semicolon-separated in the file. */
     public final List<String> topAllocFrames;
 
@@ -80,6 +90,26 @@ public final class ZgcBaseline {
             int stallCount, double stallTotalMs, double stallMaxMs, String stallMaxThread,
             boolean softMaxBreached, boolean cycleOverlap,
             List<String> topAllocFrames) {
+        this(capturedAt, pid, generational, heapCommittedBytes, softMaxHeapBytes, maxHeapBytes,
+                minorCycles, majorCycles, avgCycleIntervalSec, avgCycleDurationSec,
+                pauseMarkStartMs, pauseMarkEndMs, pauseRelocateStartMs,
+                stallCount, stallTotalMs, stallMaxMs, stallMaxThread,
+                softMaxBreached, cycleOverlap, topAllocFrames,
+                0L, 0L, 0, 0.0, 0.0, 0, 0);
+    }
+
+    public ZgcBaseline(
+            Instant capturedAt, int pid, boolean generational,
+            long heapCommittedBytes, long softMaxHeapBytes, long maxHeapBytes,
+            int minorCycles, int majorCycles,
+            double avgCycleIntervalSec, double avgCycleDurationSec,
+            double pauseMarkStartMs, double pauseMarkEndMs, double pauseRelocateStartMs,
+            int stallCount, double stallTotalMs, double stallMaxMs, String stallMaxThread,
+            boolean softMaxBreached, boolean cycleOverlap,
+            List<String> topAllocFrames,
+            long zPageAllocationCount, long zUncommittedBytes, int zUncommitEvents,
+            double concurrentMarkMs, double concurrentRelocateMs,
+            int concurrentMarkSamples, int concurrentRelocateSamples) {
         this.capturedAt          = capturedAt;
         this.pid                 = pid;
         this.generational        = generational;
@@ -100,6 +130,13 @@ public final class ZgcBaseline {
         this.softMaxBreached     = softMaxBreached;
         this.cycleOverlap        = cycleOverlap;
         this.topAllocFrames      = topAllocFrames == null ? List.of() : List.copyOf(topAllocFrames);
+        this.zPageAllocationCount     = zPageAllocationCount;
+        this.zUncommittedBytes        = zUncommittedBytes;
+        this.zUncommitEvents          = zUncommitEvents;
+        this.concurrentMarkMs         = concurrentMarkMs;
+        this.concurrentRelocateMs     = concurrentRelocateMs;
+        this.concurrentMarkSamples    = concurrentMarkSamples;
+        this.concurrentRelocateSamples = concurrentRelocateSamples;
     }
 
     // ── Severity ─────────────────────────────────────────────────────────────
@@ -172,7 +209,7 @@ public final class ZgcBaseline {
             ZgcDiagnosis.AllocHotspot h = d.stallAllocHotspots.get(i);
             if (i > 0) allocSb.append(';');
             allocSb.append(escapeField(h.frame())).append('|')
-                   .append(String.format("%.2f", h.pct()));
+                   .append(String.format(Locale.ROOT, "%.2f", h.pct()));
         }
 
         StringBuilder sb = new StringBuilder();
@@ -185,18 +222,26 @@ public final class ZgcBaseline {
         sb.append("maxHeapBytes=").append(d.maxHeapBytes).append('\n');
         sb.append("minorCycles=").append(d.minorCycles).append('\n');
         sb.append("majorCycles=").append(d.majorCycles).append('\n');
-        sb.append("avgCycleIntervalSec=").append(String.format("%.6f", d.avgCycleIntervalSec)).append('\n');
-        sb.append("avgCycleDurationSec=").append(String.format("%.6f", d.avgCycleDurationSec)).append('\n');
-        sb.append("pauseMarkStartMs=").append(String.format("%.6f", d.pauseMarkStartMs)).append('\n');
-        sb.append("pauseMarkEndMs=").append(String.format("%.6f", d.pauseMarkEndMs)).append('\n');
-        sb.append("pauseRelocateStartMs=").append(String.format("%.6f", d.pauseRelocateStartMs)).append('\n');
+        sb.append("avgCycleIntervalSec=").append(String.format(Locale.ROOT, "%.6f", d.avgCycleIntervalSec)).append('\n');
+        sb.append("avgCycleDurationSec=").append(String.format(Locale.ROOT, "%.6f", d.avgCycleDurationSec)).append('\n');
+        sb.append("pauseMarkStartMs=").append(String.format(Locale.ROOT, "%.6f", d.pauseMarkStartMs)).append('\n');
+        sb.append("pauseMarkEndMs=").append(String.format(Locale.ROOT, "%.6f", d.pauseMarkEndMs)).append('\n');
+        sb.append("pauseRelocateStartMs=").append(String.format(Locale.ROOT, "%.6f", d.pauseRelocateStartMs)).append('\n');
         sb.append("stallCount=").append(stallCount).append('\n');
-        sb.append("stallTotalMs=").append(String.format("%.6f", stallTotalMs)).append('\n');
-        sb.append("stallMaxMs=").append(String.format("%.6f", stallMaxMs)).append('\n');
+        sb.append("stallTotalMs=").append(String.format(Locale.ROOT, "%.6f", stallTotalMs)).append('\n');
+        sb.append("stallMaxMs=").append(String.format(Locale.ROOT, "%.6f", stallMaxMs)).append('\n');
         sb.append("stallMaxThread=").append(escapeField(stallMaxThread)).append('\n');
         sb.append("softMaxBreached=").append(d.softMaxBreached).append('\n');
         sb.append("cycleOverlap=").append(d.cycleOverlap).append('\n');
         sb.append("topAllocFrames=").append(allocSb).append('\n');
+        // Residual ZGC signals — added 1.5.0; older baselines omit these and load() defaults to 0.
+        sb.append("zPageAllocationCount=").append(d.zPageAllocationCount).append('\n');
+        sb.append("zUncommittedBytes=").append(d.zUncommittedBytes).append('\n');
+        sb.append("zUncommitEvents=").append(d.zUncommitEvents).append('\n');
+        sb.append("concurrentMarkMs=").append(String.format(Locale.ROOT, "%.6f", d.concurrentMarkMs)).append('\n');
+        sb.append("concurrentRelocateMs=").append(String.format(Locale.ROOT, "%.6f", d.concurrentRelocateMs)).append('\n');
+        sb.append("concurrentMarkSamples=").append(d.concurrentMarkSamples).append('\n');
+        sb.append("concurrentRelocateSamples=").append(d.concurrentRelocateSamples).append('\n');
 
         Files.writeString(file, sb.toString());
     }
@@ -227,6 +272,14 @@ public final class ZgcBaseline {
         boolean cycleOverlap         = parseBool(text, "cycleOverlap", false);
         List<String> topAllocFrames  = parseAllocFrames(text);
 
+        long    zPageAllocationCount  = parseLong(text, "zPageAllocationCount", 0);
+        long    zUncommittedBytes     = parseLong(text, "zUncommittedBytes", 0);
+        int     zUncommitEvents       = (int) parseLong(text, "zUncommitEvents", 0);
+        double  concurrentMarkMs      = parseDouble(text, "concurrentMarkMs", 0.0);
+        double  concurrentRelocateMs  = parseDouble(text, "concurrentRelocateMs", 0.0);
+        int     concurrentMarkSamples = (int) parseLong(text, "concurrentMarkSamples", 0);
+        int     concurrentRelocateSamples = (int) parseLong(text, "concurrentRelocateSamples", 0);
+
         return new ZgcBaseline(
                 capturedAt, pid, generational,
                 heapCommittedBytes, softMaxHeapBytes, maxHeapBytes,
@@ -235,7 +288,10 @@ public final class ZgcBaseline {
                 pauseMarkStartMs, pauseMarkEndMs, pauseRelocateStartMs,
                 stallCount, stallTotalMs, stallMaxMs, stallMaxThread,
                 softMaxBreached, cycleOverlap,
-                topAllocFrames);
+                topAllocFrames,
+                zPageAllocationCount, zUncommittedBytes, zUncommitEvents,
+                concurrentMarkMs, concurrentRelocateMs,
+                concurrentMarkSamples, concurrentRelocateSamples);
     }
 
     // ── diff ─────────────────────────────────────────────────────────────────
@@ -308,9 +364,9 @@ public final class ZgcBaseline {
             markEndSeverity = WARN;
         }
         rows.add(new DiffRow("pauseMarkEnd",
-                String.format("%.2fms", baseMarkEnd),
-                String.format("%.2fms", curMarkEnd),
-                String.format("%+.2fms", markEndDelta),
+                String.format(Locale.ROOT, "%.2fms", baseMarkEnd),
+                String.format(Locale.ROOT, "%.2fms", curMarkEnd),
+                String.format(Locale.ROOT, "%+.2fms", markEndDelta),
                 markEndSeverity));
 
         // SoftMax breach
@@ -324,6 +380,47 @@ public final class ZgcBaseline {
                 curBreach  ? "yes" : "no",
                 (!baseBreach && curBreach) ? "NEW" : (curBreach ? "persists" : "none"),
                 breachSeverity));
+
+        // ── Residual ZGC signals (page allocation / uncommit / concurrent phases) ──
+        // Only emit rows when either side has non-zero data, so older baselines
+        // (pre-1.5.0) don't clutter the diff with all-zero rows.
+
+        // Page allocation churn
+        long basePages = baseline.zPageAllocationCount;
+        long curPages  = current.zPageAllocationCount;
+        if (basePages > 0 || curPages > 0) {
+            long pageDelta = curPages - basePages;
+            Severity pageSeverity = INFO;
+            if (basePages > 0 && pageDelta > basePages) pageSeverity = WARN; // doubled
+            rows.add(new DiffRow("zPageAllocationCount",
+                    String.valueOf(basePages), String.valueOf(curPages),
+                    (pageDelta >= 0 ? "+" : "") + pageDelta, pageSeverity));
+        }
+
+        // Uncommit bytes
+        long baseUncommit = baseline.zUncommittedBytes;
+        long curUncommit  = current.zUncommittedBytes;
+        if (baseUncommit > 0 || curUncommit > 0) {
+            long uncDelta = curUncommit - baseUncommit;
+            rows.add(new DiffRow("zUncommittedBytes",
+                    DiagnosticsFormat.formatBytes(baseUncommit),
+                    DiagnosticsFormat.formatBytes(curUncommit),
+                    formatBytesDelta(uncDelta), INFO));
+        }
+
+        // Concurrent Mark phase time
+        double baseMark = baseline.concurrentMarkMs;
+        double curMark  = current.concurrentMarkMs;
+        if (baseMark > 0 || curMark > 0) {
+            double markDelta = curMark - baseMark;
+            Severity markSev = INFO;
+            if (baseMark > 0 && markDelta / baseMark > 0.50) markSev = WARN;
+            rows.add(new DiffRow("concurrentMarkMs",
+                    String.format(Locale.ROOT, "%.2fms", baseMark),
+                    String.format(Locale.ROOT, "%.2fms", curMark),
+                    String.format(Locale.ROOT, "%+.2fms", markDelta),
+                    markSev));
+        }
 
         return rows;
     }

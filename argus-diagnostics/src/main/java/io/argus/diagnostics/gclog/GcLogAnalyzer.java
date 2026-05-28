@@ -11,6 +11,25 @@ import java.util.stream.Collectors;
  */
 public final class GcLogAnalyzer {
 
+    /**
+     * Phase-aware overload that propagates {@link G1Stats} from the parser
+     * through to the analysis. Use this overload when the caller already has
+     * a {@link GcLogParser.ParseResult} from {@link GcLogParser#parseWithPhases}.
+     */
+    public static GcLogAnalysis analyze(GcLogParser.ParseResult result) {
+        GcLogAnalysis base = analyze(result.events());
+        if (!result.g1Stats().present()) return base;
+        // Wrap with G1Stats attached. We keep all other fields identical.
+        return new GcLogAnalysis(
+                base.totalEvents(), base.pauseEvents(), base.fullGcEvents(), base.concurrentEvents(),
+                base.durationSec(), base.throughputPercent(),
+                base.totalPauseMs(), base.maxPauseMs(), base.p50PauseMs(), base.p95PauseMs(),
+                base.p99PauseMs(), base.avgPauseMs(), base.peakHeapKB(), base.avgHeapAfterKB(),
+                base.causeBreakdown(), base.recommendations(),
+                base.rateAnalysis(), base.leakAnalysis(), base.allocationStalls(),
+                result.g1Stats());
+    }
+
     public static GcLogAnalysis analyze(List<GcEvent> events) {
         if (events.isEmpty()) {
             return new GcLogAnalysis(0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, Map.of(), List.of());

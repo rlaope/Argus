@@ -1,5 +1,7 @@
 package io.argus.diagnostics.doctor;
 
+import io.argus.diagnostics.gclog.G1Stats;
+
 import java.util.List;
 import java.util.Map;
 
@@ -67,6 +69,11 @@ public final class JvmSnapshot {
     // "Other", "Internal", "Java Heap") so callers must match case-insensitively.
     private final Map<String, Long> nmtCommittedKbByCategory;
 
+    // G1Stats — populated by JvmSnapshotCollector when GC log file is detected
+    // via -Xlog:gc:file=<path>. G1Stats.empty() when no log was readable or the
+    // collector isn't G1.
+    private final G1Stats g1Stats;
+
     public JvmSnapshot(long heapUsed, long heapMax, long heapCommitted, long nonHeapUsed,
                        Map<String, PoolInfo> memoryPools,
                        List<GcInfo> collectors, long totalGcCount, long totalGcTimeMs, long uptimeMs,
@@ -120,6 +127,31 @@ public final class JvmSnapshot {
                        long maxRecentPauseMs,
                        long codeCacheUsedKb, long codeCacheSizeKb,
                        Map<String, Long> nmtCommittedKbByCategory) {
+        this(heapUsed, heapMax, heapCommitted, nonHeapUsed, memoryPools,
+                collectors, totalGcCount, totalGcTimeMs, uptimeMs,
+                processCpuLoad, systemCpuLoad, availableProcessors,
+                threadCount, daemonThreadCount, peakThreadCount,
+                threadStates, deadlockedThreads, bufferPools,
+                loadedClassCount, totalLoadedClassCount, unloadedClassCount,
+                pendingFinalization, vmName, vmVersion, gcAlgorithm, vmFlags,
+                maxRecentPauseMs, codeCacheUsedKb, codeCacheSizeKb,
+                nmtCommittedKbByCategory, null);
+    }
+
+    public JvmSnapshot(long heapUsed, long heapMax, long heapCommitted, long nonHeapUsed,
+                       Map<String, PoolInfo> memoryPools,
+                       List<GcInfo> collectors, long totalGcCount, long totalGcTimeMs, long uptimeMs,
+                       double processCpuLoad, double systemCpuLoad, int availableProcessors,
+                       int threadCount, int daemonThreadCount, int peakThreadCount,
+                       Map<String, Integer> threadStates, int deadlockedThreads,
+                       List<BufferInfo> bufferPools,
+                       int loadedClassCount, long totalLoadedClassCount, long unloadedClassCount,
+                       int pendingFinalization,
+                       String vmName, String vmVersion, String gcAlgorithm, List<String> vmFlags,
+                       long maxRecentPauseMs,
+                       long codeCacheUsedKb, long codeCacheSizeKb,
+                       Map<String, Long> nmtCommittedKbByCategory,
+                       G1Stats g1Stats) {
         this.heapUsed = heapUsed;
         this.heapMax = heapMax;
         this.heapCommitted = heapCommitted;
@@ -150,6 +182,7 @@ public final class JvmSnapshot {
         this.codeCacheUsedKb = codeCacheUsedKb;
         this.codeCacheSizeKb = codeCacheSizeKb;
         this.nmtCommittedKbByCategory = nmtCommittedKbByCategory;
+        this.g1Stats = g1Stats == null ? G1Stats.empty() : g1Stats;
     }
 
     // Accessors
@@ -192,6 +225,8 @@ public final class JvmSnapshot {
     public long codeCacheSizeKb() { return codeCacheSizeKb; }
     /** NMT committed KB per category (verbatim jcmd names). Empty when NMT is off or unreadable. */
     public Map<String, Long> nmtCommittedKbByCategory() { return nmtCommittedKbByCategory; }
+    /** G1-specific stats extracted from the GC log; always non-null, may be {@code G1Stats.empty()}. */
+    public G1Stats g1Stats() { return g1Stats; }
 
     public static final class PoolInfo {
         private final String name;
