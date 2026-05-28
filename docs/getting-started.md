@@ -377,13 +377,40 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
 ## Native Binary (GraalVM)
 
-Pre-built native binaries are available in [Releases](https://github.com/rlaope/Argus/releases):
+Argus ships a GraalVM native-image build of the CLI for instant startup and no
+JVM dependency on the host. When a release succeeds, pre-built binaries are
+attached to the [release](https://github.com/rlaope/Argus/releases):
+
 - `argus-linux-amd64` — Linux x86_64
 - `argus-macos-aarch64` — macOS Apple Silicon
 
-Or build from source with GraalVM installed:
+> The `native-image` workflow runs **after** a release is published. If those two
+> assets are missing from a given tag, the native build failed for that tag — use
+> the `argus-cli-*-all.jar` instead.
+
+Build from source with GraalVM 21+ installed (the bundled
+`META-INF/native-image/` reachability metadata is applied automatically):
 
 ```bash
 ./gradlew :argus-cli:nativeImage
 ./argus-cli/build/native/argus --help
 ```
+
+### Command compatibility in the native binary
+
+The native binary inspects a target JVM by spawning the JDK tools (`jcmd`,
+`jstack`, `jstat`, `jps`) as subprocesses and by parsing files (GC logs, heap
+dumps). Those paths work unchanged.
+
+Commands that **attach into the target JVM** through the Attach API
+(`com.sun.tools.attach.VirtualMachine`) do **not** work in the native binary:
+SubstrateVM does not ship the `libattach` native library, so they fail at runtime
+with `UnsatisfiedLinkError: No attach in java.library.path`. Run those through the
+JAR (`java -jar argus-cli-*-all.jar <command>`) instead.
+
+| Commands | Mechanism | Native | JAR |
+|---|---|:--:|:--:|
+| `gc` `gcutil` `gccause` `gcnew` `gcrun` `heap` `histo` `metaspace` `threaddump` `threads` `deadlock` `classloader` `classstat` `compiler` `compilerqueue` `info` `ps` `env` `sysprops` `vmflag` `buffers` `finalizer` `perfcounter` `dynlibs` `stringtable` `symboltable` `sc` `nmt` | `jcmd` / `jstack` / `jstat` subprocess | ✅ | ✅ |
+| `gclog` `gclogdiff` `gcscore` `gcwhy` `heapanalyze` and other file analyzers | file parsing (no target attach) | ✅ | ✅ |
+| `mbean` `spring` `pool` `g1` `zgc` `threads --top` | JMX over the Attach API | ❌ | ✅ |
+| `instrument` | dynamic Java agent (ByteBuddy) | ❌ | ✅ |
