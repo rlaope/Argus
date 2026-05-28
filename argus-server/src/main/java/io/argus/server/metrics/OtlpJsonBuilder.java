@@ -106,7 +106,7 @@ public final class OtlpJsonBuilder {
                 "Unique pinning stack traces", nowNano, pinAnalysis.uniqueStackTraces());
 
         var carrierAnalysis = carrierAnalyzer.getAnalysis();
-        first = appendGauge(sb, first, "argus_carrier_threads_total",
+        first = appendGauge(sb, first, "argus_carrier_threads",
                 "Total carrier threads", nowNano, carrierAnalysis.totalCarriers());
         first = appendGaugeDouble(sb, first, "argus_carrier_threads_avg_per_carrier",
                 "Average virtual threads per carrier", nowNano, carrierAnalysis.avgVirtualThreadsPerCarrier());

@@ -88,6 +88,23 @@ public final class AsProfProvider implements ProfileProvider {
         return flameGraph(pid, type, durationSec, outputFile, null);
     }
 
+    /**
+     * Builds a continuous (loop) capture for this provider's backing async-profiler.
+     *
+     * <p>Profiles {@code pid} for {@code captureSeconds} every {@code cadenceSeconds},
+     * parses each collapsed cycle to a {@code stack -> count} map and hands it to
+     * {@code callback}. The returned capture does NOT start automatically: it only
+     * runs when {@code continuousEnabled} is {@code true} <em>and</em> {@link
+     * AsProfLoopCapture#start()} is called, satisfying the W1 "continuous capture
+     * defaults OFF" requirement.
+     */
+    public AsProfLoopCapture continuousCapture(long pid, String type, int captureSeconds,
+                                               long cadenceSeconds, boolean continuousEnabled,
+                                               AsProfLoopCapture.Cycle callback) {
+        return new AsProfLoopCapture(pid, type, captureSeconds, cadenceSeconds,
+                continuousEnabled, callback);
+    }
+
     @Override
     public ProfileResult start(long pid, String type) {
         AsProfPermissionCheck.Result preflight = AsProfPermissionCheck.validate(pid);

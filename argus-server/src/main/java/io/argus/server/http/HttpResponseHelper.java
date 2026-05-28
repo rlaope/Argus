@@ -93,6 +93,12 @@ public final class HttpResponseHelper {
         send(ctx, request, HttpResponseStatus.OK, content, "text/plain; version=0.0.4; charset=utf-8");
     }
 
+    /** OpenMetrics 1.0.0 exposition response (served on Accept: application/openmetrics-text). */
+    public static void sendOpenMetrics(ChannelHandlerContext ctx, FullHttpRequest request, String content) {
+        send(ctx, request, HttpResponseStatus.OK, content,
+                "application/openmetrics-text; version=1.0.0; charset=utf-8");
+    }
+
     /**
      * Sends a downloadable file response.
      *

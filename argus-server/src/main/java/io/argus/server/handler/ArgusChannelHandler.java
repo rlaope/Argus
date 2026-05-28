@@ -379,7 +379,18 @@ public final class ArgusChannelHandler extends SimpleChannelInboundHandler<Objec
             return;
         }
 
-        HttpResponseHelper.sendPrometheus(ctx, request, prometheusCollector.collectMetrics());
+        // Content negotiation: serve OpenMetrics when the scraper asks for it
+        // (Prometheus sends Accept: application/openmetrics-text). Default to the
+        // classic 0.0.4 text exposition so existing scrapers are unaffected.
+        String accept = request.headers().get(HttpHeaderNames.ACCEPT);
+        boolean wantsOpenMetrics = accept != null
+                && accept.toLowerCase(java.util.Locale.ROOT).contains("application/openmetrics-text");
+
+        if (wantsOpenMetrics) {
+            HttpResponseHelper.sendOpenMetrics(ctx, request, prometheusCollector.collectMetrics(true));
+        } else {
+            HttpResponseHelper.sendPrometheus(ctx, request, prometheusCollector.collectMetrics(false));
+        }
     }
 
     private String serializeActiveThreads() {

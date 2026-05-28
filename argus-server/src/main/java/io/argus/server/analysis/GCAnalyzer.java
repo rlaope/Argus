@@ -32,6 +32,24 @@ public final class GCAnalyzer {
     /** Cumulative event counts keyed by {@code gcName + "|" + gcCause}. */
     private final Map<String, AtomicLong> eventCountByCollectorAndCause   = new ConcurrentHashMap<>();
 
+    /**
+     * Classic histogram bucket upper bounds (seconds) for the GC pause-time
+     * distribution. Text exposition can't carry native histograms (those are
+     * protobuf-only), so we expose a standard {@code _bucket}/{@code _sum}/
+     * {@code _count} histogram that promtool accepts and Grafana renders.
+     */
+    static final double[] PAUSE_BUCKETS_SECONDS = {
+            0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0
+    };
+    /** Cumulative count per bucket (index i = count of pauses ≤ PAUSE_BUCKETS_SECONDS[i]); last slot = +Inf. */
+    private final AtomicLong[] pauseBucketCounts =
+            new AtomicLong[PAUSE_BUCKETS_SECONDS.length + 1];
+    private final AtomicLong pauseHistogramSumMicros = new AtomicLong(0);
+
+    {
+        for (int i = 0; i < pauseBucketCounts.length; i++) pauseBucketCounts[i] = new AtomicLong(0);
+    }
+
     // Latest heap state
     private volatile long lastHeapUsed = 0;
     private volatile long lastHeapCommitted = 0;
@@ -57,6 +75,9 @@ public final class GCAnalyzer {
 
             // Update GC overhead calculation
             updateGCOverhead(event.duration());
+
+            // Update pause-time histogram (cumulative buckets).
+            recordPauseHistogram(event.duration());
         }
 
         // Track cause distribution
@@ -210,6 +231,48 @@ public final class GCAnalyzer {
     /**
      * Clears all recorded data.
      */
+    private void recordPauseHistogram(long durationNanos) {
+        double seconds = durationNanos / 1_000_000_000.0;
+        pauseHistogramSumMicros.addAndGet(durationNanos / 1_000); // store as micros to stay integral
+        // Cumulative: increment every finite bucket whose upper bound is >= this pause.
+        for (int i = 0; i < PAUSE_BUCKETS_SECONDS.length; i++) {
+            if (seconds <= PAUSE_BUCKETS_SECONDS[i]) {
+                pauseBucketCounts[i].incrementAndGet();
+            }
+        }
+        // +Inf bucket always counts every observation (including pauses larger than the biggest finite bucket).
+        pauseBucketCounts[pauseBucketCounts.length - 1].incrementAndGet();
+    }
+
+    /** Immutable snapshot of the GC pause-time histogram for Prometheus export. */
+    public static final class PauseHistogram {
+        private final double[] upperBounds;   // finite bucket bounds (seconds)
+        private final long[] cumulativeCounts; // length = upperBounds.length + 1 (last = +Inf)
+        private final double sumSeconds;
+        private final long count;
+
+        public PauseHistogram(double[] upperBounds, long[] cumulativeCounts, double sumSeconds, long count) {
+            this.upperBounds = upperBounds;
+            this.cumulativeCounts = cumulativeCounts;
+            this.sumSeconds = sumSeconds;
+            this.count = count;
+        }
+
+        public double[] upperBounds() { return upperBounds; }
+        public long[] cumulativeCounts() { return cumulativeCounts; }
+        public double sumSeconds() { return sumSeconds; }
+        public long count() { return count; }
+    }
+
+    /** Returns a consistent snapshot of the GC pause-time histogram. */
+    public PauseHistogram getPauseHistogram() {
+        long[] counts = new long[pauseBucketCounts.length];
+        for (int i = 0; i < counts.length; i++) counts[i] = pauseBucketCounts[i].get();
+        double sumSeconds = pauseHistogramSumMicros.get() / 1_000_000.0;
+        long count = counts[counts.length - 1]; // +Inf bucket == total observations
+        return new PauseHistogram(PAUSE_BUCKETS_SECONDS, counts, sumSeconds, count);
+    }
+
     /**
      * Returns cumulative pause time (in nanoseconds) keyed by
      * {@code gcName + "|" + gcCause}. Used by the Prometheus exporter to emit
@@ -238,6 +301,8 @@ public final class GCAnalyzer {
         recentGCs.clear();
         pauseTimeNanosByCollectorAndCause.clear();
         eventCountByCollectorAndCause.clear();
+        for (AtomicLong b : pauseBucketCounts) b.set(0);
+        pauseHistogramSumMicros.set(0);
         lastHeapUsed = 0;
         lastHeapCommitted = 0;
         lastGCTime = null;
