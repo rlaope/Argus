@@ -72,6 +72,15 @@ public final class JmxAttachment {
         com.sun.tools.attach.VirtualMachine vm;
         try {
             vm = com.sun.tools.attach.VirtualMachine.attach(String.valueOf(pid));
+        } catch (LinkageError e) {
+            // The Attach API needs the JDK's libattach native library, which a
+            // GraalVM native-image build does not ship — without this guard the
+            // UnsatisfiedLinkError (an Error, not an Exception) escapes as a raw
+            // stack trace. Convert it so callers take their normal graceful path.
+            throw new JmxAttachmentException(
+                    "Attach API unavailable in this build (no libattach). Run "
+                    + "attach-based commands from the JAR instead: "
+                    + "java -jar argus-cli.jar <command> " + pid, e);
         } catch (Exception e) {
             throw new JmxAttachmentException(
                     "Cannot attach to PID " + pid + ": " + e.getMessage(), e);

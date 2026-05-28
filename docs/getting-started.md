@@ -377,13 +377,56 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
 ## Native Binary (GraalVM)
 
-Pre-built native binaries are available in [Releases](https://github.com/rlaope/Argus/releases):
+Argus ships a GraalVM native-image build of the CLI. Its sweet spot is
+**offline analysis** — point it at a GC log or a heap dump and it runs as a
+single self-contained executable, with instant startup and no JVM (not even a
+JDK) needed on the host:
+
+```bash
+argus gclog gc.log           # GC log analysis + tuning advice
+argus gcscore gc.log         # A–F GC health score
+argus heapanalyze app.hprof  # heap-dump histogram + insights
+```
+
+This is also where the fast startup pays off most — in scripts or `watch` loops
+the JVM's warm-up cost would otherwise dominate.
+
+When a release succeeds, pre-built binaries are attached to the
+[release](https://github.com/rlaope/Argus/releases):
+
 - `argus-linux-amd64` — Linux x86_64
 - `argus-macos-aarch64` — macOS Apple Silicon
 
-Or build from source with GraalVM installed:
+> The `native-image` workflow runs **after** a release is published. If those two
+> assets are missing from a given tag, the native build failed for that tag — use
+> the `argus-cli-*-all.jar` instead.
+
+Build from source with GraalVM 21+ installed (the bundled
+`META-INF/native-image/` reachability metadata is applied automatically):
 
 ```bash
 ./gradlew :argus-cli:nativeImage
 ./argus-cli/build/native/argus --help
 ```
+
+### Live-target commands
+
+The native binary can also inspect a *running* JVM, but with caveats — reach for
+the JAR if you need the full command set against a live process:
+
+- **Works**: commands that shell out to the JDK tools (`jcmd`, `jstack`,
+  `jstat`, `jps`) — `gc`, `heap`, `threads`, `threaddump`, and friends. Note
+  these still require those JDK tools to be installed on the host, so the
+  "no JDK needed" benefit applies to the offline analyzers above, not here.
+- **JAR only**: commands that **attach into** the target JVM via the Attach API
+  (`com.sun.tools.attach.VirtualMachine`). SubstrateVM ships no `libattach`, so
+  they fail with `UnsatisfiedLinkError: No attach in java.library.path` (the
+  native binary now reports this cleanly instead of crashing). Run them through
+  the JAR: `java -jar argus-cli-*-all.jar <command>`.
+
+| Commands | Mechanism | Native | JAR |
+|---|---|:--:|:--:|
+| `gc` `gcutil` `gccause` `gcnew` `gcrun` `heap` `histo` `metaspace` `threaddump` `threads` `deadlock` `classloader` `classstat` `compiler` `compilerqueue` `info` `ps` `env` `sysprops` `vmflag` `buffers` `finalizer` `perfcounter` `dynlibs` `stringtable` `symboltable` `sc` `nmt` | `jcmd` / `jstack` / `jstat` subprocess | ✅ | ✅ |
+| `gclog` `gclogdiff` `gcscore` `gcwhy` `heapanalyze` and other file analyzers | file parsing (no target attach) | ✅ | ✅ |
+| `mbean` `spring` `pool` `g1` `zgc` `threads --top` | JMX over the Attach API | ❌ | ✅ |
+| `instrument` | dynamic Java agent (ByteBuddy) | ❌ | ✅ |
