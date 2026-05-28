@@ -1,7 +1,7 @@
 {
   "candidate": "argus",
   "name": "Argus JVM Diagnostic Toolkit",
-  "description": "69 CLI commands for JVM diagnostics — health diagnosis, GC analysis, flame graphs, interactive TUI",
+  "description": "70 CLI commands for JVM diagnostics — health diagnosis, GC analysis, flame graphs, interactive TUI",
   "websiteUrl": "https://github.com/rlaope/Argus",
   "distribution": "PLATFORM_SPECIFIC",
   "platform": {

@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 69 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
+Complete reference for all 70 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
 
 ## Global Options
 
@@ -104,6 +104,7 @@ CPU, allocation, lock, and wall-clock profiling via async-profiler; flame graph 
 - `argus jfranalyze` — analyze JFR recording file
 - `argus slowlog` — real-time slow method detection (JFR streaming)
 - `argus trace` — method call tree from thread-dump sampling
+- `argus instrument` — opt-in live method instrumentation (watch args/return/exception, trace call tree, monitor invocation stats)
 - `argus benchmark` — sampling-based throughput estimate for a method
 - `argus snapshot` — forensic bundle (threads + histogram + doctor + JFR + optional heap dump) as a single tar.gz
 
@@ -191,6 +192,7 @@ Thread state summaries, full thread dumps, deadlock detection, and thread pool d
 | `argus histo` | [Memory & GC](commands/memory-gc.md#argus-histo-pid) |
 | `argus info` | [Monitoring](commands/monitoring.md#argus-info-pid) |
 | `argus init` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-init) |
+| `argus instrument` | [Profiling & Tracing](commands/profiling-tracing.md#argus-instrument-sub-pid-classmethod) |
 | `argus jfr` | [Profiling & Tracing](commands/profiling-tracing.md#argus-jfr-pid-subcommand) |
 | `argus jfranalyze` | [Profiling & Tracing](commands/profiling-tracing.md#argus-jfranalyze-filejfr) |
 | `argus jmx` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-jmx-pid-subcommand) |
