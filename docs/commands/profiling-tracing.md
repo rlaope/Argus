@@ -11,6 +11,7 @@ Commands for capturing and analyzing runtime performance data. This category cov
 - [argus jfranalyze \<file.jfr\>](#argus-jfranalyze-filejfr)
 - [argus slowlog \<pid\>](#argus-slowlog-pid)
 - [argus trace \<pid\> \<class.method\>](#argus-trace-pid-classmethod)
+- [argus instrument \<sub\> \<pid\> \<Class#method\>](#argus-instrument-sub-pid-classmethod)
 - [argus benchmark \<pid\> \<class.method\>](#argus-benchmark-pid-classmethod)
 - [argus snapshot \<pid\>](#argus-snapshot-pid)
 
@@ -463,6 +464,90 @@ $ argus trace 12345 com.example.OrderService.createOrder --duration=20
 
 Options:
 - `--duration=N` — Duration in seconds (default: 10)
+
+---
+
+## argus instrument \<sub\> \<pid\> \<Class#method\>
+
+Opt-in, default-OFF live bytecode instrumentation of a running JVM. Attached on demand via the dynamic-attach API, it captures per-invocation data (arguments, return value, thrown exception, wall-clock cost) or windowed aggregates without requiring a restart or `-javaagent` flag. The instrumentation lives in a separate `argus-instrument` agent JAR that is loaded into the target only when explicitly enabled — the core CLI keeps its non-invasive identity.
+
+**Required opt-in:** pass `--enable-instrument` or set `-Dargus.instrument.enabled=true`. Without it the command refuses with exit code 2.
+
+### Subcommands
+
+| Subcommand | What it captures |
+|------------|-----------------|
+| `watch` | Arguments, return value, thrown exception, and wall-clock cost for each matching invocation |
+| `trace` | Same as `watch`, plus nested call-tree depth so output renders an instrumented call tree |
+| `monitor` | Windowed aggregate: invocation count, success/failure counts, average and max latency |
+
+### Method spec
+
+`<fully.qualified.Class>#<method>` — the method may be a concrete name, `<init>`, or `*` (all methods on the class). Class wildcards are not supported; the class must be fully qualified and concrete.
+
+### Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--enable-instrument` | — | **Required.** Enables instrumentation. Without this flag the command exits 2. |
+| `--max-hits=N` | 100 | Auto-detach after N matched invocations |
+| `--timeout=Ns` | 60s | Auto-detach after the given duration (e.g. `--timeout=120s`) |
+| `--max-value-len=N` | 256 | Truncate each rendered argument or return value to N characters |
+| `--max-args=N` | 16 | Maximum number of arguments captured per invocation |
+| `--max-depth=N` | 20 | Maximum call-tree depth (trace subcommand only) |
+| `--format=json` | — | Emit raw event JSON lines instead of formatted output |
+| `--agent-jar=<path>` | — | Override the agent JAR location |
+
+### Agent JAR resolution
+
+The agent JAR is resolved in order: `--agent-jar=<path>` → env `ARGUS_INSTRUMENT_JAR` → `~/.argus/lib/argus-instrument.jar`. If the JAR is not found the command exits 3 with an actionable message.
+
+Build and install the agent JAR:
+
+```bash
+./gradlew :argus-instrument:jar
+cp argus-instrument/build/libs/argus-instrument-<version>.jar ~/.argus/lib/argus-instrument.jar
+```
+
+### Example
+
+```bash
+$ argus instrument watch 12345 com.acme.OrderService#placeOrder \
+    --enable-instrument --max-hits=20
+```
+
+```
+→ com.acme.OrderService.placeOrder("Order{id=7421, sku=\"AB-9\"}")
+← com.acme.OrderService.placeOrder = Order{status=PLACED}  (14.082 ms)
+→ com.acme.OrderService.placeOrder("Order{id=7422, sku=\"CD-3\"}")
+← com.acme.OrderService.placeOrder = Order{status=PLACED}  (11.461 ms)
+[argus-instrument] detached: hit limit
+```
+
+`trace` indents each `→`/`←` line by call depth to show the instrumented call
+tree; `monitor` instead prints periodic one-line aggregates, e.g.
+`com.acme.OrderService.placeOrder  count=512 ok=509 err=3 avg=12.7ms max=88.0ms`.
+With `--format=json`, each event is emitted verbatim as one JSON line.
+
+### Safety rails
+
+These constraints are the whole point of the default-OFF design:
+
+- **Explicit opt-in required** — refuses without `--enable-instrument`; prevents accidental production impact.
+- **Forbidden namespaces** — refuses to instrument `java.*`, `jdk.*`, `sun.*`, `com.sun.*`, `javax.crypto.*`, or the agent's own packages.
+- **Auto-detach** — detaches automatically after `--max-hits` invocations or `--timeout` seconds, whichever comes first.
+- **Bytecode reset on detach** — all transformed classes are restored to their original bytecode on detach; zero residual instrumentation is left behind.
+- **Bounded capture** — value rendering is truncated (`--max-value-len`) and a per-second event rate cap prevents a hot method from destabilising the target.
+
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `2` | Instrumentation disabled, forbidden class spec, or malformed `Class#method` |
+| `3` | Agent JAR not found at any resolved location |
+| `4` | Dynamic-attach failure or handshake timeout |
+
+**Planned:** a `decompile` subcommand (requires a vendored decompiler) is not part of this release.
 
 ---
 

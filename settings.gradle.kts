@@ -14,6 +14,7 @@ include("argus-micrometer")
 include("argus-spring-boot-starter")
 include("argus-aggregator")
 include("argus-operator")
+include("argus-instrument")
 
 // Sample projects
 include("samples:virtual-thread-demo")

@@ -36,6 +36,7 @@ io.argus.cli.command.HeapDumpCommand
 io.argus.cli.command.HistoCommand
 io.argus.cli.command.InfoCommand
 io.argus.cli.command.InitCommand
+io.argus.cli.command.InstrumentCommand
 io.argus.cli.command.JfrAnalyzeCommand
 io.argus.cli.command.JfrCommand
 io.argus.cli.command.JmxCommand
