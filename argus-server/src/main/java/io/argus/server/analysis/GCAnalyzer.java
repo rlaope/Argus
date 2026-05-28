@@ -234,18 +234,14 @@ public final class GCAnalyzer {
     private void recordPauseHistogram(long durationNanos) {
         double seconds = durationNanos / 1_000_000_000.0;
         pauseHistogramSumMicros.addAndGet(durationNanos / 1_000); // store as micros to stay integral
-        // Cumulative: increment every bucket whose upper bound is >= this pause.
-        boolean placed = false;
+        // Cumulative: increment every finite bucket whose upper bound is >= this pause.
         for (int i = 0; i < PAUSE_BUCKETS_SECONDS.length; i++) {
             if (seconds <= PAUSE_BUCKETS_SECONDS[i]) {
                 pauseBucketCounts[i].incrementAndGet();
-                placed = true;
             }
         }
-        // +Inf bucket always counts every observation.
+        // +Inf bucket always counts every observation (including pauses larger than the biggest finite bucket).
         pauseBucketCounts[pauseBucketCounts.length - 1].incrementAndGet();
-        // If the pause exceeded the largest finite bucket, `placed` is false and only +Inf grew — correct.
-        if (placed) { /* already counted into finite buckets above */ }
     }
 
     /** Immutable snapshot of the GC pause-time histogram for Prometheus export. */

@@ -43,9 +43,6 @@ public final class PrometheusMetricsCollector {
      */
     private volatile java.util.function.Supplier<String> traceIdSupplier = () -> null;
 
-    /** Set per-collection by {@link #collectMetrics(boolean)}; controls EOF marker + exemplars. */
-    private boolean openMetrics = false;
-
     /**
      * Creates a new Prometheus metrics collector.
      *
@@ -108,14 +105,13 @@ public final class PrometheusMetricsCollector {
     public String collectMetrics(boolean openMetrics) {
         long startNanos = System.nanoTime();
         StringBuilder sb = new StringBuilder(4096);
-        this.openMetrics = openMetrics;
 
         appendVirtualThreadMetrics(sb);
         appendPinningMetrics(sb);
         appendCarrierThreadMetrics(sb);
 
         if (config.isGcEnabled()) {
-            appendGCMetrics(sb);
+            appendGCMetrics(sb, openMetrics);
         }
 
         if (config.isCpuEnabled()) {
@@ -193,7 +189,7 @@ public final class PrometheusMetricsCollector {
                 analysis.avgVirtualThreadsPerCarrier());
     }
 
-    private void appendGCMetrics(StringBuilder sb) {
+    private void appendGCMetrics(StringBuilder sb, boolean openMetrics) {
         var analysis = gcAnalyzer.getAnalysis();
         appendCounter(sb, "argus_gc_events_total",
                 "Total number of GC events",
@@ -278,7 +274,7 @@ public final class PrometheusMetricsCollector {
             }
         }
 
-        appendPauseHistogram(sb);
+        appendPauseHistogram(sb, openMetrics);
     }
 
     /**
@@ -286,7 +282,7 @@ public final class PrometheusMetricsCollector {
      * (`_bucket`/`_sum`/`_count`). In OpenMetrics mode, attaches a trace-id
      * exemplar to the +Inf bucket when a trace context is available.
      */
-    private void appendPauseHistogram(StringBuilder sb) {
+    private void appendPauseHistogram(StringBuilder sb, boolean openMetrics) {
         var hist = gcAnalyzer.getPauseHistogram();
         if (hist.count() == 0) return;
 
@@ -346,10 +342,15 @@ public final class PrometheusMetricsCollector {
                 java.math.BigDecimal.valueOf(bound).stripTrailingZeros().toPlainString());
     }
 
+    /** OpenMetrics caps an exemplar's label set at 128 UTF-8 bytes; keep trace ids well under it. */
+    private static final int MAX_TRACE_ID_LEN = 64;
+
     private String safeTraceId() {
         try {
             String id = traceIdSupplier.get();
-            return (id == null || id.isBlank()) ? null : id;
+            if (id == null || id.isBlank()) return null;
+            id = id.trim();
+            return id.length() > MAX_TRACE_ID_LEN ? id.substring(0, MAX_TRACE_ID_LEN) : id;
         } catch (Exception e) {
             return null;
         }

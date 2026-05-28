@@ -65,4 +65,14 @@ class AsProfLoopCaptureTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new AsProfLoopCapture(1L, "cpu", 10, 0, true, (c, t) -> {}));
     }
+
+    @Test
+    void rejectsCadenceSmallerThanCapture() {
+        // cadence (5s) < capture (30s) would queue overlapping captures — must be rejected.
+        assertThrows(IllegalArgumentException.class,
+                () -> new AsProfLoopCapture(1L, "cpu", 30, 5, true, (c, t) -> {}));
+        // cadence == capture is allowed (boundary).
+        assertDoesNotThrow(
+                () -> new AsProfLoopCapture(1L, "cpu", 30, 30, false, (c, t) -> {}));
+    }
 }

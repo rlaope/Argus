@@ -176,10 +176,16 @@ public final class ProfileStore {
     public Map<String, Long> merged(String podId, String eventType, Instant from, Instant to) {
         long fromMillis = from.toEpochMilli();
         long toMillis = to.toEpochMilli();
+        long windowMillis = config.windowMillis();
         Map<String, Long> out = new HashMap<>();
         for (Map.Entry<String, Path> e : segments.entrySet()) {
             long windowStart = windowStartOf(e.getKey());
-            if (windowStart < fromMillis || windowStart >= toMillis) {
+            // A window [windowStart, windowStart+windowMillis) overlaps the query
+            // [fromMillis, toMillis) iff it starts before `to` AND ends after `from`.
+            // Filtering on windowStart alone dropped windows that begin before `from`
+            // but still hold in-range samples (sub-window-aligned queries).
+            long windowEnd = windowStart + windowMillis;
+            if (windowStart >= toMillis || windowEnd <= fromMillis) {
                 continue;
             }
             Header header = readHeader(e.getValue());

@@ -67,6 +67,14 @@ public final class AsProfLoopCapture {
         if (cadenceSeconds <= 0) {
             throw new IllegalArgumentException("cadenceSeconds must be positive");
         }
+        // Each cycle profiles for captureSeconds; the loop fires every cadenceSeconds.
+        // If cadence < capture, scheduleAtFixedRate queues runs back-to-back with no
+        // idle gap, pinning the target JVM under perpetual profiler attach.
+        if (cadenceSeconds < captureSeconds) {
+            throw new IllegalArgumentException(
+                    "cadenceSeconds (" + cadenceSeconds + ") must be >= captureSeconds ("
+                            + captureSeconds + ") so capture cycles do not overlap");
+        }
         this.pid = pid;
         this.eventType = eventType;
         this.captureSeconds = captureSeconds;

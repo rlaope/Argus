@@ -55,7 +55,8 @@ spec:
         {{- end }}
         {{- if .Values.prometheusRule.rules.gcPauseP99.enabled }}
         - alert: ArgusGCPauseP99High
-          expr: argus:gc_pause:p99_5m > {{ .Values.prometheusRule.rules.gcPauseP99.threshold }}
+          # Inlined histogram_quantile so the alert works even when recording rules are disabled.
+          expr: histogram_quantile(0.99, sum(rate(argus_gc_pause_seconds_bucket[5m])) by (le, instance)) > {{ .Values.prometheusRule.rules.gcPauseP99.threshold }}
           for: {{ .Values.prometheusRule.rules.gcPauseP99.duration }}
           labels:
             severity: {{ .Values.prometheusRule.rules.gcPauseP99.severity }}
