@@ -119,7 +119,7 @@ All settings are passed as `-D` system properties:
 Add `argus-spring-boot-starter` to your Spring Boot 3.2+ application:
 
 ```kotlin
-implementation("io.argus:argus-spring-boot-starter:1.4.0")
+implementation("io.argus:argus-spring-boot-starter:1.5.0")
 ```
 
 ### Choose a posture: `argus.mode`
@@ -200,7 +200,7 @@ argus.doctor severity=INFO     category=Memory  title="Heap usage: 4.2 GB / 8.0 
 `argus-diagnostics` ships as a framework-agnostic JAR — usable from Quarkus, Micronaut, IDE plugins, or plain `java -jar` apps:
 
 ```kotlin
-implementation("io.argus:argus-diagnostics:1.4.0")
+implementation("io.argus:argus-diagnostics:1.5.0")
 ```
 
 ```java

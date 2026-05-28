@@ -21,9 +21,9 @@ BIN_DIR="$INSTALL_DIR/bin"
 # --- Argument parsing ---
 # Supported forms:
 #   install.sh
-#   install.sh v1.4.0
+#   install.sh v1.5.0
 #   install.sh --run harness 12345
-#   install.sh v1.4.0 --run harness 12345 --duration=30s
+#   install.sh v1.5.0 --run harness 12345 --duration=30s
 # After --run, all remaining tokens are forwarded to `argus` post-install.
 VERSION="latest"
 RUN_ARGS=()
@@ -40,13 +40,13 @@ Argus installer.
 
   install.sh [version] [--run <argus-subcommand> [args...]]
 
-  version       optional GitHub release tag (e.g. v1.4.0). Defaults to "latest".
+  version       optional GitHub release tag (e.g. v1.5.0). Defaults to "latest".
   --run         after install completes, exec `argus <subcommand> [args...]`.
                 All tokens after --run are forwarded to argus.
 
 Examples
   install.sh
-  install.sh v1.4.0
+  install.sh v1.5.0
   install.sh --run harness 12345 --duration=30s
 USAGE
             exit 0
@@ -127,8 +127,8 @@ if [ "$VERSION" = "latest" ]; then
         | grep '"tag_name"' | head -1 | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
 
     if [ -z "$VERSION" ]; then
-        warn "Could not resolve latest release. Using 'v1.4.0' as fallback."
-        VERSION="v1.4.0"
+        warn "Could not resolve latest release. Using 'v1.5.0' as fallback."
+        VERSION="v1.5.0"
     fi
 fi
 
