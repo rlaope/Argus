@@ -377,9 +377,22 @@ try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
 ## Native Binary (GraalVM)
 
-Argus ships a GraalVM native-image build of the CLI for instant startup and no
-JVM dependency on the host. When a release succeeds, pre-built binaries are
-attached to the [release](https://github.com/rlaope/Argus/releases):
+Argus ships a GraalVM native-image build of the CLI. Its sweet spot is
+**offline analysis** — point it at a GC log or a heap dump and it runs as a
+single self-contained executable, with instant startup and no JVM (not even a
+JDK) needed on the host:
+
+```bash
+argus gclog gc.log           # GC log analysis + tuning advice
+argus gcscore gc.log         # A–F GC health score
+argus heapanalyze app.hprof  # heap-dump histogram + insights
+```
+
+This is also where the fast startup pays off most — in scripts or `watch` loops
+the JVM's warm-up cost would otherwise dominate.
+
+When a release succeeds, pre-built binaries are attached to the
+[release](https://github.com/rlaope/Argus/releases):
 
 - `argus-linux-amd64` — Linux x86_64
 - `argus-macos-aarch64` — macOS Apple Silicon
@@ -396,17 +409,20 @@ Build from source with GraalVM 21+ installed (the bundled
 ./argus-cli/build/native/argus --help
 ```
 
-### Command compatibility in the native binary
+### Live-target commands
 
-The native binary inspects a target JVM by spawning the JDK tools (`jcmd`,
-`jstack`, `jstat`, `jps`) as subprocesses and by parsing files (GC logs, heap
-dumps). Those paths work unchanged.
+The native binary can also inspect a *running* JVM, but with caveats — reach for
+the JAR if you need the full command set against a live process:
 
-Commands that **attach into the target JVM** through the Attach API
-(`com.sun.tools.attach.VirtualMachine`) do **not** work in the native binary:
-SubstrateVM does not ship the `libattach` native library, so they fail at runtime
-with `UnsatisfiedLinkError: No attach in java.library.path`. Run those through the
-JAR (`java -jar argus-cli-*-all.jar <command>`) instead.
+- **Works**: commands that shell out to the JDK tools (`jcmd`, `jstack`,
+  `jstat`, `jps`) — `gc`, `heap`, `threads`, `threaddump`, and friends. Note
+  these still require those JDK tools to be installed on the host, so the
+  "no JDK needed" benefit applies to the offline analyzers above, not here.
+- **JAR only**: commands that **attach into** the target JVM via the Attach API
+  (`com.sun.tools.attach.VirtualMachine`). SubstrateVM ships no `libattach`, so
+  they fail with `UnsatisfiedLinkError: No attach in java.library.path` (the
+  native binary now reports this cleanly instead of crashing). Run them through
+  the JAR: `java -jar argus-cli-*-all.jar <command>`.
 
 | Commands | Mechanism | Native | JAR |
 |---|---|:--:|:--:|
