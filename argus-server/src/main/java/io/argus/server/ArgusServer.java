@@ -97,6 +97,9 @@ public final class ArgusServer {
     private final MethodProfilingAnalyzer methodProfilingAnalyzer = new MethodProfilingAnalyzer();
     private final FlameGraphAnalyzer flameGraphAnalyzer = new FlameGraphAnalyzer();
     private final ContentionAnalyzer contentionAnalyzer = new ContentionAnalyzer();
+    private final io.argus.server.analysis.AnomalyDetector anomalyDetector =
+            new io.argus.server.analysis.AnomalyDetector(
+                    Boolean.getBoolean("argus.profile.continuous.enabled"));
     private CorrelationAnalyzer correlationAnalyzer;
     private PrometheusMetricsCollector prometheusCollector;
     private OtlpMetricsExporter otlpExporter;
@@ -176,8 +179,10 @@ public final class ArgusServer {
             throw new IllegalStateException("Server already running");
         }
 
-        // Initialize correlation analyzer if enabled
-        if (correlationEnabled) {
+        // Initialize correlation analyzer if enabled. Also enable it implicitly
+        // when OTLP is on, since GC-pause span export depends on the analyzer's
+        // significance threshold and timing-overlap recording (W4 correlation).
+        if (correlationEnabled || config.isOtlpEnabled()) {
             correlationAnalyzer = new CorrelationAnalyzer();
         }
 
@@ -190,6 +195,11 @@ public final class ArgusServer {
                     metaspaceEventBuffer != null ? metaspaceAnalyzer : null,
                     executionSampleEventBuffer != null ? methodProfilingAnalyzer : null,
                     contentionEventBuffer != null ? contentionAnalyzer : null);
+            // Wire the Phase-1 exemplar plumbing to the reflective OTel trace
+            // context: exemplars now populate when an OTel SDK is present, and
+            // stay absent (no-op) otherwise.
+            prometheusCollector.setTraceIdSupplier(
+                    io.argus.server.metrics.TraceContextHolder::currentTraceId);
         }
 
         // Initialize OTLP metrics exporter if enabled
@@ -216,6 +226,14 @@ public final class ArgusServer {
                 contentionAnalyzer,
                 correlationAnalyzer, threadStateManager, serializer);
 
+        // Wire GC-pause span export into the broadcaster's GC drain (no-op when
+        // OTLP is disabled — otlpExporter stays null).
+        broadcaster.setOtlpExporter(otlpExporter);
+
+        // Wire the anomaly detector (W5) into the CPU + allocation drains so it
+        // sees the same live samples as the analyzers.
+        broadcaster.setAnomalyDetector(anomalyDetector);
+
         // Initialize Netty
         bossGroup = new NioEventLoopGroup(1);
         workerGroup = new NioEventLoopGroup();
@@ -240,7 +258,8 @@ public final class ArgusServer {
                                         contentionEventBuffer != null ? contentionAnalyzer : null,
                                         correlationAnalyzer,
                                         broadcaster,
-                                        prometheusCollector));
+                                        prometheusCollector,
+                                        anomalyDetector));
                     }
                 })
                 .option(ChannelOption.SO_BACKLOG, 128)
@@ -409,6 +428,15 @@ public final class ArgusServer {
      */
     public ContentionAnalyzer getContentionAnalyzer() {
         return contentionAnalyzer;
+    }
+
+    /**
+     * Returns the anomaly detector (W5).
+     *
+     * @return anomaly detector
+     */
+    public io.argus.server.analysis.AnomalyDetector getAnomalyDetector() {
+        return anomalyDetector;
     }
 
     /**
