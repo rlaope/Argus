@@ -12,7 +12,7 @@
 </p>
 
 > **One CLI for all JVM diagnostics.** 70 commands, zero agent required, works on Java 11+.
-> The free alternative to GCEasy + jcmd + VisualVM combined — GC analysis, health diagnosis, flame graphs, async-profiler integration, ZGC live monitoring, and CI/CD profile gates.
+> The free alternative to GCEasy + jcmd + VisualVM + Arthas + Eclipse MAT combined — GC analysis, health diagnosis, flame graphs, async-profiler integration, MAT-class heap leak analysis, continuous profiling, distributed-tracing correlation, opt-in live method instrumentation, ZGC live monitoring, and CI/CD profile gates.
 
 ---
 
@@ -62,10 +62,15 @@ Full reference: [docs/harness.md](docs/harness.md)
 ## Why Argus?
 
 - **70 diagnostic commands** — heap, GC, threads, profiling, flame graphs, NMT, class loaders, and more. No agent required.
+- **MAT-class heap analysis** — `argus heapanalyze <file> --leak-suspects --dominators=N --path-to-root` builds a dominator tree, retained sizes, GC-roots reachability, and an automated leak-suspects report — offline, on multi-GB dumps, within a bounded analyzer heap.
+- **Continuous profiling** — disk-backed, time-windowed per-pod CPU/alloc profiles with merged-window flamegraph queries and differential flamegraphs across time ranges, no external TSDB.
+- **Distributed-tracing correlation** — GC pauses are correlated with in-flight W3C trace context and exported as OTel spans (plus Prometheus exemplars), so you can see which traces a pause stalled in Tempo/Jaeger/Grafana.
+- **Opt-in live instrumentation** — `argus instrument {watch|trace|monitor} <pid> <Class#method>` captures args/return/exception/timing on a running JVM via dynamic-attach bytecode instrumentation. Default OFF, isolated module, auto-detach with zero residual bytecode.
 - **Incident forensic bundle** — `argus snapshot <pid>` collects threads, histogram, doctor, JFR, and (optionally) a heap dump into one tar.gz for offline analysis.
 - **Connection-pool diagnostics** — `argus pool jdbc <pid>` reports HikariCP / Tomcat JDBC state; `argus pool advise` recommends thread-pool sizing from a ThreadMXBean sample.
 - **Live JVM attach** — attaches externally via `jcmd`/JMX; target JVM needs no restart and no `-javaagent` flag.
-- **ZGC-aware** — `argus zgc` gives a HEALTHY/WARNING/UNHEALTHY verdict with allocation stall detection, cycle-overlap analysis, SoftMax breach detection, and diff-against-baseline in one command.
+- **OpenMetrics + Grafana** — OpenMetrics-compliant `/prometheus` export with per-collector GC pause histograms and exemplars, plus a shipped Grafana dashboard and recording/alert rules.
+- **ZGC + G1-aware** — `argus zgc` / `argus g1` give a HEALTHY/WARNING/UNHEALTHY verdict with allocation stall detection, cycle-overlap analysis, SoftMax breach detection, and diff-against-baseline in one command.
 - **Virtual thread support** — JFR-based pinning detection, carrier-thread distribution, and virtual thread monitoring on Java 21+.
 
 > Full command reference: [docs/cli-commands.md](docs/cli-commands.md)

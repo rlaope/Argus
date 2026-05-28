@@ -634,7 +634,7 @@ Snapshot saved: /tmp/incident/argus-snapshot-39113-20260525-103301.tar.gz (45.4 
 {
   "schemaVersion": 1,
   "generatedAt": "2026-05-25T01:25:58.474195Z",
-  "argusVersion": "1.4.0",
+  "argusVersion": "1.5.0",
   "target": {
     "pid": 39113,
     "jvmVersion": "OpenJDK 64-Bit Server VM version 17.0.18+8",
