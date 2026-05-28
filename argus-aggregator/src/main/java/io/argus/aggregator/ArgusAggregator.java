@@ -3,7 +3,10 @@ package io.argus.aggregator;
 import io.argus.aggregator.alert.FleetAlertEvaluator;
 import io.argus.aggregator.http.AggregatorChannelHandler;
 import io.argus.aggregator.http.FleetController;
+import io.argus.aggregator.http.ProfileController;
 import io.argus.aggregator.http.PrometheusMetricsExporter;
+import io.argus.aggregator.profile.ProfileStore;
+import io.argus.aggregator.profile.ProfileStoreConfig;
 import io.argus.aggregator.scrape.RemoteWriteSink;
 import io.argus.aggregator.scrape.ScrapeLoop;
 import io.argus.aggregator.store.FleetRegistry;
@@ -19,8 +22,12 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -70,12 +77,14 @@ public final class ArgusAggregator {
     private final FleetAlertEvaluator alertEvaluator;
     private final RemoteWriteSink remoteWrite;
     private final PrometheusMetricsExporter prometheus;
+    private final ProfileStore profileStore;
     private final FleetController controller;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     private EventLoopGroup bossGroup;
     private EventLoopGroup workerGroup;
     private Channel serverChannel;
+    private ScheduledExecutorService profileEvictor;
 
     public ArgusAggregator(Config config) {
         this(config, List.of());
@@ -93,8 +102,19 @@ public final class ArgusAggregator {
             }
         });
         this.prometheus = new PrometheusMetricsExporter(registry, scrapeLoop);
-        this.controller = new FleetController(registry, prometheus);
+        // Continuous-profiling store (W1). Always constructed — the store is
+        // cheap when empty — and re-indexes existing windows from disk on boot
+        // so profiles survive an aggregator restart. Base dir is overridable via
+        // --profile-dir / -Dargus.aggregator.profile.dir.
+        ProfileStoreConfig profileConfig = config.profileStoreDir == null
+                ? ProfileStoreConfig.defaults()
+                : ProfileStoreConfig.at(Path.of(config.profileStoreDir));
+        this.profileStore = new ProfileStore(profileConfig);
+        this.controller = new FleetController(registry, prometheus,
+                new ProfileController(profileStore));
     }
+
+    public ProfileStore profileStore() { return profileStore; }
 
     public FleetRegistry registry() { return registry; }
     public ScrapeLoop scrapeLoop() { return scrapeLoop; }
@@ -115,7 +135,9 @@ public final class ArgusAggregator {
                     protected void initChannel(SocketChannel ch) {
                         ch.pipeline()
                                 .addLast(new HttpServerCodec())
-                                .addLast(new HttpObjectAggregator(1024 * 1024))
+                                // 16 MB cap accommodates large /profile/ingest collapsed-stack
+                                // payloads from busy pods; metrics/fleet bodies are far smaller.
+                                .addLast(new HttpObjectAggregator(16 * 1024 * 1024))
                                 .addLast(new AggregatorChannelHandler(controller));
                     }
                 })
@@ -126,6 +148,20 @@ public final class ArgusAggregator {
 
         scrapeLoop.start();
         remoteWrite.start();
+
+        // Evict expired profile windows once a minute (ring retention).
+        profileEvictor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "argus-profile-evictor");
+            t.setDaemon(true);
+            return t;
+        });
+        profileEvictor.scheduleWithFixedDelay(() -> {
+            try {
+                profileStore.evictExpired();
+            } catch (RuntimeException e) {
+                LOG.log(System.Logger.Level.WARNING, "profile eviction failed", e);
+            }
+        }, 1, 1, TimeUnit.MINUTES);
 
         LOG.log(System.Logger.Level.INFO, "argus-aggregator listening on "
                 + config.bindAddress + ":" + config.port);
@@ -138,6 +174,7 @@ public final class ArgusAggregator {
         if (!running.compareAndSet(true, false)) return;
         scrapeLoop.stop();
         remoteWrite.stop();
+        if (profileEvictor != null) profileEvictor.shutdownNow();
         if (serverChannel != null) serverChannel.close();
         if (bossGroup != null) bossGroup.shutdownGracefully();
         if (workerGroup != null) workerGroup.shutdownGracefully();
@@ -165,14 +202,22 @@ public final class ArgusAggregator {
         public final long scrapeIntervalSeconds;
         public final long retentionSeconds;
         public final String remoteWriteUrl;
+        /** Override for the continuous-profiling store base dir; null uses defaults. */
+        public final String profileStoreDir;
 
         public Config(int port, String bindAddress, long scrapeIntervalSeconds,
                       long retentionSeconds, String remoteWriteUrl) {
+            this(port, bindAddress, scrapeIntervalSeconds, retentionSeconds, remoteWriteUrl, null);
+        }
+
+        public Config(int port, String bindAddress, long scrapeIntervalSeconds,
+                      long retentionSeconds, String remoteWriteUrl, String profileStoreDir) {
             this.port = port;
             this.bindAddress = bindAddress;
             this.scrapeIntervalSeconds = scrapeIntervalSeconds;
             this.retentionSeconds = retentionSeconds;
             this.remoteWriteUrl = remoteWriteUrl;
+            this.profileStoreDir = profileStoreDir;
         }
 
         public static Config parse(String[] args) {
@@ -183,6 +228,7 @@ public final class ArgusAggregator {
             long retention = Long.getLong("argus.aggregator.retention.seconds",
                     DEFAULT_RETENTION_SECONDS);
             String remoteWrite = System.getProperty("argus.aggregator.remote.write.url", "");
+            String profileDir = System.getProperty("argus.aggregator.profile.dir", null);
 
             List<String> extra = new ArrayList<>();
             for (String arg : args) {
@@ -196,6 +242,8 @@ public final class ArgusAggregator {
                     retention = Long.parseLong(arg.substring("--retention=".length()));
                 } else if (arg.startsWith("--remote-write=")) {
                     remoteWrite = arg.substring("--remote-write=".length());
+                } else if (arg.startsWith("--profile-dir=")) {
+                    profileDir = arg.substring("--profile-dir=".length());
                 } else {
                     extra.add(arg);
                 }
@@ -203,7 +251,7 @@ public final class ArgusAggregator {
             if (!extra.isEmpty()) {
                 System.err.println("[argus-aggregator] ignoring unknown args: " + extra);
             }
-            return new Config(port, bind, interval, retention, remoteWrite);
+            return new Config(port, bind, interval, retention, remoteWrite, profileDir);
         }
     }
 }

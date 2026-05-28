@@ -8,6 +8,11 @@ import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
+import io.argus.diagnostics.heapgraph.ArrayObjectGraph;
+import io.argus.diagnostics.heapgraph.DominatorTree;
+import io.argus.diagnostics.heapgraph.HeapGraphAnalysis;
+import io.argus.diagnostics.heapgraph.HprofGraphBuilder;
+import io.argus.diagnostics.heapgraph.LeakSuspect;
 
 import java.io.File;
 import java.util.List;
@@ -48,6 +53,8 @@ public final class HeapAnalyzeCommand implements Command {
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
         if (args.length == 0) {
             System.err.println("Usage: argus heapanalyze <file.hprof> [--top N] [--sort size|count] [--format=json]");
+            System.err.println("  Deep triage (MAT-class): [--leak-suspects] [--dominators=N] "
+                    + "[--path-to-root=<class>] [--retained=<class>]");
             return;
         }
 
@@ -56,6 +63,12 @@ public final class HeapAnalyzeCommand implements Command {
         String sortBy = "size";
         boolean json = "json".equals(config.format());
         boolean useColor = config.color();
+
+        // W2 deep-analysis flags
+        boolean leakSuspects = false;
+        int dominators = -1;
+        String pathToRoot = null;
+        String retainedClass = null;
 
         for (int i = 0; i < args.length; i++) {
             String arg = args[i];
@@ -67,6 +80,17 @@ public final class HeapAnalyzeCommand implements Command {
                 sortBy = arg.substring(7);
             } else if (arg.equals("--format=json")) {
                 json = true;
+            } else if (arg.equals("--leak-suspects")) {
+                leakSuspects = true;
+            } else if (arg.startsWith("--dominators=")) {
+                try { dominators = Integer.parseInt(arg.substring(13)); } catch (NumberFormatException ignored) { dominators = 20; }
+                if (dominators < 0) dominators = 20; // negative would silently disable deep analysis
+            } else if (arg.equals("--dominators")) {
+                dominators = 20;
+            } else if (arg.startsWith("--path-to-root=")) {
+                pathToRoot = arg.substring(15);
+            } else if (arg.startsWith("--retained=")) {
+                retainedClass = arg.substring(11);
             } else if (!arg.startsWith("--")) {
                 filePath = arg;
             }
@@ -87,7 +111,13 @@ public final class HeapAnalyzeCommand implements Command {
             return;
         }
 
-        // Parse
+        boolean deep = leakSuspects || dominators >= 0 || pathToRoot != null || retainedClass != null;
+        if (deep) {
+            runDeepAnalysis(file, useColor, leakSuspects, dominators, pathToRoot, retainedClass);
+            return;
+        }
+
+        // Parse (default: streaming histogram)
         long startTime = System.currentTimeMillis();
         HprofSummary summary;
         try {
@@ -105,6 +135,171 @@ public final class HeapAnalyzeCommand implements Command {
         }
 
         printRich(summary, topN, sortBy, useColor, elapsed);
+    }
+
+    /**
+     * Deep MAT-class triage: builds the full object graph (reference edges +
+     * GC roots), computes the dominator tree and retained sizes, and renders the
+     * requested view(s): leak suspects, top dominators, path-to-root, retained.
+     */
+    private void runDeepAnalysis(File file, boolean c, boolean leakSuspects, int dominators,
+                                 String pathToRoot, String retainedClass) {
+        long startTime = System.currentTimeMillis();
+        ArrayObjectGraph graph;
+        try {
+            System.err.println("Building object graph for " + file.getName()
+                    + " (" + RichRenderer.formatBytes(file.length()) + ")...");
+            graph = HprofGraphBuilder.build(file);
+        } catch (Exception e) {
+            System.err.println("Error building object graph: " + e.getMessage());
+            return;
+        }
+        HeapGraphAnalysis analysis = HeapGraphAnalysis.analyze(graph);
+        DominatorTree dom = analysis.dominators();
+        long elapsed = System.currentTimeMillis() - startTime;
+
+        System.out.print(RichRenderer.brandedHeader(c, "heapanalyze",
+                "Heap dump triage — dominators, retained sizes, leak suspects"));
+        System.out.println(RichRenderer.boxHeader(c, "Heap Triage", WIDTH,
+                file.getName(), RichRenderer.formatBytes(file.length())));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(String.format(
+                "  Objects: %,d  |  Reachable: %,d  |  Reachable heap: %s  |  %,dms",
+                graph.objectCount(), dom.reachableCount(),
+                RichRenderer.formatBytes(analysis.totalReachableBytes()), elapsed), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        if (leakSuspects) {
+            renderLeakSuspects(analysis, c);
+        }
+        if (dominators >= 0) {
+            renderDominators(analysis, dom, dominators == 0 ? 20 : dominators, c);
+        }
+        if (retainedClass != null) {
+            renderRetained(analysis, retainedClass, c);
+        }
+        if (pathToRoot != null) {
+            renderPathToRoot(analysis, graph, pathToRoot, c);
+        }
+
+        System.out.println(RichRenderer.boxFooter(c, String.format(
+                "%,d reachable objects, %s reachable",
+                dom.reachableCount(), RichRenderer.formatBytes(analysis.totalReachableBytes())), WIDTH));
+    }
+
+    private void renderLeakSuspects(HeapGraphAnalysis analysis, boolean c) {
+        System.out.println(RichRenderer.boxSeparator(WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                "  " + AnsiStyle.style(c, AnsiStyle.BOLD, AnsiStyle.CYAN) + "Leak Suspects"
+                        + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+
+        List<LeakSuspect> suspects = analysis.leakSuspects(5, 10.0);
+        if (suspects.isEmpty()) {
+            System.out.println(RichRenderer.boxLine(
+                    "  " + AnsiStyle.style(c, AnsiStyle.GREEN) + "✔ No dominant accumulation point detected"
+                            + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+        }
+        for (int i = 0; i < suspects.size(); i++) {
+            LeakSuspect s = suspects.get(i);
+            String sev = s.heapPercent() >= 10.0
+                    ? AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD) + "⚠ SUSPECT"
+                    : AnsiStyle.style(c, AnsiStyle.YELLOW) + "  candidate";
+            System.out.println(RichRenderer.boxLine("  " + sev + AnsiStyle.style(c, AnsiStyle.RESET)
+                    + "  " + AnsiStyle.style(c, AnsiStyle.GREEN)
+                    + RichRenderer.humanClassName(s.className()) + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+            System.out.println(RichRenderer.boxLine(String.format(
+                    "      retains %s (%.1f%% of reachable heap), dominates %,d objects",
+                    RichRenderer.formatBytes(s.retainedBytes()), s.heapPercent(), s.dominatedCount()), WIDTH));
+        }
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+    }
+
+    private void renderDominators(HeapGraphAnalysis analysis, DominatorTree dom, int n, boolean c) {
+        System.out.println(RichRenderer.boxSeparator(WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                "  " + AnsiStyle.style(c, AnsiStyle.BOLD) + "Top " + n + " dominators by retained size"
+                        + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        String hdr = AnsiStyle.style(c, AnsiStyle.BOLD)
+                + RichRenderer.padRight("#", 4)
+                + RichRenderer.padRight("Retained", 16)
+                + RichRenderer.padRight("Dominated", 12)
+                + "Class" + AnsiStyle.style(c, AnsiStyle.RESET);
+        System.out.println(RichRenderer.boxLine("  " + hdr, WIDTH));
+        System.out.println(RichRenderer.boxLine("  " + "─".repeat(Math.min(WIDTH - 6, 75)), WIDTH));
+
+        int[] top = analysis.topDominators(n);
+        long total = analysis.totalReachableBytes() > 0 ? analysis.totalReachableBytes() : 1;
+        for (int i = 0; i < top.length; i++) {
+            int v = top[i];
+            long retained = dom.retainedSize(v);
+            double pct = retained * 100.0 / total;
+            String pctColor = pct > 10 ? AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD)
+                    : pct > 5 ? AnsiStyle.style(c, AnsiStyle.YELLOW) : AnsiStyle.style(c, AnsiStyle.DIM);
+            String line = RichRenderer.padRight(String.valueOf(i + 1), 4)
+                    + pctColor + RichRenderer.padRight(RichRenderer.formatBytes(retained), 16)
+                    + AnsiStyle.style(c, AnsiStyle.RESET)
+                    + RichRenderer.padRight(String.format("%,d", dom.subtreeSize(v)), 12)
+                    + AnsiStyle.style(c, AnsiStyle.GREEN)
+                    + RichRenderer.humanClassName(analysis.graph().className(analysis.graph().classOf(v)))
+                    + AnsiStyle.style(c, AnsiStyle.RESET);
+            System.out.println(RichRenderer.boxLine("  " + line, WIDTH));
+        }
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+    }
+
+    private void renderRetained(HeapGraphAnalysis analysis, String className, boolean c) {
+        System.out.println(RichRenderer.boxSeparator(WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        long[] r = analysis.retainedForClass(className);
+        long total = analysis.totalReachableBytes() > 0 ? analysis.totalReachableBytes() : 1;
+        double pct = r[0] * 100.0 / total;
+        System.out.println(RichRenderer.boxLine(
+                "  " + AnsiStyle.style(c, AnsiStyle.BOLD) + "Retained size of " + className
+                        + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+        if (r[1] == 0) {
+            System.out.println(RichRenderer.boxLine(
+                    "  " + AnsiStyle.style(c, AnsiStyle.YELLOW)
+                            + "  no reachable instances found"
+                            + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+        } else {
+            System.out.println(RichRenderer.boxLine(String.format(
+                    "  %,d instances retain %s (%.1f%% of reachable heap)",
+                    r[1], RichRenderer.formatBytes(r[0]), pct), WIDTH));
+        }
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+    }
+
+    private void renderPathToRoot(HeapGraphAnalysis analysis, ArrayObjectGraph graph,
+                                  String className, boolean c) {
+        System.out.println(RichRenderer.boxSeparator(WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxLine(
+                "  " + AnsiStyle.style(c, AnsiStyle.BOLD) + "Shortest path to GC root: " + className
+                        + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        int[] path = analysis.pathToRootForClass(className);
+        if (path.length == 0) {
+            System.out.println(RichRenderer.boxLine(
+                    "  " + AnsiStyle.style(c, AnsiStyle.YELLOW)
+                            + "  no reachable instance of " + className + " found"
+                            + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+        } else {
+            for (int i = 0; i < path.length; i++) {
+                int v = path[i];
+                String prefix = i == 0
+                        ? AnsiStyle.style(c, AnsiStyle.RED, AnsiStyle.BOLD) + "GC root → " + AnsiStyle.style(c, AnsiStyle.RESET)
+                        : "  " + "  ".repeat(Math.min(i, 6)) + "↳ ";
+                System.out.println(RichRenderer.boxLine("  " + prefix
+                        + AnsiStyle.style(c, AnsiStyle.GREEN)
+                        + RichRenderer.humanClassName(graph.className(graph.classOf(v)))
+                        + AnsiStyle.style(c, AnsiStyle.RESET), WIDTH));
+            }
+        }
+        System.out.println(RichRenderer.emptyLine(WIDTH));
     }
 
     private void printRich(HprofSummary s, int topN, String sortBy, boolean c, long elapsedMs) {

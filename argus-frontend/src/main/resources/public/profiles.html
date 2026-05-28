@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus - Continuous Profiles</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/fleet.css">
+    <link rel="stylesheet" href="/css/theme.css">
+    <style>
+        .cluster-badge {
+            display: inline-block;
+            background: var(--blue, #1565c0);
+            color: #fff;
+            padding: 0.1rem 0.5rem;
+            border-radius: 10px;
+            font-size: 0.6875rem;
+            font-weight: 700;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+        .profiles-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: flex-end;
+            gap: 1rem;
+            padding: 0.75rem 1.25rem;
+            border-bottom: 1px solid var(--border, #30363d);
+        }
+        .profiles-field { display: flex; flex-direction: column; gap: 0.25rem; }
+        .profiles-field label {
+            font-size: 0.6875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--ink-3, #8b949e);
+        }
+        .profiles-field select {
+            background: var(--bg-2, #161b22);
+            color: var(--ink, #e6edf3);
+            border: 1px solid var(--border, #30363d);
+            border-radius: 6px;
+            padding: 0.35rem 0.5rem;
+            min-width: 9rem;
+        }
+        .profiles-actions { display: flex; gap: 0.5rem; }
+        .profiles-status {
+            margin-left: auto;
+            font-size: 0.8125rem;
+            color: var(--ink-3, #8b949e);
+        }
+        .profiles-status--ok    { color: var(--green, #56d364); }
+        .profiles-status--warn  { color: var(--amber, #d29922); }
+        .profiles-status--error { color: var(--red, #f47067); }
+        .profiles-canvas {
+            position: relative;
+            margin: 1rem 1.25rem;
+            padding: 0.5rem;
+            border: 1px solid var(--border, #30363d);
+            border-radius: 8px;
+            background: var(--bg-2, #161b22);
+            min-height: 240px;
+            overflow-x: auto;
+        }
+        .flame-svg { display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+        .flame-rect { stroke: var(--bg, #0d1117); stroke-width: 0.5; }
+        .flame-rect:hover { opacity: 0.85; }
+        .flame-label { fill: #111; font-size: 10px; pointer-events: none; user-select: none; }
+        .flame-empty { padding: 2rem; text-align: center; color: var(--ink-3, #8b949e); }
+        .flame-tooltip {
+            position: absolute;
+            pointer-events: none;
+            background: var(--bg, #0d1117);
+            border: 1px solid var(--border, #30363d);
+            border-radius: 6px;
+            padding: 0.4rem 0.6rem;
+            font-size: 0.75rem;
+            color: var(--ink, #e6edf3);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+            z-index: 10;
+            max-width: 28rem;
+            word-break: break-all;
+        }
+        .flame-tip-name { font-weight: 600; margin-bottom: 0.15rem; }
+        .flame-tip-row { color: var(--ink-3, #8b949e); }
+        .profiles-diff-legend {
+            display: flex;
+            gap: 1rem;
+            padding: 0 1.25rem 0.5rem;
+            font-size: 0.75rem;
+            color: var(--ink-3, #8b949e);
+        }
+        .profiles-legend-swatch {
+            display: inline-block;
+            width: 0.8rem;
+            height: 0.8rem;
+            border-radius: 2px;
+            vertical-align: middle;
+            margin-right: 0.3rem;
+        }
+    </style>
+    <script src="/js/theme-preboot.js"></script>
+    <script src="/js/theme.js"></script>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <img src="/img/argus_logo.png" alt="Argus" class="logo-img">
+            <h1>Argus</h1>
+            <span class="cluster-badge">Continuous Profiles</span>
+        </div>
+        <div class="header-actions">
+            <a href="/" class="btn" title="Single JVM Dashboard">Dashboard</a>
+            <a href="/fleet.html" class="btn" title="Fleet Command Center">Fleet</a>
+            <a href="/profiles.html" class="btn btn-active" title="Continuous Profiles">Profiles</a>
+            <a href="/console.html" class="btn" title="Interactive Console">Console</a>
+            <button type="button" class="argus-theme-toggle" aria-label="Toggle theme"></button>
+        </div>
+    </header>
+
+    <div class="profiles-toolbar">
+        <div class="profiles-field">
+            <label for="profiles-pod">Pod</label>
+            <select id="profiles-pod"></select>
+        </div>
+        <div class="profiles-field">
+            <label for="profiles-event">Event</label>
+            <select id="profiles-event">
+                <option value="cpu">cpu</option>
+                <option value="alloc">alloc</option>
+                <option value="lock">lock</option>
+                <option value="wall">wall</option>
+            </select>
+        </div>
+        <div class="profiles-field">
+            <label for="profiles-range">Window</label>
+            <select id="profiles-range">
+                <option value="300">Last 5m</option>
+                <option value="900">Last 15m</option>
+                <option value="3600" selected>Last 1h</option>
+                <option value="21600">Last 6h</option>
+                <option value="86400">Last 24h</option>
+            </select>
+        </div>
+        <div class="profiles-actions">
+            <button id="profiles-query-btn" class="btn btn-primary" title="Merged flamegraph for the window">Query</button>
+            <button id="profiles-diff-btn" class="btn" title="Diff: this window vs the prior window of equal length">Diff</button>
+        </div>
+        <span id="profiles-status" class="profiles-status">Select a pod and click Query.</span>
+    </div>
+
+    <div id="profiles-diff-legend" class="profiles-diff-legend" hidden>
+        <span><span class="profiles-legend-swatch" style="background:hsl(130,60%,50%)"></span>Grew (Δ&gt;0)</span>
+        <span><span class="profiles-legend-swatch" style="background:hsl(5,70%,50%)"></span>Shrank (Δ&lt;0)</span>
+        <span><span class="profiles-legend-swatch" style="background:hsl(210,8%,55%)"></span>Unchanged</span>
+    </div>
+
+    <div id="profiles-flame" class="profiles-canvas"></div>
+
+    <footer>
+        <p>Argus Continuous Profiles &mdash; Pyroscope-lite time-windowed flamegraphs &middot; <a href="https://github.com/rlaope/Argus" target="_blank" style="color:var(--ink-3,#888);text-decoration:none;">GitHub</a></p>
+    </footer>
+
+    <script src="/js/flamegraph.js"></script>
+    <script src="/js/profiles.js"></script>
+</body>
+</html>

@@ -19,19 +19,11 @@ import io.argus.aggregator.store.FleetRegistry;
 import io.argus.aggregator.store.PodRingBuffer;
 import io.argus.core.net.HostAllowlist;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
-import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpResponseStatus;
-import io.netty.handler.codec.http.HttpUtil;
-import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.QueryStringDecoder;
 import io.netty.util.CharsetUtil;
 
@@ -87,16 +79,28 @@ public final class FleetController {
     private final FleetRegistry registry;
     private final PrometheusMetricsExporter prometheus;
     private final PodHttpClient podClient;
+    private final ProfileController profile;
 
     public FleetController(FleetRegistry registry, PrometheusMetricsExporter prometheus) {
-        this(registry, prometheus, new PodHttpClient());
+        this(registry, prometheus, new PodHttpClient(), null);
     }
 
     public FleetController(FleetRegistry registry, PrometheusMetricsExporter prometheus,
                            PodHttpClient podClient) {
+        this(registry, prometheus, podClient, null);
+    }
+
+    public FleetController(FleetRegistry registry, PrometheusMetricsExporter prometheus,
+                           ProfileController profile) {
+        this(registry, prometheus, new PodHttpClient(), profile);
+    }
+
+    public FleetController(FleetRegistry registry, PrometheusMetricsExporter prometheus,
+                           PodHttpClient podClient, ProfileController profile) {
         this.registry = registry;
         this.prometheus = prometheus;
         this.podClient = podClient;
+        this.profile = profile;
     }
 
     /** Returns true if the request was handled. */
@@ -106,6 +110,10 @@ public final class FleetController {
         HttpMethod method = request.method();
 
         try {
+            // ── Continuous-profiling routes (W1) ─────────────────────────────
+            if (profile != null && profile.dispatch(ctx, request, path, method, decoder)) {
+                return true;
+            }
             if (HttpMethod.GET.equals(method) && path.equals("/fleet/list")) {
                 handleFleetList(ctx, request, decoder.parameters());
                 return true;
@@ -581,42 +589,26 @@ public final class FleetController {
 
     private static void sendJson(ChannelHandlerContext ctx, FullHttpRequest request,
                                  HttpResponseStatus status, String json) {
-        sendText(ctx, request, status, json, "application/json");
+        HttpResponses.sendJson(ctx, request, status, json);
     }
 
     private static void sendPlain(ChannelHandlerContext ctx, FullHttpRequest request,
                                   HttpResponseStatus status, String content) {
-        sendText(ctx, request, status, content, "text/plain; charset=utf-8");
+        HttpResponses.sendPlain(ctx, request, status, content);
     }
 
     private static void sendText(ChannelHandlerContext ctx, FullHttpRequest request,
                                  HttpResponseStatus status, String content, String contentType) {
-        ByteBuf buf = Unpooled.copiedBuffer(content, CharsetUtil.UTF_8);
-        FullHttpResponse response = new DefaultFullHttpResponse(
-                HttpVersion.HTTP_1_1, status, buf);
-        response.headers()
-                .set(HttpHeaderNames.CONTENT_TYPE, contentType)
-                .setInt(HttpHeaderNames.CONTENT_LENGTH, buf.readableBytes());
-        ChannelFuture future = ctx.writeAndFlush(response);
-        if (!HttpUtil.isKeepAlive(request)) {
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
+        HttpResponses.sendText(ctx, request, status, content, contentType);
     }
 
     private static void sendNoContent(ChannelHandlerContext ctx, FullHttpRequest request) {
-        FullHttpResponse response = new DefaultFullHttpResponse(
-                HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT, Unpooled.EMPTY_BUFFER);
-        response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, 0);
-        ChannelFuture future = ctx.writeAndFlush(response);
-        if (!HttpUtil.isKeepAlive(request)) {
-            future.addListener(ChannelFutureListener.CLOSE);
-        }
+        HttpResponses.sendNoContent(ctx, request);
     }
 
     private static void sendError(ChannelHandlerContext ctx, FullHttpRequest request,
                                   int code, String message) {
-        HttpResponseStatus status = HttpResponseStatus.valueOf(code);
-        sendJson(ctx, request, status, JsonWriter.error(code, message));
+        HttpResponses.sendError(ctx, request, code, message);
     }
 
     private static String firstParam(Map<String, List<String>> params, String name) {
