@@ -18,7 +18,9 @@ class CorrelationAnalyzerTracePauseTest {
     @Test
     void sub_threshold_pauses_are_ignored() {
         CorrelationAnalyzer analyzer = new CorrelationAnalyzer(50.0);
-        Instant t = Instant.parse("2026-05-28T10:00:00Z");
+        // Anchor on now() so windows stay inside the 5-minute retention horizon
+        // regardless of the calendar date (avoids a date-relative time bomb).
+        Instant t = Instant.now();
         boolean recorded = analyzer.recordPauseWindow(
                 t, t.plusMillis(10), "G1 Young Generation", "G1 Evacuation Pause",
                 10.0, 0L, null);
@@ -29,7 +31,7 @@ class CorrelationAnalyzerTracePauseTest {
     @Test
     void significant_pause_is_recorded_with_trace_id() {
         CorrelationAnalyzer analyzer = new CorrelationAnalyzer(50.0);
-        Instant start = Instant.parse("2026-05-28T10:00:00Z");
+        Instant start = Instant.now();
         boolean recorded = analyzer.recordPauseWindow(
                 start, start.plusMillis(120), "G1 Old Generation", "G1 Humongous Allocation",
                 120.0, 4_096L, "0af7651916cd43dd8448eb211c80319c");
@@ -48,19 +50,20 @@ class CorrelationAnalyzerTracePauseTest {
     @Test
     void overlap_query_returns_pauses_intersecting_the_window() {
         CorrelationAnalyzer analyzer = new CorrelationAnalyzer(50.0);
-        Instant base = Instant.parse("2026-05-28T10:00:00Z");
+        // Anchor on now() (offsets span ~10s, well inside the 5-minute retention).
+        Instant base = Instant.now();
 
-        // Pause A: 10:00:00.000 -> 10:00:00.100 (overlaps query start edge)
+        // Pause A: base+0.000 -> base+0.100 (overlaps query start edge)
         analyzer.recordPauseWindow(base, base.plusMillis(100),
                 "G1", "Evac", 100.0, 0L, "aaaa651916cd43dd8448eb211c80319c");
-        // Pause B: 10:00:02.000 -> 10:00:02.080 (inside the query window)
+        // Pause B: base+2.000 -> base+2.080 (inside the query window)
         analyzer.recordPauseWindow(base.plusSeconds(2), base.plusSeconds(2).plusMillis(80),
                 "G1", "Evac", 80.0, 0L, null);
-        // Pause C: 10:00:10.000 -> 10:00:10.060 (outside the query window)
+        // Pause C: base+10.000 -> base+10.060 (outside the query window)
         analyzer.recordPauseWindow(base.plusSeconds(10), base.plusSeconds(10).plusMillis(60),
                 "G1", "Evac", 60.0, 0L, null);
 
-        // Query window: 10:00:00.050 -> 10:00:05.000
+        // Query window: base+0.050 -> base+5.000
         List<PauseWindow> overlapping = analyzer.pausesOverlapping(
                 base.plusMillis(50), base.plusSeconds(5));
 
@@ -75,7 +78,7 @@ class CorrelationAnalyzerTracePauseTest {
     @Test
     void analysis_exposes_threshold_and_pauses() {
         CorrelationAnalyzer analyzer = new CorrelationAnalyzer(75.0);
-        Instant t = Instant.parse("2026-05-28T10:00:00Z");
+        Instant t = Instant.now();
         analyzer.recordPauseWindow(t, t.plusMillis(200), "ZGC", "Proactive", 200.0, 0L, null);
 
         var result = analyzer.getAnalysis();
@@ -86,7 +89,7 @@ class CorrelationAnalyzerTracePauseTest {
     @Test
     void clear_removes_recorded_pauses() {
         CorrelationAnalyzer analyzer = new CorrelationAnalyzer(50.0);
-        Instant t = Instant.parse("2026-05-28T10:00:00Z");
+        Instant t = Instant.now();
         analyzer.recordPauseWindow(t, t.plusMillis(100), "G1", "Evac", 100.0, 0L, null);
         assertFalse(analyzer.getRecentPauseWindows().isEmpty());
         analyzer.clear();
