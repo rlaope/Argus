@@ -73,10 +73,12 @@
                     </div>
                 </div>
 
-                <p>Argus gives you two tools for JVM diagnostics:</p>
+                <p>Argus ships in four deployment forms:</p>
                 <ul>
                     <li><strong>Argus CLI</strong> — 71 diagnostic commands that work on any running JVM. No agent, no restart, no configuration. Point at a PID and get answers in seconds.</li>
                     <li><strong>Argus Agent</strong> — Attach as a Java agent and get a live web dashboard with GC timelines, CPU graphs, heap usage, flame graphs, and thread analysis, all streaming in real time.</li>
+                    <li><strong>Spring Boot Starter</strong> — Drop <code>argus-spring-boot-starter</code> into any Spring Boot app to get diagnostics mode (<code>argus.mode=full|diagnostics|off</code>), a scheduled doctor, and <code>/actuator/argus-doctor</code> and <code>/actuator/argus-gc</code> endpoints.</li>
+                    <li><strong>argus-diagnostics library</strong> — A framework-agnostic embeddable library that exposes the same <code>DoctorService</code>, <code>GcLogAnalyzerService</code>, and <code>GcScoreService</code> beans in any JVM app, without Spring.</li>
                 </ul>
 
                 <div class="callout">
@@ -106,7 +108,7 @@
                     </div>
                     <div class="feature-card">
                         <h4>Virtual Thread Aware</h4>
-                        <p>First-class support for Java 21 virtual threads. Detect pinning, analyze carrier thread distribution, and monitor thread lifecycle events as they happen.</p>
+                        <p>First-class support for Java 21+ virtual threads. Pinning events are classified into three buckets per JEP 491 — native-frame, foreign-call, and object-monitor pins. The agent dashboard renders the StructuredTaskScope (structured-concurrency) tree from a VT-aware thread dump, and a carrier-saturation rule in <code>argus doctor</code> fires when the carrier pool saturates.</p>
                     </div>
                     <div class="feature-card">
                         <h4>Zero Overhead Design</h4>
@@ -132,6 +134,22 @@
                         <h4>OpenMetrics &amp; Grafana</h4>
                         <p>OpenMetrics-compliant <code>/prometheus</code> export with per-collector GC pause histograms and trace-ID exemplars, plus a shipped Grafana dashboard and recording/alert rules.</p>
                     </div>
+                    <div class="feature-card">
+                        <h4>OTel-Native Metrics</h4>
+                        <p>Metrics are dual-emitted under standard OpenTelemetry JVM semantic-convention names (<code>jvm.gc.duration</code>, <code>jvm.memory.used</code>, …) alongside the legacy <code>argus_*</code> series. Toggle legacy names off with <code>argus.metrics.legacyNames=false</code> to drop into an OTel-native stack without renaming dashboards.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>JVM Right-Sizing (FinOps)</h4>
+                        <p><code>argus rightsize &lt;pid&gt;</code> derives <code>-Xmx</code>/<code>-Xms</code> and container memory request/limit recommendations from observed heap high-water-mark, post-GC live-set floor, and alloc/promotion rate — with the inputs and safety factor shown, plus an OOMKill-risk flag. A fleet roll-up is available via the aggregator's <code>/fleet/rightsize</code> endpoint.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Learned Anomaly Detection</h4>
+                        <p>The agent can baseline each signal online (z-score, EWMA, and IQR over a rolling window) and fire on sustained regime shifts. Configured via <code>argus.anomaly.mode=fixed|learned|both</code>; defaults to <code>fixed</code> for back-compat. <code>learned</code> and <code>both</code> are opt-in.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Opt-in LLM Root-Cause</h4>
+                        <p><code>argus explain --llm</code> and <code>argus doctor --rca</code> attach an LLM advisory to the deterministic findings. Default OFF; requires a bring-your-own-key API credential. Only the deterministic findings payload is sent — raw heap or profile data is never forwarded — and the deterministic output is always shown alongside.</p>
+                    </div>
                 </div>
             </div>
 
@@ -156,7 +174,7 @@
                     <li><a href="comparison.html">vs Traditional JVM Tools</a> — what changes when Argus replaces a 5-tool chain in five production scenarios.</li>
                     <li><a href="scenarios.html">Real-World Scenarios</a> — twelve production incidents (humongous allocations, TTSP, OOMKilled, deopt storms, …) walked through end-to-end.</li>
                     <li><a href="dashboard.html">Dashboard</a> — agent setup, the JVM-health-first layout, interactive console, configuration knobs.</li>
-                    <li><a href="integrations.html">Integrations</a> — Spring Boot starter and Micrometer metrics.</li>
+                    <li><a href="integrations.html">Integrations</a> — Spring Boot starter, <code>argus-diagnostics</code> embedded library, Micrometer metrics, OTel/OpenMetrics export, and Pyroscope / OTLP continuous-profile push.</li>
                     <li><a href="reference.html">Reference</a> — Java version compatibility matrix, module architecture, full configuration reference.</li>
                 </ul>
             </div>

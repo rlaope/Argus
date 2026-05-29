@@ -88,7 +88,7 @@
                 <span class="section-anchor" id="architecture"></span>
                 <h2>Architecture</h2>
 
-                <p>Argus is organized into seven modules, each with a clear responsibility:</p>
+                <p>Argus is organized into eleven modules, each with a clear responsibility:</p>
 
                 <div class="table-wrap">
                     <table>
@@ -102,7 +102,11 @@
                             <tr><td><code>argus-frontend</code></td><td>Dashboard web UI (vanilla JS, Chart.js, D3 flame graph)</td></tr>
                             <tr><td><code>argus-cli</code></td><td>71 diagnostic commands using jcmd/jstat</td></tr>
                             <tr><td><code>argus-micrometer</code></td><td>Framework-agnostic Micrometer MeterBinder</td></tr>
-                            <tr><td><code>argus-spring-boot-starter</code></td><td>Spring Boot auto-configuration</td></tr>
+                            <tr><td><code>argus-spring-boot-starter</code></td><td>Spring Boot auto-configuration: <code>argus.mode=full|diagnostics|off</code>, injectable <code>DoctorService</code> / <code>GcLogAnalyzerService</code> / <code>GcScoreService</code> beans, <code>/actuator/argus-doctor</code> and <code>/actuator/argus-gc</code> endpoints, and a scheduled doctor — all delegating to <code>argus-diagnostics</code></td></tr>
+                            <tr><td><code>argus-diagnostics</code></td><td>Framework-agnostic diagnostics library (DoctorEngine, GC-log analysis, health rules) that non-Spring JVM apps can embed; the Spring starter's service beans delegate to it</td></tr>
+                            <tr><td><code>argus-aggregator</code></td><td>Fleet-level aggregation server: multi-JVM health roll-up, alert evaluation, <code>/fleet/rightsize</code>, and profile push (Pyroscope / OTLP Profiles)</td></tr>
+                            <tr><td><code>argus-operator</code></td><td>Kubernetes operator (ArgusFleet / ArgusTarget CRDs + reconcilers)</td></tr>
+                            <tr><td><code>argus-instrument</code></td><td>Opt-in live bytecode instrumentation agent (ByteBuddy-based), default OFF, used by <code>argus instrument</code></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -126,16 +130,26 @@
                         </thead>
                         <tbody>
                             <tr><td><code>argus.server.port</code></td><td>9202</td><td>Dashboard HTTP port</td></tr>
+                            <tr><td><code>argus.server.enabled</code></td><td>true</td><td>Start the built-in HTTP dashboard/metrics server</td></tr>
                             <tr><td><code>argus.gc.enabled</code></td><td>true</td><td>GC event collection via JFR</td></tr>
                             <tr><td><code>argus.cpu.enabled</code></td><td>true</td><td>CPU load sampling</td></tr>
-                            <tr><td><code>argus.cpu.interval-ms</code></td><td>500</td><td>CPU sampling interval in milliseconds</td></tr>
+                            <tr><td><code>argus.cpu.interval</code></td><td>1000</td><td>CPU sampling interval in milliseconds</td></tr>
                             <tr><td><code>argus.allocation.enabled</code></td><td>false</td><td>Object allocation tracking (higher overhead)</td></tr>
-                            <tr><td><code>argus.allocation.threshold</code></td><td>524288</td><td>Minimum allocation size to track (bytes)</td></tr>
+                            <tr><td><code>argus.allocation.threshold</code></td><td>1048576</td><td>Minimum allocation size to track (bytes)</td></tr>
                             <tr><td><code>argus.profiling.enabled</code></td><td>false</td><td>CPU method profiling via JFR</td></tr>
+                            <tr><td><code>argus.profiling.interval</code></td><td>20</td><td>CPU profiling sampling interval in milliseconds</td></tr>
                             <tr><td><code>argus.contention.enabled</code></td><td>false</td><td>Lock contention monitoring</td></tr>
+                            <tr><td><code>argus.contention.threshold</code></td><td>50</td><td>Minimum lock contention duration to record (milliseconds)</td></tr>
                             <tr><td><code>argus.metaspace.enabled</code></td><td>true</td><td>Metaspace usage tracking</td></tr>
-                            <tr><td><code>argus.buffer-size</code></td><td>131072</td><td>Ring buffer size in bytes</td></tr>
+                            <tr><td><code>argus.buffer.size</code></td><td>65536</td><td>Ring buffer size in bytes</td></tr>
+                            <tr><td><code>argus.correlation.enabled</code></td><td>true</td><td>Cross-metric correlation analysis</td></tr>
+                            <tr><td><code>argus.anomaly.mode</code></td><td>fixed</td><td>Anomaly detection mode: <code>fixed</code> | <code>learned</code> | <code>both</code> (<code>learned</code> uses z-score/EWMA/IQR baselines)</td></tr>
                             <tr><td><code>argus.metrics.prometheus.enabled</code></td><td>true</td><td>Expose Prometheus endpoint at <code>/prometheus</code></td></tr>
+                            <tr><td><code>argus.metrics.legacyNames</code></td><td>true</td><td>Emit legacy <code>argus_*</code> series alongside OTel semconv <code>jvm.*</code> names; set <code>false</code> to emit only the standard names</td></tr>
+                            <tr><td><code>argus.otlp.enabled</code></td><td>false</td><td>Export metrics via OTLP</td></tr>
+                            <tr><td><code>argus.otlp.endpoint</code></td><td>http://localhost:4318/v1/metrics</td><td>OTLP HTTP endpoint for metrics export</td></tr>
+                            <tr><td><code>argus.otlp.interval</code></td><td>15000</td><td>OTLP export interval in milliseconds</td></tr>
+                            <tr><td><code>argus.otlp.service.name</code></td><td>argus</td><td>Service name reported in OTLP resource attributes</td></tr>
                         </tbody>
                     </table>
                 </div>

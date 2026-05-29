@@ -55,6 +55,7 @@
                 <li class="sub"><a href="#s10-lock" data-target="s10-lock">10. Lock Contention</a></li>
                 <li class="sub"><a href="#s11-false-sharing" data-target="s11-false-sharing">11. False Sharing</a></li>
                 <li class="sub"><a href="#s12-direct-buffer" data-target="s12-direct-buffer">12. Direct Buffer</a></li>
+                <li class="sub"><a href="#s13-vt-pinning" data-target="s13-vt-pinning">13. VT Carrier Saturation</a></li>
             </ul>
         </div>
     </nav>
@@ -260,6 +261,24 @@ $ argus nmt 12345 --diff baseline.json
 ╰──────────────────────────────────────────────────────────────╯
 </code></pre>
 
+                <p>Once you have identified the growing NMT category, cross-check whether the current heap sizing itself puts the pod at OOMKill risk:</p>
+
+<pre><code>$ argus rightsize 12345 --limit=2g
+╭─ argus rightsize ───────────────────────────────────────────╮
+│ JVM Right-Sizing   floor:312MiB  safety:1.5x                 │
+│                                                              │
+│   -Xmx                   -Xmx768m                            │
+│   -Xms                   -Xms256m                            │
+│   Container request       900 MiB                            │
+│   Container limit        1100 MiB                            │
+│   CPU request            0.50 cores                          │
+│                                                              │
+│   [OOMKILL RISK] total footprint (heap + off-heap) exceeds   │
+│     container limit 2g — kernel OOMKill likely               │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+</code></pre>
+
                 <p><strong>Verdict.</strong></p>
                 <div class="table-wrap">
                     <table>
@@ -268,6 +287,7 @@ $ argus nmt 12345 --diff baseline.json
                         </thead>
                         <tbody>
                             <tr><td>NMT baseline + diff</td><td>⚠️ manual scan of 18 categories</td><td>✅ banner + sorted growers</td></tr>
+                            <tr><td>OOMKill risk check</td><td>⚠️ manual math from kubectl + jcmd</td><td>✅ <code>argus rightsize --limit=&lt;mem&gt;</code></td></tr>
                             <tr><td>Container working-set</td><td>✅ <code>kubectl top</code> / cAdvisor</td><td>❌ out of scope</td></tr>
                             <tr><td>Kernel kill event</td><td>✅ <code>dmesg</code></td><td>❌ out of scope — still need shell</td></tr>
                         </tbody>
@@ -452,7 +472,7 @@ $ jcmd 12345 GC.heap_dump /tmp/heap.hprof
 │                                                              │
 ╰──────────────────────────────────────────────────────────────╯
 
-$ argus classloader 12345 --top 5
+$ argus classleak 12345 --top 5
   ClassLoader                                  Classes    Δ since boot
   ─────────────────────────────────────────────────────────────────────
   AppClassLoader                                 24,118        +18
@@ -469,7 +489,7 @@ $ argus classloader 12345 --top 5
                         </thead>
                         <tbody>
                             <tr><td>Metaspace usage trend</td><td>✅ <code>VM.metaspace</code></td><td>✅ progress bar + warning</td></tr>
-                            <tr><td>Loaded class growth</td><td>⚠️ <code>GC.class_histogram</code> only</td><td>✅ <code>argus classloader</code></td></tr>
+                            <tr><td>Loaded class growth</td><td>⚠️ <code>GC.class_histogram</code> only</td><td>✅ <code>argus classleak</code></td></tr>
                             <tr><td>Offending ClassLoader</td><td>❌ heap dump + MAT (20 min)</td><td>✅ top-N by class count</td></tr>
                         </tbody>
                     </table>
@@ -680,6 +700,17 @@ $ argus profile 12345 --event lock --duration 20
                     </table>
                 </div>
 
+                <p><strong>Optional: confirm the exact hot synchronized path.</strong> Once <code>profile --event lock</code> names the suspect method, use <code>argus instrument watch</code> to capture per-invocation args, return value, and wall-clock cost without restarting the process:</p>
+
+<pre><code># Requires --enable-instrument and ~/.argus/lib/argus-instrument.jar
+$ argus instrument watch 12345 com.acme.Foo#method --enable-instrument
+[argus-instrument]  com.acme.Foo#method  args=[...]  return=...  duration=4ms
+[argus-instrument]  com.acme.Foo#method  args=[...]  return=...  duration=6ms
+# Ctrl-C — bytecode restored automatically on detach
+</code></pre>
+
+                <p>The agent is default-OFF, attaches on demand, and resets all transformed bytecode on detach — no residual instrumentation is left in the target JVM.</p>
+
                 <span class="section-anchor" id="s11-false-sharing"></span>
                 <h3>11. False Sharing in the Multi-Core Era</h3>
 
@@ -797,7 +828,94 @@ $ argus doctor 12345
                     </table>
                 </div>
 
-                <p><strong>Closing.</strong> Argus collapses roughly nine of these twelve scenarios into a single command answer (1, 4, 5, 6, 8, 10, 12, plus the JVM-side of 3 and the application-side of 9). The remaining cases — TTSP safepoint logs, OS swap, and FD/socket exhaustion — sit below the JVM boundary, where Argus consciously stops. The intended workflow is to run Argus alongside the host shell, not in place of it.</p>
+                <span class="section-anchor" id="s13-vt-pinning"></span>
+                <h3>13. Virtual-Thread Carrier Saturation / Pinning</h3>
+
+                <p><strong>Symptom.</strong> A Java 21+ service migrated to virtual threads shows healthy request counts under low load but throughput collapses under concurrency. Heap, GC, and CPU look fine. The root cause is that <code>synchronized</code> blocks or legacy blocking I/O inside virtual threads pin them to their carrier platform threads. Once all carriers are pinned, the scheduler cannot mount new virtual threads and the entire pool stalls — even though hundreds of virtual threads are nominally "runnable".</p>
+
+                <p><strong>Metrics required to diagnose:</strong></p>
+                <ul>
+                    <li>Virtual thread count vs. carrier (platform) thread count</li>
+                    <li>Carrier thread states — all WAITING/BLOCKED means they are all pinned</li>
+                    <li>Pinning event rate and taxonomy: native-frame pinning, foreign-call pinning, or object-monitor pinning (post-JEP-491 JDK 24+ breakdown)</li>
+                    <li><code>jdk.VirtualThreadPinned</code> and <code>jdk.VirtualThreadSubmitFailed</code> JFR events</li>
+                </ul>
+
+                <h4>Traditional toolchain</h4>
+<pre><code># Enable JVM pinning trace at startup and tail the log
+$ java -Djdk.tracePinnedThreads=full -jar service.jar 2&gt;&amp;1 | grep -A4 'PinnedThreads'
+Thread[#42,ForkJoinPool-1-worker-1,5,CarrierThreads]
+    com.acme.PaymentService.charge(PaymentService.java:88) &lt;== monitors:1&gt;
+    com.acme.PaymentService$$Lambda.run(...)
+# Requires restart; output is noisy with no count/rate aggregation.
+
+# Capture a JFR recording and open in JMC
+$ jcmd 12345 JFR.start name=vt duration=60s settings=profile
+$ jcmd 12345 JFR.stop name=vt filename=/tmp/vt.jfr
+$ jmc /tmp/vt.jfr   # Events tab → filter jdk.VirtualThreadPinned
+</code></pre>
+
+                <h4>Argus</h4>
+<pre><code>$ argus threads 12345
+╭─ argus threads ─────────────────────────────────────────────╮
+│ Thread Dump   pid:12345  source:jdk                          │
+│                                                              │
+│ Total: 1,284    Virtual: 1,240    Platform: 44    Peak: 48   │
+│                                                              │
+│ RUNNABLE      ██░░░░░░░░░░░░░░     44  (  3%)   ← carriers  │
+│ WAITING       █████████████░░░  1,228  ( 96%)   ← vt queue  │
+│ TIMED_WAITING ░░░░░░░░░░░░░░░░      8  (  1%)               │
+│ BLOCKED       ░░░░░░░░░░░░░░░░      4  (  0%)               │
+│                                                              │
+│ ⚠ All carrier threads busy — virtual thread scheduler        │
+│   stall likely. Check for pinning events.                    │
+│                                                              │
+╰──────────────────────────────────────────────────────────────╯
+
+$ argus doctor 12345
+╭─ argus doctor ──────────────────────────────────────────────╮
+│ JVM Health Report     pid:12345  HotSpot  uptime:22m         │
+│                                                              │
+│   Heap: 1.1 GB/4.0 GB (28%)  |  CPU: 18%  |  Threads: 1,284  │
+│   GC: 1.2% overhead                                          │
+│ ──────────────────────────────────────────────────────────── │
+│                                                              │
+│   1 critical                                                  │
+│                                                              │
+│   ✘ CRITICAL: Virtual-thread carrier saturation              │
+│     44 carriers all active; 1,228 virtual threads waiting    │
+│     Pinning rate: 312/min (jdk.VirtualThreadPinned)          │
+│     Pinning taxonomy: object-monitor (287), native-frame (25) │
+│     → Replace synchronized blocks with ReentrantLock in      │
+│       pinning hot paths (see Dashboard → Virtual Threads)    │
+│     → Or raise carrier parallelism:                          │
+│       -Djdk.virtualThreadScheduler.parallelism=N             │
+│                                                              │
+╰─ ✘ critical ────────────────────────────────────────────────╯
+</code></pre>
+
+                <p>The dashboard's <strong>Virtual Threads panel</strong> shows the <code>jdk.VirtualThreadPinned</code> event stream with stack traces (identifying the offending <code>synchronized</code> block) and the <code>jdk.VirtualThreadSubmitFailed</code> rate (carrier-pool submission failures, which appear when all carriers are saturated and cannot accept new mounts).</p>
+
+                <p><strong>Fix.</strong> Replace <code>synchronized</code> with <code>java.util.concurrent.locks.ReentrantLock</code> (or <code>ReentrantReadWriteLock</code>) in the pinning hot paths — virtual threads unmount cleanly at <code>lock.lock()</code> whereas <code>synchronized</code> pins the carrier. On JDK 24+ with JEP 491, object-monitor operations no longer pin; updating the runtime eliminates the largest pinning category without code changes.</p>
+
+                <p><strong>Verdict.</strong></p>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr><th>Metric</th><th>Traditional</th><th>Argus</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Carrier saturation</td><td>⚠️ inferred from <code>jstack</code> + carrier thread names</td><td>✅ <code>threads</code> shows virtual vs. carrier counts + warning</td></tr>
+                            <tr><td>Pinning event rate</td><td>⚠️ JFR + JMC or restart with <code>tracePinnedThreads</code></td><td>✅ <code>doctor</code> surfaces rate + taxonomy inline</td></tr>
+                            <tr><td>Pinning stack traces</td><td>✅ <code>-Djdk.tracePinnedThreads=full</code> (requires restart)</td><td>✅ dashboard Virtual Threads panel (<code>jdk.VirtualThreadPinned</code>)</td></tr>
+                            <tr><td><code>VirtualThreadSubmitFailed</code></td><td>⚠️ JFR + manual event filter</td><td>✅ dashboard Virtual Threads panel</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <p>Honest gap: Argus surfaces the pinning rate and taxonomy live; confirming the exact line of the offending <code>synchronized</code> block still requires inspecting the stack traces in the dashboard's Virtual Threads panel or in a JFR recording.</p>
+
+                <p><strong>Closing.</strong> Argus collapses roughly ten of these thirteen scenarios into a single command answer (1, 4, 5, 6, 8, 10, 12, 13, plus the JVM-side of 3 and the application-side of 9). The remaining cases — TTSP safepoint logs, OS swap, and FD/socket exhaustion — sit below the JVM boundary, where Argus consciously stops. The intended workflow is to run Argus alongside the host shell, not in place of it.</p>
             </div>
 
         </div><!-- .content-inner -->

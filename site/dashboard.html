@@ -103,7 +103,7 @@
                     </div>
                     <div class="feature-card">
                         <h4>Virtual Threads</h4>
-                        <p>Thread creation rate, active count, pinning detection with stack traces, carrier thread distribution. Java 21+ only.</p>
+                        <p>Thread creation rate, active count, pinning detection with stack traces (<code>jdk.VirtualThreadPinned</code>), carrier-pool saturation (<code>jdk.VirtualThreadSubmitFailed</code>), and carrier thread distribution. Java 21+ only.</p>
                     </div>
                     <div class="feature-card">
                         <h4>Recommendations</h4>
@@ -129,14 +129,20 @@
                             <tr><th>Property</th><th>Default</th><th>Description</th></tr>
                         </thead>
                         <tbody>
+                            <tr><td><code>argus.server.enabled</code></td><td>true</td><td>Start the built-in HTTP dashboard/metrics server</td></tr>
                             <tr><td><code>argus.server.port</code></td><td>9202</td><td>Dashboard HTTP port</td></tr>
                             <tr><td><code>argus.gc.enabled</code></td><td>true</td><td>GC event collection</td></tr>
                             <tr><td><code>argus.cpu.enabled</code></td><td>true</td><td>CPU load sampling</td></tr>
+                            <tr><td><code>argus.cpu.interval</code></td><td>1000</td><td>CPU sampling interval (ms)</td></tr>
                             <tr><td><code>argus.allocation.enabled</code></td><td>false</td><td>Object allocation tracking (higher overhead)</td></tr>
                             <tr><td><code>argus.profiling.enabled</code></td><td>false</td><td>CPU method profiling (higher overhead)</td></tr>
+                            <tr><td><code>argus.profiling.interval</code></td><td>20</td><td>Profiling sampling interval (ms)</td></tr>
                             <tr><td><code>argus.contention.enabled</code></td><td>false</td><td>Lock contention monitoring</td></tr>
+                            <tr><td><code>argus.contention.threshold</code></td><td>50</td><td>Minimum contention time to record (ms)</td></tr>
                             <tr><td><code>argus.metaspace.enabled</code></td><td>true</td><td>Metaspace usage tracking</td></tr>
                             <tr><td><code>argus.metrics.prometheus.enabled</code></td><td>true</td><td>Prometheus metrics endpoint at <code>/prometheus</code></td></tr>
+                            <tr><td><code>argus.metrics.legacyNames</code></td><td>true</td><td>Emit legacy <code>argus_*</code> series alongside OTel-semconv <code>jvm_*</code> series</td></tr>
+                            <tr><td><code>argus.anomaly.mode</code></td><td>fixed</td><td>Anomaly detection mode: <code>fixed</code>, <code>learned</code>, or <code>both</code></td></tr>
                         </tbody>
                     </table>
                 </div>
