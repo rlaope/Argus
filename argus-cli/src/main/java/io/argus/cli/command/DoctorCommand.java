@@ -4,6 +4,9 @@ import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
 import io.argus.diagnostics.doctor.*;
 import io.argus.cli.doctor.ProfileRules;
+import io.argus.cli.llm.LlmAdvisoryRenderer;
+import io.argus.cli.llm.LlmConfig;
+import io.argus.cli.llm.LlmRootCause;
 import io.argus.cli.provider.jdk.AsProfCapabilities;
 import io.argus.diagnostics.doctor.rules.MaxPauseRule;
 import io.argus.cli.export.HtmlExporter;
@@ -59,9 +62,13 @@ public final class DoctorCommand implements Command {
         String profileSnapshotPath = null;  // non-null → load from file
         int profileDurationSec = 5;
 
+        // Opt-in LLM root-cause flag (default OFF — gated by LlmConfig).
+        boolean rca = false;
+
         for (String arg : args) {
             if (arg.startsWith("--export=")) exportHtml = arg.substring(9);
             else if (arg.equals("--format=json")) json = true;
+            else if (arg.equals("--rca")) rca = true;
             else if (arg.startsWith("--pause-threshold-ms=")) {
                 try { pauseThresholdMs = Long.parseLong(arg.substring(21)); }
                 catch (NumberFormatException ignored) {}
@@ -143,6 +150,17 @@ public final class DoctorCommand implements Command {
 
         printRich(findings, suggestedFlags, snapshot, useColor, exitCode, pid,
                   profileFindings, profileError, profileSnapshotPath != null || profileLive);
+
+        // Opt-in LLM root cause. The deterministic findings above are ALWAYS
+        // shown; this only appends an advisory block when --rca is passed AND
+        // the feature is enabled with a key. Disabled ⇒ no provider, no network.
+        if (rca) {
+            List<Finding> all = new java.util.ArrayList<>(findings);
+            all.addAll(profileFindings);
+            LlmRootCause.Result rcaResult =
+                    new LlmRootCause(LlmConfig.fromEnvironment()).analyze(all);
+            LlmAdvisoryRenderer.print(rcaResult, useColor, messages);
+        }
 
         if (exitCode > 0) throw new CommandExitException(exitCode);
     }
