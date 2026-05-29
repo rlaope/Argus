@@ -26,6 +26,7 @@ public final class DoctorEngine {
             new CodeCacheRule(),
             new CpuUsageRule(),
             new ThreadContentionRule(),
+            new CarrierSaturationRule(),
             new FinalizerQueueRule(),
             new GcAlgorithmRule(),
             new ZgcSoftMaxBreachRule(),
