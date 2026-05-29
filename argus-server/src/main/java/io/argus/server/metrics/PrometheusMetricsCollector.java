@@ -106,6 +106,9 @@ public final class PrometheusMetricsCollector {
         long startNanos = System.nanoTime();
         StringBuilder sb = new StringBuilder(4096);
 
+        // Standard OTel JVM semantic-convention series (jvm_*) — always emitted.
+        appendSemconvMetrics(sb, openMetrics);
+
         appendVirtualThreadMetrics(sb);
         appendPinningMetrics(sb);
         appendCarrierThreadMetrics(sb);
@@ -151,19 +154,140 @@ public final class PrometheusMetricsCollector {
         return sb.toString();
     }
 
+    /**
+     * Emits the standard OpenTelemetry JVM semantic-convention series ({@code jvm_*}).
+     * Names, units, and types are taken from {@link SemconvMetrics} so this collector
+     * and the OTLP exporter share one mapping table. These series are emitted
+     * regardless of the {@code argus.metrics.legacyNames} flag.
+     */
+    private void appendSemconvMetrics(StringBuilder sb, boolean openMetrics) {
+        emittedSemconvHeaders.clear();
+        // jvm.thread.count — best available signal is the active virtual-thread count.
+        appendSemconvGauge(sb, SemconvMetrics.THREAD_COUNT, null, activeThreads.size());
+
+        if (config.isGcEnabled()) {
+            var analysis = gcAnalyzer.getAnalysis();
+            // Heap pool memory. The GC analyzer tracks post-GC heap, so jvm.memory.used
+            // and jvm.memory.used_after_last_gc share the same source here.
+            String heapPool = "{" + poolLabel("heap") + "}";
+            appendSemconvGauge(sb, SemconvMetrics.MEMORY_USED, heapPool, analysis.currentHeapUsed());
+            appendSemconvGauge(sb, SemconvMetrics.MEMORY_COMMITTED, heapPool, analysis.currentHeapCommitted());
+            appendSemconvGauge(sb, SemconvMetrics.MEMORY_USED_AFTER_LAST_GC, heapPool, analysis.currentHeapUsed());
+            appendSemconvGcDurationHistogram(sb, openMetrics);
+        }
+
+        if (config.isMetaspaceEnabled() && metaspaceAnalyzer != null) {
+            var ms = metaspaceAnalyzer.getAnalysis();
+            String metaPool = "{" + poolLabel("Metaspace") + "}";
+            appendSemconvGauge(sb, SemconvMetrics.MEMORY_USED, metaPool, ms.currentUsed());
+            appendSemconvGauge(sb, SemconvMetrics.MEMORY_COMMITTED, metaPool, ms.currentCommitted());
+            appendSemconvGauge(sb, SemconvMetrics.CLASS_COUNT, null, ms.currentClassCount());
+        }
+
+        if (config.isCpuEnabled()) {
+            var cpu = cpuAnalyzer.getAnalysis();
+            // jvm.cpu.time has no JFR-derived source in Argus today; only the recent
+            // utilization ratio is available. cpu.time stays in the mapping table as
+            // the documented contract but is not exported.
+            appendSemconvGauge(sb, SemconvMetrics.CPU_RECENT_UTILIZATION, null, cpu.currentJvmTotal());
+        }
+    }
+
+    /** Renders the {@code jvm.memory.pool.name} attribute in Prometheus label form. */
+    private String poolLabel(String pool) {
+        return "jvm_memory_pool_name=\"" + escapeLabel(pool) + "\"";
+    }
+
+    /**
+     * Emits a single semconv gauge line with HELP/TYPE drawn from the mapping table.
+     * {@code labels} is a {@code {k="v",...}} block or {@code null}/empty for none.
+     * Memory-pool metrics share one HELP/TYPE header across pools, so the header is
+     * only written once per metric name within a scrape.
+     */
+    private void appendSemconvGauge(StringBuilder sb, SemconvMetrics.Metric metric, String labels, double value) {
+        String name = metric.prometheusName();
+        if (!emittedSemconvHeaders.contains(name)) {
+            sb.append("# HELP ").append(name).append(' ').append(metric.description()).append('\n');
+            sb.append("# TYPE ").append(name).append(' ').append(metric.type().prometheusType()).append('\n');
+            emittedSemconvHeaders.add(name);
+        }
+        sb.append(name).append(mergeBaseLabels(labels)).append(' ');
+        if (value == (long) value) {
+            sb.append((long) value);
+        } else {
+            sb.append(value);
+        }
+        sb.append('\n');
+    }
+
+    /** Merges Argus's K8s base labels with an optional metric-specific label block. */
+    private static String mergeBaseLabels(String labels) {
+        if (labels == null || labels.isEmpty()) {
+            return KubernetesLabels.prometheusLabelSuffix();
+        }
+        // labels looks like "{k=v,...}" — fold in the K8s base set.
+        return KubernetesLabels.mergeLabels(labels);
+    }
+
+    /**
+     * Emits the GC pause-time distribution under the semconv name
+     * {@code jvm_gc_duration_seconds}, reusing the same aggregate histogram as the
+     * legacy series. The aggregate is not split per {@code jvm.gc.name}/{@code jvm.gc.action}.
+     */
+    private void appendSemconvGcDurationHistogram(StringBuilder sb, boolean openMetrics) {
+        var hist = gcAnalyzer.getPauseHistogram();
+        if (hist.count() == 0) return;
+
+        String name = SemconvMetrics.GC_DURATION.prometheusName();
+        sb.append("# HELP ").append(name).append(' ')
+                .append(SemconvMetrics.GC_DURATION.description()).append('\n');
+        sb.append("# TYPE ").append(name).append(" histogram\n");
+        emittedSemconvHeaders.add(name);
+
+        String baseLabels = KubernetesLabels.prometheusLabelSuffix();
+        double[] bounds = hist.upperBounds();
+        long[] counts = hist.cumulativeCounts();
+        String traceId = openMetrics ? safeTraceId() : null;
+
+        for (int i = 0; i < bounds.length; i++) {
+            sb.append(name).append("_bucket")
+                    .append(bucketLabels(baseLabels, formatBound(bounds[i])))
+                    .append(' ').append(counts[i]).append('\n');
+        }
+        sb.append(name).append("_bucket")
+                .append(bucketLabels(baseLabels, "+Inf"))
+                .append(' ').append(counts[counts.length - 1]);
+        if (traceId != null) {
+            sb.append(" # {trace_id=\"").append(escapeLabel(traceId)).append("\"} ")
+                    .append(hist.sumSeconds() / Math.max(1, hist.count()));
+        }
+        sb.append('\n');
+        sb.append(name).append("_sum").append(baseLabels).append(' ')
+                .append(String.format(java.util.Locale.ROOT, "%.6f", hist.sumSeconds())).append('\n');
+        sb.append(name).append("_count").append(baseLabels).append(' ')
+                .append(hist.count()).append('\n');
+    }
+
+    /** Tracks which semconv HELP/TYPE headers have been written in the current scrape. */
+    private final java.util.Set<String> emittedSemconvHeaders = new java.util.HashSet<>();
+
     private void appendVirtualThreadMetrics(StringBuilder sb) {
+        // Argus-unique counters (no semconv equivalent) — always emitted.
         appendCounter(sb, "argus_virtual_threads_started_total",
                 "Total number of virtual threads started",
                 serverMetrics.getStartEvents());
         appendCounter(sb, "argus_virtual_threads_ended_total",
                 "Total number of virtual threads ended",
                 serverMetrics.getEndEvents());
-        appendGauge(sb, "argus_virtual_threads_active",
-                "Number of currently active virtual threads",
-                activeThreads.size());
         appendCounter(sb, "argus_virtual_threads_submit_failed_total",
                 "Total number of virtual thread submit failures",
                 serverMetrics.getSubmitFailedEvents());
+        // Legacy duplicate of jvm.thread.count.
+        if (config.isLegacyMetricNames()) {
+            appendGauge(sb, "argus_virtual_threads_active",
+                    "Number of currently active virtual threads",
+                    activeThreads.size());
+        }
     }
 
     private void appendPinningMetrics(StringBuilder sb) {
@@ -203,12 +327,15 @@ public final class PrometheusMetricsCollector {
         appendGauge(sb, "argus_gc_overhead_ratio",
                 "GC overhead as a ratio of total time",
                 analysis.gcOverheadPercent() / 100.0);
-        appendGauge(sb, "argus_heap_used_bytes",
-                "Current heap memory used in bytes",
-                analysis.currentHeapUsed());
-        appendGauge(sb, "argus_heap_committed_bytes",
-                "Current heap memory committed in bytes",
-                analysis.currentHeapCommitted());
+        if (config.isLegacyMetricNames()) {
+            // Legacy duplicates of jvm.memory.used_after_last_gc / jvm.memory.committed.
+            appendGauge(sb, "argus_heap_used_bytes",
+                    "Current heap memory used in bytes",
+                    analysis.currentHeapUsed());
+            appendGauge(sb, "argus_heap_committed_bytes",
+                    "Current heap memory committed in bytes",
+                    analysis.currentHeapCommitted());
+        }
         appendGauge(sb, "argus_gc_pause_time_seconds_avg",
                 "Average GC pause time in seconds",
                 analysis.avgPauseTimeMs() / 1000.0);
@@ -274,7 +401,10 @@ public final class PrometheusMetricsCollector {
             }
         }
 
-        appendPauseHistogram(sb, openMetrics);
+        // Legacy duplicate of the jvm.gc.duration histogram.
+        if (config.isLegacyMetricNames()) {
+            appendPauseHistogram(sb, openMetrics);
+        }
     }
 
     /**
@@ -357,6 +487,10 @@ public final class PrometheusMetricsCollector {
     }
 
     private void appendCPUMetrics(StringBuilder sb) {
+        if (!config.isLegacyMetricNames()) {
+            // jvm.cpu.recent_utilization replaces these legacy ratios.
+            return;
+        }
         var analysis = cpuAnalyzer.getAnalysis();
         appendGauge(sb, "argus_cpu_jvm_user_ratio",
                 "JVM user CPU usage ratio",
@@ -371,18 +505,23 @@ public final class PrometheusMetricsCollector {
 
     private void appendMetaspaceMetrics(StringBuilder sb) {
         var analysis = metaspaceAnalyzer.getAnalysis();
-        appendGauge(sb, "argus_metaspace_used_bytes",
-                "Metaspace memory used in bytes",
-                analysis.currentUsed());
-        appendGauge(sb, "argus_metaspace_committed_bytes",
-                "Metaspace memory committed in bytes",
-                analysis.currentCommitted());
+        // Argus-unique: no semconv reserved-memory metric — always emitted.
         appendGauge(sb, "argus_metaspace_reserved_bytes",
                 "Metaspace memory reserved in bytes",
                 analysis.currentReserved());
-        appendGauge(sb, "argus_metaspace_classes_loaded",
-                "Number of loaded classes in metaspace",
-                analysis.currentClassCount());
+        if (config.isLegacyMetricNames()) {
+            // Legacy duplicates of jvm.memory.used / jvm.memory.committed (pool=Metaspace)
+            // and jvm.class.count.
+            appendGauge(sb, "argus_metaspace_used_bytes",
+                    "Metaspace memory used in bytes",
+                    analysis.currentUsed());
+            appendGauge(sb, "argus_metaspace_committed_bytes",
+                    "Metaspace memory committed in bytes",
+                    analysis.currentCommitted());
+            appendGauge(sb, "argus_metaspace_classes_loaded",
+                    "Number of loaded classes in metaspace",
+                    analysis.currentClassCount());
+        }
     }
 
     private void appendContentionMetrics(StringBuilder sb) {

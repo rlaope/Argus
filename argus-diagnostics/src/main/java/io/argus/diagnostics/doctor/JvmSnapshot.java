@@ -74,6 +74,14 @@ public final class JvmSnapshot {
     // collector isn't G1.
     private final G1Stats g1Stats;
 
+    // Virtual-thread carrier pool — populated when VT JFR events are available.
+    // All default to 0/absent when no VT telemetry was collected, in which case
+    // the CarrierSaturationRule stays silent.
+    private final int carrierParallelism;        // ForkJoinPool target parallelism
+    private final int activeCarrierThreads;       // carriers currently running a VT
+    private final long virtualThreadSubmitFailures; // jdk.VirtualThreadSubmitFailed count
+    private final long queuedVirtualThreads;      // VTs waiting for a carrier (backlog)
+
     public JvmSnapshot(long heapUsed, long heapMax, long heapCommitted, long nonHeapUsed,
                        Map<String, PoolInfo> memoryPools,
                        List<GcInfo> collectors, long totalGcCount, long totalGcTimeMs, long uptimeMs,
@@ -152,6 +160,34 @@ public final class JvmSnapshot {
                        long codeCacheUsedKb, long codeCacheSizeKb,
                        Map<String, Long> nmtCommittedKbByCategory,
                        G1Stats g1Stats) {
+        this(heapUsed, heapMax, heapCommitted, nonHeapUsed, memoryPools,
+                collectors, totalGcCount, totalGcTimeMs, uptimeMs,
+                processCpuLoad, systemCpuLoad, availableProcessors,
+                threadCount, daemonThreadCount, peakThreadCount,
+                threadStates, deadlockedThreads, bufferPools,
+                loadedClassCount, totalLoadedClassCount, unloadedClassCount,
+                pendingFinalization, vmName, vmVersion, gcAlgorithm, vmFlags,
+                maxRecentPauseMs, codeCacheUsedKb, codeCacheSizeKb,
+                nmtCommittedKbByCategory, g1Stats,
+                0, 0, 0L, 0L);
+    }
+
+    public JvmSnapshot(long heapUsed, long heapMax, long heapCommitted, long nonHeapUsed,
+                       Map<String, PoolInfo> memoryPools,
+                       List<GcInfo> collectors, long totalGcCount, long totalGcTimeMs, long uptimeMs,
+                       double processCpuLoad, double systemCpuLoad, int availableProcessors,
+                       int threadCount, int daemonThreadCount, int peakThreadCount,
+                       Map<String, Integer> threadStates, int deadlockedThreads,
+                       List<BufferInfo> bufferPools,
+                       int loadedClassCount, long totalLoadedClassCount, long unloadedClassCount,
+                       int pendingFinalization,
+                       String vmName, String vmVersion, String gcAlgorithm, List<String> vmFlags,
+                       long maxRecentPauseMs,
+                       long codeCacheUsedKb, long codeCacheSizeKb,
+                       Map<String, Long> nmtCommittedKbByCategory,
+                       G1Stats g1Stats,
+                       int carrierParallelism, int activeCarrierThreads,
+                       long virtualThreadSubmitFailures, long queuedVirtualThreads) {
         this.heapUsed = heapUsed;
         this.heapMax = heapMax;
         this.heapCommitted = heapCommitted;
@@ -183,6 +219,10 @@ public final class JvmSnapshot {
         this.codeCacheSizeKb = codeCacheSizeKb;
         this.nmtCommittedKbByCategory = nmtCommittedKbByCategory;
         this.g1Stats = g1Stats == null ? G1Stats.empty() : g1Stats;
+        this.carrierParallelism = carrierParallelism;
+        this.activeCarrierThreads = activeCarrierThreads;
+        this.virtualThreadSubmitFailures = virtualThreadSubmitFailures;
+        this.queuedVirtualThreads = queuedVirtualThreads;
     }
 
     // Accessors
@@ -227,6 +267,14 @@ public final class JvmSnapshot {
     public Map<String, Long> nmtCommittedKbByCategory() { return nmtCommittedKbByCategory; }
     /** G1-specific stats extracted from the GC log; always non-null, may be {@code G1Stats.empty()}. */
     public G1Stats g1Stats() { return g1Stats; }
+    /** Target parallelism of the VT carrier ForkJoinPool. 0 means VT telemetry was not collected. */
+    public int carrierParallelism() { return carrierParallelism; }
+    /** Carrier threads currently running a virtual thread. */
+    public int activeCarrierThreads() { return activeCarrierThreads; }
+    /** Count of {@code jdk.VirtualThreadSubmitFailed} events observed. */
+    public long virtualThreadSubmitFailures() { return virtualThreadSubmitFailures; }
+    /** Virtual threads waiting for a carrier (scheduler backlog). */
+    public long queuedVirtualThreads() { return queuedVirtualThreads; }
 
     public static final class PoolInfo {
         private final String name;
