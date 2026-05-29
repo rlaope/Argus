@@ -175,6 +175,49 @@ class LlmRootCauseTest {
         }
     }
 
+    // Hardening: a detail/recommendation line that starts with '[' but is not a
+    // valid [SEVERITY] header (e.g. a quoted GC-log tag or a JVM flag bracket)
+    // must NOT be mistaken for a new finding. The finding and all its lines must
+    // survive, and a following real finding must still parse.
+    @Test
+    void bracketLine_thatIsNotASeverityHeader_doesNotDropLines() {
+        String doctorTxt =
+                "[CRITICAL] GC: Long pauses\n"
+                + "  [gc,heap] 2048M->1900M observed in the log\n"
+                + "  -> review [InitiatingHeapOccupancyPercent] tuning\n"
+                + "  -> Investigate allocation rate\n"
+                + "\n"
+                + "[WARNING] Threads: Pool saturation\n"
+                + "  All worker threads busy\n"
+                + "  -> Increase pool size\n";
+
+        List<Finding> findings = BundleFindings.parse(doctorTxt);
+
+        // Both findings survive — the bracketed lines did not split or drop them.
+        assertEquals(2, findings.size(), "both findings must survive bracketed lines");
+
+        Finding first = findings.get(0);
+        assertEquals(Severity.CRITICAL, first.severity());
+        assertEquals("GC", first.category());
+        assertEquals("Long pauses", first.title());
+        // The bracketed detail line was retained as detail, not treated as a header.
+        assertTrue(first.detail().contains("[gc,heap]"),
+                "bracketed detail line must be preserved: " + first.detail());
+        // Both recommendations survive, including the one containing a '[' bracket.
+        assertEquals(2, first.recommendations().size(),
+                "both recommendations must survive: " + first.recommendations());
+        assertTrue(first.recommendations().get(0).contains("[InitiatingHeapOccupancyPercent]"),
+                "bracketed recommendation must be preserved");
+        assertTrue(first.recommendations().get(1).contains("allocation rate"));
+
+        // The following real finding still parses normally.
+        Finding second = findings.get(1);
+        assertEquals(Severity.WARNING, second.severity());
+        assertEquals("Threads", second.category());
+        assertEquals("Pool saturation", second.title());
+        assertEquals(1, second.recommendations().size());
+    }
+
     // Provider failure must be caught; findings still flow through.
     @Test
     void providerFailure_fallsBackToFindings() {

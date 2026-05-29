@@ -50,9 +50,16 @@ public final class BundleFindings {
         for (String raw : doctorTxt.split("\n", -1)) {
             String line = raw.strip();
             if (line.isEmpty()) continue;
-            if (line.startsWith("[")) {
+            // A line only starts a new finding when it parses as a real header
+            // (a recognized [SEVERITY] token). A line that merely starts with
+            // '[' but is not a valid header (e.g. a GC-log tag like "[gc,heap]"
+            // or a JVM flag bracket quoted in a detail/recommendation) falls
+            // through and is attached to the current finding instead of silently
+            // dropping the rest of its lines.
+            Finding.Builder header = parseHeader(line);
+            if (header != null) {
                 if (current != null) findings.add(current.build());
-                current = parseHeader(line);
+                current = header;
             } else if (current != null && line.startsWith("->")) {
                 current.recommend(line.substring(2).strip());
             } else if (current != null) {
@@ -63,11 +70,20 @@ public final class BundleFindings {
         return findings;
     }
 
+    /**
+     * Parses a finding header of the form {@code [SEVERITY] category: title}.
+     * Returns {@code null} when the line is not a valid header: it must start
+     * with {@code [}, contain a closing {@code ]}, and the bracketed token must
+     * be a recognized {@link Severity}. Anything else is treated as detail or
+     * recommendation by the caller.
+     */
     private static Finding.Builder parseHeader(String line) {
+        if (!line.startsWith("[")) return null;
         int close = line.indexOf(']');
         if (close < 0) return null;
         String sevToken = line.substring(1, close).trim();
         Severity severity = parseSeverity(sevToken);
+        if (severity == null) return null;
         String rest = line.substring(close + 1).strip();
         int colon = rest.indexOf(':');
         String category = colon >= 0 ? rest.substring(0, colon).strip() : rest;
@@ -75,11 +91,12 @@ public final class BundleFindings {
         return Finding.builder(severity, category, title);
     }
 
+    /** Returns the matching {@link Severity}, or {@code null} when unrecognized. */
     private static Severity parseSeverity(String token) {
         try {
             return Severity.valueOf(token.toUpperCase());
         } catch (IllegalArgumentException e) {
-            return Severity.INFO;
+            return null;
         }
     }
 
