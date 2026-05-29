@@ -1,6 +1,6 @@
 # Argus CLI Command Reference
 
-Complete reference for all 70 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
+Complete reference for all 71 Argus CLI commands. Commands are organized into five categories. Each category page contains full synopses, option tables, and output samples. Use the alphabetical index at the bottom to jump directly to any command.
 
 ## Global Options
 
@@ -208,6 +208,7 @@ Thread state summaries, full thread dumps, deadlock detection, and thread pool d
 | `argus profile-gate` | [Profiling & Tracing](commands/profiling-tracing.md#argus-profile-gate-before-after) |
 | `argus ps` | [Monitoring](commands/monitoring.md#argus-ps) |
 | `argus report` | [Monitoring](commands/monitoring.md#argus-report-pid) |
+| `argus rightsize` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-rightsize-pid) |
 | `argus sc` | [Runtime & JVM Internals](commands/runtime-internals.md#argus-sc-pid-pattern) |
 | `argus slowlog` | [Profiling & Tracing](commands/profiling-tracing.md#argus-slowlog-pid) |
 | `argus snapshot` | [Profiling & Tracing](commands/profiling-tracing.md#argus-snapshot-pid) |

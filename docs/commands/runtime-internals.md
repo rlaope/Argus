@@ -23,6 +23,7 @@ Commands for inspecting and modifying JVM runtime internals without a restart. T
 - [argus explain \<term\>](#argus-explain-term)
 - [argus doctor](#argus-doctor)
 - [argus suggest](#argus-suggest)
+- [argus rightsize \<pid\>](#argus-rightsize-pid)
 - [argus ci \[pid\]](#argus-ci-pid)
 - [argus compare \<pid1\> \<pid2\>](#argus-compare-pid1-pid2)
 - [argus init](#argus-init)
@@ -635,6 +636,56 @@ $ argus suggest 12345 --profile=snapshot.json
 | `RuntimeWaitHint` | HIGH | _(no flag — structural hint)_ | Wait/park methods >= 60% of all samples |
 
 When a profile rule fires for the same JVM flag area as a workload suggestion, the workload suggestion is marked `(superseded by profile evidence)` in the output.
+
+---
+
+## argus rightsize \<pid\>
+
+Right-sizes a JVM for FinOps. Recommends `-Xmx`/`-Xms`, a container memory request and limit, and a CPU request derived from the observed heap high-water-mark, the post-GC live-set floor, the allocation and promotion rate, and the metaspace plus direct-buffer footprint. The output always shows its inputs and the safety factor — never a black box — and **never recommends an `-Xmx` below the observed post-GC live-set floor**.
+
+```bash
+$ argus rightsize 39113                 # rich, human-readable recommendation
+$ argus rightsize 39113 --format=json    # structured recommendation object
+$ argus rightsize 39113 --limit=2g       # supply the real container limit for an OOMKill check
+```
+
+```
+╭─ JVM Right-Sizing ── pid:39113 ── floor:312MiB ── safety:1.5x ───────────────╮
+│                                                                              │
+│   Recommended -Xmx        -Xmx512m                                           │
+│   Recommended -Xms        -Xms512m                                           │
+│   Container mem request   640 MiB                                            │
+│   Container mem limit     800 MiB                                            │
+│   CPU request             0.50 cores                                         │
+│                                                                              │
+│   [OOMKill]  no observed container limit — pass --limit=<size> to evaluate   │
+│   ─────────────────────────────────────────────────────────────────────     │
+│   Inputs                                                                     │
+│     Heap high-water mark:   428 MiB                                          │
+│     Post-GC live-set floor: 312 MiB                                          │
+│     Metaspace:               48 MiB                                          │
+│     Direct buffers:           4 MiB                                          │
+│     Safety factor:          1.5x above the live-set floor                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+```
+
+The `-Xmx` recommendation is the live-set floor multiplied by the safety factor (`1.5x`); `-Xms` is set equal to `-Xmx` to avoid heap-resize churn. The container limit adds the off-heap native footprint (metaspace, direct buffers, code cache, thread stacks) and a native-headroom factor on top.
+
+**OOMKill risk is a three-state verdict** — it is only meaningful against a real container limit, so Argus never fakes an all-clear:
+
+| State | Meaning |
+|-------|---------|
+| `AT_RISK` | An observed limit leaves no native headroom above `-Xmx` (metaspace, threads, code cache, and direct buffers would have nowhere to live); raise the limit. |
+| `OK` | An observed limit leaves adequate native headroom above `-Xmx`. |
+| `UNKNOWN` | No `--limit` was supplied and no container limit was observed; risk cannot be evaluated honestly. Pass `--limit=<size>` to get a real answer. |
+
+When the observation window is too short to be defensible (under ~60s or fewer than 2 GC cycles), `rightsize` refuses to recommend and tells you to keep observing rather than emit an untrustworthy number.
+
+Options:
+- `--limit=<size>` — Supply the real container memory limit (e.g. `2g`, `512m`) so the OOMKill-risk check can run; without it the risk state is `UNKNOWN`.
+- `--format=json` — Structured recommendation object with all inputs, the live-set floor, the safety factor, and the `oomKillRiskState` (`AT_RISK` / `OK` / `UNKNOWN`).
+
+**Fleet roll-up:** the aggregator exposes `GET /fleet/rightsize` for a per-deployment right-sizing summary across every observed instance.
 
 ---
 
