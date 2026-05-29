@@ -28,6 +28,8 @@ package io.argus.core.config;
  *   <li>{@code argus.otlp.interval} - OTLP push interval in ms (default: 15000)</li>
  *   <li>{@code argus.otlp.headers} - OTLP auth headers as key=val,key=val (default: empty)</li>
  *   <li>{@code argus.otlp.service.name} - OTLP resource service name (default: argus)</li>
+ *   <li>{@code argus.metrics.legacyNames} - Emit legacy {@code argus_*} series alongside
+ *       the OTel-semconv {@code jvm_*} series (default: true)</li>
  * </ul>
  */
 public final class AgentConfig {
@@ -52,6 +54,7 @@ public final class AgentConfig {
     private static final int DEFAULT_OTLP_INTERVAL_MS = 15000;
     private static final String DEFAULT_OTLP_HEADERS = "";
     private static final String DEFAULT_OTLP_SERVICE_NAME = "argus";
+    private static final boolean DEFAULT_LEGACY_METRIC_NAMES = true;
 
     private final int bufferSize;
     private final int serverPort;
@@ -73,6 +76,7 @@ public final class AgentConfig {
     private final int otlpIntervalMs;
     private final String otlpHeaders;
     private final String otlpServiceName;
+    private final boolean legacyMetricNames;
 
     private AgentConfig(int bufferSize, int serverPort, boolean serverEnabled,
                         boolean gcEnabled, boolean cpuEnabled, int cpuIntervalMs,
@@ -82,7 +86,8 @@ public final class AgentConfig {
                         int contentionThresholdMs, boolean correlationEnabled,
                         boolean prometheusEnabled, boolean otlpEnabled,
                         String otlpEndpoint, int otlpIntervalMs,
-                        String otlpHeaders, String otlpServiceName) {
+                        String otlpHeaders, String otlpServiceName,
+                        boolean legacyMetricNames) {
         this.bufferSize = bufferSize;
         this.serverPort = serverPort;
         this.serverEnabled = serverEnabled;
@@ -103,6 +108,7 @@ public final class AgentConfig {
         this.otlpIntervalMs = otlpIntervalMs;
         this.otlpHeaders = otlpHeaders;
         this.otlpServiceName = otlpServiceName;
+        this.legacyMetricNames = legacyMetricNames;
     }
 
     /**
@@ -141,11 +147,13 @@ public final class AgentConfig {
         int otlpIntervalMs = Integer.getInteger("argus.otlp.interval", DEFAULT_OTLP_INTERVAL_MS);
         String otlpHeaders = System.getProperty("argus.otlp.headers", DEFAULT_OTLP_HEADERS);
         String otlpServiceName = System.getProperty("argus.otlp.service.name", DEFAULT_OTLP_SERVICE_NAME);
+        boolean legacyMetricNames = Boolean.parseBoolean(
+                System.getProperty("argus.metrics.legacyNames", String.valueOf(DEFAULT_LEGACY_METRIC_NAMES)));
 
         return new AgentConfig(bufferSize, serverPort, serverEnabled, gcEnabled, cpuEnabled, cpuIntervalMs,
                 allocationEnabled, allocationThreshold, metaspaceEnabled, profilingEnabled, profilingIntervalMs,
                 contentionEnabled, contentionThresholdMs, correlationEnabled, prometheusEnabled,
-                otlpEnabled, otlpEndpoint, otlpIntervalMs, otlpHeaders, otlpServiceName);
+                otlpEnabled, otlpEndpoint, otlpIntervalMs, otlpHeaders, otlpServiceName, legacyMetricNames);
     }
 
     /**
@@ -160,7 +168,7 @@ public final class AgentConfig {
                 DEFAULT_PROFILING_ENABLED, DEFAULT_PROFILING_INTERVAL_MS, DEFAULT_CONTENTION_ENABLED,
                 DEFAULT_CONTENTION_THRESHOLD_MS, DEFAULT_CORRELATION_ENABLED, DEFAULT_PROMETHEUS_ENABLED,
                 DEFAULT_OTLP_ENABLED, DEFAULT_OTLP_ENDPOINT, DEFAULT_OTLP_INTERVAL_MS,
-                DEFAULT_OTLP_HEADERS, DEFAULT_OTLP_SERVICE_NAME);
+                DEFAULT_OTLP_HEADERS, DEFAULT_OTLP_SERVICE_NAME, DEFAULT_LEGACY_METRIC_NAMES);
     }
 
     /**
@@ -252,6 +260,18 @@ public final class AgentConfig {
         return otlpServiceName;
     }
 
+    /**
+     * Whether legacy {@code argus_*} metric series are emitted alongside the
+     * OTel-semconv {@code jvm_*} series. Defaults to {@code true} so existing
+     * dashboards keep working; set {@code argus.metrics.legacyNames=false} to
+     * emit only the standard names (Argus-unique metrics are always emitted).
+     *
+     * @return true when legacy names are emitted
+     */
+    public boolean isLegacyMetricNames() {
+        return legacyMetricNames;
+    }
+
     @Override
     public String toString() {
         return "AgentConfig{" +
@@ -274,6 +294,7 @@ public final class AgentConfig {
                 ", otlpEndpoint='" + otlpEndpoint + '\'' +
                 ", otlpIntervalMs=" + otlpIntervalMs +
                 ", otlpServiceName='" + otlpServiceName + '\'' +
+                ", legacyMetricNames=" + legacyMetricNames +
                 '}';
     }
 
@@ -301,6 +322,7 @@ public final class AgentConfig {
         private int otlpIntervalMs = DEFAULT_OTLP_INTERVAL_MS;
         private String otlpHeaders = DEFAULT_OTLP_HEADERS;
         private String otlpServiceName = DEFAULT_OTLP_SERVICE_NAME;
+        private boolean legacyMetricNames = DEFAULT_LEGACY_METRIC_NAMES;
 
         private Builder() {
         }
@@ -405,13 +427,19 @@ public final class AgentConfig {
             return this;
         }
 
+        public Builder legacyMetricNames(boolean legacyMetricNames) {
+            this.legacyMetricNames = legacyMetricNames;
+            return this;
+        }
+
         public AgentConfig build() {
             return new AgentConfig(bufferSize, serverPort, serverEnabled,
                     gcEnabled, cpuEnabled, cpuIntervalMs, allocationEnabled,
                     allocationThreshold, metaspaceEnabled, profilingEnabled,
                     profilingIntervalMs, contentionEnabled, contentionThresholdMs,
                     correlationEnabled, prometheusEnabled, otlpEnabled,
-                    otlpEndpoint, otlpIntervalMs, otlpHeaders, otlpServiceName);
+                    otlpEndpoint, otlpIntervalMs, otlpHeaders, otlpServiceName,
+                    legacyMetricNames);
         }
     }
 }

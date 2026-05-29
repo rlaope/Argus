@@ -79,17 +79,48 @@ public final class OtlpJsonBuilder {
         sb.append("\"resource\":{\"attributes\":[");
         appendStringAttribute(sb, "service.name", config.getOtlpServiceName());
         sb.append(',');
+        appendStringAttribute(sb, "service.namespace", serviceNamespace());
+        sb.append(',');
+        appendStringAttribute(sb, "service.instance.id", serviceInstanceId());
+        sb.append(',');
         appendStringAttribute(sb, "service.version", getVersion());
         sb.append(',');
         appendStringAttribute(sb, "telemetry.sdk.name", "argus");
         sb.append(',');
         appendStringAttribute(sb, "telemetry.sdk.language", "java");
+        sb.append(',');
+        appendStringAttribute(sb, "telemetry.sdk.version", getVersion());
         sb.append("]}");
+    }
+
+    /**
+     * OTel {@code service.namespace}: the Kubernetes namespace when running in a
+     * pod (via the Downward API), otherwise empty.
+     */
+    private String serviceNamespace() {
+        String ns = KubernetesLabels.getLabels().get("namespace");
+        return ns != null ? ns : "";
+    }
+
+    /**
+     * OTel {@code service.instance.id}: the pod name in Kubernetes, otherwise the
+     * hostname, falling back to the service name when neither is available.
+     */
+    private String serviceInstanceId() {
+        String pod = KubernetesLabels.getLabels().get("pod");
+        if (pod != null) {
+            return pod;
+        }
+        String host = System.getenv("HOSTNAME");
+        return (host != null && !host.isBlank()) ? host : config.getOtlpServiceName();
     }
 
     // --- Virtual Thread Metrics (always enabled) ---
 
     private boolean appendVirtualThreadMetrics(StringBuilder sb, long nowNano, boolean first) {
+        // Standard OTel semconv name, emitted alongside the legacy argus_* series.
+        first = appendGauge(sb, first, SemconvMetrics.THREAD_COUNT.otelName(),
+                SemconvMetrics.THREAD_COUNT.description(), nowNano, activeThreads.size());
         first = appendGauge(sb, first, "argus_virtual_threads_active",
                 "Currently active virtual threads", nowNano, activeThreads.size());
         first = appendSum(sb, first, "argus_virtual_threads_started_total",
@@ -119,6 +150,13 @@ public final class OtlpJsonBuilder {
         if (!config.isGcEnabled()) return first;
 
         var analysis = gcAnalyzer.getAnalysis();
+        // Standard OTel semconv names (heap pool), emitted alongside legacy argus_* series.
+        first = appendGauge(sb, first, SemconvMetrics.MEMORY_USED.otelName(),
+                SemconvMetrics.MEMORY_USED.description(), nowNano, analysis.currentHeapUsed());
+        first = appendGauge(sb, first, SemconvMetrics.MEMORY_COMMITTED.otelName(),
+                SemconvMetrics.MEMORY_COMMITTED.description(), nowNano, analysis.currentHeapCommitted());
+        first = appendGauge(sb, first, SemconvMetrics.MEMORY_USED_AFTER_LAST_GC.otelName(),
+                SemconvMetrics.MEMORY_USED_AFTER_LAST_GC.description(), nowNano, analysis.currentHeapUsed());
         first = appendSum(sb, first, "argus_gc_events_total",
                 "Total GC events", nowNano, analysis.totalGCEvents());
         first = appendSumDouble(sb, first, "argus_gc_pause_time_seconds_total",
@@ -140,6 +178,9 @@ public final class OtlpJsonBuilder {
         if (!config.isCpuEnabled()) return first;
 
         var analysis = cpuAnalyzer.getAnalysis();
+        // Standard OTel semconv name, emitted alongside the legacy argus_* ratios.
+        first = appendGaugeDouble(sb, first, SemconvMetrics.CPU_RECENT_UTILIZATION.otelName(),
+                SemconvMetrics.CPU_RECENT_UTILIZATION.description(), nowNano, analysis.currentJvmTotal());
         first = appendGaugeDouble(sb, first, "argus_cpu_jvm_user_ratio",
                 "JVM user CPU ratio", nowNano, analysis.currentJvmUser());
         first = appendGaugeDouble(sb, first, "argus_cpu_jvm_system_ratio",
@@ -170,6 +211,9 @@ public final class OtlpJsonBuilder {
         if (metaspaceAnalyzer == null) return first;
 
         var analysis = metaspaceAnalyzer.getAnalysis();
+        // Standard OTel semconv name, emitted alongside the legacy argus_* series.
+        first = appendGauge(sb, first, SemconvMetrics.CLASS_COUNT.otelName(),
+                SemconvMetrics.CLASS_COUNT.description(), nowNano, analysis.currentClassCount());
         first = appendGauge(sb, first, "argus_metaspace_used_bytes",
                 "Metaspace used", nowNano, analysis.currentUsed());
         first = appendGauge(sb, first, "argus_metaspace_committed_bytes",
