@@ -25,6 +25,13 @@ public final class StructuredConcurrencyView {
 
     private static final String SCOPE_PREFIX = "java.util.concurrent.StructuredTaskScope";
 
+    /**
+     * Depth cap for the recursive render. A pathological or adversarially-crafted
+     * dump (e.g. a very long parent chain) must not overflow the call stack; beyond
+     * this depth the subtree is elided with a notice instead.
+     */
+    private static final int MAX_RENDER_DEPTH = 512;
+
     /** A forked subtask running inside a scope. */
     public record Subtask(long tid, String name, List<String> stack) {
     }
@@ -107,6 +114,12 @@ public final class StructuredConcurrencyView {
     }
 
     private static void renderNode(ScopeNode node, int depth, StringBuilder sb) {
+        if (depth > MAX_RENDER_DEPTH) {
+            sb.append("  ".repeat(MAX_RENDER_DEPTH))
+              .append("… (scope nesting exceeds ").append(MAX_RENDER_DEPTH)
+              .append(" levels; subtree elided)\n");
+            return;
+        }
         String indent = "  ".repeat(depth);
         sb.append(indent)
           .append("Scope ").append(shortName(node.name()))

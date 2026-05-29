@@ -1,6 +1,7 @@
 package io.argus.server.analysis;
 
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -91,8 +92,9 @@ public final class AnomalyDetector {
     private int cpuOverStreak = 0;
     private int allocOverStreak = 0;
 
-    // Bounded ring of recent anomaly events (oldest first).
-    private final ArrayList<AnomalyEvent> recent = new ArrayList<>();
+    // Bounded ring of recent anomaly events (oldest first). ArrayDeque gives O(1)
+    // eviction from the head; ArrayList.remove(0) was O(ringSize) per fire.
+    private final ArrayDeque<AnomalyEvent> recent = new ArrayDeque<>();
 
     // Latest "profile capture recommended" recommendation; null when none active.
     private final AtomicReference<CaptureRecommendation> recommendation = new AtomicReference<>();
@@ -327,9 +329,9 @@ public final class AnomalyDetector {
     }
 
     private AnomalyEvent fire(AnomalyEvent event) {
-        recent.add(event);
+        recent.addLast(event);
         while (recent.size() > ringSize) {
-            recent.remove(0);
+            recent.removeFirst();
         }
         if (captureRecommendationEnabled) {
             recommendation.set(new CaptureRecommendation(event.timestamp(), event.type(), event.reason()));
@@ -357,7 +359,7 @@ public final class AnomalyDetector {
      * @return the latest anomaly, or null
      */
     public synchronized AnomalyEvent latest() {
-        return recent.isEmpty() ? null : recent.get(recent.size() - 1);
+        return recent.isEmpty() ? null : recent.getLast();
     }
 
     /**

@@ -91,6 +91,49 @@ class OtlpJsonBuilderMetricsTest {
     }
 
     @Test
+    void otlp_dual_emits_legacy_argus_series_by_default() {
+        // legacyNames defaults to true → both the semconv and the legacy series ship.
+        String json = builder(AgentConfig.defaults()).build();
+
+        assertTrue(json.contains("\"name\":\"jvm.memory.used\""), "semconv jvm.memory.used must be present");
+        assertTrue(json.contains("\"name\":\"argus_heap_used_bytes\""),
+                "legacy argus_heap_used_bytes must ship when legacyNames=true (back-compat)");
+        assertTrue(json.contains("\"name\":\"argus_metaspace_used_bytes\""),
+                "legacy argus_metaspace_used_bytes must ship when legacyNames=true");
+        assertTrue(json.contains("\"name\":\"argus_cpu_jvm_user_ratio\""),
+                "legacy argus_cpu_jvm_user_ratio must ship when legacyNames=true");
+    }
+
+    @Test
+    void otlp_drops_legacy_argus_duplicates_when_legacy_names_disabled() {
+        // legacyNames=false → the OTLP stream must NOT double every series with the
+        // argus_* duplicate, matching the Prometheus collector's gating.
+        AgentConfig noLegacy = AgentConfig.builder().legacyMetricNames(false).build();
+        String json = builder(noLegacy).build();
+
+        // Standard semconv series remain.
+        assertTrue(json.contains("\"name\":\"jvm.memory.used\""),
+                "semconv jvm.memory.used must remain when legacyNames=false");
+        // Legacy duplicates of semconv series must be gone.
+        assertFalse(json.contains("\"name\":\"argus_heap_used_bytes\""),
+                "argus_heap_used_bytes must be gated off when legacyNames=false");
+        assertFalse(json.contains("\"name\":\"argus_heap_committed_bytes\""),
+                "argus_heap_committed_bytes must be gated off when legacyNames=false");
+        assertFalse(json.contains("\"name\":\"argus_metaspace_used_bytes\""),
+                "argus_metaspace_used_bytes must be gated off when legacyNames=false");
+        assertFalse(json.contains("\"name\":\"argus_cpu_jvm_user_ratio\""),
+                "argus_cpu_jvm_user_ratio must be gated off when legacyNames=false");
+        assertFalse(json.contains("\"name\":\"argus_virtual_threads_active\""),
+                "argus_virtual_threads_active must be gated off when legacyNames=false");
+
+        // Argus-unique series (no semconv equivalent) are NOT renamed/dropped.
+        assertTrue(json.contains("\"name\":\"argus_virtual_threads_started_total\""),
+                "argus-unique series must always ship regardless of legacyNames");
+        assertTrue(json.contains("\"name\":\"argus_gc_events_total\""),
+                "argus-unique GC counter must always ship regardless of legacyNames");
+    }
+
+    @Test
     void otlp_gc_duration_skipped_when_no_pauses() {
         GCAnalyzer gc = new GCAnalyzer(); // no events recorded
         OtlpJsonBuilder b = new OtlpJsonBuilder(

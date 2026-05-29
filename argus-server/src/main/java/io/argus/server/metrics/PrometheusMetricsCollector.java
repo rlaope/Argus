@@ -161,27 +161,29 @@ public final class PrometheusMetricsCollector {
      * regardless of the {@code argus.metrics.legacyNames} flag.
      */
     private void appendSemconvMetrics(StringBuilder sb, boolean openMetrics) {
-        emittedSemconvHeaders.clear();
+        // Per-scrape header-dedup set: a method-local avoids the data race that a
+        // shared instance field would suffer under concurrent scrapes.
+        java.util.Set<String> emitted = new java.util.HashSet<>();
         // jvm.thread.count — best available signal is the active virtual-thread count.
-        appendSemconvGauge(sb, SemconvMetrics.THREAD_COUNT, null, activeThreads.size());
+        appendSemconvGauge(sb, emitted, SemconvMetrics.THREAD_COUNT, null, activeThreads.size());
 
         if (config.isGcEnabled()) {
             var analysis = gcAnalyzer.getAnalysis();
             // Heap pool memory. The GC analyzer tracks post-GC heap, so jvm.memory.used
             // and jvm.memory.used_after_last_gc share the same source here.
             String heapPool = "{" + poolLabel("heap") + "}";
-            appendSemconvGauge(sb, SemconvMetrics.MEMORY_USED, heapPool, analysis.currentHeapUsed());
-            appendSemconvGauge(sb, SemconvMetrics.MEMORY_COMMITTED, heapPool, analysis.currentHeapCommitted());
-            appendSemconvGauge(sb, SemconvMetrics.MEMORY_USED_AFTER_LAST_GC, heapPool, analysis.currentHeapUsed());
-            appendSemconvGcDurationHistogram(sb, openMetrics);
+            appendSemconvGauge(sb, emitted, SemconvMetrics.MEMORY_USED, heapPool, analysis.currentHeapUsed());
+            appendSemconvGauge(sb, emitted, SemconvMetrics.MEMORY_COMMITTED, heapPool, analysis.currentHeapCommitted());
+            appendSemconvGauge(sb, emitted, SemconvMetrics.MEMORY_USED_AFTER_LAST_GC, heapPool, analysis.currentHeapUsed());
+            appendSemconvGcDurationHistogram(sb, emitted, openMetrics);
         }
 
         if (config.isMetaspaceEnabled() && metaspaceAnalyzer != null) {
             var ms = metaspaceAnalyzer.getAnalysis();
             String metaPool = "{" + poolLabel("Metaspace") + "}";
-            appendSemconvGauge(sb, SemconvMetrics.MEMORY_USED, metaPool, ms.currentUsed());
-            appendSemconvGauge(sb, SemconvMetrics.MEMORY_COMMITTED, metaPool, ms.currentCommitted());
-            appendSemconvGauge(sb, SemconvMetrics.CLASS_COUNT, null, ms.currentClassCount());
+            appendSemconvGauge(sb, emitted, SemconvMetrics.MEMORY_USED, metaPool, ms.currentUsed());
+            appendSemconvGauge(sb, emitted, SemconvMetrics.MEMORY_COMMITTED, metaPool, ms.currentCommitted());
+            appendSemconvGauge(sb, emitted, SemconvMetrics.CLASS_COUNT, null, ms.currentClassCount());
         }
 
         if (config.isCpuEnabled()) {
@@ -189,7 +191,7 @@ public final class PrometheusMetricsCollector {
             // jvm.cpu.time has no JFR-derived source in Argus today; only the recent
             // utilization ratio is available. cpu.time stays in the mapping table as
             // the documented contract but is not exported.
-            appendSemconvGauge(sb, SemconvMetrics.CPU_RECENT_UTILIZATION, null, cpu.currentJvmTotal());
+            appendSemconvGauge(sb, emitted, SemconvMetrics.CPU_RECENT_UTILIZATION, null, cpu.currentJvmTotal());
         }
     }
 
@@ -204,12 +206,13 @@ public final class PrometheusMetricsCollector {
      * Memory-pool metrics share one HELP/TYPE header across pools, so the header is
      * only written once per metric name within a scrape.
      */
-    private void appendSemconvGauge(StringBuilder sb, SemconvMetrics.Metric metric, String labels, double value) {
+    private void appendSemconvGauge(StringBuilder sb, java.util.Set<String> emitted,
+                                    SemconvMetrics.Metric metric, String labels, double value) {
         String name = metric.prometheusName();
-        if (!emittedSemconvHeaders.contains(name)) {
+        if (!emitted.contains(name)) {
             sb.append("# HELP ").append(name).append(' ').append(metric.description()).append('\n');
             sb.append("# TYPE ").append(name).append(' ').append(metric.type().prometheusType()).append('\n');
-            emittedSemconvHeaders.add(name);
+            emitted.add(name);
         }
         sb.append(name).append(mergeBaseLabels(labels)).append(' ');
         if (value == (long) value) {
@@ -234,7 +237,7 @@ public final class PrometheusMetricsCollector {
      * {@code jvm_gc_duration_seconds}, reusing the same aggregate histogram as the
      * legacy series. The aggregate is not split per {@code jvm.gc.name}/{@code jvm.gc.action}.
      */
-    private void appendSemconvGcDurationHistogram(StringBuilder sb, boolean openMetrics) {
+    private void appendSemconvGcDurationHistogram(StringBuilder sb, java.util.Set<String> emitted, boolean openMetrics) {
         var hist = gcAnalyzer.getPauseHistogram();
         if (hist.count() == 0) return;
 
@@ -242,7 +245,7 @@ public final class PrometheusMetricsCollector {
         sb.append("# HELP ").append(name).append(' ')
                 .append(SemconvMetrics.GC_DURATION.description()).append('\n');
         sb.append("# TYPE ").append(name).append(" histogram\n");
-        emittedSemconvHeaders.add(name);
+        emitted.add(name);
 
         String baseLabels = KubernetesLabels.prometheusLabelSuffix();
         double[] bounds = hist.upperBounds();
@@ -267,9 +270,6 @@ public final class PrometheusMetricsCollector {
         sb.append(name).append("_count").append(baseLabels).append(' ')
                 .append(hist.count()).append('\n');
     }
-
-    /** Tracks which semconv HELP/TYPE headers have been written in the current scrape. */
-    private final java.util.Set<String> emittedSemconvHeaders = new java.util.HashSet<>();
 
     private void appendVirtualThreadMetrics(StringBuilder sb) {
         // Argus-unique counters (no semconv equivalent) — always emitted.

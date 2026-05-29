@@ -72,7 +72,7 @@ public final class PinningAnalyzer {
 
         // Sort by count descending
         List<Map.Entry<String, HotspotData>> sorted = hotspotsByHash.entrySet().stream()
-                .sorted(Comparator.comparingLong((Map.Entry<String, HotspotData> e) -> e.getValue().count)
+                .sorted(Comparator.comparingLong((Map.Entry<String, HotspotData> e) -> e.getValue().count.get())
                         .reversed())
                 .limit(10)
                 .toList();
@@ -81,11 +81,12 @@ public final class PinningAnalyzer {
         for (Map.Entry<String, HotspotData> entry : sorted) {
             String hash = entry.getKey();
             HotspotData data = entry.getValue();
-            double percentage = total > 0 ? (data.count * 100.0 / total) : 0;
+            long count = data.count.get();
+            double percentage = total > 0 ? (count * 100.0 / total) : 0;
 
             hotspots.add(new PinningHotspot(
                     rank++,
-                    data.count,
+                    count,
                     percentage,
                     hash,
                     data.topFrame,
@@ -97,7 +98,7 @@ public final class PinningAnalyzer {
         // Tally events per post-JEP-491 bucket across all recorded stack traces.
         Map<PinningTaxonomy, Long> byTaxonomy = new EnumMap<>(PinningTaxonomy.class);
         for (HotspotData data : hotspotsByHash.values()) {
-            byTaxonomy.merge(PinningTaxonomy.classify(data.fullStackTrace), data.count, Long::sum);
+            byTaxonomy.merge(PinningTaxonomy.classify(data.fullStackTrace), data.count.get(), Long::sum);
         }
 
         return new PinningAnalysisResult(total, uniqueCount, hotspots, byTaxonomy);
@@ -148,8 +149,32 @@ public final class PinningAnalyzer {
     }
 
     private void evictLowCountEntries() {
-        // Remove entries with count = 1 to make room
-        hotspotsByHash.entrySet().removeIf(entry -> entry.getValue().count <= 1);
+        // Retain the MAX_HOTSPOTS highest-count entries and drop the rest. The old
+        // removeIf(count <= 1) wiped the entire map whenever every site had been seen
+        // exactly once — losing all hotspots precisely when pinning was widely spread.
+        if (hotspotsByHash.size() <= MAX_HOTSPOTS) {
+            return;
+        }
+        long[] counts = hotspotsByHash.values().stream()
+                .mapToLong(d -> d.count.get())
+                .toArray();
+        java.util.Arrays.sort(counts); // ascending
+        // Threshold = the count at the MAX_HOTSPOTS-th highest position.
+        long threshold = counts[counts.length - MAX_HOTSPOTS];
+        // Drop entries strictly below the threshold — keeps every heavy hitter.
+        hotspotsByHash.entrySet().removeIf(entry -> entry.getValue().count.get() < threshold);
+        // Ties at the threshold can still leave us over capacity (e.g. every site seen
+        // exactly once → all counts equal). Trim the tied entries until bounded so the
+        // map can never grow without limit; heavier hitters above the threshold are
+        // never touched.
+        if (hotspotsByHash.size() > MAX_HOTSPOTS) {
+            java.util.Iterator<Map.Entry<String, HotspotData>> it = hotspotsByHash.entrySet().iterator();
+            while (hotspotsByHash.size() > MAX_HOTSPOTS && it.hasNext()) {
+                if (it.next().getValue().count.get() == threshold) {
+                    it.remove();
+                }
+            }
+        }
     }
 
     /**
@@ -158,16 +183,16 @@ public final class PinningAnalyzer {
     private static class HotspotData {
         final String fullStackTrace;
         final String topFrame;
-        volatile long count;
+        final AtomicLong count;
 
         HotspotData(String fullStackTrace, String topFrame, long count) {
             this.fullStackTrace = fullStackTrace;
             this.topFrame = topFrame;
-            this.count = count;
+            this.count = new AtomicLong(count);
         }
 
         void incrementCount() {
-            count++;
+            count.incrementAndGet();
         }
     }
 
