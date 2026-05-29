@@ -134,6 +134,28 @@ class OtlpJsonBuilderMetricsTest {
     }
 
     @Test
+    void otlp_emits_argus_unique_diagnostics_regardless_of_legacy_flag() {
+        // These series have no semconv equivalent, so they must ship on the OTLP path
+        // in parity with the Prometheus collector — and must NOT be gated by legacyNames.
+        AgentConfig noLegacy = AgentConfig.builder().legacyMetricNames(false).build();
+        String json = builder(noLegacy).build();
+
+        for (String name : new String[]{
+                "argus_gc_pause_time_seconds_avg",
+                "argus_gc_overhead_warning",
+                "argus_gc_allocation_rate_kbps",
+                "argus_gc_promotion_rate_kbps",
+                "argus_gc_leak_suspected",
+                "argus_gc_leak_confidence",
+                "argus_heap_usage_ratio",
+                "argus_metaspace_reserved_bytes",
+                "argus_carrier_threads_virtual_handled_total"}) {
+            assertTrue(json.contains("\"name\":\"" + name + "\""),
+                    "argus-unique series " + name + " must ship over OTLP even when legacyNames=false");
+        }
+    }
+
+    @Test
     void otlp_gc_duration_skipped_when_no_pauses() {
         GCAnalyzer gc = new GCAnalyzer(); // no events recorded
         OtlpJsonBuilder b = new OtlpJsonBuilder(
