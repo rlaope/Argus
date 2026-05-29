@@ -50,6 +50,7 @@ io.argus.cli.command.ProfileCommand
 io.argus.cli.command.ProfileGateCommand
 io.argus.cli.command.PsCommand
 io.argus.cli.command.ReportCommand
+io.argus.cli.command.RightsizeCommand
 io.argus.cli.command.SearchClassCommand
 io.argus.cli.command.SlowlogCommand
 io.argus.cli.command.SnapshotCommand

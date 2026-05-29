@@ -1,6 +1,7 @@
 package io.argus.aggregator.http;
 
 import io.argus.aggregator.model.AlertEvent;
+import io.argus.aggregator.model.FleetRightsize;
 import io.argus.aggregator.model.FleetSummary;
 import io.argus.aggregator.model.MetricSample;
 import io.argus.aggregator.model.PodTarget;
@@ -95,6 +96,34 @@ public final class JsonWriter {
         sb.append(",\"worstReason\":");
         appendStringOrNull(sb, s.worstReason());
         sb.append("}}");
+        return sb.toString();
+    }
+
+    public static String rightsize(FleetRightsize r) {
+        StringBuilder sb = new StringBuilder(1024);
+        sb.append("{\"rightsize\":{")
+          .append("\"safetyFactor\":");
+        appendNumberOrNull(sb, r.safetyFactor());
+        sb.append(",\"aggregateSavingsPercent\":");
+        appendNumberOrNull(sb, r.aggregateSavingsPercent());
+        sb.append(",\"deployments\":[");
+        List<FleetRightsize.DeploymentRow> rows = r.deployments();
+        for (int i = 0; i < rows.size(); i++) {
+            FleetRightsize.DeploymentRow row = rows.get(i);
+            if (i > 0) sb.append(',');
+            sb.append('{')
+              .append("\"namespace\":\"").append(escape(row.namespace())).append("\",")
+              .append("\"deployment\":\"").append(escape(row.deployment())).append("\",")
+              .append("\"podCount\":").append(row.podCount()).append(',')
+              .append("\"peakHeapPercent\":");
+            appendNumberOrNull(sb, row.peakHeapPercent());
+            sb.append(",\"recommendedHeapPercent\":");
+            appendNumberOrNull(sb, row.recommendedHeapPercent());
+            sb.append(",\"savingsPercent\":");
+            appendNumberOrNull(sb, row.savingsPercent());
+            sb.append('}');
+        }
+        sb.append("]}}");
         return sb.toString();
     }
 

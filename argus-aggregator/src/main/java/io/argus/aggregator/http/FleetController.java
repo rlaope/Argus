@@ -126,6 +126,10 @@ public final class FleetController {
                 handleFleetSummary(ctx, request);
                 return true;
             }
+            if (HttpMethod.GET.equals(method) && path.equals("/fleet/rightsize")) {
+                handleFleetRightsize(ctx, request);
+                return true;
+            }
             if (HttpMethod.POST.equals(method) && path.equals("/fleet/targets")) {
                 handleRegisterTarget(ctx, request);
                 return true;
@@ -242,6 +246,11 @@ public final class FleetController {
 
     private void handleFleetSummary(ChannelHandlerContext ctx, FullHttpRequest request) {
         String body = JsonWriter.summary(SummaryComputer.compute(registry));
+        sendJson(ctx, request, HttpResponseStatus.OK, body);
+    }
+
+    private void handleFleetRightsize(ChannelHandlerContext ctx, FullHttpRequest request) {
+        String body = JsonWriter.rightsize(FleetRightsizeComputer.compute(registry));
         sendJson(ctx, request, HttpResponseStatus.OK, body);
     }
 
