@@ -7,6 +7,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.EnumMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -88,11 +89,18 @@ public final class PinningAnalyzer {
                     percentage,
                     hash,
                     data.topFrame,
-                    data.fullStackTrace
+                    data.fullStackTrace,
+                    PinningTaxonomy.classify(data.fullStackTrace)
             ));
         }
 
-        return new PinningAnalysisResult(total, uniqueCount, hotspots);
+        // Tally events per post-JEP-491 bucket across all recorded stack traces.
+        Map<PinningTaxonomy, Long> byTaxonomy = new EnumMap<>(PinningTaxonomy.class);
+        for (HotspotData data : hotspotsByHash.values()) {
+            byTaxonomy.merge(PinningTaxonomy.classify(data.fullStackTrace), data.count, Long::sum);
+        }
+
+        return new PinningAnalysisResult(total, uniqueCount, hotspots, byTaxonomy);
     }
 
     /**
@@ -170,15 +178,21 @@ public final class PinningAnalyzer {
         private final long totalPinnedEvents;
         private final int uniqueStackTraces;
         private final List<PinningHotspot> hotspots;
+        private final Map<PinningTaxonomy, Long> eventsByTaxonomy;
 
-        public PinningAnalysisResult(long totalPinnedEvents, int uniqueStackTraces, List<PinningHotspot> hotspots) {
+        public PinningAnalysisResult(long totalPinnedEvents, int uniqueStackTraces, List<PinningHotspot> hotspots,
+                                     Map<PinningTaxonomy, Long> eventsByTaxonomy) {
             this.totalPinnedEvents = totalPinnedEvents;
             this.uniqueStackTraces = uniqueStackTraces;
             this.hotspots = hotspots;
+            this.eventsByTaxonomy = eventsByTaxonomy;
         }
 
         public long totalPinnedEvents() { return totalPinnedEvents; }
         public int uniqueStackTraces() { return uniqueStackTraces; }
         public List<PinningHotspot> hotspots() { return hotspots; }
+
+        /** Event counts grouped by post-JEP-491 pinning bucket; absent buckets are simply not present. */
+        public Map<PinningTaxonomy, Long> eventsByTaxonomy() { return eventsByTaxonomy; }
     }
 }
