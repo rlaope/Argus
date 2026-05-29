@@ -121,8 +121,12 @@ public final class OtlpJsonBuilder {
         // Standard OTel semconv name, emitted alongside the legacy argus_* series.
         first = appendGauge(sb, first, SemconvMetrics.THREAD_COUNT.otelName(),
                 SemconvMetrics.THREAD_COUNT.description(), nowNano, activeThreads.size());
-        first = appendGauge(sb, first, "argus_virtual_threads_active",
-                "Currently active virtual threads", nowNano, activeThreads.size());
+        // Legacy duplicate of jvm.thread.count — gated like the Prometheus path so
+        // legacyNames=false does not double OTLP series.
+        if (config.isLegacyMetricNames()) {
+            first = appendGauge(sb, first, "argus_virtual_threads_active",
+                    "Currently active virtual threads", nowNano, activeThreads.size());
+        }
         first = appendSum(sb, first, "argus_virtual_threads_started_total",
                 "Total virtual threads started", nowNano, metrics.getStartEvents());
         first = appendSum(sb, first, "argus_virtual_threads_ended_total",
@@ -170,10 +174,14 @@ public final class OtlpJsonBuilder {
                 "Maximum GC pause time", nowNano, analysis.maxPauseTimeMs() / 1000.0);
         first = appendGaugeDouble(sb, first, "argus_gc_overhead_ratio",
                 "GC overhead percentage", nowNano, analysis.gcOverheadPercent());
-        first = appendGauge(sb, first, "argus_heap_used_bytes",
-                "Current heap used", nowNano, analysis.currentHeapUsed());
-        first = appendGauge(sb, first, "argus_heap_committed_bytes",
-                "Current heap committed", nowNano, analysis.currentHeapCommitted());
+        // Legacy duplicates of jvm.memory.used / jvm.memory.committed (pool=heap) —
+        // gated so legacyNames=false does not double OTLP series.
+        if (config.isLegacyMetricNames()) {
+            first = appendGauge(sb, first, "argus_heap_used_bytes",
+                    "Current heap used", nowNano, analysis.currentHeapUsed());
+            first = appendGauge(sb, first, "argus_heap_committed_bytes",
+                    "Current heap committed", nowNano, analysis.currentHeapCommitted());
+        }
         return first;
     }
 
@@ -186,12 +194,16 @@ public final class OtlpJsonBuilder {
         // Standard OTel semconv name, emitted alongside the legacy argus_* ratios.
         first = appendGaugeDouble(sb, first, SemconvMetrics.CPU_RECENT_UTILIZATION.otelName(),
                 SemconvMetrics.CPU_RECENT_UTILIZATION.description(), nowNano, analysis.currentJvmTotal());
-        first = appendGaugeDouble(sb, first, "argus_cpu_jvm_user_ratio",
-                "JVM user CPU ratio", nowNano, analysis.currentJvmUser());
-        first = appendGaugeDouble(sb, first, "argus_cpu_jvm_system_ratio",
-                "JVM system CPU ratio", nowNano, analysis.currentJvmSystem());
-        first = appendGaugeDouble(sb, first, "argus_cpu_machine_total_ratio",
-                "Machine total CPU ratio", nowNano, analysis.currentMachineTotal());
+        // Legacy ratios replaced by jvm.cpu.recent_utilization — gated as a block,
+        // matching the Prometheus collector's appendCPUMetrics early-return.
+        if (config.isLegacyMetricNames()) {
+            first = appendGaugeDouble(sb, first, "argus_cpu_jvm_user_ratio",
+                    "JVM user CPU ratio", nowNano, analysis.currentJvmUser());
+            first = appendGaugeDouble(sb, first, "argus_cpu_jvm_system_ratio",
+                    "JVM system CPU ratio", nowNano, analysis.currentJvmSystem());
+            first = appendGaugeDouble(sb, first, "argus_cpu_machine_total_ratio",
+                    "Machine total CPU ratio", nowNano, analysis.currentMachineTotal());
+        }
         return first;
     }
 
@@ -228,12 +240,16 @@ public final class OtlpJsonBuilder {
             first = appendGaugeWithPool(sb, first, SemconvMetrics.MEMORY_COMMITTED.otelName(),
                     SemconvMetrics.MEMORY_COMMITTED.description(), nowNano, analysis.currentCommitted(), "Metaspace");
         }
-        first = appendGauge(sb, first, "argus_metaspace_used_bytes",
-                "Metaspace used", nowNano, analysis.currentUsed());
-        first = appendGauge(sb, first, "argus_metaspace_committed_bytes",
-                "Metaspace committed", nowNano, analysis.currentCommitted());
-        first = appendGauge(sb, first, "argus_metaspace_classes_loaded",
-                "Loaded classes", nowNano, analysis.currentClassCount());
+        // Legacy duplicates of jvm.memory.used / jvm.memory.committed (pool=Metaspace)
+        // and jvm.class.count — gated so legacyNames=false does not double OTLP series.
+        if (config.isLegacyMetricNames()) {
+            first = appendGauge(sb, first, "argus_metaspace_used_bytes",
+                    "Metaspace used", nowNano, analysis.currentUsed());
+            first = appendGauge(sb, first, "argus_metaspace_committed_bytes",
+                    "Metaspace committed", nowNano, analysis.currentCommitted());
+            first = appendGauge(sb, first, "argus_metaspace_classes_loaded",
+                    "Loaded classes", nowNano, analysis.currentClassCount());
+        }
         return first;
     }
 

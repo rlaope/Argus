@@ -20,6 +20,9 @@ public final class ProfileTraceContext {
 
     private static final ProfileTraceContext NONE = new ProfileTraceContext(null, null);
 
+    /** All-lowercase-hex matcher, compiled once (the length is checked separately). */
+    private static final java.util.regex.Pattern HEX = java.util.regex.Pattern.compile("[0-9a-f]+");
+
     private final String traceId;
     private final String spanId;
 
@@ -65,7 +68,7 @@ public final class ProfileTraceContext {
             return null;
         }
         String t = id.trim().toLowerCase(java.util.Locale.ROOT);
-        if (t.length() == hexLen && t.matches("[0-9a-f]{" + hexLen + "}") && !t.equals("0".repeat(hexLen))) {
+        if (t.length() == hexLen && HEX.matcher(t).matches() && !t.equals("0".repeat(hexLen))) {
             return t;
         }
         return null;
