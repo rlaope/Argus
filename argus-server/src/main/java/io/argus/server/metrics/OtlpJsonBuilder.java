@@ -143,6 +143,9 @@ public final class OtlpJsonBuilder {
         var carrierAnalysis = carrierAnalyzer.getAnalysis();
         first = appendGauge(sb, first, "argus_carrier_threads",
                 "Total carrier threads", nowNano, carrierAnalysis.totalCarriers());
+        first = appendSum(sb, first, "argus_carrier_threads_virtual_handled_total",
+                "Total virtual threads handled by carrier threads", nowNano,
+                carrierAnalysis.totalVirtualThreadsHandled());
         first = appendGaugeDouble(sb, first, "argus_carrier_threads_avg_per_carrier",
                 "Average virtual threads per carrier", nowNano, carrierAnalysis.avgVirtualThreadsPerCarrier());
         return first;
@@ -174,6 +177,24 @@ public final class OtlpJsonBuilder {
                 "Maximum GC pause time", nowNano, analysis.maxPauseTimeMs() / 1000.0);
         first = appendGaugeDouble(sb, first, "argus_gc_overhead_ratio",
                 "GC overhead percentage", nowNano, analysis.gcOverheadPercent());
+        // Argus-unique GC diagnostics (no semconv equivalent) — always emitted, in
+        // parity with the Prometheus collector. Values match the Prometheus path.
+        first = appendGaugeDouble(sb, first, "argus_gc_pause_time_seconds_avg",
+                "Average GC pause time in seconds", nowNano, analysis.avgPauseTimeMs() / 1000.0);
+        first = appendGauge(sb, first, "argus_gc_overhead_warning",
+                "GC overhead warning (1 = overhead > 10%)", nowNano, analysis.isOverheadWarning() ? 1 : 0);
+        first = appendGaugeDouble(sb, first, "argus_gc_allocation_rate_kbps",
+                "Allocation rate in KB/s from recent GC events", nowNano, analysis.allocationRateKBPerSec());
+        first = appendGaugeDouble(sb, first, "argus_gc_promotion_rate_kbps",
+                "Promotion rate (young to old gen) in KB/s", nowNano, analysis.promotionRateKBPerSec());
+        first = appendGauge(sb, first, "argus_gc_leak_suspected",
+                "Memory leak suspected (1 = leak detected)", nowNano, analysis.leakSuspected() ? 1 : 0);
+        first = appendGaugeDouble(sb, first, "argus_gc_leak_confidence",
+                "Memory leak detection confidence (R-squared 0-1)", nowNano, analysis.leakConfidencePercent() / 100.0);
+        first = appendGaugeDouble(sb, first, "argus_heap_usage_ratio",
+                "Heap usage ratio (used/committed)", nowNano,
+                analysis.currentHeapCommitted() > 0
+                        ? (double) analysis.currentHeapUsed() / analysis.currentHeapCommitted() : 0);
         // Legacy duplicates of jvm.memory.used / jvm.memory.committed (pool=heap) —
         // gated so legacyNames=false does not double OTLP series.
         if (config.isLegacyMetricNames()) {
@@ -240,6 +261,10 @@ public final class OtlpJsonBuilder {
             first = appendGaugeWithPool(sb, first, SemconvMetrics.MEMORY_COMMITTED.otelName(),
                     SemconvMetrics.MEMORY_COMMITTED.description(), nowNano, analysis.currentCommitted(), "Metaspace");
         }
+        // Argus-unique: no semconv reserved-memory metric — always emitted, in parity
+        // with the Prometheus collector.
+        first = appendGauge(sb, first, "argus_metaspace_reserved_bytes",
+                "Metaspace memory reserved in bytes", nowNano, analysis.currentReserved());
         // Legacy duplicates of jvm.memory.used / jvm.memory.committed (pool=Metaspace)
         // and jvm.class.count — gated so legacyNames=false does not double OTLP series.
         if (config.isLegacyMetricNames()) {
