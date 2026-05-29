@@ -61,10 +61,21 @@ public final class SemconvMetrics {
 
     // --- Standard JVM runtime metrics (semconv) ---------------------------------
 
+    /**
+     * The semconv spec declares {@code jvm.gc.name}/{@code jvm.gc.action} for this
+     * histogram, but Argus's GC analyzer only maintains a single aggregate pause
+     * histogram — bucket distributions are not tracked per collector/cause. We
+     * therefore do NOT declare those attributes here, because neither the
+     * Prometheus nor the OTLP path can populate a per-collector histogram without
+     * fabricating bucket data. The per-collector/per-cause breakdown is exposed
+     * instead as the Argus-unique {@code argus_gc_pause_breakdown_seconds_total} /
+     * {@code argus_gc_events_breakdown_total} series (cumulative pause time and
+     * event counts, not a histogram).
+     */
     public static final Metric GC_DURATION = new Metric(
             "jvm.gc.duration", "jvm_gc_duration_seconds", "s", Type.HISTOGRAM,
             "Duration of JVM garbage collection actions",
-            List.of(ATTR_GC_NAME, ATTR_GC_ACTION));
+            List.of());
 
     public static final Metric MEMORY_USED = new Metric(
             "jvm.memory.used", "jvm_memory_used_bytes", "By", Type.GAUGE,

@@ -191,12 +191,44 @@ class SemconvMetricsComplianceTest {
 
     @Test
     void mapping_table_declares_required_attributes() {
-        assertTrue(SemconvMetrics.GC_DURATION.attributes().contains(SemconvMetrics.ATTR_GC_NAME));
-        assertTrue(SemconvMetrics.GC_DURATION.attributes().contains(SemconvMetrics.ATTR_GC_ACTION));
         assertTrue(SemconvMetrics.MEMORY_USED.attributes().contains(SemconvMetrics.ATTR_MEMORY_POOL_NAME));
         assertTrue(SemconvMetrics.MEMORY_COMMITTED.attributes().contains(SemconvMetrics.ATTR_MEMORY_POOL_NAME));
         assertTrue(SemconvMetrics.MEMORY_USED_AFTER_LAST_GC.attributes()
                 .contains(SemconvMetrics.ATTR_MEMORY_POOL_NAME));
+    }
+
+    /**
+     * The table must not declare attributes that are never actually emitted.
+     * Argus only keeps an aggregate GC pause histogram, so {@code jvm.gc.duration}
+     * cannot be split per {@code jvm.gc.name}/{@code jvm.gc.action}; the table must
+     * therefore NOT declare those attributes (the per-collector breakdown lives in
+     * the Argus-unique {@code argus_gc_pause_breakdown_*} series instead).
+     */
+    @Test
+    void gc_duration_does_not_declare_unemitted_split_attributes() {
+        assertFalse(SemconvMetrics.GC_DURATION.attributes().contains(SemconvMetrics.ATTR_GC_NAME),
+                "jvm.gc.duration must not declare jvm.gc.name: no per-collector histogram is emitted");
+        assertFalse(SemconvMetrics.GC_DURATION.attributes().contains(SemconvMetrics.ATTR_GC_ACTION),
+                "jvm.gc.duration must not declare jvm.gc.action: no per-action histogram is emitted");
+    }
+
+    /**
+     * Every {@code jvm_gc_duration_seconds} histogram line emitted on the Prometheus
+     * path must carry no per-collector/per-action labels beyond the K8s base set and
+     * the bucket {@code le} label — proving the declared (now empty) attribute set
+     * matches what is actually exported.
+     */
+    @Test
+    void prometheus_gc_duration_carries_no_split_labels() {
+        String out = collector(AgentConfig.defaults()).collectMetrics(false);
+        for (String line : out.split("\n")) {
+            if (line.startsWith("jvm_gc_duration_seconds")) {
+                assertFalse(line.contains("jvm_gc_name") || line.contains("gc_name"),
+                        "jvm_gc_duration_seconds must not be split by gc name: " + line);
+                assertFalse(line.contains("jvm_gc_action") || line.contains("gc_action"),
+                        "jvm_gc_duration_seconds must not be split by gc action: " + line);
+            }
+        }
     }
 
     /** Strips the trailing unit token from a prometheus name to compare with the otel base. */
