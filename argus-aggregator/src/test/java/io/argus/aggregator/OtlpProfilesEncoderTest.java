@@ -59,6 +59,39 @@ class OtlpProfilesEncoderTest {
     }
 
     @Test
+    void roundTripPreservesLeadingTrailingAndDoubledSemicolons() {
+        // async-profiler can emit blank/unknown frame names, so leading ';',
+        // trailing ';', and doubled ';;' must survive the round-trip unchanged.
+        Map<String, Long> collapsed = new LinkedHashMap<>();
+        collapsed.put(";main", 2L);   // leading empty frame
+        collapsed.put("main;", 3L);   // trailing empty frame
+        collapsed.put("a;;b", 4L);    // doubled (interior empty frame)
+
+        ProfilesData data = OtlpProfilesEncoder.toProfilesData(collapsed);
+        Map<String, Long> back = OtlpProfilesEncoder.toCollapsed(data);
+
+        assertEquals(collapsed, back,
+                "leading/trailing/doubled semicolons must round-trip identically");
+    }
+
+    @Test
+    void distinctStacksDifferingOnlyByEmptyFramesDoNotMerge() {
+        // Previously ";main" and "main" both collapsed to ["main"] and merged.
+        // Empty frames are now real frames, so these stay distinct.
+        Map<String, Long> collapsed = new LinkedHashMap<>();
+        collapsed.put("main", 5L);
+        collapsed.put(";main", 7L);
+
+        ProfilesData data = OtlpProfilesEncoder.toProfilesData(collapsed);
+        Map<String, Long> back = OtlpProfilesEncoder.toCollapsed(data);
+
+        assertEquals(2, data.samples().size(), "the two stacks must not merge into one sample");
+        assertEquals(collapsed, back);
+        assertEquals(5L, back.get("main"));
+        assertEquals(7L, back.get(";main"));
+    }
+
+    @Test
     void roundTripSkipsNonPositiveCounts() {
         Map<String, Long> collapsed = new LinkedHashMap<>();
         collapsed.put("main;a", 5L);

@@ -133,11 +133,13 @@ public final class OtlpProfilesEncoder {
         for (Sample s : data.samples) {
             StringBuilder stack = new StringBuilder();
             // locationIds are leaf-first; walk in reverse to print root-first.
+            // Join on a frame-index boundary (not on builder length) so empty frame
+            // names — a leading ';', trailing ';', or doubled ';;' — round-trip.
             for (int i = s.locationIds.length - 1; i >= 0; i--) {
                 Location loc = data.locations.get(s.locationIds[i]);
                 Function fn = data.functions.get(loc.functionId);
                 String name = data.stringTable.get(fn.nameStringId);
-                if (stack.length() > 0) {
+                if (i < s.locationIds.length - 1) {
                     stack.append(';');
                 }
                 stack.append(name);
@@ -256,7 +258,15 @@ public final class OtlpProfilesEncoder {
 
     // ── shared helpers ───────────────────────────────────────────────────────
 
-    /** Splits a collapsed stack into frames (root-first), dropping empty segments. */
+    /**
+     * Splits a collapsed stack into frames (root-first), preserving <em>every</em>
+     * {@code ;}-delimited segment — including empty ones produced by a leading
+     * {@code ;}, a trailing {@code ;}, or a doubled {@code ;;}. Empty segments are
+     * treated as real frames (async-profiler can emit blank/unknown frame names),
+     * which is what makes {@code toCollapsed(toProfilesData(x))} a lossless identity
+     * for any key (see the class-level "Losslessness" note) and keeps two distinct
+     * stacks from silently merging. A {@code null}/empty stack maps to no frames.
+     */
     private static List<String> splitFrames(String stack) {
         List<String> out = new ArrayList<>();
         if (stack == null || stack.isEmpty()) {
@@ -265,15 +275,11 @@ public final class OtlpProfilesEncoder {
         int start = 0;
         for (int i = 0; i < stack.length(); i++) {
             if (stack.charAt(i) == ';') {
-                if (i > start) {
-                    out.add(stack.substring(start, i));
-                }
+                out.add(stack.substring(start, i));
                 start = i + 1;
             }
         }
-        if (start < stack.length()) {
-            out.add(stack.substring(start));
-        }
+        out.add(stack.substring(start));
         return out;
     }
 
