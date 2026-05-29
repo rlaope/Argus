@@ -240,6 +240,39 @@ class AnomalyDetectorTest {
     }
 
     @Test
+    void learned_sustainedRegimeShift_keepsFiring_notSilencedAfterFirstFire() {
+        // Regression for baseline self-poisoning: a sustained step change must keep
+        // firing on repeated post-shift samples, not go quiet after a single fire.
+        // If anomalous samples were folded into the baseline, the high level would be
+        // absorbed and subsequent post-shift samples would stop firing.
+        AnomalyDetector d = learnedDetector(); // sustained=3, warmup=20, window=64
+        java.util.Random rng = new java.util.Random(99);
+
+        int t = 0;
+        // Phase 1: learn a stationary low baseline.
+        for (int i = 0; i < 60; i++, t++) {
+            double v = 0.20 + rng.nextGaussian() * 0.01;
+            assertNull(d.recordCpuSample(v, T0.plusSeconds(t)),
+                    "baseline phase should not fire at i=" + i);
+        }
+
+        // Phase 2: long sustained high regime. With sustained=3, every third sample
+        // (after re-arming) should fire as long as the baseline is not poisoned.
+        int fires = 0;
+        for (int i = 0; i < 60; i++, t++) {
+            double v = 0.80 + rng.nextGaussian() * 0.01;
+            if (d.recordCpuSample(v, T0.plusSeconds(t)) != null) {
+                fires++;
+            }
+        }
+
+        // A poisoned baseline fires at most once then goes silent. A correct,
+        // non-poisoned baseline keeps re-arming and fires many times over 60 samples.
+        assertTrue(fires >= 5,
+                "sustained regression must keep firing (non-poisoned baseline); fires=" + fires);
+    }
+
+    @Test
     void learned_stationaryNoise_doesNotFire_falsePositiveGuard() {
         AnomalyDetector d = learnedDetector();
         java.util.Random rng = new java.util.Random(7);

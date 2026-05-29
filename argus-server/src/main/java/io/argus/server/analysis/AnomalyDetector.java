@@ -176,9 +176,9 @@ public final class AnomalyDetector {
      * @return the fired anomaly, or {@code null} if none fired on this sample
      */
     public synchronized AnomalyEvent recordCpuSample(double jvmCpuFraction, Instant timestamp) {
-        // In learned/both mode the baseline is updated from every observed sample;
-        // the decision below reads the pre-update fences so the current sample is
-        // judged against the baseline that excludes it.
+        // In learned/both mode the baseline is updated only from non-anomalous
+        // samples; the decision below reads the pre-update fences so the current
+        // sample is judged against the baseline that excludes it.
         Decision decision = decide(jvmCpuFraction, cpuThreshold, cpuEstimator);
         if (decision.over) {
             cpuOverStreak++;
@@ -229,11 +229,20 @@ public final class AnomalyDetector {
 
     /**
      * Decides whether {@code value} is over threshold for the configured mode and,
-     * for learned/both modes, folds the sample into the per-signal baseline.
+     * for learned/both modes, conditionally folds the sample into the per-signal
+     * baseline.
      *
      * <p>The current sample is judged against the baseline computed from prior
-     * samples (the estimator is updated after the fences are read), so a regime
-     * step is not "explained away" by the very sample that caused it.
+     * samples (the fences are read before the sample is added), so a regime step is
+     * not "explained away" by the very sample that caused it. A sample judged
+     * anomalous by a learned fence is deliberately <em>not</em> folded into the
+     * estimator, so a sustained regime shift keeps firing instead of being absorbed
+     * into the baseline; only non-anomalous samples update the adaptive baseline.
+     *
+     * <p>Both learned arms share one bounded rolling-window baseline: the z-score
+     * fence uses the windowed mean/standard deviation and the IQR fence uses the
+     * same window. The IQR fence is computed lazily — only when the z-score arm did
+     * not already decide the sample is over — to avoid the sort on the common path.
      */
     private Decision decide(double value, double fixedThreshold, SignalEstimator est) {
         boolean fixedOver = value > fixedThreshold;
@@ -243,23 +252,32 @@ public final class AnomalyDetector {
         }
 
         boolean warmedUp = est.ready();
-        double sigmaFence = est.zScoreFence(learnedK);   // mean + k*sigma
-        double iqrFence = est.iqrUpperFence();           // Q3 + 1.5*IQR
-        est.add(value);
+        SignalEstimator.WindowStats stats = est.windowStats();   // one pass over the window
 
         boolean learnedOver = false;
         String learnedKind = null;
         double learnedThreshold = Double.NaN;
         if (warmedUp) {
+            double sigmaFence = stats.zScoreFence(learnedK);   // windowed mean + k*sigma
             if (!Double.isNaN(sigmaFence) && value > sigmaFence) {
                 learnedOver = true;
                 learnedKind = "z-score";
                 learnedThreshold = sigmaFence;
-            } else if (!Double.isNaN(iqrFence) && value > iqrFence) {
-                learnedOver = true;
-                learnedKind = "IQR";
-                learnedThreshold = iqrFence;
+            } else {
+                double iqrFence = stats.iqrUpperFence();        // Q3 + 1.5*IQR (lazy)
+                if (!Double.isNaN(iqrFence) && value > iqrFence) {
+                    learnedOver = true;
+                    learnedKind = "IQR";
+                    learnedThreshold = iqrFence;
+                }
             }
+        }
+
+        // Do not poison the baseline with an anomalous sample: a sustained regime
+        // shift would otherwise be absorbed and the detector would go quiet after
+        // firing once. Non-anomalous samples still track normal variation.
+        if (!learnedOver) {
+            est.add(value);
         }
 
         if (mode == AnomalyMode.LEARNED) {
@@ -453,9 +471,12 @@ public final class AnomalyDetector {
     }
 
     /**
-     * Bounded online estimator for one signal: a Welford running mean/variance, an
-     * EWMA, and a fixed-size rolling window for the IQR. Memory is O(window)
-     * regardless of how many samples are fed, so a long run never grows unbounded.
+     * Bounded online estimator for one signal: a fixed-size rolling window that
+     * backs a single adaptive baseline, plus an EWMA smoothed level. Both learned
+     * fences (windowed z-score and IQR) are derived from the same rolling window, so
+     * the two arms never disagree about "baseline" and both adapt to drift. Memory
+     * is O(window) regardless of how many samples are fed, so a long run never grows
+     * unbounded.
      *
      * <p>Not thread-safe on its own; the enclosing detector guards all access with
      * its {@code synchronized} sample methods.
@@ -469,10 +490,9 @@ public final class AnomalyDetector {
         private int ringCount = 0;     // valid entries in the ring (<= window)
         private int ringHead = 0;      // next write position
 
-        // Welford running mean/variance over all samples seen.
+        // Total samples folded into the baseline so far (drives warm-up only;
+        // capped at warmup so a long run never overflows).
         private long count = 0;
-        private double mean = 0.0;
-        private double m2 = 0.0;
 
         // Exponentially weighted moving average (seeded on first sample).
         private double ewma = 0.0;
@@ -484,12 +504,11 @@ public final class AnomalyDetector {
             this.ring = new double[this.window];
         }
 
-        /** Folds a sample into all estimators. Bounded: overwrites the oldest ring slot. */
+        /** Folds a sample into the rolling window and EWMA. Bounded: overwrites the oldest ring slot. */
         void add(double value) {
-            count++;
-            double delta = value - mean;
-            mean += delta / count;
-            m2 += delta * (value - mean);
+            if (count < warmup) {
+                count++;
+            }
 
             if (!ewmaSeeded) {
                 ewma = value;
@@ -505,13 +524,9 @@ public final class AnomalyDetector {
             }
         }
 
-        /** True once enough samples have been seen to trust the baseline. */
+        /** True once enough samples have been folded in to trust the baseline. */
         boolean ready() {
             return count >= warmup;
-        }
-
-        double mean() {
-            return mean;
         }
 
         /** EWMA of the signal (smoothed level); 0.0 before the first sample. */
@@ -519,35 +534,30 @@ public final class AnomalyDetector {
             return ewma;
         }
 
-        /** Sample standard deviation (Welford), or NaN before two samples. */
-        double stdDev() {
-            if (count < 2) {
-                return Double.NaN;
-            }
-            return Math.sqrt(m2 / (count - 1));
-        }
-
-        /** Upper z-score fence: mean + k*sigma. NaN before two samples. */
-        double zScoreFence(double k) {
-            double sd = stdDev();
-            if (Double.isNaN(sd)) {
-                return Double.NaN;
-            }
-            return mean + k * sd;
-        }
-
-        /** Upper IQR fence: Q3 + 1.5*IQR over the rolling window. NaN before two samples. */
-        double iqrUpperFence() {
+        /**
+         * Snapshots the rolling window into a {@link WindowStats}, computing the
+         * windowed mean and variance in a single pass. The IQR fence is derived
+         * lazily from the same snapshot only when requested, so the common path
+         * (z-score decides) never sorts the window.
+         */
+        WindowStats windowStats() {
             if (ringCount < 2) {
-                return Double.NaN;
+                return WindowStats.EMPTY;
             }
-            double[] sorted = new double[ringCount];
-            System.arraycopy(ring, 0, sorted, 0, ringCount);
-            Arrays.sort(sorted);
-            double q1 = percentile(sorted, 0.25);
-            double q3 = percentile(sorted, 0.75);
-            double iqr = q3 - q1;
-            return q3 + 1.5 * iqr;
+            double[] snapshot = new double[ringCount];
+            System.arraycopy(ring, 0, snapshot, 0, ringCount);
+            double sum = 0.0;
+            for (double v : snapshot) {
+                sum += v;
+            }
+            double mean = sum / ringCount;
+            double m2 = 0.0;
+            for (double v : snapshot) {
+                double d = v - mean;
+                m2 += d * d;
+            }
+            double variance = m2 / (ringCount - 1); // sample variance
+            return new WindowStats(snapshot, mean, Math.sqrt(variance));
         }
 
         /** Linear-interpolation percentile over a pre-sorted array. */
@@ -579,10 +589,55 @@ public final class AnomalyDetector {
             ringCount = 0;
             ringHead = 0;
             count = 0;
-            mean = 0.0;
-            m2 = 0.0;
             ewma = 0.0;
             ewmaSeeded = false;
+        }
+
+        /**
+         * Immutable snapshot of the rolling window plus its windowed mean and
+         * standard deviation. Both learned fences read from this single snapshot so
+         * they share one adaptive baseline; the IQR fence sorts the snapshot lazily,
+         * only when requested.
+         */
+        static final class WindowStats {
+            static final WindowStats EMPTY = new WindowStats(null, Double.NaN, Double.NaN);
+
+            private final double[] samples; // window snapshot (unsorted); null when empty
+            private final double mean;
+            private final double stdDev;
+            private boolean sorted = false;
+
+            WindowStats(double[] samples, double mean, double stdDev) {
+                this.samples = samples;
+                this.mean = mean;
+                this.stdDev = stdDev;
+            }
+
+            /** Windowed upper z-score fence: mean + k*sigma. NaN before two samples. */
+            double zScoreFence(double k) {
+                if (samples == null || Double.isNaN(stdDev)) {
+                    return Double.NaN;
+                }
+                return mean + k * stdDev;
+            }
+
+            /**
+             * Windowed upper IQR fence: Q3 + 1.5*IQR. NaN before two samples. Sorts
+             * the snapshot in place on first call; subsequent calls reuse the sort.
+             */
+            double iqrUpperFence() {
+                if (samples == null) {
+                    return Double.NaN;
+                }
+                if (!sorted) {
+                    Arrays.sort(samples);
+                    sorted = true;
+                }
+                double q1 = percentile(samples, 0.25);
+                double q3 = percentile(samples, 0.75);
+                double iqr = q3 - q1;
+                return q3 + 1.5 * iqr;
+            }
         }
     }
 
