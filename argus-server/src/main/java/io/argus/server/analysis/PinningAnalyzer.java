@@ -158,6 +158,12 @@ public final class PinningAnalyzer {
         long[] counts = hotspotsByHash.values().stream()
                 .mapToLong(d -> d.count.get())
                 .toArray();
+        // The map can shrink between the size() guard above and this snapshot (a
+        // concurrent clear() or overlapping eviction). Re-check against the snapshot
+        // so counts[counts.length - MAX_HOTSPOTS] can never index negative.
+        if (counts.length <= MAX_HOTSPOTS) {
+            return;
+        }
         java.util.Arrays.sort(counts); // ascending
         // Threshold = the count at the MAX_HOTSPOTS-th highest position.
         long threshold = counts[counts.length - MAX_HOTSPOTS];

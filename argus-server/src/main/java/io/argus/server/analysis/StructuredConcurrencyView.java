@@ -115,8 +115,9 @@ public final class StructuredConcurrencyView {
 
     private static void renderNode(ScopeNode node, int depth, StringBuilder sb) {
         if (depth > MAX_RENDER_DEPTH) {
-            sb.append("  ".repeat(MAX_RENDER_DEPTH))
-              .append("… (scope nesting exceeds ").append(MAX_RENDER_DEPTH)
+            // Modest fixed indent for the notice — repeating to the actual (huge)
+            // depth would allocate a multi-KB blank prefix per elided node.
+            sb.append("    … (scope nesting exceeds ").append(MAX_RENDER_DEPTH)
               .append(" levels; subtree elided)\n");
             return;
         }
