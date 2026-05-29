@@ -169,4 +169,147 @@ class AnomalyDetectorTest {
         assertFalse(d.isCaptureRecommended());
         assertNull(d.latest());
     }
+
+    // ── Mode selection / back-compat ─────────────────────────────────────────────
+
+    @Test
+    void defaultMode_isFixed() {
+        // The legacy explicit-threshold constructor must stay in FIXED mode.
+        AnomalyDetector d = new AnomalyDetector(0.85, 500_000.0, 3, 5, true);
+        assertEquals(AnomalyDetector.AnomalyMode.FIXED, d.mode());
+    }
+
+    @Test
+    void fixedMode_doesNotFeedOrConsultLearnedBaseline() {
+        // In FIXED mode the learned estimator is never fed, so its window stays empty
+        // and only the static threshold drives firing (regression of legacy behaviour).
+        AnomalyDetector d = new AnomalyDetector(0.85, 500_000.0, 3, 5, true);
+        for (int i = 0; i < 50; i++) {
+            d.recordCpuSample(0.10, T0.plusSeconds(i));
+        }
+        assertEquals(0, d.cpuWindowOccupancy());
+        assertTrue(d.recentAnomalies().isEmpty());
+    }
+
+    // ── Learned mode ─────────────────────────────────────────────────────────────
+
+    /** learned-only, k=3, window=64, warmup=20, sustained=3, ring=10. */
+    private static AnomalyDetector learnedDetector() {
+        return new AnomalyDetector(0.85, 500_000.0, 3, 10, true,
+                AnomalyDetector.AnomalyMode.LEARNED, 3.0, 64, 20);
+    }
+
+    @Test
+    void learned_warmup_doesNotFireBeforeBaselineExists() {
+        AnomalyDetector d = learnedDetector();
+        // Even a wild spike before warm-up cannot fire: there is no baseline yet.
+        for (int i = 0; i < 5; i++) {
+            assertNull(d.recordCpuSample(0.99, T0.plusSeconds(i)));
+        }
+        assertTrue(d.recentAnomalies().isEmpty());
+    }
+
+    @Test
+    void learned_regimeShift_firesWithinBoundedPostShiftSamples() {
+        AnomalyDetector d = learnedDetector();
+        java.util.Random rng = new java.util.Random(42);
+
+        // Phase 1: stationary low baseline (~0.20 +/- small noise) to learn from.
+        int t = 0;
+        for (int i = 0; i < 60; i++, t++) {
+            double v = 0.20 + rng.nextGaussian() * 0.01;
+            assertNull(d.recordCpuSample(v, T0.plusSeconds(t)),
+                    "baseline phase should not fire at i=" + i);
+        }
+
+        // Phase 2: sustained step change to a much higher level.
+        boolean fired = false;
+        int postShift = 0;
+        for (int i = 0; i < 20; i++, t++, postShift++) {
+            double v = 0.80 + rng.nextGaussian() * 0.01;
+            if (d.recordCpuSample(v, T0.plusSeconds(t)) != null) {
+                fired = true;
+                break;
+            }
+        }
+        assertTrue(fired, "regime shift should fire in learned mode");
+        // Must fire promptly after the shift (sustained window + small margin).
+        assertTrue(postShift <= 8, "fired too late after shift: " + postShift);
+        assertEquals(1, d.recentAnomalies().size());
+        assertTrue(d.latest().reason().contains("learned"), d.latest().reason());
+    }
+
+    @Test
+    void learned_sustainedRegimeShift_keepsFiring_notSilencedAfterFirstFire() {
+        // Regression for baseline self-poisoning: a sustained step change must keep
+        // firing on repeated post-shift samples, not go quiet after a single fire.
+        // If anomalous samples were folded into the baseline, the high level would be
+        // absorbed and subsequent post-shift samples would stop firing.
+        AnomalyDetector d = learnedDetector(); // sustained=3, warmup=20, window=64
+        java.util.Random rng = new java.util.Random(99);
+
+        int t = 0;
+        // Phase 1: learn a stationary low baseline.
+        for (int i = 0; i < 60; i++, t++) {
+            double v = 0.20 + rng.nextGaussian() * 0.01;
+            assertNull(d.recordCpuSample(v, T0.plusSeconds(t)),
+                    "baseline phase should not fire at i=" + i);
+        }
+
+        // Phase 2: long sustained high regime. With sustained=3, every third sample
+        // (after re-arming) should fire as long as the baseline is not poisoned.
+        int fires = 0;
+        for (int i = 0; i < 60; i++, t++) {
+            double v = 0.80 + rng.nextGaussian() * 0.01;
+            if (d.recordCpuSample(v, T0.plusSeconds(t)) != null) {
+                fires++;
+            }
+        }
+
+        // A poisoned baseline fires at most once then goes silent. A correct,
+        // non-poisoned baseline keeps re-arming and fires many times over 60 samples.
+        assertTrue(fires >= 5,
+                "sustained regression must keep firing (non-poisoned baseline); fires=" + fires);
+    }
+
+    @Test
+    void learned_stationaryNoise_doesNotFire_falsePositiveGuard() {
+        AnomalyDetector d = learnedDetector();
+        java.util.Random rng = new java.util.Random(7);
+        // A long stationary noisy run around 0.40 must not trip the learned fence.
+        for (int i = 0; i < 500; i++) {
+            double v = 0.40 + rng.nextGaussian() * 0.02;
+            d.recordCpuSample(v, T0.plusSeconds(i));
+        }
+        assertTrue(d.recentAnomalies().isEmpty(),
+                "stationary noise must not fire (false positive): " + d.recentAnomalies());
+    }
+
+    @Test
+    void learned_memoryBounded_overLongRun() {
+        AnomalyDetector d = new AnomalyDetector(0.85, 500_000.0, 3, 10, true,
+                AnomalyDetector.AnomalyMode.LEARNED, 3.0, 32, 10);
+        java.util.Random rng = new java.util.Random(1);
+        for (int i = 0; i < 100_000; i++) {
+            d.recordCpuSample(0.30 + rng.nextGaussian() * 0.02, T0.plusSeconds(i));
+        }
+        // Rolling window never grows beyond its configured capacity.
+        assertEquals(32, d.cpuWindowCapacity());
+        assertEquals(32, d.cpuWindowOccupancy());
+    }
+
+    @Test
+    void both_fixedThresholdStillFires_evenWithoutLearnedTrip() {
+        // In BOTH mode the static fence remains active: a clear over-threshold run
+        // fires even before the learned baseline is warm.
+        AnomalyDetector d = new AnomalyDetector(0.85, 500_000.0, 3, 10, true,
+                AnomalyDetector.AnomalyMode.BOTH, 3.0, 64, 1000);
+        assertNull(d.recordCpuSample(0.95, T0));
+        assertNull(d.recordCpuSample(0.95, T0.plusSeconds(1)));
+        AnomalyDetector.AnomalyEvent fired = d.recordCpuSample(0.95, T0.plusSeconds(2));
+        assertNotNull(fired);
+        assertEquals(AnomalyDetector.AnomalyType.CPU, fired.type());
+        assertEquals(0.85, fired.threshold(), 1e-9);
+        assertTrue(fired.reason().contains("over threshold"), fired.reason());
+    }
 }
