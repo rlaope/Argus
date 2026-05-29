@@ -183,12 +183,29 @@ public final class RightsizeCommand implements Command {
                 String.format("%.2f cores", rec.recommendedCpuRequestCores()), AnsiStyle.CYAN);
         System.out.println(RichRenderer.emptyLine(WIDTH));
 
-        // OOMKill risk flag
-        if (rec.oomKillRisk()) {
-            System.out.println(RichRenderer.boxLine(
-                    "  " + AnsiStyle.style(c, AnsiStyle.RED) + "[OOMKILL RISK] "
-                            + AnsiStyle.style(c, AnsiStyle.RESET) + rec.oomKillReason(), WIDTH));
-            System.out.println(RichRenderer.emptyLine(WIDTH));
+        // OOMKill risk: three honest states. Never a false all-clear when no limit is known.
+        switch (rec.oomKillRiskState()) {
+            case AT_RISK:
+                System.out.println(RichRenderer.boxLine(
+                        "  " + AnsiStyle.style(c, AnsiStyle.RED) + "[OOMKILL RISK] "
+                                + AnsiStyle.style(c, AnsiStyle.RESET) + rec.oomKillReason(), WIDTH));
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+                break;
+            case OK:
+                System.out.println(RichRenderer.boxLine(
+                        "  " + AnsiStyle.style(c, AnsiStyle.GREEN) + "[OOMKill] "
+                                + AnsiStyle.style(c, AnsiStyle.RESET)
+                                + messages.get("rightsize.oom.ok"), WIDTH));
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+                break;
+            case UNKNOWN:
+            default:
+                System.out.println(RichRenderer.boxLine(
+                        "  " + AnsiStyle.style(c, AnsiStyle.YELLOW) + "[OOMKill] "
+                                + AnsiStyle.style(c, AnsiStyle.RESET)
+                                + messages.get("rightsize.oom.na"), WIDTH));
+                System.out.println(RichRenderer.emptyLine(WIDTH));
+                break;
         }
 
         // Inputs + safety factor — never a black box.
@@ -246,6 +263,7 @@ public final class RightsizeCommand implements Command {
             sb.append(",\"recommendedContainerLimitBytes\":").append(r.recommendedContainerLimitBytes());
             sb.append(",\"recommendedCpuRequestCores\":").append(String.format("%.2f", r.recommendedCpuRequestCores()));
             sb.append(",\"oomKillRisk\":").append(r.oomKillRisk());
+            sb.append(",\"oomKillRiskState\":\"").append(r.oomKillRiskState().name()).append('"');
             if (r.oomKillReason() != null) {
                 sb.append(",\"oomKillReason\":\"").append(RichRenderer.escapeJson(r.oomKillReason())).append('"');
             }

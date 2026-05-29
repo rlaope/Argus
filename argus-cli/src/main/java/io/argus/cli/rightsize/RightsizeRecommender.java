@@ -63,6 +63,20 @@ public final class RightsizeRecommender {
     private RightsizeRecommender() {}
 
     /**
+     * OOMKill-risk verdict. The check is only meaningful against a real/observed container
+     * limit; against Argus's own recommended limit it would be circular, so the third state
+     * is {@link #UNKNOWN} rather than a false {@code OK}.
+     */
+    public enum OomKillRisk {
+        /** An observed limit leaves less than the native-headroom threshold above {@code -Xmx}. */
+        AT_RISK,
+        /** An observed limit leaves adequate native headroom above {@code -Xmx}. */
+        OK,
+        /** No observed limit was supplied; risk cannot be evaluated honestly. */
+        UNKNOWN
+    }
+
+    /**
      * Produces a right-sizing recommendation from an {@link Observation}. Never throws on
      * defensible-but-low data; instead returns a refusal when the window is too short.
      */
@@ -99,24 +113,37 @@ public final class RightsizeRecommender {
         // process room for GC scratch / page cache before the kernel OOMKills it.
         long containerLimit = Math.round((xmx + nativeFootprint) * NATIVE_HEADROOM_FACTOR);
 
-        // OOMKill risk: evaluate the limit the deployment is ACTUALLY sized against. Use the
-        // observed current container limit (the config the operator runs today) when known;
-        // otherwise evaluate the limit we recommend. If that limit leaves < threshold
-        // headroom above -Xmx, the JVM can fill the heap and still be killed for native
-        // growth (metaspace/threads/code-cache/direct buffers) it never accounts for.
-        long evaluatedLimit = o.currentContainerLimitBytes() > 0
-                ? o.currentContainerLimitBytes()
-                : containerLimit;
-        long headroomAboveXmx = evaluatedLimit - xmx;
-        boolean oomRisk = headroomAboveXmx <= (long) (xmx * OOMKILL_HEADROOM_THRESHOLD);
-        String oomReason = oomRisk
-                ? String.format(
-                    "container limit (%d MiB) leaves only %d MiB above -Xmx (%d MiB) — "
-                    + "no room for metaspace/threads/code-cache/direct buffers; raise the limit",
-                    evaluatedLimit / (1024 * 1024),
-                    Math.max(0L, headroomAboveXmx) / (1024 * 1024),
-                    xmx / (1024 * 1024))
-                : null;
+        // OOMKill risk: only meaningful against a REAL/observed container limit (the config
+        // the deployment actually runs against). Comparing against the limit Argus itself
+        // recommends would be circular — that limit is `(xmx + native) * 1.25` by construction,
+        // so it always clears the headroom threshold and the flag could never fire. When no
+        // observed limit is known we report UNKNOWN ("n/a"), never a false all-clear.
+        OomKillRisk oomRisk;
+        String oomReason;
+        if (o.currentContainerLimitBytes() > 0) {
+            long observedLimit = o.currentContainerLimitBytes();
+            long headroomAboveXmx = observedLimit - xmx;
+            // Rounded threshold (not truncated) so the boundary is symmetric, not biased down.
+            long threshold = Math.round(xmx * OOMKILL_HEADROOM_THRESHOLD);
+            if (headroomAboveXmx <= threshold) {
+                oomRisk = OomKillRisk.AT_RISK;
+                oomReason = String.format(
+                        "observed container limit (%d MiB) leaves only %d MiB above -Xmx (%d MiB) — "
+                        + "no room for metaspace/threads/code-cache/direct buffers; raise the limit",
+                        observedLimit / (1024 * 1024),
+                        Math.max(0L, headroomAboveXmx) / (1024 * 1024),
+                        xmx / (1024 * 1024));
+            } else {
+                oomRisk = OomKillRisk.OK;
+                oomReason = null;
+            }
+        } else {
+            // No --limit supplied and no observed container limit: we cannot evaluate OOMKill
+            // risk honestly. Tell the operator how to get a real answer instead of a tautology.
+            oomRisk = OomKillRisk.UNKNOWN;
+            oomReason = "no observed container limit — pass --limit=<size> (or run where the "
+                    + "cgroup limit is readable) to evaluate native-headroom OOMKill risk";
+        }
 
         double cpuRequest = cpuRequestCores(o);
 
@@ -130,7 +157,7 @@ public final class RightsizeRecommender {
         r.recommendedCpuRequestCores = cpuRequest;
         r.liveSetFloorBytes = floor;
         r.xmxSafetyFactor = XMX_SAFETY_FACTOR;
-        r.oomKillRisk = oomRisk;
+        r.oomKillRiskState = oomRisk;
         r.oomKillReason = oomReason;
         r.copyInputs(o);
         return r;
@@ -234,7 +261,7 @@ public final class RightsizeRecommender {
         private double recommendedCpuRequestCores;
         private long liveSetFloorBytes;
         private double xmxSafetyFactor;
-        private boolean oomKillRisk;
+        private OomKillRisk oomKillRiskState = OomKillRisk.UNKNOWN;
         private String oomKillReason;
         // Echo of inputs.
         private long inputHeapHighWaterMarkBytes;
@@ -279,7 +306,10 @@ public final class RightsizeRecommender {
         public double recommendedCpuRequestCores() { return recommendedCpuRequestCores; }
         public long liveSetFloorBytes() { return liveSetFloorBytes; }
         public double xmxSafetyFactor() { return xmxSafetyFactor; }
-        public boolean oomKillRisk() { return oomKillRisk; }
+        /** Three-state OOMKill verdict. {@link OomKillRisk#UNKNOWN} when no observed limit. */
+        public OomKillRisk oomKillRiskState() { return oomKillRiskState; }
+        /** True only when an observed limit puts the deployment genuinely at risk. */
+        public boolean oomKillRisk() { return oomKillRiskState == OomKillRisk.AT_RISK; }
         public String oomKillReason() { return oomKillReason; }
         public long inputHeapHighWaterMarkBytes() { return inputHeapHighWaterMarkBytes; }
         public long inputPostGcLiveSetBytes() { return inputPostGcLiveSetBytes; }

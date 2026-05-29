@@ -1,6 +1,7 @@
 package io.argus.cli.rightsize;
 
 import io.argus.cli.rightsize.RightsizeRecommender.Observation;
+import io.argus.cli.rightsize.RightsizeRecommender.OomKillRisk;
 import io.argus.cli.rightsize.RightsizeRecommender.Recommendation;
 import org.junit.jupiter.api.Test;
 
@@ -62,7 +63,9 @@ class RightsizeRecommenderTest {
         // Request includes heap + native footprint; limit adds headroom on top.
         assertTrue(r.recommendedContainerRequestBytes() > r.recommendedXmxBytes());
         assertTrue(r.recommendedContainerLimitBytes() >= r.recommendedContainerRequestBytes());
-        // Healthy config: native headroom exists, no OOMKill flag.
+        // steadyState supplies a roomy observed limit (5x floor), so the verdict is OK — a
+        // REAL all-clear evaluated against a real limit, not the circular self-comparison.
+        assertEquals(OomKillRisk.OK, r.oomKillRiskState());
         assertFalse(r.oomKillRisk());
         assertNull(r.oomKillReason());
     }
@@ -83,6 +86,8 @@ class RightsizeRecommenderTest {
                 300_000L, 20L);
         Recommendation r = RightsizeRecommender.recommend(o);
         assertFalse(r.refused());
+        assertEquals(OomKillRisk.AT_RISK, r.oomKillRiskState(),
+                "OOMKill verdict must be AT_RISK when a real observed limit ≈ -Xmx");
         assertTrue(r.oomKillRisk(), "OOMKill flag must fire when current limit ≈ -Xmx");
         assertNotNull(r.oomKillReason());
     }
@@ -99,8 +104,54 @@ class RightsizeRecommenderTest {
                 128 * MIB, 32 * MIB, 48 * MIB, 64,
                 300_000L, 20L);
         Recommendation r = RightsizeRecommender.recommend(o);
+        assertEquals(OomKillRisk.OK, r.oomKillRiskState());
         assertFalse(r.oomKillRisk());
         assertNull(r.oomKillReason());
+    }
+
+    @Test
+    void oomKillVerdictIsUnknownOnDefaultPathWithNoObservedLimit() {
+        // The default path: operator passed no --limit and no cgroup limit is known
+        // (currentContainerLimit == 0). The flag must NOT be evaluated against Argus's own
+        // recommended limit — that comparison is circular and structurally always "OK".
+        // Instead the verdict is UNKNOWN: an honest "n/a", never a false all-clear.
+        long floor = 512 * MIB;
+        Observation o = new Observation(
+                floor * 2, floor, floor * 2,
+                /* currentContainerLimit */ 0L,
+                100.0 * MIB, 10.0 * MIB,
+                128 * MIB, 32 * MIB, 48 * MIB, 64,
+                300_000L, 20L);
+        Recommendation r = RightsizeRecommender.recommend(o);
+        assertFalse(r.refused());
+        assertEquals(OomKillRisk.UNKNOWN, r.oomKillRiskState(),
+                "no observed limit must yield UNKNOWN, not a false OK");
+        // The convenience boolean must NOT report risk for an unknown verdict, and must NOT
+        // report a false all-clear either — callers distinguish via oomKillRiskState().
+        assertFalse(r.oomKillRisk());
+        // A reason is still given so the operator learns how to get a real answer.
+        assertNotNull(r.oomKillReason());
+    }
+
+    @Test
+    void oomKillThresholdUsesRoundedComparisonNotTruncation() {
+        // Boundary: headroom exactly at the rounded 10% threshold fires (<=), one byte above
+        // does not. Guards against the previous (long) truncation of xmx * 0.10.
+        long floor = 512 * MIB;
+        long xmx = Math.round(floor * RightsizeRecommender.XMX_SAFETY_FACTOR);
+        long threshold = Math.round(xmx * RightsizeRecommender.OOMKILL_HEADROOM_THRESHOLD);
+
+        Observation atThreshold = new Observation(
+                floor * 2, floor, floor * 2, xmx + threshold,
+                100.0 * MIB, 10.0 * MIB, 128 * MIB, 32 * MIB, 48 * MIB, 64, 300_000L, 20L);
+        assertEquals(OomKillRisk.AT_RISK,
+                RightsizeRecommender.recommend(atThreshold).oomKillRiskState());
+
+        Observation oneByteAbove = new Observation(
+                floor * 2, floor, floor * 2, xmx + threshold + 1,
+                100.0 * MIB, 10.0 * MIB, 128 * MIB, 32 * MIB, 48 * MIB, 64, 300_000L, 20L);
+        assertEquals(OomKillRisk.OK,
+                RightsizeRecommender.recommend(oneByteAbove).oomKillRiskState());
     }
 
     @Test
