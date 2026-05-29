@@ -2,13 +2,19 @@ package io.argus.cli.command;
 
 import io.argus.cli.config.CliConfig;
 import io.argus.cli.config.Messages;
+import io.argus.cli.llm.BundleFindings;
+import io.argus.cli.llm.LlmAdvisoryRenderer;
+import io.argus.cli.llm.LlmConfig;
+import io.argus.cli.llm.LlmRootCause;
 import io.argus.cli.provider.ProviderRegistry;
 import io.argus.cli.render.AnsiStyle;
 import io.argus.cli.render.RichRenderer;
 import io.argus.core.command.CommandGroup;
+import io.argus.diagnostics.doctor.Finding;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
@@ -50,6 +56,21 @@ public final class ExplainCommand implements Command {
 
     @Override
     public void execute(String[] args, CliConfig config, ProviderRegistry registry, Messages messages) {
+        // Opt-in LLM root-cause mode over an offline snapshot bundle.
+        // `argus explain --llm --bundle=<snapshot.tar.gz>` reads findings from the
+        // bundle, ALWAYS prints them deterministically, then appends an advisory
+        // block (only when the feature is enabled with a key).
+        boolean llm = false;
+        String bundle = null;
+        for (String arg : args) {
+            if (arg.equals("--llm")) llm = true;
+            else if (arg.startsWith("--bundle=")) bundle = arg.substring(9);
+        }
+        if (llm) {
+            runLlmRootCause(bundle, config.color(), messages);
+            return;
+        }
+
         if (args.length == 0) {
             System.err.println("Usage: argus explain <term>");
             System.err.println("Examples:");
@@ -136,6 +157,52 @@ public final class ExplainCommand implements Command {
         }
 
         printExplanation(useColor, matchedTerm, explanation);
+    }
+
+    /**
+     * Offline root-cause path: bundle → findings → deterministic print → advisory.
+     * The deterministic findings are always shown; the LLM advisory is appended
+     * only when the feature is enabled with a key (otherwise a skip note prints).
+     */
+    private static void runLlmRootCause(String bundle, boolean useColor, Messages messages) {
+        if (bundle == null || bundle.isBlank()) {
+            System.err.println(messages.get("llm.rca.bundleRequired"));
+            return;
+        }
+        List<Finding> findings;
+        try {
+            findings = BundleFindings.fromBundle(Path.of(bundle));
+        } catch (IOException e) {
+            System.err.println(messages.get("llm.rca.bundleError", e.getMessage()));
+            return;
+        }
+
+        System.out.println(RichRenderer.boxHeader(useColor, "explain --llm", WIDTH,
+                messages.get("llm.rca.findingsTitle")));
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        if (findings.isEmpty()) {
+            System.out.println(RichRenderer.boxLine(messages.get("llm.rca.noFindings"), WIDTH));
+        } else {
+            for (Finding f : findings) {
+                System.out.println(RichRenderer.boxLine(
+                        "  " + f.severity().icon() + " " + f.severity().label()
+                                + ": " + f.title(), WIDTH));
+                if (!f.detail().isEmpty()) {
+                    for (String line : wordWrap(f.detail(), WIDTH - 8)) {
+                        System.out.println(RichRenderer.boxLine("     " + line, WIDTH));
+                    }
+                }
+                for (String rec : f.recommendations()) {
+                    System.out.println(RichRenderer.boxLine("     → " + rec, WIDTH));
+                }
+            }
+        }
+        System.out.println(RichRenderer.emptyLine(WIDTH));
+        System.out.println(RichRenderer.boxFooter(useColor, null, WIDTH));
+
+        LlmRootCause.Result result =
+                new LlmRootCause(LlmConfig.fromEnvironment()).analyze(findings);
+        LlmAdvisoryRenderer.print(result, useColor, messages);
     }
 
     private static void printExplanation(boolean useColor, String term, String explanation) {
