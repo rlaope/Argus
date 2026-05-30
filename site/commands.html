@@ -105,14 +105,46 @@ argus histo 12345</code></pre>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr><td>Process</td><td><code>ps</code>, <code>info</code>, <code>init</code></td><td>Find and identify JVM processes</td></tr>
-                            <tr><td>Memory</td><td><code>heap</code>, <code>histo</code>, <code>heapdump</code>, <code>diff</code>, <code>nmt</code></td><td>Heap usage, object distribution, native memory</td></tr>
-                            <tr><td>GC</td><td><code>gc</code>, <code>gcutil</code>, <code>gccause</code>, <code>gcnew</code>, <code>zgc</code></td><td>GC frequency, pause times, causes, generation stats; ZGC live diagnosis (allocation stalls, soft-max breach, cycle overlap) + trend tracking</td></tr>
-                            <tr><td>Threads</td><td><code>threads</code>, <code>deadlock</code>, <code>pool</code></td><td>Thread states, deadlocks, pool analysis</td></tr>
-                            <tr><td>CPU</td><td><code>profile</code>, <code>jfr</code></td><td>CPU profiling, flight recording</td></tr>
-                            <tr><td>Classes</td><td><code>classloader</code>, <code>classstat</code>, <code>stringtable</code>, <code>symboltable</code></td><td>Class loading, interned strings, symbols</td></tr>
-                            <tr><td>Runtime</td><td><code>sysprops</code>, <code>vmflag</code>, <code>vmset</code>, <code>vmlog</code>, <code>env</code>, <code>dynlibs</code></td><td>Configuration, flags, environment</td></tr>
-                            <tr><td>Advanced</td><td><code>metaspace</code>, <code>compiler</code>, <code>finalizer</code>, <code>jmx</code>, <code>report</code>, <code>top</code></td><td>Metaspace, JIT, finalizers, diagnostics</td></tr>
+                            <tr>
+                                <td>Health &amp; triage</td>
+                                <td><code>doctor</code>, <code>suggest</code>, <code>report</code>, <code>snapshot</code>, <code>compare</code>, <code>top</code>, <code>tui</code>, <code>info</code>, <code>ps</code>, <code>init</code>, <code>env</code>, <code>watch</code></td>
+                                <td>One-click JVM health diagnosis; flag tuning recommendations; full diagnostic report; forensic bundle; side-by-side two-PID comparison; real-time agent dashboard; interactive terminal UI; JVM version/uptime/flags; list running JVM processes; first-time setup wizard; launch environment (classpath, VM args); htop-style live JVM dashboard</td>
+                            </tr>
+                            <tr>
+                                <td>GC</td>
+                                <td><code>gc</code>, <code>gcutil</code>, <code>gccause</code>, <code>gcnew</code>, <code>gcwhy</code>, <code>gcscore</code>, <code>gclog</code>, <code>gclogdiff</code>, <code>gcrun</code>, <code>gcprofile</code>, <code>g1</code>, <code>zgc</code></td>
+                                <td>GC stats (heap usage, pause time, collector); generation utilization % (jstat-style); last/current GC cause with gen utilization; young-gen detail (eden, survivor, tenuring); plain-English narration of the worst GC pause; A–F GC health scorecard (live PID or GC-log file); analyze GC log files (pauses, causes, tuning); compare two GC log files; trigger System.gc() remotely; JFR-based allocation profiling; G1GC live health verdict; ZGC live health verdict</td>
+                            </tr>
+                            <tr>
+                                <td>Memory &amp; heap</td>
+                                <td><code>heap</code>, <code>histo</code>, <code>heapdump</code>, <code>heapanalyze</code>, <code>diff</code>, <code>nmt</code>, <code>buffers</code>, <code>metaspace</code></td>
+                                <td>Detailed heap usage with space breakdown; heap object histogram (count + size); generate heap dump (.hprof); offline HPROF analysis — dominator tree, retained sizes, leak suspects; heap snapshot comparison (leak detection); native memory tracking by category; NIO direct/mapped buffer pools; metaspace usage by space type</td>
+                            </tr>
+                            <tr>
+                                <td>Threads &amp; concurrency</td>
+                                <td><code>threads</code>, <code>threaddump</code>, <code>deadlock</code>, <code>pool</code></td>
+                                <td>Thread state summary with distribution bars; full thread dump (jstack replacement); automated deadlock detection; thread pool grouping with state distribution</td>
+                            </tr>
+                            <tr>
+                                <td>CPU &amp; profiling</td>
+                                <td><code>profile</code>, <code>profile-gate</code>, <code>flame</code>, <code>benchmark</code>, <code>jfr</code>, <code>jfranalyze</code>, <code>events</code>, <code>slowlog</code>, <code>trace</code></td>
+                                <td>CPU/alloc/lock/wall profiling (async-profiler); CI/CD CPU regression gate comparing a profile snapshot against a baseline; one-shot flame graph (HTML, opens browser); sampling-based throughput estimate for a method; JFR start/stop/check/dump; analyze JFR recording file; VM internal event log (safepoints, deoptimizations); real-time slow method detection (JFR streaming); method call tree from thread-dump sampling</td>
+                            </tr>
+                            <tr>
+                                <td>Classes</td>
+                                <td><code>classstat</code>, <code>classloader</code>, <code>classleak</code>, <code>searchclass</code>, <code>stringtable</code>, <code>symboltable</code></td>
+                                <td>Class loading throughput; class loader hierarchy + class counts; classloader-level metaspace leak attribution (--top/--save/--diff/--watch); search loaded classes by pattern; interned string table statistics; JVM symbol table statistics</td>
+                            </tr>
+                            <tr>
+                                <td>Runtime &amp; VM</td>
+                                <td><code>sysprops</code>, <code>vmflag</code>, <code>vmset</code>, <code>vmlog</code>, <code>compiler</code>, <code>compilerqueue</code>, <code>perfcounter</code>, <code>finalizer</code>, <code>dynlibs</code>, <code>logger</code>, <code>mbean</code>, <code>jmx</code></td>
+                                <td>JVM system properties (-D flags); show/filter non-default VM flags; set a manageable VM flag at runtime; control JVM unified logging at runtime; JIT compiler status + code cache usage; current JIT compilation queue; low-level JVM performance counters; finalizer queue status; native libraries loaded in the JVM; view/change log levels at runtime; MBean browser (domains, attributes); JMX management agent control</td>
+                            </tr>
+                            <tr>
+                                <td>Diagnostics &amp; ops</td>
+                                <td><code>rightsize</code>, <code>explain</code>, <code>instrument</code>, <code>harness</code>, <code>alert</code>, <code>ci</code>, <code>cluster</code>, <code>spring</code></td>
+                                <td>JVM right-sizing recommendations (-Xmx/-Xms, container request/limit) from observed heap HWM/live-set; plain-English lookup of GC causes, flags, and metrics (--llm adds opt-in LLM advisory with BYO key); opt-in live method instrumentation (watch/trace/monitor) — requires --enable-instrument and the agent JAR; continuous trend-aware health watch (doctor + 4 trend rules over a window); threshold-based webhook alerting; CI/CD health gate with exit codes; multi-instance aggregated health; Spring Boot app inspection via JMX</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -127,7 +159,7 @@ argus histo 12345</code></pre>
                     <p><strong>ZGC monitoring in one command.</strong> <code>argus zgc &lt;PID&gt;</code> runs a 30-second live JFR capture and returns a HEALTHY/WARNING/UNHEALTHY verdict driven by allocation stalls, SoftMaxHeapSize breach, and cycle overlap — the signals JDK Mission Control surfaces with three GUI clicks, in a one-line CLI.</p>
                 </div>
 
-                <p>The command pre-checks the target JVM via JMX to confirm ZGC is the active collector, then captures a JFR profile recording, parses ZGC-specific events, and prints a verdict with concrete tuning recommendations. Use <code>--duration=N</code> to override the default 30-second window (5–120 seconds). Allocation stalls now ship with the top-5 allocator call sites from the same JFR capture, so you see <em>what</em> allocated and <em>who</em> stalled in one shot. Use <code>--save</code>/<code>--diff</code> to track ZGC health across deploys, or <code>--watch</code> for live load tests.</p>
+                <p>The command pre-checks the target JVM via JMX to confirm ZGC is the active collector, then captures a JFR profile recording, parses ZGC-specific events, and prints a verdict with concrete tuning recommendations. Use <code>--duration=N</code> to override the default 30-second capture window (clamped 5–120 seconds). Allocation stalls now ship with the top-5 allocator call sites from the same JFR capture, so you see <em>what</em> allocated and <em>who</em> stalled in one shot. Use <code>--save</code>/<code>--diff</code> to track ZGC health across deploys, or <code>--watch</code> for live load tests.</p>
 
 <pre><code>$ argus zgc 12345
 ZGC Diagnosis (PID 12345, JDK 21, Generational)
@@ -154,7 +186,7 @@ ZGC Diff (baseline 2026-05-08T12:00:00Z → now 2026-05-08T12:30:00Z, +30 min)
   Allocation stalls  0     → 7         (NEW) ✘
   Pause Mark End     0.30ms → 0.42ms   (+0.12ms ⚠)
 
-# Or watch live during a load test
+# Or watch live during a load test (10 iterations, 60 s between captures)
 $ argus zgc 12345 --watch=10 --interval=60</code></pre>
 
             </div>

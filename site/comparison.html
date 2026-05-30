@@ -63,7 +63,7 @@
                 <span class="section-anchor" id="comparison"></span>
                 <h2>Argus vs Traditional JVM Tools</h2>
 
-                <p>Argus's value proposition is brutally simple: replace the JFR-capture-then-GUI-then-grep workflow with one CLI command. Below are five real production scenarios where Argus collapses 5–10 manual steps into one or two commands.</p>
+                <p>Argus's value proposition is brutally simple: collapse the multi-tool, multi-step JVM diagnostic workflow into one or two commands. Argus covers GC analysis, MAT-class heap analysis (<code>heapanalyze</code>), CPU/continuous profiling, virtual-thread and Loom diagnostics, FinOps right-sizing (<code>rightsize</code>), and OTel-native metrics export — not just GC or ZGC. Below are five real production scenarios where Argus collapses 5–10 manual steps into one or two commands.</p>
 
                 <div class="table-wrap">
                     <table>
@@ -89,10 +89,10 @@
                                 <td>scan → banner + top growers</td>
                             </tr>
                             <tr>
-                                <td>Lock contention</td>
-                                <td><code>jstack</code> × 3 + manual <code>waiting to lock</code> aggregation</td>
-                                <td><code>argus pool &lt;PID&gt;</code></td>
-                                <td>1 cmd vs 3 jstacks + grep</td>
+                                <td>Lock contention / pool state</td>
+                                <td><code>jstack</code> × 3 + manual <code>waiting to lock</code> aggregation; no built-in JDBC or thread-pool view</td>
+                                <td><code>argus pool &lt;PID&gt;</code> (thread-pool contention); <code>argus pool jdbc &lt;PID&gt;</code> (HikariCP/Tomcat JDBC pool state); <code>argus pool advise &lt;PID&gt;</code> (thread-pool sizing advisor)</td>
+                                <td>1–2 cmds vs 3 jstacks + grep + manual analysis</td>
                             </tr>
                             <tr>
                                 <td>ZGC allocation stalls</td>
