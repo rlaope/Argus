@@ -22,6 +22,7 @@
     </style>
     <script src="/js/theme-preboot.js"></script>
     <script src="/js/theme.js"></script>
+    <script src="/js/pod-context.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -200,6 +201,14 @@
                     </div>
                 </div>
 
+                <!-- Status drivers -->
+                <div class="fleet-panel-section">
+                    <h3 class="fleet-panel-section-title">Top Reasons</h3>
+                    <div id="panel-reasons" class="fleet-panel-reasons">
+                        <div class="fleet-panel-empty">No threshold drivers</div>
+                    </div>
+                </div>
+
                 <!-- Scrape info -->
                 <div class="fleet-panel-section">
                     <h3 class="fleet-panel-section-title">Scrape Info</h3>
@@ -224,6 +233,11 @@
                     <a id="panel-drill-link" href="#" class="btn btn-primary fleet-panel-drill-btn">
                         Open JVM Dashboard
                     </a>
+                    <div class="fleet-panel-link-grid">
+                        <a id="panel-profiles-cpu-link" href="/profiles.html?event=cpu&range=3600" class="fleet-panel-link">CPU Profile</a>
+                        <a id="panel-profiles-alloc-link" href="/profiles.html?event=alloc&range=3600" class="fleet-panel-link">Alloc Profile</a>
+                        <a id="panel-console-link" href="/console.html" class="fleet-panel-link">Console</a>
+                    </div>
                 </div>
 
             </div>

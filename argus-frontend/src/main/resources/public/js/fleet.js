@@ -6,37 +6,7 @@
  * Click a tile to show side panel; drill-down navigates to single-JVM dashboard.
  */
 
-/* ----------------------------------------------------------------
-   localStorage helpers (shared key with console.html)
----------------------------------------------------------------- */
-const POD_STORAGE_KEY = 'argus.console.pod';
-let warnedNoStorage = false;
-
-function readStoredPod() {
-    try {
-        return window.localStorage.getItem(POD_STORAGE_KEY);
-    } catch (e) {
-        if (!warnedNoStorage) {
-            warnedNoStorage = true;
-            console.warn('[argus-fleet] localStorage unavailable (' + (e && e.name) +
-                '); cross-tab pod sync disabled.');
-        }
-        return null;
-    }
-}
-
-function writeStoredPod(podId) {
-    try {
-        window.localStorage.setItem(POD_STORAGE_KEY, podId);
-    } catch (e) {
-        if (!warnedNoStorage) {
-            warnedNoStorage = true;
-            console.warn('[argus-fleet] localStorage unavailable (' + (e && e.name) +
-                '); cross-tab pod sync disabled.');
-        }
-    }
-}
-
+const podContext = window.ArgusPodContext;
 const POLL_INTERVAL_MS = 5000;
 const AGGREGATOR_BASE = '';  // same origin; aggregator serves this frontend
 
@@ -91,6 +61,10 @@ const panelScrapeUrl   = document.getElementById('panel-scrape-url');
 const panelLastScrape  = document.getElementById('panel-last-scrape');
 const panelScrapeOk    = document.getElementById('panel-scrape-ok');
 const panelDrillLink   = document.getElementById('panel-drill-link');
+const panelReasons     = document.getElementById('panel-reasons');
+const panelProfilesCpu = document.getElementById('panel-profiles-cpu-link');
+const panelProfilesAlloc = document.getElementById('panel-profiles-alloc-link');
+const panelConsoleLink = document.getElementById('panel-console-link');
 
 /* ----------------------------------------------------------------
    Polling
@@ -306,8 +280,8 @@ function selectTile(tile) {
     const el = grid.querySelector(`[data-pod-id="${CSS.escape(tile.podId)}"]`);
     if (el) el.classList.add('selected');
 
-    /* Sync pod selection to localStorage so console.html cross-tab picks it up */
-    writeStoredPod(tile.podId);
+    /* Sync pod selection so Console/Profile/Dashboard pick it up. */
+    podContext.writeStoredPod(tile.podId);
 
     showPanel(tile);
     fetchPodDetail(tile.podId);
@@ -351,8 +325,12 @@ function showPanel(tile) {
     }
 
     /* Drill-down URL: navigate to single-JVM dashboard with pod query param */
-    const drillUrl = buildDrillUrl(tile);
-    panelDrillLink.href = drillUrl;
+    const urls = podContext.contextUrls(tile.podId, { dashboard: tile.drillDownUrl });
+    panelDrillLink.href = urls.dashboard;
+    if (panelProfilesCpu) panelProfilesCpu.href = urls.profilesCpu;
+    if (panelProfilesAlloc) panelProfilesAlloc.href = urls.profilesAlloc;
+    if (panelConsoleLink) panelConsoleLink.href = urls.console;
+    renderPanelReasons(tile);
 
     sidePanel.hidden = false;
 }
@@ -373,13 +351,51 @@ function setMetricValue(el, val, suffix) {
     }
 }
 
-function buildDrillUrl(tile) {
-    /* The aggregator's drillDownUrl field is authoritative if present */
-    if (tile.drillDownUrl) {
-        return tile.drillDownUrl;
+function renderPanelReasons(tile) {
+    if (!panelReasons) return;
+    const reasons = buildTopReasons(tile).slice(0, 3);
+    if (reasons.length === 0) {
+        panelReasons.innerHTML = '<div class="fleet-panel-empty">No threshold drivers</div>';
+        return;
     }
-    /* Fallback: /?pod=<podId> on the aggregator's own frontend */
-    return `/?pod=${encodeURIComponent(tile.podId)}`;
+    panelReasons.innerHTML = reasons.map(r =>
+        `<div class="fleet-panel-reason fleet-panel-reason--${r.severity}">` +
+        `<div class="fleet-panel-reason-title">${escHtml(r.title)}</div>` +
+        `<div class="fleet-panel-reason-detail">${escHtml(r.detail)}</div>` +
+        `</div>`
+    ).join('');
+}
+
+function buildTopReasons(tile) {
+    const target = tile.target || {};
+    const m = tile.metrics || {};
+    const reasons = [];
+    if (target.scrapeOk === false || tile.color === 'grey') {
+        reasons.push(reason('critical', 100, 'Scrape unavailable', target.lastError || 'The aggregator cannot refresh this pod.'));
+    }
+    if ((tile.alertCount || 0) > 0) {
+        reasons.push(reason('critical', 95, 'Active alerts', tile.alertCount + ' alert' + (tile.alertCount === 1 ? '' : 's') + ' firing.'));
+    }
+    if (m.heapPercent != null) {
+        if (m.heapPercent >= 90) reasons.push(reason('critical', 90, 'Heap saturation', fmt1(m.heapPercent) + '% used.'));
+        else if (m.heapPercent >= 80) reasons.push(reason('warning', 70, 'Heap pressure', fmt1(m.heapPercent) + '% used.'));
+    }
+    if (m.gcOverheadPercent != null) {
+        if (m.gcOverheadPercent >= 10) reasons.push(reason('critical', 88, 'GC overhead', fmt1(m.gcOverheadPercent) + '% of runtime.'));
+        else if (m.gcOverheadPercent >= 5) reasons.push(reason('warning', 68, 'GC overhead rising', fmt1(m.gcOverheadPercent) + '% of runtime.'));
+    }
+    if (m.cpuPercent != null) {
+        if (m.cpuPercent >= 90) reasons.push(reason('critical', 84, 'CPU saturation', fmt1(m.cpuPercent) + '% JVM CPU.'));
+        else if (m.cpuPercent >= 70) reasons.push(reason('warning', 60, 'CPU high', fmt1(m.cpuPercent) + '% JVM CPU.'));
+    }
+    if (m.activeVThreads != null && m.activeVThreads > 10000) {
+        reasons.push(reason('warning', 50, 'Virtual thread backlog', fmt1(m.activeVThreads) + ' active virtual threads.'));
+    }
+    return reasons.sort((a, b) => b.rank - a.rank);
+}
+
+function reason(severity, rank, title, detail) {
+    return { severity, rank, title, detail };
 }
 
 async function fetchPodDetail(podId) {
@@ -492,22 +508,6 @@ function escHtml(str) {
 ---------------------------------------------------------------- */
 
 /**
- * Parse window.location.hash for the pattern #pod/<encoded-podId>.
- * Returns the decoded podId string, or null if absent / malformed.
- */
-function parsePodHash() {
-    const hash = window.location.hash;
-    if (!hash || !hash.startsWith('#pod/')) return null;
-    const raw = hash.slice('#pod/'.length);
-    if (!raw) return null;
-    try {
-        return decodeURIComponent(raw);
-    } catch (_) {
-        return null;
-    }
-}
-
-/**
  * After tiles are rendered, find the tile matching podId and open its panel.
  * Safe to call with a null/unknown podId — does nothing in that case.
  */
@@ -524,21 +524,17 @@ function applyInitialSelection(podId) {
     }
 }
 
-/* Determine initial pod to select (hash takes priority over localStorage) */
-const _hashPod = parsePodHash();
-const _storedPod = !_hashPod ? readStoredPod() : null;
-const _initPodId = _hashPod || _storedPod || null;
-
 /* First poll: run, then apply initial selection if we have one */
 poll().then(() => {
-    if (_initPodId && !selectedPodId) {
-        applyInitialSelection(_initPodId);
+    const initialPodId = podContext.selectInitialPod(allTiles.map(t => ({ podId: t.podId })), { hash: true });
+    if (initialPodId && !selectedPodId) {
+        applyInitialSelection(initialPodId);
     }
 }).finally(schedulePoll);
 
 /* Cross-tab sync: when console.html writes argus.console.pod, reflect it here */
 window.addEventListener('storage', (e) => {
-    if (e.key !== POD_STORAGE_KEY || !e.newValue) return;
+    if (e.key !== podContext.storageKey || !e.newValue) return;
     const podId = e.newValue;
     if (podId === selectedPodId) return;
     applyInitialSelection(podId);

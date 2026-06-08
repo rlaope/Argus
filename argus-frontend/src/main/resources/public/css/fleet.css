@@ -566,6 +566,35 @@
     padding: 0.25rem 0;
 }
 
+.fleet-panel-reasons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.fleet-panel-reason {
+    border-left: 3px solid var(--border);
+    background: var(--off-white);
+    border-radius: 0 3px 3px 0;
+    padding: 0.5rem 0.75rem;
+}
+
+.fleet-panel-reason--critical { border-left-color: var(--red); }
+.fleet-panel-reason--warning  { border-left-color: var(--amber); }
+.fleet-panel-reason--info     { border-left-color: var(--blue); }
+
+.fleet-panel-reason-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.fleet-panel-reason-detail {
+    font-size: 0.75rem;
+    color: var(--ink-3);
+    line-height: 1.4;
+}
+
 /* Scrape info table */
 .fleet-panel-scrape-info {
     display: flex;
@@ -609,6 +638,29 @@
 .fleet-panel-drill-btn {
     width: 100%;
     justify-content: center;
+}
+
+.fleet-panel-link-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.375rem;
+    margin-top: 0.5rem;
+}
+
+.fleet-panel-link {
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--ink-2);
+    font-size: 0.75rem;
+    padding: 0.35rem 0.4rem;
+    text-align: center;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.fleet-panel-link:hover {
+    border-color: var(--ink-3);
+    color: var(--ink);
 }
 
 /* ----------------------------------------------------------------

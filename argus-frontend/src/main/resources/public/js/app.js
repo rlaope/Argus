@@ -160,6 +160,9 @@ const elements = {
     // Recommendations
     recommendationsList: document.getElementById('recommendations-list'),
     refreshRecommendationsBtn: document.getElementById('refresh-recommendations'),
+    incidentMode: document.getElementById('incident-mode'),
+    incidentPod: document.getElementById('incident-pod'),
+    incidentSynopsisList: document.getElementById('incident-synopsis-list'),
 
     // Flame graph
     flamegraphContainer: document.getElementById('flamegraph-container'),
@@ -182,6 +185,16 @@ const elements = {
 };
 
 const maxEvents = 500;
+const latestSignals = {
+    metrics: null,
+    gc: null,
+    cpu: null,
+    allocation: null,
+    metaspace: null,
+    profiling: null,
+    contention: null,
+    pinning: null
+};
 
 // Initialize modules
 function init() {
@@ -457,7 +470,9 @@ async function fetchMetrics() {
             counts.PINNED = data.pinnedEvents || 0;
             counts.SUBMIT_FAILED = data.submitFailedEvents || 0;
             counts.active = data.activeThreads || 0;
+            latestSignals.metrics = data;
             updateCounters();
+            updateIncidentSynopsis();
         }
     } catch (e) {
         console.error('[Argus] Failed to fetch metrics:', e);
@@ -469,7 +484,9 @@ async function fetchPinningAnalysis() {
         const response = await f('/pinning-analysis');
         if (response.ok) {
             const data = await response.json();
+            latestSignals.pinning = data;
             renderHotspots(data);
+            updateIncidentSynopsis();
         }
     } catch (e) {
         console.error('[Argus] Failed to fetch pinning analysis:', e);
@@ -481,9 +498,11 @@ async function fetchGCAnalysis() {
         const response = await f('/gc-analysis');
         if (response.ok) {
             const data = await response.json();
+            latestSignals.gc = data;
             updateGCDisplay(data);
             updateGCCharts(data);
             updateGCTimeline(data);
+            updateIncidentSynopsis();
         }
     } catch (e) {
         console.error('[Argus] Failed to fetch GC analysis:', e);
@@ -495,8 +514,10 @@ async function fetchCPUMetrics() {
         const response = await f('/cpu-metrics');
         if (response.ok) {
             const data = await response.json();
+            latestSignals.cpu = data;
             updateCPUDisplay(data);
             updateCPUCharts(data);
+            updateIncidentSynopsis();
         }
     } catch (e) {
         console.error('[Argus] Failed to fetch CPU metrics:', e);
@@ -807,8 +828,10 @@ async function fetchAllocationAnalysis() {
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
+                latestSignals.allocation = data;
                 updateAllocationDisplay(data);
                 updateAllocationCharts(data);
+                updateIncidentSynopsis();
             }
         }
     } catch (e) {
@@ -822,8 +845,10 @@ async function fetchMetaspaceMetrics() {
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
+                latestSignals.metaspace = data;
                 updateMetaspaceDisplay(data);
                 updateMetaspaceCharts(data);
+                updateIncidentSynopsis();
             }
         }
     } catch (e) {
@@ -837,8 +862,10 @@ async function fetchMethodProfiling() {
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
+                latestSignals.profiling = data;
                 updateProfilingDisplay(data);
                 updateProfilingCharts(data);
+                updateIncidentSynopsis();
             }
         }
     } catch (e) {
@@ -852,8 +879,10 @@ async function fetchContentionAnalysis() {
         if (response.ok) {
             const data = await response.json();
             if (!data.error) {
+                latestSignals.contention = data;
                 updateContentionDisplay(data);
                 updateContentionCharts(data);
+                updateIncidentSynopsis();
             }
         }
     } catch (e) {
@@ -1047,6 +1076,120 @@ function updateRecommendations(data) {
             </div>
         `;
     }).join('');
+}
+
+function updateIncidentSynopsis() {
+    if (!elements.incidentSynopsisList) return;
+    const cluster = window.__argusCluster;
+    const podInfo = cluster?.selectedPodInfo?.() || null;
+    const selectedPod = cluster?.selectedPod?.() || null;
+    const mode = cluster?.isClusterMode?.() ? 'Snapshot' : 'Live';
+
+    if (elements.incidentMode) {
+        elements.incidentMode.textContent = mode;
+    }
+    if (elements.incidentPod) {
+        elements.incidentPod.textContent = selectedPod || 'local';
+    }
+
+    const insights = buildIncidentInsights(podInfo);
+    if (insights.length === 0) {
+        elements.incidentSynopsisList.innerHTML =
+            '<div class="incident-card incident-card--ok">' +
+            '<div class="incident-card-header"><span class="incident-card-title">No active pressure</span>' +
+            '<span class="incident-card-severity">OK</span></div>' +
+            '<div class="incident-card-metric">steady</div>' +
+            '<div class="incident-card-body">Current signals are under the dashboard thresholds.</div>' +
+            '<div class="incident-card-action">Continue watching Fleet and local charts.</div>' +
+            '</div>';
+        return;
+    }
+
+    elements.incidentSynopsisList.innerHTML = insights.slice(0, 5).map(card => {
+        return '<div class="incident-card incident-card--' + card.severity + '">' +
+            '<div class="incident-card-header"><span class="incident-card-title">' + escapeHtml(card.title) + '</span>' +
+            '<span class="incident-card-severity">' + escapeHtml(card.severity) + '</span></div>' +
+            '<div class="incident-card-metric">' + escapeHtml(card.metric) + '</div>' +
+            '<div class="incident-card-body">' + escapeHtml(card.body) + '</div>' +
+            '<div class="incident-card-action">' + escapeHtml(card.action) + '</div>' +
+            '</div>';
+    }).join('');
+}
+
+function buildIncidentInsights(podInfo) {
+    const cards = [];
+    if (podInfo && podInfo.scrapeOk === false) {
+        cards.push({
+            severity: 'critical',
+            rank: 100,
+            title: 'Scrape failed',
+            metric: podInfo.lastError || 'offline',
+            body: 'Aggregator cannot refresh the selected pod snapshot.',
+            action: 'Open Fleet or Console for pod reachability checks.'
+        });
+    }
+
+    const gc = latestSignals.gc || {};
+    const cpu = latestSignals.cpu || {};
+    const allocation = latestSignals.allocation || {};
+    const contention = latestSignals.contention || {};
+    const pinning = latestSignals.pinning || {};
+
+    const heapCommitted = Number(gc.currentHeapCommitted) || 0;
+    const heapUsed = Number(gc.currentHeapUsed) || 0;
+    const heapPct = heapCommitted > 0 ? heapUsed / heapCommitted * 100 : 0;
+    if (heapPct >= 90) {
+        cards.push(card('critical', 92, 'Heap saturation', heapPct.toFixed(1) + '%', 'Heap used is above the critical threshold.', 'Open GC and heap charts, then compare allocation sources.'));
+    } else if (heapPct >= 80) {
+        cards.push(card('warning', 72, 'Heap pressure', heapPct.toFixed(1) + '%', 'Heap used is nearing the warning threshold.', 'Watch GC overhead and allocation rate.'));
+    }
+
+    const overhead = Number(gc.gcOverheadPercent) || 0;
+    if (overhead >= 10 || gc.isOverheadWarning) {
+        cards.push(card('critical', 90, 'GC overhead', overhead.toFixed(1) + '%', 'GC time is above the incident budget.', 'Check pause timeline and collector breakdown.'));
+    } else if (overhead >= 5) {
+        cards.push(card('warning', 70, 'GC overhead rising', overhead.toFixed(1) + '%', 'GC time is consuming noticeable runtime.', 'Compare heap growth and promotion rate.'));
+    }
+
+    const maxPause = Number(gc.maxPauseTimeMs) || 0;
+    if (maxPause >= 1000) {
+        cards.push(card('critical', 86, 'Long GC pause', maxPause.toFixed(0) + 'ms', 'A recent pause exceeded one second.', 'Inspect pause timeline and recent GC causes.'));
+    } else if (maxPause >= 200) {
+        cards.push(card('warning', 62, 'GC pause spike', maxPause.toFixed(0) + 'ms', 'A recent pause crossed the warning threshold.', 'Check if the spike aligns with allocation bursts.'));
+    }
+
+    const pinnedStacks = Number(pinning.uniqueStackTraces) || 0;
+    const pinnedEvents = Number(pinning.totalPinnedEvents) || counts.PINNED || 0;
+    if (pinnedStacks > 0 || pinnedEvents > 0) {
+        cards.push(card(pinnedStacks > 2 ? 'critical' : 'warning', 84, 'Virtual thread pinning', formatNumber(pinnedEvents) + ' events', 'Pinned virtual threads can stall carrier throughput.', 'Open pinning hotspots and inspect the top stack.'));
+    }
+
+    const contentionTime = Number(contention.totalContentionTimeMs) || 0;
+    if (contentionTime >= 1000) {
+        cards.push(card('critical', 82, 'Lock contention', formatNumber(contentionTime) + 'ms', 'Contention time is accumulating quickly.', 'Open contention hotspots and inspect the monitor class.'));
+    } else if ((Number(contention.totalContentionEvents) || 0) > 0) {
+        cards.push(card('warning', 55, 'Contention present', formatNumber(contention.totalContentionEvents) + ' events', 'Lock contention events are present in the window.', 'Review top monitors before chasing CPU.'));
+    }
+
+    const allocRate = Number(allocation.allocationRateMBPerSec) || 0;
+    if (allocRate >= 100) {
+        cards.push(card('critical', 78, 'Allocation spike', allocRate.toFixed(1) + ' MB/s', 'Allocation rate is high enough to drive GC pressure.', 'Open allocation profile for the selected pod.'));
+    } else if (allocRate >= 25) {
+        cards.push(card('warning', 52, 'Allocation elevated', allocRate.toFixed(1) + ' MB/s', 'Allocation rate is above the normal dashboard band.', 'Compare top allocating classes.'));
+    }
+
+    const jvmCpu = Number(cpu.currentJvmPercent) || 0;
+    if (jvmCpu >= 90) {
+        cards.push(card('critical', 76, 'JVM CPU saturated', jvmCpu.toFixed(1) + '%', 'JVM CPU is at or above the critical threshold.', 'Open CPU profile and check hot methods.'));
+    } else if (jvmCpu >= 70) {
+        cards.push(card('warning', 50, 'JVM CPU high', jvmCpu.toFixed(1) + '%', 'JVM CPU is elevated.', 'Compare CPU with GC and contention cards.'));
+    }
+
+    return cards.sort((a, b) => b.rank - a.rank);
+}
+
+function card(severity, rank, title, metric, body, action) {
+    return { severity, rank, title, metric, body, action };
 }
 
 async function fetchCarrierThreads() {

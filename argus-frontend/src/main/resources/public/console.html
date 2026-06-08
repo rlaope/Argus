@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/css/theme.css">
     <script src="/js/theme-preboot.js"></script>
     <script src="/js/theme.js"></script>
+    <script src="/js/pod-context.js"></script>
 </head>
 <body>
 
@@ -99,7 +100,7 @@
         let clusterMode = false;
         let selectedPodId = null;
 
-        const POD_STORAGE_KEY = 'argus.console.pod';
+        const podContext = window.ArgusPodContext;
 
         async function detectClusterMode() {
             try {
@@ -130,16 +131,8 @@
                 return;
             }
 
-            // Group by deployment (fallback: namespace) so large fleets stay readable.
-            const byGroup = {};
-            pods.forEach(p => {
-                const key = p.deployment || p.namespace || 'other';
-                (byGroup[key] = byGroup[key] || []).push(p);
-            });
-
-            const stored = readStoredPod();
-            const knownIds = new Set(pods.map(p => p.podId));
-            const initial = (stored && knownIds.has(stored)) ? stored : pods[0].podId;
+            const byGroup = podContext.groupPods(pods);
+            const initial = podContext.selectInitialPod(pods);
 
             Object.keys(byGroup).sort().forEach(group => {
                 const og = document.createElement('optgroup');
@@ -156,23 +149,15 @@
             });
 
             selectedPodId = initial;
-            writeStoredPod(initial);
+            podContext.writeStoredPod(initial);
 
             select.addEventListener('change', async () => {
                 selectedPodId = select.value;
-                writeStoredPod(selectedPodId);
+                podContext.writeStoredPod(selectedPodId);
+                podContext.writePodParam(selectedPodId);
                 await loadCommands();
                 updateTerminalTitle();
             });
-        }
-
-        function readStoredPod() {
-            try { return window.localStorage.getItem(POD_STORAGE_KEY); }
-            catch (e) { return null; }
-        }
-        function writeStoredPod(podId) {
-            try { window.localStorage.setItem(POD_STORAGE_KEY, podId); }
-            catch (e) { /* localStorage disabled — selection just doesn't persist */ }
         }
 
         function commandsEndpoint() {

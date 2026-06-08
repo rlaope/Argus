@@ -15,12 +15,97 @@
       }
     ]
   },
-  "description": "Argus JVM Observability Platform \u2014 Production-grade monitoring for Virtual Threads, GC, Memory, CPU, and Application Health",
+  "description": "Argus JVM Observability Platform — Production-grade monitoring for Virtual Threads, GC, Memory, CPU, and Application Health",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 2,
   "id": null,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Fleet",
+      "tooltip": "Open Argus Fleet view",
+      "type": "link",
+      "url": "/fleet.html"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Selected Pod Dashboard",
+      "tooltip": "Open selected pod in the local dashboard snapshot view",
+      "type": "link",
+      "url": "/?pod=${pod}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Profiles CPU",
+      "tooltip": "Open CPU profiles for selected pod",
+      "type": "link",
+      "url": "/profiles.html?pod=${pod}&event=cpu&range=3600"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Profiles Allocation",
+      "tooltip": "Open allocation profiles for selected pod",
+      "type": "link",
+      "url": "/profiles.html?pod=${pod}&event=alloc&range=3600"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Console",
+      "tooltip": "Run commands against selected pod",
+      "type": "link",
+      "url": "/console.html?pod=${pod}"
+    },
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Prometheus Scrape",
+      "tooltip": "Open raw scrape endpoint",
+      "type": "link",
+      "url": "/prometheus"
+    },
+    {
+      "asDropdown": false,
+      "icon": "doc",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": true,
+      "title": "Kubernetes Setup",
+      "tooltip": "Open setup documentation",
+      "type": "link",
+      "url": "docs/kubernetes.md"
+    }
+  ],
   "liveNow": true,
   "panels": [
     {
@@ -32,7 +117,7 @@
         "y": 0
       },
       "id": 200,
-      "title": "\ud83d\udd34 Health Overview",
+      "title": "🔴 Health Overview",
       "type": "row"
     },
     {
@@ -51,7 +136,7 @@
                 },
                 "1": {
                   "color": "red",
-                  "text": "\u26a0 LEAK"
+                  "text": "⚠ LEAK"
                 }
               },
               "type": "value"
@@ -92,8 +177,40 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_gc_leak_suspected",
+          "expr": "argus_gc_leak_suspected{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -113,7 +230,7 @@
                 },
                 "1": {
                   "color": "orange",
-                  "text": "\u26a0 HIGH"
+                  "text": "⚠ HIGH"
                 }
               },
               "type": "value"
@@ -154,8 +271,40 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_gc_overhead_warning",
+          "expr": "argus_gc_overhead_warning{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -208,7 +357,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_gc_overhead_ratio",
+          "expr": "argus_gc_overhead_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
         }
       ]
@@ -260,8 +409,40 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_gc_pause_time_seconds_max",
+          "expr": "argus_gc_pause_time_seconds_max{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -312,8 +493,40 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_heap_used_bytes",
+          "expr": "argus_heap_used_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -366,8 +579,40 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_cpu_jvm_user_ratio + argus_cpu_jvm_system_ratio",
+          "expr": "argus_cpu_jvm_user_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"} + argus_cpu_jvm_system_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -409,7 +654,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_virtual_threads_active",
+          "expr": "argus_virtual_threads_active{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
         }
       ]
@@ -456,8 +701,597 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_virtual_threads_pinned_unique_stacks",
+          "expr": "argus_virtual_threads_pinned_unique_stacks{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 222,
+      "panels": [],
+      "title": "Incident Triage",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 3
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 5
+      },
+      "id": 223,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Pods With GC Warning",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(argus_gc_overhead_warning{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"})",
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 90
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 5
+      },
+      "id": 224,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Max Heap Usage",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "max(argus_heap_usage_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}) * 100",
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 10
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 5
+      },
+      "id": 225,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Pinning Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(argus_virtual_threads_pinned_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m])) * 60",
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 26214400
+              },
+              {
+                "color": "red",
+                "value": 104857600
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 5
+      },
+      "id": 226,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Allocation Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(argus_allocation_rate_bytes_per_second{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"})",
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.1
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 5
+      },
+      "id": 227,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Contention Time Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(argus_contention_time_seconds_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 0.5
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 5
+      },
+      "id": 228,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "title": "Worst Scrape Duration",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "max(argus_scrape_duration_seconds{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"})",
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -467,10 +1301,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 4
+        "y": 9
       },
       "id": 201,
-      "title": "\ud83d\udcca Heap & GC",
+      "title": "📊 Heap & GC",
       "type": "row"
     },
     {
@@ -539,7 +1373,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 5
+        "y": 10
       },
       "id": 10,
       "options": {
@@ -556,11 +1390,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_heap_used_bytes",
+          "expr": "argus_heap_used_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Used"
         },
         {
-          "expr": "argus_heap_committed_bytes",
+          "expr": "argus_heap_committed_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Committed"
         }
       ]
@@ -618,14 +1452,14 @@
         "h": 8,
         "w": 4,
         "x": 8,
-        "y": 5
+        "y": 10
       },
       "id": 11,
       "title": "Heap Usage %",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_heap_usage_ratio",
+          "expr": "argus_heap_usage_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Heap Usage"
         }
       ]
@@ -681,7 +1515,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 5
+        "y": 10
       },
       "id": 12,
       "options": {
@@ -697,12 +1531,44 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_gc_pause_time_seconds_max",
+          "expr": "argus_gc_pause_time_seconds_max{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Max Pause"
         },
         {
-          "expr": "argus_gc_pause_time_seconds_avg",
+          "expr": "argus_gc_pause_time_seconds_avg{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Avg Pause"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -750,15 +1616,47 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 5
+        "y": 10
       },
       "id": 13,
       "title": "GC Overhead",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_gc_overhead_ratio",
+          "expr": "argus_gc_overhead_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Overhead"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -768,10 +1666,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 18
       },
       "id": 202,
-      "title": "\ud83d\udd0d Memory Leak Detection & Allocation",
+      "title": "🔍 Memory Leak Detection & Allocation",
       "type": "row"
     },
     {
@@ -806,7 +1704,7 @@
         "h": 7,
         "w": 4,
         "x": 0,
-        "y": 14
+        "y": 19
       },
       "id": 20,
       "options": {
@@ -819,12 +1717,44 @@
           ]
         }
       },
-      "title": "Leak Confidence (R\u00b2)",
+      "title": "Leak Confidence (R²)",
       "type": "gauge",
       "targets": [
         {
-          "expr": "argus_gc_leak_confidence",
+          "expr": "argus_gc_leak_confidence{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -866,15 +1796,15 @@
         "h": 7,
         "w": 8,
         "x": 4,
-        "y": 14
+        "y": 19
       },
       "id": 21,
       "title": "Leak Confidence Over Time",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_gc_leak_confidence",
-          "legendFormat": "R\u00b2"
+          "expr": "argus_gc_leak_confidence{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
+          "legendFormat": "R²"
         }
       ]
     },
@@ -901,7 +1831,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 14
+        "y": 19
       },
       "id": 22,
       "options": {
@@ -917,12 +1847,44 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_gc_allocation_rate_kbps",
+          "expr": "argus_gc_allocation_rate_kbps{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Allocation"
         },
         {
-          "expr": "argus_gc_promotion_rate_kbps",
+          "expr": "argus_gc_promotion_rate_kbps{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Promotion"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -948,14 +1910,14 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 14
+        "y": 19
       },
       "id": 23,
       "title": "GC Events (rate)",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(argus_gc_events_total[1m])*60",
+          "expr": "rate(argus_gc_events_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[1m])*60",
           "legendFormat": "GC Events/min"
         }
       ]
@@ -966,10 +1928,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 21
+        "y": 26
       },
       "id": 203,
-      "title": "\ud83e\uddf5 Virtual Threads",
+      "title": "🧵 Virtual Threads",
       "type": "row"
     },
     {
@@ -995,14 +1957,14 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 22
+        "y": 27
       },
       "id": 30,
       "title": "Active Virtual Threads",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_virtual_threads_active",
+          "expr": "argus_virtual_threads_active{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Active"
         }
       ]
@@ -1028,7 +1990,7 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 22
+        "y": 27
       },
       "id": 31,
       "options": {
@@ -1044,11 +2006,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(argus_virtual_threads_started_total[1m])*60",
+          "expr": "rate(argus_virtual_threads_started_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[1m])*60",
           "legendFormat": "Started/min"
         },
         {
-          "expr": "rate(argus_virtual_threads_ended_total[1m])*60",
+          "expr": "rate(argus_virtual_threads_ended_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[1m])*60",
           "legendFormat": "Ended/min"
         }
       ]
@@ -1091,7 +2053,7 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 22
+        "y": 27
       },
       "id": 32,
       "options": {
@@ -1107,12 +2069,44 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(argus_virtual_threads_pinned_total[1m])*60",
+          "expr": "rate(argus_virtual_threads_pinned_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[1m])*60",
           "legendFormat": "Pinning Events/min"
         },
         {
-          "expr": "argus_virtual_threads_pinned_unique_stacks",
+          "expr": "argus_virtual_threads_pinned_unique_stacks{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Unique Stacks"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -1137,7 +2131,7 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 22
+        "y": 27
       },
       "id": 33,
       "options": {
@@ -1153,11 +2147,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_carrier_threads",
+          "expr": "argus_carrier_threads{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Carrier Count"
         },
         {
-          "expr": "argus_carrier_threads_avg_per_carrier",
+          "expr": "argus_carrier_threads_avg_per_carrier{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Avg VT/Carrier"
         }
       ]
@@ -1168,10 +2162,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 34
       },
       "id": 204,
-      "title": "\u26a1 CPU & Metaspace",
+      "title": "⚡ CPU & Metaspace",
       "type": "row"
     },
     {
@@ -1202,7 +2196,7 @@
         "h": 7,
         "w": 7,
         "x": 0,
-        "y": 30
+        "y": 35
       },
       "id": 40,
       "options": {
@@ -1218,11 +2212,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_cpu_jvm_user_ratio",
+          "expr": "argus_cpu_jvm_user_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "User"
         },
         {
-          "expr": "argus_cpu_jvm_system_ratio",
+          "expr": "argus_cpu_jvm_system_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "System"
         }
       ]
@@ -1252,14 +2246,14 @@
         "h": 7,
         "w": 5,
         "x": 7,
-        "y": 30
+        "y": 35
       },
       "id": 41,
       "title": "Machine CPU",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_cpu_machine_total_ratio",
+          "expr": "argus_cpu_machine_total_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Total"
         }
       ]
@@ -1310,7 +2304,7 @@
         "h": 7,
         "w": 8,
         "x": 12,
-        "y": 30
+        "y": 35
       },
       "id": 50,
       "options": {
@@ -1326,15 +2320,15 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_metaspace_used_bytes",
+          "expr": "argus_metaspace_used_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Used"
         },
         {
-          "expr": "argus_metaspace_committed_bytes",
+          "expr": "argus_metaspace_committed_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Committed"
         },
         {
-          "expr": "argus_metaspace_reserved_bytes",
+          "expr": "argus_metaspace_reserved_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Reserved"
         }
       ]
@@ -1361,14 +2355,14 @@
         "h": 7,
         "w": 4,
         "x": 20,
-        "y": 30
+        "y": 35
       },
       "id": 51,
       "title": "Loaded Classes",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_metaspace_classes_loaded",
+          "expr": "argus_metaspace_classes_loaded{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Classes"
         }
       ]
@@ -1379,10 +2373,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 37
+        "y": 42
       },
       "id": 206,
-      "title": "\ud83d\udcc8 Counters & Totals",
+      "title": "📈 Counters & Totals",
       "type": "row"
     },
     {
@@ -1406,7 +2400,7 @@
         "h": 4,
         "w": 4,
         "x": 0,
-        "y": 38
+        "y": 43
       },
       "id": 60,
       "options": {
@@ -1423,7 +2417,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_gc_events_total",
+          "expr": "argus_gc_events_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
         }
       ]
@@ -1450,7 +2444,7 @@
         "h": 4,
         "w": 4,
         "x": 4,
-        "y": 38
+        "y": 43
       },
       "id": 61,
       "options": {
@@ -1467,7 +2461,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_gc_pause_time_seconds_total",
+          "expr": "argus_gc_pause_time_seconds_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
         }
       ]
@@ -1493,7 +2487,7 @@
         "h": 4,
         "w": 4,
         "x": 8,
-        "y": 38
+        "y": 43
       },
       "id": 62,
       "options": {
@@ -1510,7 +2504,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_virtual_threads_started_total",
+          "expr": "argus_virtual_threads_started_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
         }
       ]
@@ -1536,7 +2530,7 @@
         "h": 4,
         "w": 4,
         "x": 12,
-        "y": 38
+        "y": 43
       },
       "id": 63,
       "options": {
@@ -1553,7 +2547,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_virtual_threads_ended_total",
+          "expr": "argus_virtual_threads_ended_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
         }
       ]
@@ -1583,7 +2577,7 @@
         "h": 4,
         "w": 4,
         "x": 16,
-        "y": 38
+        "y": 43
       },
       "id": 64,
       "options": {
@@ -1600,7 +2594,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_virtual_threads_submit_failed_total",
+          "expr": "argus_virtual_threads_submit_failed_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
         }
       ]
@@ -1626,7 +2620,7 @@
         "h": 4,
         "w": 4,
         "x": 20,
-        "y": 38
+        "y": 43
       },
       "id": 65,
       "options": {
@@ -1643,7 +2637,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_virtual_threads_pinned_total",
+          "expr": "argus_virtual_threads_pinned_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
         }
       ]
@@ -1654,10 +2648,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 43
+        "y": 48
       },
       "id": 207,
-      "title": "\ud83e\udde0 Derived Insights",
+      "title": "🧠 Derived Insights",
       "type": "row"
     },
     {
@@ -1683,7 +2677,7 @@
         "h": 7,
         "w": 8,
         "x": 0,
-        "y": 44
+        "y": 49
       },
       "id": 208,
       "options": {
@@ -1699,11 +2693,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_virtual_threads_started_total - argus_virtual_threads_ended_total",
+          "expr": "argus_virtual_threads_started_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"} - argus_virtual_threads_ended_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Backlog"
         },
         {
-          "expr": "argus_virtual_threads_active",
+          "expr": "argus_virtual_threads_active{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Active"
         }
       ]
@@ -1748,14 +2742,14 @@
         "h": 7,
         "w": 8,
         "x": 8,
-        "y": 44
+        "y": 49
       },
       "id": 209,
       "title": "Promotion / Allocation Ratio",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_gc_promotion_rate_kbps / (argus_gc_allocation_rate_kbps > 0 or 1)",
+          "expr": "argus_gc_promotion_rate_kbps{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"} / (argus_gc_allocation_rate_kbps{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"} > 0 or 1)",
           "legendFormat": "Promo/Alloc"
         }
       ]
@@ -1784,14 +2778,14 @@
         "h": 7,
         "w": 8,
         "x": 16,
-        "y": 44
+        "y": 49
       },
       "id": 210,
       "title": "Heap Headroom (Free)",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_heap_committed_bytes - argus_heap_used_bytes",
+          "expr": "argus_heap_committed_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"} - argus_heap_used_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Free Heap"
         }
       ]
@@ -1802,10 +2796,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 51
+        "y": 56
       },
       "id": 211,
-      "title": "\ud83d\ude80 Rates & Throughput",
+      "title": "🚀 Rates & Throughput",
       "type": "row"
     },
     {
@@ -1830,7 +2824,7 @@
         "h": 7,
         "w": 6,
         "x": 0,
-        "y": 52
+        "y": 57
       },
       "id": 212,
       "options": {
@@ -1846,11 +2840,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(argus_virtual_threads_started_total[30s])",
+          "expr": "rate(argus_virtual_threads_started_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[30s])",
           "legendFormat": "Created/s"
         },
         {
-          "expr": "rate(argus_virtual_threads_ended_total[30s])",
+          "expr": "rate(argus_virtual_threads_ended_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[30s])",
           "legendFormat": "Ended/s"
         }
       ]
@@ -1878,14 +2872,14 @@
         "h": 7,
         "w": 6,
         "x": 6,
-        "y": 52
+        "y": 57
       },
       "id": 213,
       "title": "Pinning Rate (/s)",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(argus_virtual_threads_pinned_total[30s])",
+          "expr": "rate(argus_virtual_threads_pinned_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[30s])",
           "legendFormat": "Pinning/s"
         }
       ]
@@ -1913,14 +2907,14 @@
         "h": 7,
         "w": 6,
         "x": 12,
-        "y": 52
+        "y": 57
       },
       "id": 214,
       "title": "GC Pauses / min",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(argus_gc_events_total[1m]) * 60",
+          "expr": "rate(argus_gc_events_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[1m]) * 60",
           "legendFormat": "GC/min"
         }
       ]
@@ -1965,14 +2959,14 @@
         "h": 7,
         "w": 6,
         "x": 18,
-        "y": 52
+        "y": 57
       },
       "id": 215,
       "title": "Metaspace Usage %",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_metaspace_used_bytes / (argus_metaspace_committed_bytes > 0 or 1)",
+          "expr": "argus_metaspace_used_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"} / (argus_metaspace_committed_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"} > 0 or 1)",
           "legendFormat": "Metaspace %"
         }
       ]
@@ -1983,10 +2977,10 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 59
+        "y": 64
       },
       "id": 216,
-      "title": "\ud83d\udcca Comparison & Capacity",
+      "title": "📊 Comparison & Capacity",
       "type": "row"
     },
     {
@@ -2006,7 +3000,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 60
+        "y": 65
       },
       "id": 217,
       "options": {
@@ -2028,15 +3022,15 @@
       "type": "piechart",
       "targets": [
         {
-          "expr": "argus_heap_used_bytes",
+          "expr": "argus_heap_used_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Heap Used"
         },
         {
-          "expr": "argus_heap_committed_bytes - argus_heap_used_bytes",
+          "expr": "argus_heap_committed_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"} - argus_heap_used_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Heap Free"
         },
         {
-          "expr": "argus_metaspace_used_bytes",
+          "expr": "argus_metaspace_used_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Metaspace"
         }
       ]
@@ -2073,7 +3067,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 60
+        "y": 65
       },
       "id": 218,
       "options": {
@@ -2090,7 +3084,7 @@
       "type": "gauge",
       "targets": [
         {
-          "expr": "argus_gc_overhead_ratio",
+          "expr": "argus_gc_overhead_ratio{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "GC Budget"
         }
       ]
@@ -2120,7 +3114,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 60
+        "y": 65
       },
       "id": 219,
       "options": {
@@ -2136,11 +3130,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "argus_gc_allocation_rate_kbps",
+          "expr": "argus_gc_allocation_rate_kbps{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Allocation KB/s"
         },
         {
-          "expr": "argus_gc_promotion_rate_kbps",
+          "expr": "argus_gc_promotion_rate_kbps{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "Promotion KB/s"
         }
       ]
@@ -2175,7 +3169,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 60
+        "y": 65
       },
       "id": 220,
       "options": {
@@ -2192,8 +3186,40 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "argus_scrape_duration_seconds",
+          "expr": "argus_scrape_duration_seconds{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     },
@@ -2209,7 +3235,7 @@
         "h": 4,
         "w": 6,
         "x": 18,
-        "y": 64
+        "y": 69
       },
       "id": 221,
       "options": {
@@ -2222,7 +3248,7 @@
       "type": "table",
       "targets": [
         {
-          "expr": "argus_build_info",
+          "expr": "argus_build_info{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}",
           "legendFormat": "",
           "format": "table",
           "instant": true
@@ -2242,6 +3268,662 @@
               "jdk_version": "JDK"
             }
           }
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "id": 229,
+      "panels": [],
+      "title": "GC Pause Percentiles",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 75
+      },
+      "id": 230,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "title": "GC Pause p50/p95/p99",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(argus_gc_pause_seconds_bucket{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m])) by (le)) or histogram_quantile(0.50, sum(rate(jvm_gc_duration_seconds_bucket{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(argus_gc_pause_seconds_bucket{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m])) by (le)) or histogram_quantile(0.95, sum(rate(jvm_gc_duration_seconds_bucket{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(argus_gc_pause_seconds_bucket{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m])) by (le)) or histogram_quantile(0.99, sum(rate(jvm_gc_duration_seconds_bucket{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 75
+      },
+      "id": 231,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "title": "GC Pause By Collector/Cause",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "topk(10, rate(argus_gc_pause_breakdown_seconds_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": "{{gc_name}} / {{gc_cause}}"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 82
+      },
+      "id": 232,
+      "panels": [],
+      "title": "Allocation, Contention & Profiling",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 83
+      },
+      "id": 233,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "title": "Allocation Throughput",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(argus_allocation_rate_bytes_per_second{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"})",
+          "legendFormat": "Allocation rate"
+        },
+        {
+          "expr": "rate(argus_allocation_bytes_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m])",
+          "legendFormat": "Bytes allocated rate"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 83
+      },
+      "id": 234,
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "title": "Top Allocating Classes",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "topk(10, argus_allocation_class_bytes{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 83
+      },
+      "id": 235,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "title": "Contention Events & Time",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(argus_contention_events_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": "events/s"
+        },
+        {
+          "expr": "sum(rate(argus_contention_time_seconds_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": "seconds/s"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 0,
+        "y": 90
+      },
+      "id": 236,
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "title": "Top Contention Hotspots",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "topk(10, argus_contention_hotspot_events{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "fillOpacity": 10,
+            "lineWidth": 2,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 8,
+        "y": 90
+      },
+      "id": 237,
+      "options": {
+        "tooltip": {
+          "mode": "multi"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        }
+      },
+      "title": "Profiling Sample Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(argus_profiling_samples_total{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"}[5m]))",
+          "legendFormat": "samples/s"
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 8,
+        "x": 16,
+        "y": 90
+      },
+      "id": 238,
+      "options": {
+        "showHeader": true,
+        "footer": {
+          "show": false
+        }
+      },
+      "title": "Top Profiled Methods",
+      "type": "table",
+      "targets": [
+        {
+          "expr": "topk(10, argus_profiling_method_samples{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\",instance=~\"$instance\"})",
+          "format": "table",
+          "instant": true,
+          "legendFormat": ""
+        }
+      ],
+      "links": [
+        {
+          "title": "Fleet",
+          "url": "/fleet.html",
+          "targetBlank": true
+        },
+        {
+          "title": "Selected pod dashboard",
+          "url": "/?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles CPU",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=cpu&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Profiles allocation",
+          "url": "/profiles.html?pod=${__field.labels.pod}&event=alloc&range=3600",
+          "targetBlank": true
+        },
+        {
+          "title": "Console",
+          "url": "/console.html?pod=${__field.labels.pod}",
+          "targetBlank": true
+        },
+        {
+          "title": "Prometheus scrape",
+          "url": "/prometheus",
+          "targetBlank": true
         }
       ]
     }
@@ -2274,6 +3956,106 @@
         "regex": "",
         "skipUrlSync": false,
         "type": "datasource"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(argus_build_info, namespace)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Namespace",
+        "multi": true,
+        "name": "namespace",
+        "options": [],
+        "query": "label_values(argus_build_info, namespace)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(argus_build_info{namespace=~\"$namespace\"}, deployment)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Deployment",
+        "multi": true,
+        "name": "deployment",
+        "options": [],
+        "query": "label_values(argus_build_info{namespace=~\"$namespace\"}, deployment)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(argus_build_info{namespace=~\"$namespace\",deployment=~\"$deployment\"}, pod)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Pod",
+        "multi": true,
+        "name": "pod",
+        "options": [],
+        "query": "label_values(argus_build_info{namespace=~\"$namespace\",deployment=~\"$deployment\"}, pod)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": false,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${datasource}"
+        },
+        "definition": "label_values(argus_build_info{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\"}, instance)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Instance",
+        "multi": true,
+        "name": "instance",
+        "options": [],
+        "query": "label_values(argus_build_info{namespace=~\"$namespace\",deployment=~\"$deployment\",pod=~\"$pod\"}, instance)",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
       }
     ]
   },

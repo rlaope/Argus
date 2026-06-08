@@ -248,15 +248,47 @@ When `grafana.dashboards.enabled=true` in the Helm chart, Argus auto-provisions 
 
 The dashboard includes:
 
-- Virtual thread active count and start/end rate
-- GC pause time (max, avg, total) and heap usage
+- Incident triage row for GC warnings, heap saturation, pinning, allocation, contention, and scrape duration
+- Virtual thread active count, start/end rate, and pinning rate
+- GC pause time (max, avg, total), p50/p95/p99 pause histograms, collector/cause breakdown, and heap usage
 - CPU usage (JVM user, JVM system, machine total)
 - Metaspace usage and class count
 - Lock contention top-10 hotspots
 - Allocation rate and top-10 allocating classes
 - Method profiling top-20 hot methods
+- Drilldown links to Fleet, selected-pod Dashboard, Profiles, Console, `/prometheus`, and this setup guide
 
-To import the dashboard manually, load `deploy/grafana-dashboard.json` from the Argus repository into Grafana via **Dashboards → Import**.
+To import the dashboard manually, load `docs/grafana-dashboard.json` from the Argus repository into Grafana via **Dashboards → Import**.
+
+Dashboard variables:
+
+| Variable | Purpose | Local mode behavior |
+|---|---|---|
+| `$datasource` | Select the Prometheus datasource | Required |
+| `$namespace` | Filter fleet views by Kubernetes namespace | `All` remains valid when labels are absent |
+| `$deployment` | Filter by deployment | `All` remains valid when labels are absent |
+| `$pod` | Select a pod for drilldown links | Empty/local scrapes still render unfiltered panels |
+| `$instance` | Filter by Prometheus scrape target | Optional |
+
+Drilldown links preserve selected pod context:
+
+| Link | Target |
+|---|---|
+| Fleet | `/fleet.html` |
+| Selected pod Dashboard | `/?pod=<pod-id>` |
+| CPU profile | `/profiles.html?pod=<pod-id>&event=cpu&range=3600` |
+| Allocation profile | `/profiles.html?pod=<pod-id>&event=alloc&range=3600` |
+| Console | `/console.html?pod=<pod-id>` |
+
+Recommended alert rules to provision in your Prometheus stack:
+
+| Signal | Suggested threshold | Duration |
+|---|---:|---:|
+| GC overhead | `argus_gc_overhead_ratio > 0.10` | 5m |
+| Heap usage | `argus_heap_usage_ratio > 0.90` | 10m |
+| Pinning rate | `rate(argus_virtual_threads_pinned_total[5m]) > 0` | 5m |
+| Scrape duration | `argus_scrape_duration_seconds > 1` | 5m |
+| Allocation spike | Compare `argus_allocation_rate_bytes_per_second` to a 30m baseline | 5m |
 
 ---
 

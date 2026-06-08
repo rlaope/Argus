@@ -82,6 +82,7 @@ function setClusterMode() {
     if (statusTextElement) {
         statusTextElement.textContent = 'Cluster mode (no live stream)';
     }
+    updateModeStrip('Snapshot polling', 'Selected-pod REST snapshots active; WebSocket stream unavailable in cluster mode');
 }
 
 function setConnected(connected) {
@@ -89,11 +90,20 @@ function setConnected(connected) {
         statusElement.classList.remove('disconnected');
         statusElement.classList.add('connected');
         statusTextElement.textContent = 'Connected';
+        updateModeStrip('Live stream', 'WebSocket connected');
     } else {
         statusElement.classList.remove('connected');
         statusElement.classList.add('disconnected');
         statusTextElement.textContent = 'Disconnected';
+        updateModeStrip('Live stream', 'WebSocket disconnected');
     }
+}
+
+function updateModeStrip(titleText, detailText) {
+    const title = document.getElementById('dashboard-mode-title');
+    const detail = document.getElementById('dashboard-mode-detail');
+    if (title) title.textContent = titleText;
+    if (detail) detail.textContent = detailText;
 }
 
 function scheduleReconnect() {

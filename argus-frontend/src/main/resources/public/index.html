@@ -12,6 +12,7 @@
     <link rel="stylesheet" href="/css/theme.css">
     <script src="/js/theme-preboot.js"></script>
     <script src="/js/theme.js"></script>
+    <script src="/js/pod-context.js"></script>
     <script src="/js/dashboard-cluster.js" defer></script>
 </head>
 <body>
@@ -98,6 +99,18 @@
             </div>
         </div>
 
+        <div id="dashboard-mode-strip" class="dashboard-mode-strip" role="status" aria-live="polite">
+            <div class="dashboard-mode-copy">
+                <span id="dashboard-mode-title" class="dashboard-mode-title">Live stream</span>
+                <span id="dashboard-mode-detail" class="dashboard-mode-detail">Connecting...</span>
+            </div>
+            <div class="dashboard-mode-links">
+                <a id="dashboard-mode-fleet-link" href="/fleet.html">Fleet</a>
+                <a id="dashboard-mode-profiles-link" href="/profiles.html">Profiles</a>
+                <a id="dashboard-mode-console-link" href="/console.html">Console</a>
+            </div>
+        </div>
+
         <!-- Feature Flags -->
         <div id="feature-flags" class="feature-flags">
             <span class="feature-flags-label">Features:</span>
@@ -122,6 +135,19 @@
             <div class="page-section-heading">
                 <h2>JVM Health</h2>
             </div>
+
+            <section class="content-section incident-synopsis-section">
+                <div class="section-header">
+                    <h3>Incident Synopsis</h3>
+                    <div class="section-header-right stats-row">
+                        <span class="stat-inline">Mode: <strong id="incident-mode">—</strong></span>
+                        <span class="stat-inline">Pod: <strong id="incident-pod">—</strong></span>
+                    </div>
+                </div>
+                <div id="incident-synopsis-list" class="incident-synopsis-list">
+                    <div class="empty-state">Waiting for JVM signals...</div>
+                </div>
+            </section>
 
             <!-- Memory & GC -->
             <section class="content-section">
