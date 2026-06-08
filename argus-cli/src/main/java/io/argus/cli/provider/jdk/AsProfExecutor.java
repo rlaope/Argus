@@ -105,24 +105,31 @@ public final class AsProfExecutor {
         stderrThread.setName("asprof-stderr");
         stderrThread.start();
 
-        // Progress loop: runs on calling thread until process exits or timeout
-        long startMs = System.currentTimeMillis();
+        // Progress loop: runs on calling thread until process exits or timeout.
+        long timeoutNanos = timeoutSeconds <= 0 ? 0L : TimeUnit.SECONDS.toNanos(timeoutSeconds);
+        long startNanos = System.nanoTime();
+        boolean interrupted = false;
         while (process.isAlive()) {
-            int elapsedSeconds = (int) ((System.currentTimeMillis() - startMs) / 1000L);
-            if (elapsedSeconds >= timeoutSeconds) {
+            long elapsedNanos = System.nanoTime() - startNanos;
+            long remainingNanos = timeoutNanos - elapsedNanos;
+            if (remainingNanos <= 0L) {
                 break;
             }
             if (callback != null) {
                 try {
+                    int elapsedSeconds = (int) Math.min(
+                            Integer.MAX_VALUE,
+                            TimeUnit.NANOSECONDS.toSeconds(elapsedNanos));
                     callback.onProgress(elapsedSeconds, timeoutSeconds);
                 } catch (Exception ignored) {
                     // never let a callback kill the executor
                 }
             }
             try {
-                Thread.sleep(1000);
+                TimeUnit.NANOSECONDS.sleep(Math.min(TimeUnit.SECONDS.toNanos(1), remainingNanos));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                interrupted = true;
                 break;
             }
         }
@@ -130,7 +137,15 @@ public final class AsProfExecutor {
         // Wait for process to finish within remaining timeout
         boolean finished;
         try {
-            finished = process.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+            if (!process.isAlive()) {
+                finished = true;
+            } else if (interrupted) {
+                finished = false;
+            } else {
+                long elapsedNanos = System.nanoTime() - startNanos;
+                long remainingNanos = timeoutNanos - elapsedNanos;
+                finished = remainingNanos > 0L && process.waitFor(remainingNanos, TimeUnit.NANOSECONDS);
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             finished = false;
@@ -138,6 +153,11 @@ public final class AsProfExecutor {
 
         if (!finished) {
             process.destroyForcibly();
+            try {
+                process.waitFor(2, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
 
         // Join I/O threads so their buffers are fully populated

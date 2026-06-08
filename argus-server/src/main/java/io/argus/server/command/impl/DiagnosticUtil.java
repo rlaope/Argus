@@ -1,6 +1,12 @@
 package io.argus.server.command.impl;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Shared utility methods for diagnostic command implementations.
@@ -59,23 +65,53 @@ public final class DiagnosticUtil {
     }
 
     public static String executeJcmd(String command, String arg) {
+        return executeJcmd(ProcessHandle.current().pid(), command, arg);
+    }
+
+    static String executeJcmd(long pid, String command, String arg) {
         try {
-            long pid = ProcessHandle.current().pid();
             String jcmd = System.getProperty("java.home") + "/bin/jcmd";
-            var cmdList = new java.util.ArrayList<>(java.util.List.of(jcmd, String.valueOf(pid), command));
+            var cmdList = new ArrayList<>(List.of(jcmd, String.valueOf(pid), command));
             if (arg != null && !arg.isBlank()) cmdList.add(arg);
-            ProcessBuilder pb = new ProcessBuilder(cmdList);
-            pb.redirectErrorStream(true);
-            Process proc = pb.start();
-            String output = new String(proc.getInputStream().readAllBytes());
-            boolean finished = proc.waitFor(10, java.util.concurrent.TimeUnit.SECONDS);
-            if (!finished) {
-                proc.destroyForcibly();
-                return "Command timed out after 10 seconds: jcmd " + command;
-            }
-            return output;
+            return executeProcess(cmdList, 10, "Command timed out after 10 seconds: jcmd " + command);
         } catch (Exception e) {
             return "Failed to execute jcmd " + command + ": " + e.getMessage();
+        }
+    }
+
+    static String executeProcess(List<String> command, long timeoutSeconds, String timeoutMessage)
+            throws InterruptedException, IOException {
+        List<String> outputLines = new ArrayList<>();
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+        Process proc = pb.start();
+
+        Thread outputThread = new Thread(() -> {
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    synchronized (outputLines) {
+                        outputLines.add(line);
+                    }
+                }
+            } catch (Exception ignored) {
+                // Process termination closes the stream; the timeout path handles the result.
+            }
+        }, "argus-diagnostic-output");
+        outputThread.setDaemon(true);
+        outputThread.start();
+
+        boolean finished = proc.waitFor(timeoutSeconds, TimeUnit.SECONDS);
+        if (!finished) {
+            proc.destroyForcibly();
+            proc.waitFor(2, TimeUnit.SECONDS);
+            outputThread.join(2000);
+            return timeoutMessage;
+        }
+
+        outputThread.join(2000);
+        synchronized (outputLines) {
+            return String.join("\n", outputLines);
         }
     }
 
