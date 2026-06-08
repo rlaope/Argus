@@ -8,10 +8,8 @@
 // Cluster mode is decided by the presence of /api/pods on the same
 // origin. When present:
 //   - Unhide the header pod picker (populated, grouped by deployment).
-//   - Render an above-the-fold banner explaining that live per-pod
-//     widgets need the aggregator metrics proxy (a follow-up graduate).
-//     This prevents the operator from staring at frozen widgets and
-//     thinking the page is broken.
+//   - Render an above-the-fold banner explaining that selected-pod REST
+//     snapshots are active while per-pod WebSocket streaming is not.
 //   - Persist the selection across pages (via window.localStorage key
 //     'argus.console.pod', shared with /console.html and /fleet.html)
 //     and the URL (`?pod=<id>` so a tile drill-down from /fleet lands
@@ -23,27 +21,30 @@
     'use strict';
     if (window.__argusCluster) return; // idempotent
 
-    var POD_STORAGE_KEY = 'argus.console.pod';
+    var podContext = window.ArgusPodContext;
+    if (!podContext) return;
     var state = { clusterMode: false, selectedPod: null, pods: [] };
 
-    function readStored() {
-        try { return window.localStorage.getItem(POD_STORAGE_KEY); }
-        catch (e) { return null; }
-    }
-    function writeStored(podId) {
-        try { window.localStorage.setItem(POD_STORAGE_KEY, podId); }
-        catch (e) { /* localStorage disabled — URL is still authoritative */ }
-    }
-
-    function readUrlPod() {
-        var m = new URLSearchParams(window.location.search).get('pod');
-        return m ? m : null;
-    }
-
-    function writeUrlPod(podId) {
-        var url = new URL(window.location.href);
-        url.searchParams.set('pod', podId);
-        window.history.replaceState({}, '', url.toString());
+    function updateModeStrip(podId, pod) {
+        var title = document.getElementById('dashboard-mode-title');
+        var detail = document.getElementById('dashboard-mode-detail');
+        var fleet = document.getElementById('dashboard-mode-fleet-link');
+        var profiles = document.getElementById('dashboard-mode-profiles-link');
+        var consoleLink = document.getElementById('dashboard-mode-console-link');
+        if (!title || !detail) return;
+        if (!podId || !pod) {
+            title.textContent = 'Snapshot polling';
+            detail.textContent = 'No selected pod';
+            return;
+        }
+        var links = podContext.contextUrls(podId);
+        var scrape = pod.scrapeOk ? 'scrape OK' : 'scrape failed';
+        var last = pod.lastScrapeAt ? new Date(pod.lastScrapeAt).toLocaleTimeString() : 'never scraped';
+        title.textContent = 'Snapshot polling';
+        detail.textContent = podContext.podLabel(podId, pod) + ' - ' + scrape + ', last scrape ' + last;
+        if (fleet) fleet.href = links.fleet;
+        if (profiles) profiles.href = links.profilesCpu;
+        if (consoleLink) consoleLink.href = links.console;
     }
 
     function ensureBanner() {
@@ -67,15 +68,17 @@
         }
         b.hidden = false;
         var status = pod.scrapeOk ? 'online' : 'offline';
+        var links = podContext.contextUrls(podId);
+        updateModeStrip(podId, pod);
         b.innerHTML =
             '<strong>Cluster mode</strong> &middot; ' +
             'Selected: <code>' + escapeHtml(podId) + '</code> (' + status + '). ' +
-            'Live widgets below show this JVM only when the dashboard data proxy ' +
-            'graduate lands. For now use ' +
-            '<a href="/console.html" title="Run diagnostic commands against the selected pod">Console</a> ' +
-            'to run commands against the selected pod, or ' +
-            '<a href="/fleet.html#pod/' + encodeURIComponent(podId) + '">Fleet</a> ' +
-            'for fleet-level summary metrics.';
+            'Selected-pod REST snapshots are active; WebSocket event streaming is ' +
+            'disabled in cluster mode. Use ' +
+            '<a href="' + links.console + '" title="Run diagnostic commands against the selected pod">Console</a>, ' +
+            '<a href="' + links.profilesCpu + '" title="Open profiles for the selected pod">Profiles</a>, or ' +
+            '<a href="' + links.fleet + '">Fleet</a> ' +
+            'for pod-specific drilldowns.';
     }
 
     function escapeHtml(s) {
@@ -101,19 +104,10 @@
             return;
         }
 
-        var grouped = {};
-        pods.forEach(function (p) {
-            var k = p.deployment || p.namespace || 'other';
-            (grouped[k] = grouped[k] || []).push(p);
-        });
+        var grouped = podContext.groupPods(pods);
 
         var knownIds = new Set(pods.map(function (p) { return p.podId; }));
-        var stored = readStored();
-        var url = readUrlPod();
-        // Priority: URL > localStorage > pods[0].
-        var initial = (url && knownIds.has(url)) ? url
-                    : (stored && knownIds.has(stored)) ? stored
-                    : pods[0].podId;
+        var initial = podContext.selectInitialPod(pods);
 
         Object.keys(grouped).sort().forEach(function (group) {
             var og = document.createElement('optgroup');
@@ -138,7 +132,7 @@
 
         // Cross-tab sync from /console.html and /fleet.html.
         window.addEventListener('storage', function (e) {
-            if (e.key !== POD_STORAGE_KEY || !e.newValue) return;
+            if (e.key !== podContext.storageKey || !e.newValue) return;
             if (e.newValue === state.selectedPod) return;
             if (!knownIds.has(e.newValue)) return;
             select.value = e.newValue;
@@ -148,8 +142,8 @@
 
     function applySelection(podId, pods) {
         state.selectedPod = podId;
-        writeStored(podId);
-        writeUrlPod(podId);
+        podContext.writeStoredPod(podId);
+        podContext.writePodParam(podId);
         var pod = pods.find(function (p) { return p.podId === podId; }) || null;
         setBannerForPod(podId, pod);
     }
@@ -187,6 +181,9 @@
     window.__argusCluster = Object.freeze({
         isClusterMode: function () { return state.clusterMode; },
         selectedPod: function () { return state.selectedPod; },
+        selectedPodInfo: function () {
+            return state.pods.find(function (p) { return p.podId === state.selectedPod; }) || null;
+        },
         fetch: clusterFetchImpl
     });
 

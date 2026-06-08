@@ -12,7 +12,7 @@
 (function () {
     'use strict';
 
-    var POD_STORAGE_KEY = 'argus.console.pod';
+    var podContext = window.ArgusPodContext;
     var AGGREGATOR_BASE = ''; // same origin
 
     var els = {};
@@ -20,13 +20,23 @@
 
     function $(id) { return document.getElementById(id); }
 
-    function readStoredPod() {
-        try { return window.localStorage.getItem(POD_STORAGE_KEY); }
-        catch (e) { return null; }
+    function applyQueryStateToControls() {
+        var event = podContext.readQueryParam('event');
+        var range = podContext.readQueryParam('range');
+        if (event && Array.from(els.event.options).some(function (opt) { return opt.value === event; })) {
+            els.event.value = event;
+        }
+        if (range && Array.from(els.range.options).some(function (opt) { return opt.value === range; })) {
+            els.range.value = range;
+        }
     }
-    function writeStoredPod(podId) {
-        try { window.localStorage.setItem(POD_STORAGE_KEY, podId); }
-        catch (e) { /* ignore */ }
+
+    function syncUrlState() {
+        podContext.writeParams({
+            pod: els.pod.value,
+            event: els.event.value,
+            range: els.range.value
+        });
     }
 
     function setStatus(msg, kind) {
@@ -47,14 +57,8 @@
             els.pod.appendChild(opt);
             return;
         }
-        var grouped = {};
-        pods.forEach(function (p) {
-            var k = p.deployment || p.namespace || 'other';
-            (grouped[k] = grouped[k] || []).push(p);
-        });
-        var stored = readStoredPod();
-        var knownIds = new Set(pods.map(function (p) { return p.podId; }));
-        var initial = (stored && knownIds.has(stored)) ? stored : pods[0].podId;
+        var grouped = podContext.groupPods(pods);
+        var initial = podContext.selectInitialPod(pods);
         Object.keys(grouped).sort().forEach(function (group) {
             var og = document.createElement('optgroup');
             og.label = group;
@@ -98,7 +102,8 @@
         var pod = els.pod.value;
         var event = els.event.value;
         if (!pod) { setStatus('Select a pod first.', 'warn'); return; }
-        writeStoredPod(pod);
+        podContext.writeStoredPod(pod);
+        syncUrlState();
         var w = trailingWindowMillis();
         var url = AGGREGATOR_BASE + '/profile/query?pod=' + encodeURIComponent(pod) +
             '&event=' + encodeURIComponent(event) +
@@ -121,7 +126,8 @@
         var pod = els.pod.value;
         var event = els.event.value;
         if (!pod) { setStatus('Select a pod first.', 'warn'); return; }
-        writeStoredPod(pod);
+        podContext.writeStoredPod(pod);
+        syncUrlState();
         var now = Date.now();
         var sec = parseInt(els.range.value, 10) || 3600;
         // base = the window before head; head = the trailing window.
@@ -169,13 +175,23 @@
 
         els.queryBtn.addEventListener('click', runQuery);
         els.diffBtn.addEventListener('click', runDiff);
+        els.pod.addEventListener('change', function () {
+            podContext.writeStoredPod(els.pod.value);
+            syncUrlState();
+        });
+        els.event.addEventListener('change', syncUrlState);
+        els.range.addEventListener('change', syncUrlState);
         // Re-resolve to current pod selection on cross-tab change.
         window.addEventListener('storage', function (e) {
-            if (e.key !== POD_STORAGE_KEY || !e.newValue) return;
+            if (e.key !== podContext.storageKey || !e.newValue) return;
             var known = new Set(pods.map(function (p) { return p.podId; }));
-            if (known.has(e.newValue)) els.pod.value = e.newValue;
+            if (known.has(e.newValue)) {
+                els.pod.value = e.newValue;
+                syncUrlState();
+            }
         });
 
+        applyQueryStateToControls();
         loadPods().then(function () {
             if (els.pod.value) runQuery();
         });

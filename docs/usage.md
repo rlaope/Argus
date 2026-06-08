@@ -97,6 +97,29 @@ open http://localhost:9202/
 
 Access `/console.html` from the dashboard header to run diagnostic commands directly in the browser. Commands execute on the attached JVM using MXBeans — no separate CLI needed.
 
+### Dashboard Modes
+
+The local web UI has two operational modes:
+
+| Mode | URL | Data source | Status shown |
+|---|---|---|---|
+| Standalone JVM | `/` on an attached Argus agent | WebSocket events plus REST snapshots | `Live stream: connected/disconnected` |
+| Cluster selected pod | `/` served by the aggregator with `?pod=<pod-id>` | REST snapshot polling through `/pod/{id}` | `Snapshot polling: selected pod, scrape status, last scrape` |
+
+The Fleet, Profiles, Console, and Dashboard pages share the selected pod with the
+`argus.console.pod` browser storage key and with query params where useful:
+
+| Page | Context params |
+|---|---|
+| Dashboard | `?pod=<pod-id>` |
+| Profiles | `?pod=<pod-id>&event=cpu|alloc|lock|wall&range=<seconds>` |
+| Console | `?pod=<pod-id>` |
+| Fleet | `#pod/<pod-id>` |
+
+The Dashboard's incident synopsis ranks current heap, GC, CPU, pinning,
+contention, allocation, and scrape signals so the first screen explains why a
+pod or JVM looks unhealthy before the detailed charts.
+
 ### Configuration
 
 All settings are passed as `-D` system properties:
@@ -298,7 +321,7 @@ argus profile-gate before.json after.json --threshold=5 --annotate=github
 
 ## Monitoring Stack (Prometheus / OTLP / Docker)
 
-Native Prometheus + Grafana integration. Deploy to Kubernetes with the included Helm chart.
+Native Prometheus + Grafana integration. Deploy to Kubernetes with the included Helm chart or import `docs/grafana-dashboard.json` directly into Grafana.
 
 ```bash
 # Prometheus scrape endpoint (no extra config needed)
@@ -314,6 +337,10 @@ java -javaagent:~/.argus/argus-agent.jar \
 docker run --pid=host ghcr.io/rlaope/argus doctor
 docker run --pid=host ghcr.io/rlaope/argus watch
 ```
+
+The Grafana dashboard provides datasource, namespace, deployment, pod, and
+instance variables, incident-first rows, GC pause percentiles, and local
+drilldown links back to Fleet, Dashboard, Profiles, and Console.
 
 > Helm chart, Grafana dashboard JSON, and K8s setup: [docs/kubernetes.md](kubernetes.md)
 

@@ -271,6 +271,61 @@ main {
 }
 
 /* ----------------------------------------------------------------
+   DASHBOARD MODE STRIP
+---------------------------------------------------------------- */
+.dashboard-mode-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--border-light);
+    margin-bottom: 0.75rem;
+}
+
+.dashboard-mode-copy {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.dashboard-mode-title {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.dashboard-mode-detail {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--ink);
+    overflow-wrap: anywhere;
+}
+
+.dashboard-mode-links {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.dashboard-mode-links a {
+    color: var(--blue);
+    font-size: 0.8125rem;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(21,101,192,0.28);
+}
+
+.dashboard-mode-links a:hover {
+    border-bottom-color: var(--blue);
+}
+
+/* ----------------------------------------------------------------
    FEATURE FLAGS
 ---------------------------------------------------------------- */
 #feature-flags {
@@ -419,6 +474,76 @@ main {
     font-weight: 600;
     font-family: var(--font-mono);
     font-size: 0.875rem;
+}
+
+/* ----------------------------------------------------------------
+   INCIDENT SYNOPSIS
+---------------------------------------------------------------- */
+.incident-synopsis-section {
+    --incident-gap: 0.75rem;
+}
+
+.incident-synopsis-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: var(--incident-gap);
+}
+
+.incident-card {
+    border-left: 3px solid var(--border);
+    background: var(--off-white);
+    border-radius: 0 4px 4px 0;
+    padding: 0.875rem 1rem;
+    min-height: 8.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.incident-card--critical { border-left-color: var(--red); }
+.incident-card--warning  { border-left-color: var(--amber); }
+.incident-card--info     { border-left-color: var(--blue); }
+.incident-card--ok       { border-left-color: var(--green); }
+
+.incident-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.incident-card-title {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.incident-card-severity {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    white-space: nowrap;
+}
+
+.incident-card-metric {
+    font-family: var(--font-mono);
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: var(--ink);
+}
+
+.incident-card-body {
+    font-size: 0.8125rem;
+    color: var(--ink-2);
+    line-height: 1.45;
+}
+
+.incident-card-action {
+    margin-top: auto;
+    font-size: 0.75rem;
+    color: var(--ink-3);
 }
 
 /* ----------------------------------------------------------------
@@ -1345,6 +1470,15 @@ footer {
     .summary-value {
         font-size: 1.25rem;
     }
+    .dashboard-mode-strip {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .dashboard-mode-copy {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
     .filter-row {
         flex-direction: column;
         gap: 0.875rem;
@@ -1929,4 +2063,3 @@ canvas {
 .jfr-status--recording { color: var(--red);   background: rgba(198,40,40,0.07); }
 .jfr-status--available { color: var(--green); background: rgba(46,125,50,0.07); }
 .jfr-status--error     { color: var(--amber); }
-
