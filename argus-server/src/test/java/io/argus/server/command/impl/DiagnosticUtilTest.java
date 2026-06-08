@@ -2,6 +2,10 @@ package io.argus.server.command.impl;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -96,5 +100,36 @@ class DiagnosticUtilTest {
         // Values too short to slice are replaced wholesale.
         assertEquals("****", mask("PASSWORD", "abc"));
         assertEquals("****", mask("PASSWORD", ""));
+    }
+
+    @Test
+    void executeProcessTimesOutEvenWhenChildProducesNoOutput() throws Exception {
+        long startNanos = System.nanoTime();
+
+        String result = DiagnosticUtil.executeProcess(
+                List.of(
+                        javaExecutable(),
+                        "-cp",
+                        System.getProperty("java.class.path"),
+                        Sleeper.class.getName(),
+                        "5000"),
+                1,
+                "timed out");
+
+        long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+        assertEquals("timed out", result);
+        assertTrue(elapsedMillis < 2500,
+                "expected timeout near 1s, but diagnostic process returned after " + elapsedMillis + "ms");
+    }
+
+    private static String javaExecutable() {
+        boolean windows = System.getProperty("os.name").toLowerCase().contains("win");
+        return Path.of(System.getProperty("java.home"), "bin", windows ? "java.exe" : "java").toString();
+    }
+
+    public static final class Sleeper {
+        public static void main(String[] args) throws Exception {
+            Thread.sleep(Long.parseLong(args[0]));
+        }
     }
 }
