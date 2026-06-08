@@ -50,8 +50,9 @@ curl -fsSL https://raw.githubusercontent.com/rlaope/argus/master/install.sh | ba
 
 ```bash
 # Download JARs from GitHub Releases
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-agent-1.5.0.jar
-curl -LO https://github.com/rlaope/argus/releases/latest/download/argus-cli-1.5.0-all.jar
+ARGUS_VERSION=1.5.0
+curl -LO https://github.com/rlaope/argus/releases/download/v${ARGUS_VERSION}/argus-agent.jar
+curl -LO https://github.com/rlaope/argus/releases/download/v${ARGUS_VERSION}/argus-cli-${ARGUS_VERSION}-all.jar
 ```
 
 ### Option 3: Build from Source

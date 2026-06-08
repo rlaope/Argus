@@ -12,10 +12,12 @@ Add Argus to an existing Kubernetes Deployment in three steps.
 
 ```dockerfile
 FROM eclipse-temurin:21-jre
-COPY argus-cli-all.jar /argus/argus-cli.jar
+COPY argus-agent.jar /argus/argus-agent.jar
 COPY app.jar /app/app.jar
-ENTRYPOINT ["java", "-javaagent:/argus/argus-cli.jar", "-jar", "/app/app.jar"]
+ENTRYPOINT ["java", "-javaagent:/argus/argus-agent.jar", "-jar", "/app/app.jar"]
 ```
+
+Use the `argus-agent.jar` release artifact for `-javaagent`. The CLI fat JAR is for the `argus` command and is not a Java agent.
 
 **Step 2 — Expose the metrics port and add scrape annotations.**
 
@@ -23,11 +25,11 @@ ENTRYPOINT ["java", "-javaagent:/argus/argus-cli.jar", "-jar", "/app/app.jar"]
 metadata:
   annotations:
     argus.io/scrape: "true"
-    argus.io/port: "4040"
+    argus.io/port: "9202"
 spec:
   containers:
     - ports:
-        - containerPort: 4040
+        - containerPort: 9202
           name: argus-metrics
 ```
 
@@ -37,7 +39,7 @@ spec:
 kubectl annotate namespace my-app argus.io/monitored=true
 ```
 
-Prometheus will now scrape `http://<pod-ip>:4040/prometheus` automatically.
+Prometheus will now scrape `http://<pod-ip>:9202/prometheus` automatically.
 
 ---
 
@@ -51,13 +53,13 @@ Bundle the agent directly in your application image. This is the simplest approa
 FROM eclipse-temurin:21-jre
 
 # Copy agent and application
-COPY --from=builder /build/argus-cli-all.jar /argus/argus-cli.jar
-COPY --from=builder /build/app.jar /app/app.jar
+COPY argus-agent.jar /argus/argus-agent.jar
+COPY app.jar /app/app.jar
 
 # Agent starts automatically with the JVM
 ENTRYPOINT ["java", \
-  "-javaagent:/argus/argus-cli.jar", \
-  "-Dargus.server.port=4040", \
+  "-javaagent:/argus/argus-agent.jar", \
+  "-Dargus.server.port=9202", \
   "-jar", "/app/app.jar"]
 ```
 
@@ -68,8 +70,8 @@ Use an init container to inject the agent JAR via a shared volume. This avoids m
 ```yaml
 initContainers:
   - name: argus-init
-    image: ghcr.io/rlaope/argus:1.5.0
-    command: ["cp", "/opt/argus/argus-cli.jar", "/argus-volume/argus-cli.jar"]
+    image: ghcr.io/rlaope/argus-agent:1.5.0
+    command: ["cp", "/opt/argus/argus-agent.jar", "/argus-volume/argus-agent.jar"]
     volumeMounts:
       - name: argus-volume
         mountPath: /argus-volume
@@ -79,7 +81,7 @@ containers:
     image: my-app:latest
     env:
       - name: JAVA_TOOL_OPTIONS
-        value: "-javaagent:/argus/argus-cli.jar"
+        value: "-javaagent:/argus/argus-agent.jar"
     volumeMounts:
       - name: argus-volume
         mountPath: /argus
@@ -160,7 +162,7 @@ Add these annotations to your Pod or Deployment template. Prometheus scrapes any
 metadata:
   annotations:
     argus.io/scrape: "true"       # Enable scraping
-    argus.io/port: "4040"         # Argus metrics port (default: 4040)
+    argus.io/port: "9202"         # Argus metrics port (default: 9202)
     argus.io/path: "/prometheus"  # Metrics path (default: /prometheus)
 ```
 
@@ -183,8 +185,8 @@ spec:
     app: my-app
   ports:
     - name: argus-metrics
-      port: 4040
-      targetPort: 4040
+      port: 9202
+      targetPort: 9202
 ```
 
 Then create the `ServiceMonitor`:
@@ -225,7 +227,7 @@ helm install argus argus/argus \
 # Install with custom values
 helm install argus argus/argus \
   --namespace monitoring \
-  --set agent.port=4040 \
+  --set agent.port=9202 \
   --set prometheus.serviceMonitor.enabled=true \
   --set grafana.dashboards.enabled=true
 ```
@@ -234,7 +236,7 @@ Key chart values:
 
 | Value | Default | Description |
 |---|---|---|
-| `agent.port` | `4040` | Argus metrics server port |
+| `agent.port` | `9202` | Argus metrics server port |
 | `agent.jvmArgs` | `""` | Additional JVM arguments |
 | `prometheus.serviceMonitor.enabled` | `false` | Create a ServiceMonitor |
 | `grafana.dashboards.enabled` | `false` | Auto-provision Grafana dashboard |
@@ -281,7 +283,7 @@ spec:
         app: my-app
       annotations:
         argus.io/scrape: "true"
-        argus.io/port: "4040"
+        argus.io/port: "9202"
     spec:
       containers:
         - name: my-app
@@ -289,11 +291,11 @@ spec:
           ports:
             - containerPort: 8080
               name: http
-            - containerPort: 4040
+            - containerPort: 9202
               name: argus-metrics
           env:
             - name: JAVA_TOOL_OPTIONS
-              value: "-javaagent:/argus/argus-cli.jar -Dargus.server.port=4040"
+              value: "-javaagent:/argus/argus-agent.jar -Dargus.server.port=9202"
             # Downward API: exposes K8s identity to Argus for metric labels
             - name: ARGUS_POD_NAME
               valueFrom:
@@ -310,7 +312,7 @@ spec:
           readinessProbe:
             httpGet:
               path: /argus/health
-              port: 4040
+              port: 9202
             initialDelaySeconds: 10
             periodSeconds: 15
           volumeMounts:
@@ -318,8 +320,8 @@ spec:
               mountPath: /argus
       initContainers:
         - name: argus-init
-          image: ghcr.io/rlaope/argus:1.5.0
-          command: ["cp", "/opt/argus/argus-cli.jar", "/argus-volume/argus-cli.jar"]
+          image: ghcr.io/rlaope/argus-agent:1.5.0
+          command: ["cp", "/opt/argus/argus-agent.jar", "/argus-volume/argus-agent.jar"]
           volumeMounts:
             - name: argus-volume
               mountPath: /argus-volume
@@ -407,12 +409,12 @@ roleRef:
 
 ### Argus metrics port not reachable
 
-**Symptom:** `curl http://<pod-ip>:4040/prometheus` times out or is refused.
+**Symptom:** `curl http://<pod-ip>:9202/prometheus` times out or is refused.
 
 **Causes and fixes:**
-- The agent is not loaded. Verify `JAVA_TOOL_OPTIONS` or `-javaagent` is set and the JAR path is correct. Check pod logs for `Argus agent started`.
-- The port is not declared in the container spec. Add `containerPort: 4040` to the container ports list.
-- A network policy is blocking the port. Add an ingress rule allowing traffic on port 4040 from the Prometheus namespace.
+- The agent is not loaded. Verify `JAVA_TOOL_OPTIONS` or `-javaagent` points at `argus-agent.jar`. Check pod logs for `Argus agent started`.
+- The port is not declared in the container spec. Add `containerPort: 9202` to the container ports list.
+- A network policy is blocking the port. Add an ingress rule allowing traffic on port 9202 from the Prometheus namespace.
 
 ### JFR not available — metrics are empty
 
@@ -424,7 +426,7 @@ roleRef:
 
 ### Bind address conflict
 
-**Symptom:** `Address already in use: 0.0.0.0:4040` in pod logs.
+**Symptom:** `Address already in use: 0.0.0.0:9202` in pod logs.
 
 **Fix:** Change the port with `-Dargus.server.port=<free-port>` and update the pod annotations and `containerPort` accordingly.
 

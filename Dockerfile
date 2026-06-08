@@ -7,7 +7,7 @@ RUN chmod +x gradlew && ./gradlew :argus-cli:fatJar -x test --no-daemon
 FROM eclipse-temurin:21-jre-alpine
 
 LABEL org.opencontainers.image.title="Argus" \
-      org.opencontainers.image.description="Lightweight JVM Diagnostic Toolkit — 50+ CLI commands" \
+      org.opencontainers.image.description="Lightweight JVM Diagnostic Toolkit — 71 CLI commands" \
       org.opencontainers.image.url="https://github.com/rlaope/Argus" \
       org.opencontainers.image.source="https://github.com/rlaope/Argus"
 

@@ -4,7 +4,7 @@ This document describes the internal architecture of Project Argus.
 
 ## Overview
 
-Project Argus consists of seven modules that work together to capture, analyze, and visualize JVM metrics.
+Project Argus consists of eleven primary modules that work together to capture, analyze, embed, and visualize JVM diagnostics.
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -31,14 +31,36 @@ Project Argus consists of seven modules that work together to capture, analyze, 
 └──────────────────────────┘    └──────────────────────────────────┘
 ```
 
+Current module inventory:
+
+| Module | Purpose |
+|---|---|
+| `argus-core` | Shared event, config, buffer, command, and model primitives |
+| `argus-agent` | Java agent entry point and JFR streaming runtime |
+| `argus-server` | Netty HTTP/WebSocket API, analysis endpoints, and Prometheus export |
+| `argus-frontend` | Embedded dashboard UI assets |
+| `argus-cli` | Standalone Java 11+ diagnostic CLI |
+| `argus-diagnostics` | Framework-agnostic doctor, GC log, and GC score services |
+| `argus-micrometer` | Micrometer bridge for Argus server metrics |
+| `argus-spring-boot-starter` | Spring Boot auto-configuration, actuator endpoints, and scheduled doctor |
+| `argus-aggregator` | Fleet scrape, alert, profile, and Prometheus aggregation service |
+| `argus-operator` | Kubernetes controller and discovery integration |
+| `argus-instrument` | Opt-in dynamic attach instrumentation agent |
+
+Sample projects under `samples:*` exercise these modules but are intentionally outside the primary module count.
+
 ### Module Dependency Direction (NEVER violate)
 
 ```
-argus-agent → argus-server → argus-core
-                           → argus-frontend
-argus-cli → argus-core (standalone, no server dependency)
-argus-micrometer → argus-core (MeterBinder, no server dependency)
-argus-spring-boot-starter → argus-agent, argus-micrometer
+argus-agent → argus-server
+argus-server → argus-core, argus-cli, argus-frontend
+argus-cli → argus-core, argus-diagnostics (standalone, no server dependency)
+argus-diagnostics → argus-core
+argus-micrometer → argus-server → argus-core
+argus-spring-boot-starter → argus-core, argus-agent, argus-server, argus-micrometer, argus-diagnostics
+argus-aggregator → argus-core
+argus-operator → Kubernetes client APIs (no dependency on runtime modules)
+argus-instrument → ByteBuddy only; loaded on demand, no compile dependency from the CLI/core path
 ```
 
 ## Module Details
@@ -500,12 +522,12 @@ argus-core/command/
 
 Server commands register via `META-INF/services/io.argus.core.command.DiagnosticCommand`. Adding a new server command = 1 class + 1 line.
 
-### Doctor Engine (argus-cli)
+### Doctor Engine (argus-diagnostics, CLI adapters in argus-cli)
 
 Health diagnosis with pluggable rules:
 
 ```
-argus-cli/doctor/
+argus-diagnostics/doctor/
 ├── DoctorEngine.java         — runs all rules, sorts by severity
 ├── JvmSnapshot.java          — immutable snapshot of all JVM metrics
 ├── JvmSnapshotCollector.java — local (MXBean) or remote (jcmd) collection
@@ -513,24 +535,23 @@ argus-cli/doctor/
 ├── Finding.java              — severity + title + recommendations + flags
 ├── Severity.java             — CRITICAL, WARNING, INFO
 └── rules/
-    ├── GcOverheadRule.java        — skips uptime < 60s
-    ├── HeapPressureRule.java      — old gen cross-check
-    ├── ThreadContentionRule.java  — ratio-based (blocked/total %)
-    ├── DirectBufferRule.java      — heap-relative threshold
-    ├── CpuUsageRule.java
-    ├── MetaspaceRule.java
-    ├── FinalizerQueueRule.java
-    └── GcAlgorithmRule.java
+    ├── GC, heap, CPU, thread, direct-buffer, code-cache, and metaspace rules
+    ├── ZGC soft-max and cycle-overlap rules
+    └── G1 full-GC, region-size, IHOP, evacuation, mixed, and humongous rules
 ```
 
-### GC Log Analyzer (argus-cli)
+`argus-cli` owns command/rendering adapters such as `DoctorCommand` and profile-snapshot doctor rules; the reusable engine lives in `argus-diagnostics`.
+
+### GC Log Analyzer (argus-diagnostics, CLI rendering in argus-cli)
 
 ```
-argus-cli/gclog/
+argus-diagnostics/gclog/
 ├── GcLogParser.java    — streaming BufferedReader, G1/ZGC/Shenandoah/Legacy
 ├── GcEvent.java        — double pauseMs (sub-ms precision)
 └── GcLogAnalyzer.java  — percentiles, throughput, 7 tuning rules
 ```
+
+CLI-specific timeline rendering remains under `argus-cli/gclog/`.
 
 ### TUI (argus-cli)
 
