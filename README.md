@@ -77,6 +77,16 @@ One CLI to diagnose a live JVM and watch a fleet — no agent, no restart, no `-
 
 ---
 
+## Roadmap At A Glance
+
+<p align="center">
+  <img src="assets/argus-roadmap.png" alt="Argus roadmap showing CLI and TUI, APM Core, Micrometer, Observability, Profiling, Heap and GC, Fleet and Kubernetes, and Automation lanes">
+</p>
+
+Argus keeps the fast single-PID JVM workflow at the center, then layers standard metrics, traces, profiles, dashboards, fleet views, and APM-grade service workflows around it.
+
+---
+
 ## Example: `argus doctor <pid>`
 
 ```

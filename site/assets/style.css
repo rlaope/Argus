@@ -381,6 +381,20 @@ td code { font-size: 0.8125em; }
     background: var(--red-bg);
 }
 
+/* ── ROADMAP VISUAL ── */
+.roadmap-figure {
+    margin: 1.25rem 0 0;
+}
+
+.roadmap-figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid #16351e;
+    border-radius: 6px;
+    background: #020806;
+}
+
 /* ── BADGES / PILLS ── */
 .badge-row {
     display: flex;

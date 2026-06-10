@@ -40,7 +40,7 @@ Welcome to the Project Argus documentation.
 
 Argus is a lightweight, zero-dependency JVM diagnostic toolkit. CLI works on Java 11+, Dashboard on Java 17+, full features on Java 21+. It provides:
 
-- **51 CLI Commands** — process info, memory, GC (including ZGC live diagnosis), threads, profiling, class search, JFR analysis, log level control, and more
+- **71 CLI Commands** — process info, memory, GC (including ZGC live diagnosis), threads, profiling, class search, JFR analysis, log level control, and more
 - **Real-time Dashboard** with interactive charts, flame graphs, and interactive console
 - **No Agent Required** — diagnose any running JVM via `jcmd` (agent optional for richer data)
 - **Java Version Adaptive** — MXBean polling on Java 17-20, JFR streaming on Java 21+
@@ -49,6 +49,12 @@ Argus is a lightweight, zero-dependency JVM diagnostic toolkit. CLI works on Jav
 - **Micrometer Integration** — standard metrics bridge for any Micrometer-compatible framework
 - **Prometheus Endpoint** for metric scraping
 - **OTLP Export** for pushing metrics to OpenTelemetry collectors
+
+## Roadmap At A Glance
+
+![Argus roadmap showing CLI and TUI, APM Core, Micrometer, Observability, Profiling, Heap and GC, Fleet and Kubernetes, and Automation lanes](../assets/argus-roadmap.png)
+
+The roadmap keeps Argus anchored in fast local JVM diagnostics while expanding into standard metrics, traces, profiles, dashboards, fleet rollups, and APM-grade service workflows.
 
 ## Quick Links
 
