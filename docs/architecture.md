@@ -4,7 +4,7 @@ This document describes the internal architecture of Project Argus.
 
 ## Overview
 
-Project Argus consists of eleven primary modules that work together to capture, analyze, embed, and visualize JVM diagnostics.
+Project Argus consists of twelve primary modules that work together to capture, analyze, embed, and visualize JVM diagnostics.
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -43,6 +43,7 @@ Current module inventory:
 | `argus-diagnostics` | Framework-agnostic doctor, GC log, and GC score services |
 | `argus-micrometer` | Micrometer bridge for Argus server metrics |
 | `argus-spring-boot-starter` | Spring Boot auto-configuration, actuator endpoints, and scheduled doctor |
+| `argus-apm` | Public APM facade contracts, entity models, and DTOs |
 | `argus-aggregator` | Fleet scrape, alert, profile, and Prometheus aggregation service |
 | `argus-operator` | Kubernetes controller and discovery integration |
 | `argus-instrument` | Opt-in dynamic attach instrumentation agent |
@@ -58,10 +59,20 @@ argus-cli → argus-core, argus-diagnostics (standalone, no server dependency)
 argus-diagnostics → argus-core
 argus-micrometer → argus-server → argus-core
 argus-spring-boot-starter → argus-core, argus-agent, argus-server, argus-micrometer, argus-diagnostics
+argus-apm → no runtime module dependency; public facade model only
 argus-aggregator → argus-core
 argus-operator → Kubernetes client APIs (no dependency on runtime modules)
 argus-instrument → ByteBuddy only; loaded on demand, no compile dependency from the CLI/core path
 ```
+
+### Planned APM Control-Plane Boundary
+
+Future APM work must keep the public APM facade separate from the internal
+aggregator cache. The facade contract is defined in
+[`docs/apm-facade-contract.md`](apm-facade-contract.md): public APM APIs own
+tenant/project/environment authorization, service and endpoint views, incident
+workflow, and backend links. `argus-aggregator` remains an internal scrape/cache
+surface until explicitly hardened.
 
 ## Module Details
 

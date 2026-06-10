@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Argus - APM Workflows</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/apm.css">
+    <link rel="stylesheet" href="/css/theme.css">
+    <script src="/js/theme-preboot.js"></script>
+    <script src="/js/theme.js"></script>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="/img/argus_logo.png" alt="Argus" class="logo-img">
+            <h1>Argus</h1>
+            <span class="apm-badge">APM</span>
+        </div>
+        <div class="header-actions">
+            <a href="/" class="btn" title="Single JVM Dashboard">Dashboard</a>
+            <a href="/fleet.html" class="btn" title="Fleet Command Center">Fleet</a>
+            <a href="/apm.html" class="btn btn-active" title="APM Workflows">APM</a>
+            <a href="/profiles.html" class="btn" title="Continuous Profiles">Profiles</a>
+            <a href="/console.html" class="btn" title="Interactive Console">Console</a>
+            <button type="button" class="argus-theme-toggle" aria-label="Toggle theme"></button>
+            <div id="apm-facade-status" class="status disconnected">
+                <span class="status-dot"></span>
+                <span class="status-text">Loading</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="apm-shell">
+        <section class="apm-summary-strip" aria-label="APM summary">
+            <div class="apm-summary-item">
+                <span class="apm-summary-label">Services</span>
+                <span class="apm-summary-value" id="apm-total-services">0</span>
+            </div>
+            <div class="apm-summary-sep"></div>
+            <div class="apm-summary-item apm-summary-item--warn">
+                <span class="apm-summary-label">Degraded</span>
+                <span class="apm-summary-value" id="apm-degraded-services">0</span>
+            </div>
+            <div class="apm-summary-sep"></div>
+            <div class="apm-summary-item apm-summary-item--red">
+                <span class="apm-summary-label">Incidents</span>
+                <span class="apm-summary-value" id="apm-open-incidents">0</span>
+            </div>
+            <div class="apm-summary-sep"></div>
+            <div class="apm-summary-item">
+                <span class="apm-summary-label">p95 Latency</span>
+                <span class="apm-summary-value" id="apm-p95-latency">0ms</span>
+            </div>
+            <div class="apm-summary-sep"></div>
+            <div class="apm-summary-item">
+                <span class="apm-summary-label">GC p95</span>
+                <span class="apm-summary-value" id="apm-gc-pressure">0ms</span>
+            </div>
+            <div class="apm-summary-sep"></div>
+            <div class="apm-summary-item">
+                <span class="apm-summary-label">Trace Links</span>
+                <span class="apm-summary-value" id="apm-trace-links">0</span>
+            </div>
+        </section>
+
+        <section class="apm-toolbar" aria-label="APM filters">
+            <label class="apm-field">
+                <span>Tenant</span>
+                <select id="apm-filter-tenant">
+                    <option value="tenant-a">tenant-a</option>
+                </select>
+            </label>
+            <label class="apm-field">
+                <span>Project</span>
+                <select id="apm-filter-project">
+                    <option value="payments">payments</option>
+                </select>
+            </label>
+            <label class="apm-field">
+                <span>Environment</span>
+                <select id="apm-filter-environment">
+                    <option value="prod">prod</option>
+                    <option value="staging">staging</option>
+                </select>
+            </label>
+            <label class="apm-field apm-field--wide">
+                <span>Service</span>
+                <select id="apm-filter-service"></select>
+            </label>
+            <div class="apm-toolbar-actions">
+                <button id="apm-refresh-btn" class="btn">Refresh</button>
+                <a id="apm-grafana-global-link" class="btn" href="https://grafana.local/d/argus-apm" target="_blank" rel="noopener">Grafana</a>
+            </div>
+        </section>
+
+        <section class="apm-layout">
+            <aside class="apm-panel apm-inventory-panel">
+                <div class="apm-panel-header">
+                    <h2>Service Inventory</h2>
+                    <span id="apm-inventory-count" class="apm-panel-meta">0 services</span>
+                </div>
+                <div id="apm-service-inventory" class="apm-service-inventory"></div>
+            </aside>
+
+            <section class="apm-workspace">
+                <div class="apm-panel">
+                    <div class="apm-panel-header">
+                        <h2>Endpoint View</h2>
+                        <span id="apm-selected-service" class="apm-panel-meta">-</span>
+                    </div>
+                    <div id="apm-endpoint-table" class="apm-endpoint-table"></div>
+                </div>
+
+                <div class="apm-panel">
+                    <div class="apm-panel-header">
+                        <h2>Incident Timeline</h2>
+                        <span id="apm-incident-window" class="apm-panel-meta">last 60m</span>
+                    </div>
+                    <div id="apm-incident-timeline" class="apm-incident-timeline"></div>
+                </div>
+
+                <div class="apm-panel">
+                    <div class="apm-panel-header">
+                        <h2>Root Cause Cards</h2>
+                        <span id="apm-root-cause-count" class="apm-panel-meta">0 findings</span>
+                    </div>
+                    <div id="apm-root-cause-cards" class="apm-root-cause-grid"></div>
+                </div>
+            </section>
+
+            <aside class="apm-panel apm-drilldown-panel">
+                <div class="apm-panel-header">
+                    <h2>Drilldowns</h2>
+                    <span class="apm-panel-meta">Grafana + local</span>
+                </div>
+                <div id="apm-backend-links" class="apm-backend-links"></div>
+                <div class="apm-local-links">
+                    <a id="apm-local-dashboard-link" href="/" class="apm-link-row">Local JVM dashboard</a>
+                    <a id="apm-local-profiles-link" href="/profiles.html?event=cpu&range=3600" class="apm-link-row">Local profiles</a>
+                    <a id="apm-local-console-link" href="/console.html" class="apm-link-row">Local console</a>
+                </div>
+            </aside>
+        </section>
+    </main>
+
+    <script type="module" src="/js/apm.js"></script>
+</body>
+</html>

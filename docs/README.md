@@ -17,6 +17,9 @@ Welcome to the Project Argus documentation.
   - [commands/threads.md](commands/threads.md) — threads, threaddump, deadlock, pool
 - [Configuration](configuration.md) — Configuration options and performance tuning
 - [Architecture](architecture.md) — System design, provider architecture, and extensibility
+- [Dashboard Metric Contract](dashboard-contract.md) — Shared Grafana/local dashboard metric and drilldown contract
+- [APM Facade Contract](apm-facade-contract.md) — Planned public APM control-plane boundary and security contract
+- [APM Security Guardrails](apm-security.md) — Ingress, auth, cardinality, and facade self-observability guardrails
 
 ## Operations
 

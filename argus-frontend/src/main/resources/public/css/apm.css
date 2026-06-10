@@ -1,0 +1,350 @@
+/* ================================================================
+   ARGUS APM WORKFLOW
+================================================================ */
+
+.apm-badge {
+    display: inline-block;
+    background: var(--blue);
+    color: #fff;
+    padding: 0.1rem 0.5rem;
+    border-radius: 10px;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.apm-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 57px);
+    background: var(--bg);
+}
+
+.apm-summary-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    padding: 0.75rem var(--page-pad);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+}
+
+.apm-summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.2rem 1.25rem 0.2rem 0;
+}
+
+.apm-summary-label,
+.apm-field span {
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    color: var(--ink-3);
+}
+
+.apm-summary-value {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+}
+
+.apm-summary-item--warn .apm-summary-value { color: var(--amber); }
+.apm-summary-item--red .apm-summary-value { color: var(--red); }
+
+.apm-summary-sep {
+    width: 1px;
+    height: 2rem;
+    background: var(--border);
+    margin-right: 1.25rem;
+}
+
+.apm-toolbar {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0.625rem var(--page-pad);
+    border-bottom: 1px solid var(--border-light);
+    background: var(--off-white);
+}
+
+.apm-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.apm-field select {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 3px;
+    padding: 0.35rem 0.55rem;
+    min-width: 8.5rem;
+    font-family: var(--font-sans);
+}
+
+.apm-field--wide select {
+    min-width: 13rem;
+}
+
+.apm-toolbar-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.apm-layout {
+    display: grid;
+    grid-template-columns: minmax(18rem, 0.9fr) minmax(28rem, 1.6fr) minmax(18rem, 0.8fr);
+    gap: 1rem;
+    padding: 1rem var(--page-pad) 1.25rem;
+    min-height: 0;
+}
+
+.apm-panel {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: 6px;
+    min-width: 0;
+}
+
+.apm-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.apm-panel-header h2 {
+    font-size: 0.95rem;
+    line-height: 1.2;
+}
+
+.apm-panel-meta {
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    white-space: nowrap;
+}
+
+.apm-workspace {
+    display: grid;
+    gap: 1rem;
+}
+
+.apm-service-inventory,
+.apm-endpoint-table,
+.apm-incident-timeline,
+.apm-root-cause-grid,
+.apm-backend-links,
+.apm-local-links {
+    padding: 0.75rem;
+}
+
+.apm-service-row {
+    width: 100%;
+    border: 1px solid var(--border-light);
+    background: var(--bg);
+    color: var(--ink);
+    border-radius: 4px;
+    padding: 0.7rem;
+    margin-bottom: 0.5rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.apm-service-row:hover,
+.apm-service-row.is-selected {
+    border-color: var(--blue);
+    box-shadow: inset 3px 0 0 var(--blue);
+}
+
+.apm-row-title,
+.apm-card-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.apm-row-meta,
+.apm-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+    color: var(--ink-3);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+}
+
+.apm-health {
+    display: inline-block;
+    min-width: 4.5rem;
+    text-align: center;
+    border-radius: 999px;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.apm-health--healthy { color: var(--green); background: rgba(46,125,50,0.08); }
+.apm-health--degraded { color: var(--amber); background: rgba(249,168,37,0.1); }
+.apm-health--unhealthy { color: var(--red); background: rgba(198,40,40,0.08); }
+
+.apm-endpoint-table table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+}
+
+.apm-endpoint-table th,
+.apm-endpoint-table td {
+    padding: 0.55rem 0.45rem;
+    border-bottom: 1px solid var(--border-light);
+    text-align: left;
+    vertical-align: top;
+    overflow-wrap: anywhere;
+}
+
+.apm-endpoint-table th {
+    color: var(--ink-3);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0;
+}
+
+.apm-incident-item {
+    display: grid;
+    grid-template-columns: 7rem 1fr auto;
+    gap: 0.75rem;
+    align-items: start;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.apm-incident-time {
+    font-family: var(--font-mono);
+    color: var(--ink-3);
+    font-size: 0.75rem;
+}
+
+.apm-root-cause-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.apm-root-card {
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 0.75rem;
+    min-height: 8.5rem;
+}
+
+.apm-root-card p {
+    margin-top: 0.45rem;
+    color: var(--ink-2);
+    font-size: 0.85rem;
+    line-height: 1.45;
+}
+
+.apm-link-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    border: 1px solid var(--border-light);
+    border-radius: 4px;
+    padding: 0.65rem 0.75rem;
+    margin-bottom: 0.5rem;
+    color: var(--ink);
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.apm-link-row:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+}
+
+.apm-empty {
+    padding: 1rem;
+    color: var(--ink-3);
+    font-size: 0.85rem;
+}
+
+@media (max-width: 1100px) {
+    .apm-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .apm-root-cause-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 700px) {
+    header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .header-actions {
+        width: 100%;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+
+    .header-actions .btn {
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+
+    .apm-summary-strip,
+    .apm-toolbar,
+    .apm-layout {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .apm-toolbar-actions {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .apm-incident-item {
+        grid-template-columns: 1fr;
+    }
+}
+
+:root[data-theme="dark"] .apm-summary-strip,
+:root[data-theme="dark"] .apm-panel {
+    background: var(--bg-2);
+}
+
+:root[data-theme="dark"] .apm-toolbar {
+    background: var(--bg);
+    border-bottom-color: var(--border);
+}
+
+:root[data-theme="dark"] .apm-field select,
+:root[data-theme="dark"] .apm-service-row,
+:root[data-theme="dark"] .apm-link-row,
+:root[data-theme="dark"] .apm-root-card {
+    background: var(--bg-2);
+    border-color: var(--border);
+    color: var(--ink);
+}
